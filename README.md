@@ -1,15 +1,30 @@
-# Google Auth App
+# FOSSAPP - Lighting Design Product Database
 
-A Next.js application with Google OAuth authentication featuring a modern dashboard interface.
+A comprehensive Next.js application for lighting professionals, architects, and designers to search, browse, and manage lighting products for AutoCAD and lighting design projects.
+
+## Overview
+
+FOSSAPP provides access to a comprehensive database of 56,456+ lighting products and accessories from leading manufacturers like Delta Light. Designed specifically for professionals working on lighting studies, AutoCAD projects, and architectural lighting design.
 
 ## Features
 
+### Product Database
+- **Comprehensive Product Search** - Search through 56,456+ lighting fixtures and accessories
+- **Advanced Filtering** - Filter by supplier, product type, features, and specifications
+- **Detailed Product Information** - Full specifications, features, pricing, and multimedia content
+- **ETIM Classification** - Industry-standard product classification system
+- **Real-time Data** - Connected to live Supabase database with up-to-date product information
+
+### Authentication & User Management
 - **Google OAuth Authentication** - Secure login with Google accounts
-- **Responsive Design** - Works on desktop and mobile devices
-- **Modern UI** - Clean interface with Tailwind CSS
-- **Dashboard Layout** - Professional layout with sidebar navigation
-- **User Profile** - Display user information and profile picture
-- **Protected Routes** - Secure access to dashboard content
+- **User Profiles** - Personalized user experience and preferences
+- **Protected Routes** - Secure access to product data and features
+
+### Design & UX
+- **Responsive Design** - Works seamlessly on desktop, tablet, and mobile devices
+- **Modern UI** - Clean interface built with Tailwind CSS and Radix UI components
+- **Professional Dashboard** - Intuitive layout designed for professional workflows
+- **Fast Search** - Optimized search with instant results and pagination
 
 ## Getting Started
 
@@ -18,10 +33,16 @@ A Next.js application with Google OAuth authentication featuring a modern dashbo
 - Node.js 18+ installed
 - Google Cloud Console project set up
 - Google OAuth 2.0 credentials
+- Supabase account and project
 
 ### Installation
 
-1. Clone the repository
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/ziouzitsou/fossapp.git
+   cd fossapp
+   ```
+
 2. Install dependencies:
    ```bash
    npm install
@@ -32,12 +53,15 @@ A Next.js application with Google OAuth authentication featuring a modern dashbo
    cp .env.example .env.local
    ```
 
-4. Configure your Google OAuth credentials in `.env.local`:
+4. Configure environment variables in `.env.local`:
    ```
    NEXTAUTH_URL=http://localhost:3000
    NEXTAUTH_SECRET=your-secret-key-here
    GOOGLE_CLIENT_ID=your-google-client-id
    GOOGLE_CLIENT_SECRET=your-google-client-secret
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
    ```
 
 ### Google OAuth Setup
@@ -63,63 +87,115 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 ```
 src/
 ├── app/
-│   ├── api/auth/[...nextauth]/
-│   │   └── route.ts          # NextAuth.js API routes
-│   ├── dashboard/
-│   │   └── page.tsx          # Dashboard page
-│   ├── layout.tsx            # Root layout
-│   └── page.tsx              # Landing page
+│   ├── api/
+│   │   ├── auth/[...nextauth]/   # NextAuth.js API routes
+│   │   └── products/            # Product API endpoints
+│   ├── dashboard/               # Main application dashboard
+│   ├── products/               # Product pages and search
+│   ├── layout.tsx              # Root layout
+│   └── page.tsx                # Landing page
 ├── components/
-│   └── providers.tsx         # Session provider wrapper
+│   ├── ui/                     # Reusable UI components (Radix UI)
+│   └── providers.tsx           # Session provider wrapper
 └── lib/
-    └── auth.ts               # NextAuth configuration
+    ├── auth.ts                 # NextAuth configuration
+    ├── supabase.ts            # Client-side Supabase connection
+    ├── supabase-server.ts     # Server-side Supabase connection
+    └── actions.ts             # Server actions for data fetching
 ```
 
-## Authentication Flow
+## Database Schema
 
-1. **Landing Page** - Users see a "Sign in with Google" button
-2. **Google OAuth** - Users authenticate with their Google account
-3. **Welcome Screen** - Authenticated users see their profile info
-4. **Dashboard** - Users can enter the main application
+The application connects to a Supabase PostgreSQL database with the following key schemas:
+
+- **items.product_info** - Main product catalog (materialized view)
+  - 56,456+ lighting products and accessories
+  - Product specifications, pricing, multimedia content
+  - Supplier information and categorization
+  
+- **etim** - ETIM classification system
+  - Industry-standard product classification
+  - Hierarchical categorization of lighting products
+
+## API Endpoints
+
+- `GET /api/products/search?q=<term>` - Search products (max 50 results)
+- `GET /api/products/[id]` - Get detailed product information
+- `POST /api/auth/[...nextauth]` - NextAuth.js authentication endpoints
 
 ## Technologies Used
 
-- **Next.js 14** - React framework with App Router
-- **NextAuth.js** - Authentication library
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **React Icons** - Icon library
+- **Next.js 15.3.4** - React framework with App Router
+- **NextAuth.js** - Authentication library with Google OAuth
+- **Supabase** - PostgreSQL database and backend services
+- **TypeScript** - Type safety and better development experience
+- **Tailwind CSS** - Utility-first CSS framework
+- **Radix UI** - Accessible, unstyled UI components
+- **React Icons** - Comprehensive icon library
 
 ## Security Features
 
-- CSRF protection
-- Secure cookie handling
-- Environment variable protection
-- Protected routes middleware
+- **CSRF Protection** - Built-in NextAuth.js security
+- **SQL Injection Prevention** - Parameterized queries with Supabase
+- **Environment Variable Protection** - Secure secret management
+- **Role-based Database Access** - Separate anon/service role permissions
+- **Protected Routes** - Authentication-required pages
+- **Secure Cookie Handling** - HTTP-only, secure cookies
 
 ## Development
 
-First, run the development server:
+### Running the Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-## Learn More
+### Development Commands
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run dev      # Start development server
+npm run build    # Production build
+npm run lint     # ESLint code checking
+npm run start    # Start production server
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Database Development
 
-## Deploy on Vercel
+The application uses Supabase with the following exposed schemas:
+- `public` - NextAuth.js tables
+- `items` - Product catalog (read-only)
+- `etim` - ETIM classification (read-only)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Roadmap
+
+### Phase 1 - Core Features ✅
+- [x] Product search and display
+- [x] Google OAuth authentication
+- [x] Responsive design
+- [x] Database integration
+
+### Phase 2 - Enhanced Features (Planned)
+- [ ] Advanced product filtering
+- [ ] User favorites and wishlist
+- [ ] Project management tools
+- [ ] Product comparison
+- [ ] Export to AutoCAD formats
+- [ ] Advanced search with ETIM classification
+- [ ] User product history
+
+### Phase 3 - Professional Tools (Future)
+- [ ] Lighting calculation tools
+- [ ] Project collaboration
+- [ ] Custom product catalogs
+- [ ] Integration with design software
+- [ ] Advanced reporting
+
+## Contributing
+
+This is a private project for lighting design professionals. For issues or feature requests, please contact the maintainer.
+
+## License
+
+Private - All rights reserved
