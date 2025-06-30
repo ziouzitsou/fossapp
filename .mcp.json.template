@@ -1,0 +1,62 @@
+{
+	"mcpServers": {
+		"brave": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@modelcontextprotocol/server-brave-search"
+			],
+			"env": {
+				"BRAVE_API_KEY": "your-brave-api-key-here"
+			}
+		},
+		"puppeteer": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@modelcontextprotocol/server-puppeteer"
+			],
+			"alwaysAllow": [
+				"puppeteer_scroll_down"
+			]
+		},
+		"firecrawl": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"firecrawl-mcp"
+			],
+			"env": {
+				"FIRECRAWL_API_KEY": "your-firecrawl-api-key-here"
+			},
+			"alwaysAllow": [
+				"firecrawl_scrape"
+			]
+		},
+		"context7": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@upstash/context7-mcp"
+			],
+			"env": {
+				"DEFAULT_MINIMUM_TOKENS": ""
+			},
+			"alwaysAllow": [
+				"resolve-library-id",
+				"get-library-docs"
+			]
+		},
+		"supabase": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@supabase/mcp-server-supabase@latest",
+				"--project-ref=your-supabase-project-ref"
+			],
+			"env": {
+				"SUPABASE_ACCESS_TOKEN": "your-supabase-access-token-here"
+			}
+		}
+	}
+}

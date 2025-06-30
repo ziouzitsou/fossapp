@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg width="87.334" height="50" version="1.1" viewBox="0 0 23.107 13.229" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <title>Foss Inverted Logo</title>
+ <metadata>
+  <rdf:RDF>
+   <cc:Work rdf:about="">
+    <dc:title>Foss Inverted Logo</dc:title>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Foss SA</dc:title>
+     </cc:Agent>
+    </dc:creator>
+    <dc:rights>
+     <cc:Agent>
+      <dc:title>Propietary</dc:title>
+     </cc:Agent>
+    </dc:rights>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <g transform="matrix(.084631 0 0 .084631 -5.394 -35.351)" fill-rule="evenodd" stroke-width="4.1684">
+  <path d="m63.736 417.71v156.32h273.03v-156.32z" fill="#1b1918"/>
+  <g fill="#fff">
+   <path d="m152.03 452.51-52.797-2e-3v77.72h21.114v-59.155h31.671z"/>
+   <path d="m139.96 474.17-18.93 18.565 18.93 18.93z"/>
+   <path d="m174.4 471.25a30.396 30.396 0 0 1 30.396 30.396 30.396 30.396 0 1 1-30.396-30.396z"/>
+  </g>
+  <path d="m174.4 489.27a12.377 12.377 0 0 1 12.377 12.377 12.377 12.377 0 1 1-12.377-12.377z" fill="#1b1918"/>
+  <path d="m219.36 503.11-22.573-1e-3c2.567 7.3963 8.6234 19.361 15.638 23.251 6.4202 3.5608 18.995 8.224 28.453 2.1588 4.6106-2.9564 9.6254-8.1873 12.698-11.577v-22.57l-31.671-23.662h-18.019v9.8286l31.793 22.303c3.4338 2.746 0.1087 9.9958-5.1134 11.157-4.1917 0.9323-10.684-1.3257-11.205-10.889z" fill="#fff"/>
+  <path d="m265.74 503.11-22.573-1e-3c2.567 7.3963 8.6234 19.361 15.638 23.251 6.4202 3.5608 18.995 8.224 28.453 2.1588 4.6106-2.9564 9.6253-8.1873 12.698-11.577v-22.57l-31.671-23.662h-18.019v9.8286l31.793 22.303c3.4337 2.746 0.1087 9.9958-5.1134 11.157-4.1918 0.9323-10.684-1.3257-11.205-10.889z" fill="#fff"/>
+ </g>
+</svg>
