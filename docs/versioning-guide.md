@@ -65,12 +65,15 @@ After pushing to GitHub, deploy your application to your production environment.
 Track your releases in this section:
 
 ### v1.0.0 - Initial Release
-- **Date**: [TBD]
+- **Date**: June 30, 2025
 - **Features**: 
-  - Product search and display
+  - Product search and display (56,456+ lighting products)
   - Google OAuth authentication
   - Supabase database integration
-  - Responsive design
+  - Responsive design with Tailwind CSS and Radix UI
+  - Product details pages with full specifications
+  - Security-hardened API endpoints
+  - Professional lighting design focus
 
 ### Future Releases
 
