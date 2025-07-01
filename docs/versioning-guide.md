@@ -64,6 +64,17 @@ After pushing to GitHub, deploy your application to your production environment.
 
 Track your releases in this section:
 
+### v1.1.0 - Docker & VPS Deployment
+- **Date**: June 30, 2025
+- **Features**:
+  - Docker containerization with multi-stage build
+  - Port 8080 configuration for production
+  - Automatic log rotation (10MB × 5 files)
+  - Health check endpoint (/api/health)
+  - Blue-green VPS deployment strategy
+  - Production environment templates
+  - Comprehensive deployment documentation
+
 ### v1.0.0 - Initial Release
 - **Date**: June 30, 2025
 - **Features**: 
