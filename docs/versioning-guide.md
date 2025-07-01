@@ -64,6 +64,15 @@ After pushing to GitHub, deploy your application to your production environment.
 
 Track your releases in this section:
 
+### v1.1.1 - Version Display & UI Enhancement
+- **Date**: July 1, 2025
+- **Features**:
+  - Version display in sidebar navigation
+  - Environment indicator (dev suffix for development)
+  - Consistent UI across dashboard and products pages
+  - Monospace font styling for technical appearance
+  - Production deployment testing and verification
+
 ### v1.1.0 - Docker & VPS Deployment
 - **Date**: June 30, 2025
 - **Features**:

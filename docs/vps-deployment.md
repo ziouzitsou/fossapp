@@ -86,7 +86,7 @@ SHARED_DIR="$DEPLOY_DIR/shared"
 
 if [ -z "$VERSION" ]; then
     echo "Usage: $0 <version>"
-    echo "Example: $0 v1.0.1"
+    echo "Example: $0 v1.1.1"
     exit 1
 fi
 
@@ -101,22 +101,33 @@ cd $RELEASES_DIR/$VERSION
 git clone $REPO_URL .
 git checkout tags/$VERSION
 
-# Link shared files
-ln -sf $SHARED_DIR/.env.production .env.production
-ln -sf $SHARED_DIR/logs ./logs
+# Copy shared environment file (not symlink for Docker build)
+cp $SHARED_DIR/.env.production .env.production
 
 # Build Docker image
 docker build -t fossapp:$VERSION .
 
+# Update docker-compose to use new image
+sed -i "s/image: fossapp:.*/image: fossapp:$VERSION/" docker-compose.yml
+
+# Stop old version if running
+CURRENT_DIR=$(readlink -f $DEPLOY_DIR/current 2>/dev/null || echo "")
+if [ -n "$CURRENT_DIR" ] && [ -d "$CURRENT_DIR" ]; then
+    echo "🔄 Stopping previous version..."
+    cd "$CURRENT_DIR"
+    docker compose down || true
+fi
+
 # Start new container
-docker-compose -f docker-compose.yml up -d --remove-orphans
+cd $RELEASES_DIR/$VERSION
+docker compose up -d
 
 # Health check
 echo "⏳ Waiting for health check..."
 sleep 30
 if ! curl -f http://localhost:8080/api/health; then
     echo "❌ Health check failed, rolling back..."
-    docker-compose down
+    docker compose down
     exit 1
 fi
 
@@ -125,10 +136,11 @@ cd $DEPLOY_DIR
 rm -f current
 ln -sf releases/$VERSION current
 
-# Clean up old containers
+# Clean up old containers and images
 docker system prune -f
 
 echo "✅ Deployment successful: $VERSION"
+echo "📊 Version display should show: $VERSION (without -dev suffix)"
 ```
 
 ### Rollback Script (`/opt/fossapp/scripts/rollback.sh`)
@@ -328,6 +340,25 @@ tar -czf fossapp-backup-$(date +%Y%m%d).tar.gz /opt/fossapp/
 4. **Images**: Use Next.js Image optimization
 5. **Monitoring**: Set up APM tools
 
+## Version Display Feature
+
+FOSSAPP includes a built-in version display system for environment awareness:
+
+### How It Works
+- **Location**: Bottom of sidebar navigation on all authenticated pages
+- **Development**: Shows `v1.1.1-dev` when running locally (`NODE_ENV=development`)
+- **Production**: Shows `v1.1.1` when deployed to VPS (`NODE_ENV=production`)
+- **Styling**: Small, monospace font with subtle border separator
+
+### Benefits
+- **Environment Clarity**: Instantly know if you're on dev or production
+- **Version Tracking**: See exactly which version is deployed
+- **Deployment Verification**: Confirm new versions are running correctly
+- **Debugging Aid**: Include version info in bug reports
+
+### Implementation
+The version is read from `package.json` and environment is detected via `process.env.NODE_ENV`. The component is included in both dashboard and products pages for consistency.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -335,6 +366,7 @@ tar -czf fossapp-backup-$(date +%Y%m%d).tar.gz /opt/fossapp/
 2. **502 Bad Gateway**: Verify container is running on port 8080
 3. **SSL issues**: Check certificate validity
 4. **Memory issues**: Monitor RAM usage and adjust container limits
+5. **Version not updating**: Ensure Docker build used correct environment file
 
 ### Useful Commands
 ```bash

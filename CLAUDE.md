@@ -80,5 +80,17 @@ npm run lint    # ESLint check
 - Implement user favorites/wishlist
 - Add advanced search with ETIM classification filters
 
+## Version Display
+- **Location**: Bottom of sidebar navigation 
+- **Development**: Shows `v1.1.1-dev` 
+- **Production**: Shows `v1.1.1` 
+- **Purpose**: Environment awareness and deployment verification
+
+## Deployment Status
+- **VPS**: platon.titancnc.eu (deployed via Docker)
+- **Domain**: https://app.titancnc.eu
+- **Current Version**: v1.1.1
+- **Health Check**: https://app.titancnc.eu/api/health
+
 ## Last Updated
-Project secured and tested on June 30, 2025. All mock data replaced with real Supabase connections.
+Project enhanced with version display and deployed to production on July 1, 2025. Full Docker deployment pipeline operational.
