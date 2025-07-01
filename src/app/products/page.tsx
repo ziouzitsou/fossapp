@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes, FaSearch } from 'react-icons/fa'
 import { MdDashboard, MdWork } from 'react-icons/md'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { VersionDisplay } from '@/components/version-display'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -77,7 +78,7 @@ export default function ProductsPage() {
       {/* Sidebar */}
       <div className={`${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } fixed inset-y-0 left-0 z-30 w-64 bg-card shadow-lg border-r transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
+      } fixed inset-y-0 left-0 z-30 w-64 bg-card shadow-lg border-r transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
         <div className="flex items-center justify-between h-16 px-6 border-b">
           <div className="flex items-center">
             <Image
@@ -103,7 +104,7 @@ export default function ProductsPage() {
           </button>
         </div>
         
-        <nav className="mt-8">
+        <nav className="mt-8 flex-1">
           <div className="px-3">
             {navigation.map((item) => {
               const Icon = item.icon
@@ -124,6 +125,11 @@ export default function ProductsPage() {
             })}
           </div>
         </nav>
+        
+        {/* Version display at bottom */}
+        <div className="border-t">
+          <VersionDisplay />
+        </div>
       </div>
 
       {/* Main content */}
