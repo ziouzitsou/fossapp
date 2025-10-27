@@ -645,7 +645,20 @@ User: "Add a data table with sorting and filtering"
 
 ## Project Documentation
 
-The `docs/` folder contains essential project documentation:
+### Documentation Convention
+
+The `docs/` folder contains **supplementary documentation** and detailed guides:
+- CLAUDE.md (this file) = Quick reference and development guide
+- docs/ = Extended documentation, procedures, and deep-dive guides
+
+**When to add docs**:
+- ✅ Detailed procedures (deployment checklists, setup guides)
+- ✅ Architecture deep-dives (database schemas, data flows)
+- ✅ Operational guides (troubleshooting, maintenance)
+- ✅ Domain-specific documentation (ETIM, supplier info)
+- ❌ Code documentation (use inline comments and JSDoc)
+
+### Current Documentation
 
 **Deployment & Operations**:
 - [PRODUCTION_DEPLOYMENT_CHECKLIST.md](./docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) - **MUST READ** before deploying
@@ -656,7 +669,7 @@ The `docs/` folder contains essential project documentation:
 - [postgresql_etim_items_schema_overview.md](./docs/postgresql_etim_items_schema_overview.md) - Database schema documentation
 - [SUPPLIER_LOGOS.md](./docs/SUPPLIER_LOGOS.md) - Supplier logo guidelines and dark mode support
 
-**Key Takeaway**: Always check the docs folder for detailed procedures before making infrastructure changes!
+**Key Principle**: Keep CLAUDE.md concise for quick reference; use docs/ for detailed explanations and procedures.
 
 ## Support & References
 
