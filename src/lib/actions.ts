@@ -77,6 +77,7 @@ export interface ProductDetail {
   description_long: string
   supplier_name: string
   supplier_logo?: string
+  supplier_logo_dark?: string
   class_name?: string
   family?: string
   subfamily?: string
