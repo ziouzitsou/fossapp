@@ -47,6 +47,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadProducts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierFilter])
 
   const loadProducts = async () => {

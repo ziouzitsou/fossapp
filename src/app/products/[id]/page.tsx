@@ -45,7 +45,7 @@ export default function ProductDetailPage() {
   const { data: session, status } = useDevSession()
   const router = useRouter()
   const params = useParams()
-  const { theme, resolvedTheme } = useTheme()
+  const { resolvedTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [product, setProduct] = useState<ProductDetail | null>(null)
