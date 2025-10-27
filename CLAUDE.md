@@ -432,6 +432,15 @@ try {
 
 **Linting**: `npm run lint` (Next.js ESLint config)
 
+**Production Build Testing**:
+⚠️ **CRITICAL**: Always run `npm run build` before deploying!
+- Production builds are stricter than dev mode
+- ESLint errors become build failures
+- TypeScript type checking enforced
+- Missing dependencies caught at build time
+
+See [PRODUCTION_DEPLOYMENT_CHECKLIST.md](./docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) for complete deployment workflow.
+
 ## Common Tasks
 
 ### Adding a New Page
