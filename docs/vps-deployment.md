@@ -2,7 +2,9 @@
 
 ## Overview
 
-This guide covers deploying FOSSAPP to a VPS using Docker with proper versioning, logging, and zero-downtime updates.
+This guide covers deploying FOSSAPP to a VPS using Docker with simple git-based versioning.
+
+**Updated 2025-10-27**: Migrated from Blue-Green deployment to simplified git-based deployment for easier solo development.
 
 ## Prerequisites
 
@@ -14,7 +16,7 @@ This guide covers deploying FOSSAPP to a VPS using Docker with proper versioning
 - **Network**: Public IP with ports 80/443 accessible
 
 ### Software Requirements
-- Docker & Docker Compose
+- Docker & Docker Compose v2
 - Git
 - Nginx (for reverse proxy)
 - Certbot (for SSL certificates)
@@ -32,8 +34,8 @@ sudo apt update && sudo apt upgrade -y
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 
-# Install Docker Compose
-sudo apt install docker-compose -y
+# Verify Docker Compose v2
+docker compose version
 
 # Add user to docker group
 sudo usermod -aG docker $USER
@@ -46,138 +48,113 @@ sudo apt install nginx certbot python3-certbot-nginx -y
 
 ## Deployment Strategy
 
-### Blue-Green Deployment Approach
+### Simple Git-Based Deployment
 
-Use this strategy for zero-downtime updates:
+**Perfect for solo development** - Optimized for single developer workflow.
 
-1. **Blue Environment**: Current running version
-2. **Green Environment**: New version being deployed
-3. **Switch**: Nginx routes traffic to new version
-4. **Cleanup**: Remove old version
-
-### Directory Structure
+**Deployment Directory Structure**:
 ```
 /opt/fossapp/
-├── current/           # Current deployment (symlink)
-├── releases/
-│   ├── v1.0.0/       # Version directories
-│   ├── v1.0.1/
-│   └── v1.1.0/
-├── shared/
-│   ├── .env.production
-│   └── logs/
-└── scripts/
-    ├── deploy.sh
-    └── rollback.sh
+├── .git/                # Git repository (source of truth)
+├── src/                 # Application source code
+├── docker-compose.yml   # Docker Compose configuration
+├── .env.production      # Production secrets (not in git)
+├── Dockerfile           # Multi-stage production build
+├── deploy.sh            # Automated deployment script
+└── docs/                # Documentation
 ```
 
-## Deployment Scripts
+**Benefits**:
+- ✅ Simple and maintainable
+- ✅ Git tags are versions (single source of truth)
+- ✅ Easy rollback via `git checkout`
+- ✅ No complex symlinks or multiple directories
+- ✅ Perfect for early-stage apps
 
-### Deploy Script (`/opt/fossapp/scripts/deploy.sh`)
+**Trade-offs**:
+- ⚠️ ~1-2 minutes downtime during deployment (acceptable at current scale)
+- ⚠️ Rollback requires rebuild (~2-3 minutes)
+
+## Initial Deployment
+
+### 1. Clone Repository
 ```bash
-#!/bin/bash
-set -e
-
-VERSION=$1
-REPO_URL="https://github.com/ziouzitsou/fossapp.git"
-DEPLOY_DIR="/opt/fossapp"
-RELEASES_DIR="$DEPLOY_DIR/releases"
-SHARED_DIR="$DEPLOY_DIR/shared"
-
-if [ -z "$VERSION" ]; then
-    echo "Usage: $0 <version>"
-    echo "Example: $0 v1.1.1"
-    exit 1
-fi
-
-echo "🚀 Deploying FOSSAPP $VERSION"
-
-# Create directories
-mkdir -p $RELEASES_DIR/$VERSION
-mkdir -p $SHARED_DIR/logs
-
-# Clone and checkout version
-cd $RELEASES_DIR/$VERSION
-git clone $REPO_URL .
-git checkout tags/$VERSION
-
-# Copy shared environment file (not symlink for Docker build)
-cp $SHARED_DIR/.env.production .env.production
-
-# Build Docker image
-docker build -t fossapp:$VERSION .
-
-# Update docker-compose to use new image
-sed -i "s/image: fossapp:.*/image: fossapp:$VERSION/" docker-compose.yml
-
-# Stop old version if running
-CURRENT_DIR=$(readlink -f $DEPLOY_DIR/current 2>/dev/null || echo "")
-if [ -n "$CURRENT_DIR" ] && [ -d "$CURRENT_DIR" ]; then
-    echo "🔄 Stopping previous version..."
-    cd "$CURRENT_DIR"
-    docker compose down || true
-fi
-
-# Start new container
-cd $RELEASES_DIR/$VERSION
-docker compose up -d
-
-# Health check
-echo "⏳ Waiting for health check..."
-sleep 30
-if ! curl -f http://localhost:8080/api/health; then
-    echo "❌ Health check failed, rolling back..."
-    docker compose down
-    exit 1
-fi
-
-# Update current symlink
-cd $DEPLOY_DIR
-rm -f current
-ln -sf releases/$VERSION current
-
-# Clean up old containers and images
-docker system prune -f
-
-echo "✅ Deployment successful: $VERSION"
-echo "📊 Version display should show: $VERSION (without -dev suffix)"
+sudo mkdir -p /opt/fossapp
+sudo chown $USER:$USER /opt/fossapp
+cd /opt/fossapp
+git clone https://github.com/ziouzitsou/fossapp.git .
+git checkout v1.1.1  # Deploy specific version
 ```
 
-### Rollback Script (`/opt/fossapp/scripts/rollback.sh`)
+### 2. Create Environment File
 ```bash
-#!/bin/bash
-set -e
+# Copy from template or create manually
+nano /opt/fossapp/.env.production
+```
 
-DEPLOY_DIR="/opt/fossapp"
-RELEASES_DIR="$DEPLOY_DIR/releases"
+Required variables:
+```bash
+# NextAuth
+NEXTAUTH_URL=https://app.titancnc.eu
+NEXTAUTH_SECRET=<generate-with-openssl-rand>
 
-# Find previous version
-CURRENT_VERSION=$(readlink $DEPLOY_DIR/current | sed 's/releases\///')
-PREVIOUS_VERSION=$(ls -1 $RELEASES_DIR | grep -v $CURRENT_VERSION | tail -1)
+# Google OAuth
+GOOGLE_CLIENT_ID=<from-google-cloud-console>
+GOOGLE_CLIENT_SECRET=<from-google-cloud-console>
 
-if [ -z "$PREVIOUS_VERSION" ]; then
-    echo "❌ No previous version found"
-    exit 1
-fi
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://hyppizgiozyyyelwdius.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<from-supabase>
+SUPABASE_SERVICE_ROLE_KEY=<from-supabase>
 
-echo "🔄 Rolling back from $CURRENT_VERSION to $PREVIOUS_VERSION"
+# Application
+NODE_ENV=production
+PORT=8080
+HOSTNAME=0.0.0.0
+```
 
-# Switch to previous version
-cd $DEPLOY_DIR
-rm -f current
-ln -sf releases/$PREVIOUS_VERSION current
+### 3. Create Deploy Script
+The deploy script is already in the repository at `/opt/fossapp/deploy.sh`.
 
-# Restart with previous version
-cd current
-docker-compose down
-docker-compose up -d
+Make it executable:
+```bash
+chmod +x /opt/fossapp/deploy.sh
+```
 
-echo "✅ Rollback successful: $PREVIOUS_VERSION"
+### 4. Build and Deploy
+```bash
+cd /opt/fossapp
+./deploy.sh v1.1.1
+```
+
+## Deploy Script Usage
+
+The `deploy.sh` script automates the entire deployment process:
+
+```bash
+# Deploy specific version
+./deploy.sh v1.1.1
+
+# Deploy latest from main
+./deploy.sh main
+
+# The script will:
+# 1. Fetch latest from GitHub
+# 2. Checkout specified version
+# 3. Stop existing container
+# 4. Build Docker image
+# 5. Start new container
+# 6. Wait and verify health check
+# 7. Clean up old images
 ```
 
 ## Nginx Configuration
 
-### `/etc/nginx/sites-available/fossapp`
+### Create Nginx Config
+```bash
+sudo nano /etc/nginx/sites-available/fossapp
+```
+
 ```nginx
 upstream fossapp {
     server 127.0.0.1:8080;
@@ -185,31 +162,30 @@ upstream fossapp {
 
 server {
     listen 80;
-    server_name your-domain.com;
+    server_name app.titancnc.eu;
     return 301 https://$server_name$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name your-domain.com;
+    server_name app.titancnc.eu;
 
-    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
-    
+    ssl_certificate /etc/letsencrypt/live/app.titancnc.eu/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/app.titancnc.eu/privkey.pem;
+
     # SSL configuration
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512;
     ssl_prefer_server_ciphers off;
 
     # Security headers
     add_header X-Frame-Options DENY;
     add_header X-Content-Type-Options nosniff;
     add_header X-XSS-Protection "1; mode=block";
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
 
     # Gzip compression
     gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+    gzip_types text/plain text/css application/json application/javascript;
 
     location / {
         proxy_pass http://fossapp;
@@ -221,11 +197,6 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
-        
-        # Timeouts
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
     }
 
     # Static files caching
@@ -234,14 +205,12 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
-    # Logs
     access_log /var/log/nginx/fossapp.access.log;
     error_log /var/log/nginx/fossapp.error.log;
 }
 ```
 
-## SSL Setup
-
+### Enable Site and Get SSL
 ```bash
 # Enable site
 sudo ln -s /etc/nginx/sites-available/fossapp /etc/nginx/sites-enabled/
@@ -250,135 +219,211 @@ sudo ln -s /etc/nginx/sites-available/fossapp /etc/nginx/sites-enabled/
 sudo nginx -t
 
 # Get SSL certificate
-sudo certbot --nginx -d your-domain.com
+sudo certbot --nginx -d app.titancnc.eu
 
 # Restart nginx
 sudo systemctl restart nginx
 ```
 
+## Common Operations
+
+### Deploy New Version
+```bash
+cd /opt/fossapp
+./deploy.sh v1.1.2
+```
+
+### Rollback to Previous Version
+```bash
+cd /opt/fossapp
+./deploy.sh v1.1.1
+```
+
+### View Logs
+```bash
+cd /opt/fossapp
+docker compose logs -f fossapp
+```
+
+### Check Status
+```bash
+cd /opt/fossapp
+docker compose ps
+curl http://localhost:8080/api/health
+```
+
+### Restart Container
+```bash
+cd /opt/fossapp
+docker compose restart
+```
+
+### Manual Deployment (if script fails)
+```bash
+cd /opt/fossapp
+git fetch --tags
+git checkout v1.1.2
+docker compose down
+docker compose build
+docker compose up -d
+
+# Wait and verify
+sleep 30
+curl http://localhost:8080/api/health
+```
+
 ## Monitoring & Logs
 
-### Log Rotation (Already handled by Docker)
-Docker Compose is configured with:
+### Docker Logs
+Configured in `docker-compose.yml`:
 - Max log size: 10MB per file
 - Max files: 5 (50MB total)
 - Compression: enabled
 
-### System Monitoring
+### View Logs
 ```bash
-# Check container status
-docker-compose ps
+# Real-time logs
+docker compose logs -f
 
-# View logs
-docker-compose logs -f fossapp
+# Last 50 lines
+docker compose logs --tail 50
 
-# View Nginx logs
+# Nginx logs
 sudo tail -f /var/log/nginx/fossapp.access.log
 sudo tail -f /var/log/nginx/fossapp.error.log
-
-# System resources
-htop
-df -h
 ```
 
-## Deployment Workflow
-
-### 1. Development
+### Health Monitoring
 ```bash
-# Local development
-npm run dev
+# Local health check
+curl http://localhost:8080/api/health
 
-# Create new version
-npm version patch
+# Production health check
+curl https://app.titancnc.eu/api/health
+```
+
+## Version Management
+
+### Create New Version Locally
+```bash
+# Make changes
+git add .
+git commit -m "feat: new feature"
+
+# Create version
+npm version patch  # or minor, major
 git push origin main --tags
 ```
 
-### 2. VPS Deployment
+### Deploy to Production
 ```bash
 # SSH to VPS
-ssh user@your-vps-ip
+ssh user@platon.titancnc.eu
 
-# Deploy new version
-sudo /opt/fossapp/scripts/deploy.sh v1.0.1
+# Deploy
+cd /opt/fossapp
+./deploy.sh v1.1.2
 ```
-
-### 3. Verification
-- Check application health
-- Verify logs
-- Test functionality
-- Monitor performance
-
-### 4. Rollback (if needed)
-```bash
-sudo /opt/fossapp/scripts/rollback.sh
-```
-
-## Security Considerations
-
-1. **Firewall**: Only open ports 22, 80, 443
-2. **SSH**: Use key-based authentication
-3. **Updates**: Regular system updates
-4. **Backups**: Regular database backups
-5. **Monitoring**: Set up alerts for downtime
-6. **SSL**: Keep certificates updated
-
-## Backup Strategy
-
-```bash
-# Database backup (if using local DB)
-docker exec fossapp-db pg_dump -U user dbname > backup-$(date +%Y%m%d).sql
-
-# Application backup
-tar -czf fossapp-backup-$(date +%Y%m%d).tar.gz /opt/fossapp/
-```
-
-## Performance Optimization
-
-1. **CDN**: Use CloudFlare for static assets
-2. **Caching**: Implement Redis for session storage
-3. **Database**: Optimize Supabase queries
-4. **Images**: Use Next.js Image optimization
-5. **Monitoring**: Set up APM tools
-
-## Version Display Feature
-
-FOSSAPP includes a built-in version display system for environment awareness:
-
-### How It Works
-- **Location**: Bottom of sidebar navigation on all authenticated pages
-- **Development**: Shows `v1.1.1-dev` when running locally (`NODE_ENV=development`)
-- **Production**: Shows `v1.1.1` when deployed to VPS (`NODE_ENV=production`)
-- **Styling**: Small, monospace font with subtle border separator
-
-### Benefits
-- **Environment Clarity**: Instantly know if you're on dev or production
-- **Version Tracking**: See exactly which version is deployed
-- **Deployment Verification**: Confirm new versions are running correctly
-- **Debugging Aid**: Include version info in bug reports
-
-### Implementation
-The version is read from `package.json` and environment is detected via `process.env.NODE_ENV`. The component is included in both dashboard and products pages for consistency.
 
 ## Troubleshooting
 
-### Common Issues
-1. **Container won't start**: Check logs and environment variables
-2. **502 Bad Gateway**: Verify container is running on port 8080
-3. **SSL issues**: Check certificate validity
-4. **Memory issues**: Monitor RAM usage and adjust container limits
-5. **Version not updating**: Ensure Docker build used correct environment file
-
-### Useful Commands
+### Health Check Fails
 ```bash
-# Container debugging
-docker exec -it fossapp sh
+# Check container logs
+cd /opt/fossapp
+docker compose logs -f
 
-# Nginx debugging
-sudo nginx -t
-sudo systemctl status nginx
+# Check container is running
+docker compose ps
 
-# SSL debugging
-sudo certbot certificates
+# Restart container
+docker compose restart
+
+# Check port availability
+sudo lsof -i :8080
 ```
 
-This deployment strategy provides production-ready hosting with proper versioning, logging, and zero-downtime updates.
+### Database Connection Issues
+```bash
+# Verify environment variables
+cat /opt/fossapp/.env.production | grep SUPABASE
+
+# Check Supabase status
+# Visit Supabase dashboard
+```
+
+### Build Failures
+```bash
+# Clean Docker cache
+docker system prune -a
+
+# Rebuild from scratch
+cd /opt/fossapp
+docker compose build --no-cache
+docker compose up -d
+```
+
+### Git Issues
+```bash
+# Reset to specific version
+cd /opt/fossapp
+git fetch --tags
+git reset --hard v1.1.1
+
+# Force pull latest
+git fetch origin
+git reset --hard origin/main
+```
+
+## Security Best Practices
+
+1. **Firewall**: Only open ports 22 (SSH), 80 (HTTP), 443 (HTTPS)
+2. **SSH Keys**: Use key-based authentication only
+3. **Updates**: Regular system updates (`apt update && apt upgrade`)
+4. **Secrets**: Never commit `.env.production` to git
+5. **SSL**: Keep Let's Encrypt certificates updated (auto-renews)
+6. **Backups**: Regular database backups to external storage
+
+## Future Enhancements
+
+When the app scales beyond solo development:
+
+### Option 1: Watchtower (Automated Deployments)
+```yaml
+# Add to docker-compose.yml
+watchtower:
+  image: containrrr/watchtower
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+  command: --interval 300
+```
+
+### Option 2: GitHub Actions CI/CD
+- Automated testing on push
+- Build and push to Docker registry
+- Auto-deploy to production
+
+### Option 3: Load Balancer
+- Zero-downtime deployments
+- Blue-green or rolling updates
+- Traffic distribution
+
+For now, the simple git-based approach is optimal for solo development.
+
+## Migration Notes (2025-10-27)
+
+### Previous Setup (Deprecated)
+- Blue-Green deployment with symlinks
+- Directory: `/opt/fossapp-old-bluegreen/`
+- Multiple release directories
+- Symlink management for version switching
+
+### Current Setup (Active)
+- Simple git-based deployment
+- Directory: `/opt/fossapp/`
+- Git tags for versioning
+- Single deployment directory
+
+**Backup of old structure**: `/opt/fossapp-backup-20251027-130630.tar.gz`
+
+Can be safely removed after 1 week of stable operation.
