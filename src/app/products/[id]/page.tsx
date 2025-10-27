@@ -1,12 +1,13 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
+import { useDevSession } from '@/lib/use-dev-session'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes, FaArrowLeft, FaExternalLinkAlt } from 'react-icons/fa'
 import { MdDashboard, MdWork } from 'react-icons/md'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +19,7 @@ interface ProductDetail {
   description_long: string
   supplier_name: string
   supplier_logo?: string
+  supplier_logo_dark?: string
   class_name?: string
   family?: string
   subfamily?: string
@@ -40,13 +42,20 @@ interface ProductDetail {
 }
 
 export default function ProductDetailPage() {
-  const { data: session, status } = useSession()
+  const { data: session, status } = useDevSession()
   const router = useRouter()
   const params = useParams()
+  const { theme, resolvedTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [product, setProduct] = useState<ProductDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [logoError, setLogoError] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -269,15 +278,21 @@ export default function ProductDetailPage() {
                             Model: {product.foss_pid}
                           </CardDescription>
                         </div>
-                        {product.supplier_logo && (
-                          <Image
-                            src={product.supplier_logo}
-                            alt={product.supplier_name}
-                            width={60}
-                            height={40}
-                            className="object-contain"
-                          />
-                        )}
+                        {mounted && !logoError && (product.supplier_logo || product.supplier_logo_dark) && (() => {
+                          const logoUrl = resolvedTheme === 'dark' && product.supplier_logo_dark
+                            ? product.supplier_logo_dark
+                            : product.supplier_logo
+                          return logoUrl ? (
+                            <Image
+                              src={logoUrl}
+                              alt={product.supplier_name}
+                              width={60}
+                              height={40}
+                              className="object-contain"
+                              onError={() => setLogoError(true)}
+                            />
+                          ) : null
+                        })()}
                       </div>
                     </CardHeader>
                     <CardContent>

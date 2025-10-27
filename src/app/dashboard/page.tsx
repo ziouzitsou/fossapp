@@ -1,8 +1,9 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
+import { signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useDevSession } from '@/lib/use-dev-session'
 import Image from 'next/image'
 import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes } from 'react-icons/fa'
 import { MdDashboard, MdWork } from 'react-icons/md'
@@ -14,19 +15,84 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
-import { TrendingUp, Users, Activity, AlertCircle } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { TrendingUp, Users, Activity, AlertCircle, Plus, Package, Search } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+
+interface Product {
+  product_id: string
+  foss_pid: string
+  description_short: string
+  supplier_name: string
+}
 
 export default function Dashboard() {
-  const { data: session, status } = useSession()
+  const { data: session, status } = useDevSession()
   const router = useRouter()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(false)
+  const [supplierFilter, setSupplierFilter] = useState<string>('all')
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/')
     }
   }, [status, router])
+
+  useEffect(() => {
+    loadProducts()
+  }, [supplierFilter])
+
+  const loadProducts = async () => {
+    setLoading(true)
+    try {
+      let query = supabase
+        .from('items.product_info')
+        .select('product_id, foss_pid, description_short, supplier_name')
+        .order('description_short', { ascending: true })
+        .limit(10)
+
+      if (supplierFilter !== 'all') {
+        query = query.eq('supplier_name', supplierFilter)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+      setProducts(data || [])
+    } catch (error) {
+      console.error('Error loading products:', error)
+      setProducts([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) return
+
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('items.product_info')
+        .select('product_id, foss_pid, description_short, supplier_name')
+        .ilike('description_short', `%${searchTerm}%`)
+        .limit(10)
+
+      if (error) throw error
+      setProducts(data || [])
+    } catch (error) {
+      console.error('Error searching products:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (status === 'loading') {
     return (
@@ -49,7 +115,7 @@ export default function Dashboard() {
     <div className="h-screen flex bg-background">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -83,7 +149,7 @@ export default function Dashboard() {
             <FaTimes className="h-5 w-5" />
           </button>
         </div>
-        
+
         <nav className="mt-8 flex-1">
           <div className="px-3">
             {navigation.map((item) => {
@@ -105,7 +171,7 @@ export default function Dashboard() {
             })}
           </div>
         </nav>
-        
+
         {/* Version display at bottom */}
         <div className="border-t">
           <VersionDisplay />
@@ -123,14 +189,14 @@ export default function Dashboard() {
             >
               <FaBars className="h-5 w-5" />
             </button>
-            
+
             <div className="flex-1" />
-            
+
             {/* Right side items */}
             <div className="flex items-center gap-4">
               {/* Theme Toggle */}
               <ThemeToggle />
-              
+
               {/* User menu */}
               <div className="relative">
               <button
@@ -177,24 +243,24 @@ export default function Dashboard() {
           <div className="max-w-7xl mx-auto">
             <div className="mb-8">
               <h1 className="text-2xl font-bold text-foreground">Welcome to your Dashboard</h1>
-              <p className="text-muted-foreground mt-2">Here&apos;s what&apos;s happening with your projects and products.</p>
+              <p className="text-muted-foreground mt-2">Showcasing shadcn/ui components with real data</p>
             </div>
-            
+
             {/* Stats Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
-                  <MdWork className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+                  <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">12</div>
+                  <div className="text-2xl font-bold">56,456</div>
                   <p className="text-xs text-muted-foreground">
-                    <span className="text-green-500">+20.1%</span> from last month
+                    Lighting products in database
                   </p>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Active Users</CardTitle>
@@ -207,7 +273,7 @@ export default function Dashboard() {
                   </p>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Performance</CardTitle>
@@ -220,7 +286,7 @@ export default function Dashboard() {
                   </p>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Activity</CardTitle>
@@ -238,91 +304,197 @@ export default function Dashboard() {
             {/* Sample Alert */}
             <Alert className="mb-6">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>System Update</AlertTitle>
+              <AlertTitle>shadcn/ui MCP Integration Active</AlertTitle>
               <AlertDescription>
-                We&apos;ll be performing maintenance tonight from 2-4 AM EST. Some features may be temporarily unavailable.
+                This dashboard now showcases Tabs, Table, Dialog, and Select components added via shadcn MCP!
               </AlertDescription>
             </Alert>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Recent Activity Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Latest updates from your team</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <Avatar>
-                      <AvatarImage src={session.user?.image || ''} />
-                      <AvatarFallback>{session.user?.name?.[0] || 'U'}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">{session.user?.name}</p>
-                      <p className="text-sm text-muted-foreground">Created new project &quot;Mobile App&quot;</p>
-                    </div>
-                    <Badge>New</Badge>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <Avatar>
-                      <AvatarFallback>JD</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">John Doe</p>
-                      <p className="text-sm text-muted-foreground">Updated user interface design</p>
-                    </div>
-                    <Badge variant="secondary">Update</Badge>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <Avatar>
-                      <AvatarFallback>TS</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">Team System</p>
-                      <p className="text-sm text-muted-foreground">Deployed version 2.1.0 to production</p>
-                    </div>
-                    <Badge variant="outline">Deploy</Badge>
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Tabs Component Showcase */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Component Showcase</CardTitle>
+                <CardDescription>Testing shadcn/ui components with real Supabase data</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="products" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="products">Products</TabsTrigger>
+                    <TabsTrigger value="activity">Activity</TabsTrigger>
+                    <TabsTrigger value="settings">Settings</TabsTrigger>
+                  </TabsList>
 
-              {/* Quick Actions Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                  <CardDescription>Common tasks and shortcuts</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Input placeholder="Create new project..." />
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    <Button>New Project</Button>
-                    <Button variant="outline">Invite User</Button>
-                    <Button variant="secondary">View Reports</Button>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="destructive" size="sm">Delete</Button>
-                    <Button variant="ghost" size="sm">Archive</Button>
-                    <Button variant="link" size="sm">Learn More</Button>
-                  </div>
-                  
-                  <div className="pt-4 border-t">
-                    <p className="text-sm text-muted-foreground mb-2">Recent Tags:</p>
-                    <div className="flex flex-wrap gap-1">
-                      <Badge variant="default">React</Badge>
-                      <Badge variant="secondary">TypeScript</Badge>
-                      <Badge variant="outline">Tailwind</Badge>
-                      <Badge variant="destructive">Urgent</Badge>
+                  <TabsContent value="products" className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 flex gap-2">
+                        <Input
+                          placeholder="Search products..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                        />
+                        <Button onClick={handleSearch} size="icon">
+                          <Search className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Filter by supplier" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Suppliers</SelectItem>
+                          <SelectItem value="Delta Light">Delta Light</SelectItem>
+                          <SelectItem value="Philips">Philips</SelectItem>
+                          <SelectItem value="Osram">Osram</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Product
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Add New Product</DialogTitle>
+                            <DialogDescription>
+                              Add a new product to the catalog. This is a demo dialog component.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="grid gap-4 py-4">
+                            <div className="grid gap-2">
+                              <label htmlFor="name" className="text-sm font-medium">
+                                Product Name
+                              </label>
+                              <Input id="name" placeholder="Enter product name..." />
+                            </div>
+                            <div className="grid gap-2">
+                              <label htmlFor="supplier" className="text-sm font-medium">
+                                Supplier
+                              </label>
+                              <Select>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select supplier" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="delta">Delta Light</SelectItem>
+                                  <SelectItem value="philips">Philips</SelectItem>
+                                  <SelectItem value="osram">Osram</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button variant="outline">Cancel</Button>
+                            <Button>Save Product</Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Product ID</TableHead>
+                            <TableHead>FOSS PID</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead>Supplier</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {loading ? (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center py-8">
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ) : products.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                                No products found
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            products.map((product) => (
+                              <TableRow key={product.product_id}>
+                                <TableCell className="font-mono text-xs">{product.product_id}</TableCell>
+                                <TableCell className="font-mono text-xs">{product.foss_pid}</TableCell>
+                                <TableCell>{product.description_short}</TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary">{product.supplier_name}</Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="activity" className="space-y-4">
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-4">
+                        <Avatar>
+                          <AvatarImage src={session.user?.image || ''} />
+                          <AvatarFallback>{session.user?.name?.[0] || 'U'}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-medium leading-none">{session.user?.name}</p>
+                          <p className="text-sm text-muted-foreground">Searched for lighting products</p>
+                        </div>
+                        <Badge>Recent</Badge>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <Avatar>
+                          <AvatarFallback>SY</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-medium leading-none">System</p>
+                          <p className="text-sm text-muted-foreground">Added shadcn/ui components via MCP</p>
+                        </div>
+                        <Badge variant="secondary">Update</Badge>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="settings" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Display Settings</CardTitle>
+                        <CardDescription>Manage how data is displayed</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium">Items per page</label>
+                          <Select defaultValue="10">
+                            <SelectTrigger className="w-[100px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="5">5</SelectItem>
+                              <SelectItem value="10">10</SelectItem>
+                              <SelectItem value="20">20</SelectItem>
+                              <SelectItem value="50">50</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium">Theme</label>
+                          <ThemeToggle />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
           </div>
         </main>
       </div>

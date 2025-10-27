@@ -35,6 +35,12 @@ npm run build    # Production build with standalone output
 npm run start    # Production server on :8080
 npm run lint     # ESLint checking
 
+# shadcn/ui Components
+npx shadcn@latest add <component>   # Add new shadcn component
+npx shadcn@latest add dialog        # Example: add dialog component
+npx shadcn@latest add table         # Example: add table component
+npx shadcn@latest diff              # Check for component updates
+
 # Docker Operations
 docker-compose up -d      # Start production container
 docker-compose down       # Stop container
@@ -46,6 +52,33 @@ curl http://localhost:8080/api/health          # Local
 curl https://app.titancnc.eu/api/health        # Production
 ```
 
+## Development Authentication Bypass
+
+For local development and Playwright testing, a development-only authentication bypass is available:
+
+**Setup** (already configured in `.env.local`):
+```bash
+NEXT_PUBLIC_BYPASS_AUTH=true
+```
+
+**How it works**:
+- Custom hook `useDevSession()` in `src/lib/use-dev-session.ts`
+- Returns mock session ("Dev User") when `NODE_ENV=development` AND `NEXT_PUBLIC_BYPASS_AUTH=true`
+- Falls back to real NextAuth session in production
+- **Security**: Only works in development mode, never in production
+
+**Usage**:
+- Dashboard and Products pages use `useDevSession()` instead of `useSession()`
+- Allows access to protected routes without Google OAuth sign-in
+- Essential for Playwright MCP testing and rapid development
+
+**Mock User**:
+- Name: Dev User
+- Email: dev@fossapp.local
+- Image: /default-avatar.png
+
+⚠️ **IMPORTANT**: Never set `NEXT_PUBLIC_BYPASS_AUTH=true` in production!
+
 ## Architecture Overview
 
 ### Tech Stack
@@ -53,8 +86,9 @@ curl https://app.titancnc.eu/api/health        # Production
 - **Language**: TypeScript
 - **Authentication**: NextAuth.js v4 (Google OAuth only)
 - **Database**: Supabase PostgreSQL (dual-client pattern)
+- **UI Library**: shadcn/ui (Radix UI + Tailwind CSS)
 - **Styling**: Tailwind CSS with HSL color system
-- **Components**: Radix UI primitives with CVA variants
+- **Components**: shadcn/ui components with CVA variants
 - **Deployment**: Docker multi-stage builds, standalone output
 
 ### Directory Structure
@@ -75,12 +109,14 @@ src/
 │       └── supabase/           # Direct query API
 │
 ├── components/
-│   ├── ui/                      # Radix UI-based components
-│   │   ├── button.tsx          # CVA variants with Slot pattern
-│   │   ├── card.tsx
-│   │   ├── input.tsx
-│   │   ├── badge.tsx
-│   │   └── ...
+│   ├── ui/                      # shadcn/ui components (installed)
+│   │   ├── button.tsx          # Button with CVA variants
+│   │   ├── card.tsx            # Card container components
+│   │   ├── input.tsx           # Form input field
+│   │   ├── badge.tsx           # Status badges
+│   │   ├── alert.tsx           # Alert/notification component
+│   │   ├── avatar.tsx          # User avatar component
+│   │   └── ...                 # Additional shadcn components as needed
 │   ├── providers.tsx            # SessionProvider + ThemeProvider wrapper
 │   ├── theme-provider.tsx       # next-themes integration
 │   ├── theme-toggle.tsx         # Dark/light mode switcher
@@ -177,6 +213,13 @@ import { supabase } from '@/lib/supabase'
 
 ### Component Architecture
 
+**shadcn/ui Integration**:
+- Project uses **shadcn/ui** component library
+- Configuration: `components.json` (New York style, RSC enabled)
+- Installed components: Button, Card, Input, Badge, Alert, Avatar
+- Add new components: `npx shadcn@latest add <component-name>`
+- Or use shadcn MCP server for AI-assisted component management
+
 **UI Component Pattern**:
 - Based on Radix UI primitives for accessibility
 - Styled with Tailwind CSS utility classes
@@ -245,10 +288,17 @@ const handleSearch = async (query: string) => {
 - **Input Validation**: Regex patterns, trim, 100 char limits, UUID validation
 - **Query Sanitization**: All user inputs validated before database calls
 - **Service Role Isolation**: Server actions use service_role, never exposed to client
-- **Schema Permissions**: Proper grants for anon/service_role roles
+- **Database Access Control**: `items.product_info` restricted to authenticated users only
+  - ✅ `service_role`: Full server-side access
+  - ✅ `authenticated`: Read access for logged-in users
+  - ❌ `anon`: No public access (authentication required)
 
 **Never commit these files**: `.env.local`, `.env.production`
 **Reference file**: `.env.example` (safe to commit)
+
+**Database Permissions** (as of v1.1.3):
+- Migration `fix_product_info_permissions`: Initial grants to service_role, anon, authenticated
+- Migration `restrict_product_info_to_authenticated`: Revoked anon access for security
 
 ## API Architecture
 
@@ -498,14 +548,101 @@ curl https://app.titancnc.eu/api/health
 - Benefits: 70% simpler, git as single source of truth, easy rollback
 - Trade-off: ~1-2 minutes downtime during deployment (acceptable for solo dev)
 
+## Using Playwright MCP for Development
+
+Playwright MCP is a powerful tool for visual testing, UI development, and debugging. With the authentication bypass enabled, you can fully explore the application.
+
+**Available Actions**:
+- `browser_navigate` - Navigate to any page
+- `browser_take_screenshot` - Capture page screenshots
+- `browser_snapshot` - Get accessibility tree snapshot
+- `browser_type` - Type text into inputs
+- `browser_click` - Click buttons and links
+- `browser_evaluate` - Execute JavaScript in browser context
+
+**Example Workflow**:
+```javascript
+// Navigate to products page
+browser_navigate("http://localhost:8080/products")
+
+// Take screenshot
+browser_take_screenshot("products-initial.png")
+
+// Search for products
+browser_type(element="search input", ref="e48", text="downlight")
+browser_click(element="search button", ref="e49")
+
+// Capture results
+browser_take_screenshot("search-results.png")
+```
+
+**Screenshots Location**: `.playwright-mcp/` directory
+
+**Use Cases**:
+- Visual regression testing after UI changes
+- Documenting features with screenshots
+- Testing user flows and interactions
+- Debugging layout and styling issues
+- Verifying responsive design at different viewport sizes
+
+## Using shadcn MCP for Component Management
+
+The shadcn MCP server enables AI-assisted component management for faster development.
+
+**Setup** (User configuration):
+Add to Claude Code MCP settings:
+```json
+{
+  "mcpServers": {
+    "shadcn": {
+      "command": "npx",
+      "args": ["-y", "@shadcn/mcp"]
+    }
+  }
+}
+```
+
+**Benefits**:
+- AI can add shadcn components directly without manual commands
+- Automatic component installation with proper dependencies
+- Context-aware component suggestions
+- Consistent component usage patterns
+
+**Available MCP Actions** (once configured):
+- Add new components (dialog, table, dropdown-menu, etc.)
+- List available components
+- Update existing components
+- Check component documentation
+
+**Example Usage**:
+```
+User: "Add a data table with sorting and filtering"
+→ shadcn MCP adds table component
+→ AI generates implementation with Supabase integration
+→ Styled consistently with existing components
+```
+
+**Currently Installed Components**:
+- Button, Card, Input, Badge, Alert, Avatar
+
+**Popular Components to Add**:
+- Dialog (modals)
+- Table (data tables with sorting)
+- Dropdown Menu (navigation menus)
+- Select (form dropdowns)
+- Tabs (tabbed interfaces)
+- Toast (notifications)
+- Form (form validation with react-hook-form)
+
 ## Support & References
 
 - **Supabase Project**: hyppizgiozyyyelwdius.supabase.co
 - **Database Maintenance**: `/home/sysadmin/fossdb/utils/matview_maintenance/`
 - **Next.js Docs**: https://nextjs.org/docs
+- **shadcn/ui Docs**: https://ui.shadcn.com
 - **Radix UI Docs**: https://www.radix-ui.com/primitives
 - **Tailwind CSS Docs**: https://tailwindcss.com/docs
 
 ## Last Updated
 
-2025-10-27 - Enhanced CLAUDE.md with comprehensive architectural overview, corrected port configuration (8080), and detailed development patterns.
+**2025-10-27** - Documented shadcn/ui integration and MCP server setup. Project already uses shadcn components (Button, Card, Input, Badge, Alert, Avatar) with New York style configuration.

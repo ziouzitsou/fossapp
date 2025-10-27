@@ -125,6 +125,7 @@ export async function getProductByIdAction(productId: string): Promise<ProductDe
         description_long: data.description_long,
         supplier_name: data.supplier_name,
         supplier_logo: data.supplier_logo,
+        supplier_logo_dark: data.supplier_logo_dark,
         class_name: data.class_name,
         family: data.family,
         subfamily: data.subfamily,

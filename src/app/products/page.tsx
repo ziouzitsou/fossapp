@@ -1,8 +1,8 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useDevSession } from '@/lib/use-dev-session'
 import Image from 'next/image'
 import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes, FaSearch } from 'react-icons/fa'
 import { MdDashboard, MdWork } from 'react-icons/md'
@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { searchProducts, ProductSearchResult } from '@/lib/supabase'
 
 export default function ProductsPage() {
-  const { data: session, status } = useSession()
+  const { data: session, status } = useDevSession()
   const router = useRouter()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
