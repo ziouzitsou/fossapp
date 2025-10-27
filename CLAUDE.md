@@ -6,8 +6,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 FOSSAPP is a Next.js 15.3.4 application providing a searchable database of 56,456+ lighting products and accessories for lighting design professionals, architects, and AutoCAD users. Built with App Router, TypeScript, and Supabase PostgreSQL backend.
 
-**Production**: https://app.titancnc.eu (v1.1.1)
+**Production**: https://app.titancnc.eu (v1.1.2)
 **Development**: Port 8080 (not 3000 - note the custom port configuration)
+
+## Production Server Access
+
+**VPS Details**:
+- **Host**: platon.titancnc.eu
+- **User**: sysadmin
+- **SSH Key**: `~/.ssh/platon.key`
+- **Deployment Directory**: `/opt/fossapp/`
+
+**SSH Connection**:
+```bash
+# Connect to production server
+ssh -i ~/.ssh/platon.key sysadmin@platon.titancnc.eu
+
+# Direct deployment
+ssh -i ~/.ssh/platon.key sysadmin@platon.titancnc.eu "cd /opt/fossapp && ./deploy.sh v1.1.3"
+```
 
 ## Development Commands
 
@@ -429,19 +446,57 @@ return data
 
 **VPS**: platon.titancnc.eu
 **Domain**: https://app.titancnc.eu
-**Current Version**: v1.1.1
-**Deployment**: Docker via docker-compose
+**Current Version**: v1.1.2
+**Deployment**: Simple git-based deployment with Docker
+**Deployment Directory**: `/opt/fossapp/`
 **Monitoring**: Docker healthcheck + `/api/health` endpoint
+
+**Deployment Structure** (Updated 2025-10-27):
+```
+/opt/fossapp/
+├── .git/                # Git repository (source of truth)
+├── src/                 # Application code
+├── docker-compose.yml   # Docker configuration
+├── .env.production      # Production secrets (not in git)
+├── Dockerfile
+├── deploy.sh            # Automated deployment script
+└── docs/                # Documentation
+```
+
+**Old Structure** (Archived):
+- `/opt/fossapp-old-bluegreen/` - Previous Blue-Green deployment
+- `/opt/fossapp-backup-20251027-130630.tar.gz` - Backup of old structure
+
+**Deployment Workflow**:
+```bash
+# 1. Local: Create new version
+npm version patch
+git push origin main --tags
+
+# 2. Production: Deploy
+ssh -i ~/.ssh/platon.key sysadmin@platon.titancnc.eu
+cd /opt/fossapp
+./deploy.sh v1.1.3
+
+# 3. Verify
+curl https://app.titancnc.eu/api/health
+```
 
 **Health Check Response**:
 ```json
 {
-  "status": "ok",
-  "timestamp": "2025-10-27T...",
-  "version": "1.1.1",
-  "uptime": 123456
+  "status": "healthy",
+  "timestamp": "2025-10-27T11:21:16.913Z",
+  "version": "1.1.2",
+  "uptime": 38.436665712,
+  "environment": "production"
 }
 ```
+
+**Migration Notes**:
+- **2025-10-27**: Migrated from Blue-Green deployment to simple git-based deployment
+- Benefits: 70% simpler, git as single source of truth, easy rollback
+- Trade-off: ~1-2 minutes downtime during deployment (acceptable for solo dev)
 
 ## Support & References
 
