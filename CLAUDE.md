@@ -643,6 +643,21 @@ User: "Add a data table with sorting and filtering"
 - Toast (notifications)
 - Form (form validation with react-hook-form)
 
+## Project Documentation
+
+The `docs/` folder contains essential project documentation:
+
+**Deployment & Operations**:
+- [PRODUCTION_DEPLOYMENT_CHECKLIST.md](./docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) - **MUST READ** before deploying
+- [vps-deployment.md](./docs/vps-deployment.md) - VPS setup and deployment guide
+- [versioning-guide.md](./docs/versioning-guide.md) - Version management strategy
+
+**Database & Architecture**:
+- [postgresql_etim_items_schema_overview.md](./docs/postgresql_etim_items_schema_overview.md) - Database schema documentation
+- [SUPPLIER_LOGOS.md](./docs/SUPPLIER_LOGOS.md) - Supplier logo guidelines and dark mode support
+
+**Key Takeaway**: Always check the docs folder for detailed procedures before making infrastructure changes!
+
 ## Support & References
 
 - **Supabase Project**: hyppizgiozyyyelwdius.supabase.co
