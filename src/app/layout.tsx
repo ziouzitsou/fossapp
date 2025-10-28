@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -17,20 +17,21 @@ export const metadata: Metadata = {
   title: "FOSSAPP - Lighting Product Database",
   description: "Professional lighting product database for architects and designers. Search 56,456+ products with ETIM classification.",
   manifest: "/manifest.json",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" }
-  ],
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "FOSSAPP",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" }
+  ],
 };
 
 export default function RootLayout({

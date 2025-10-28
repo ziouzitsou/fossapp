@@ -14,6 +14,7 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  turbopack: {}, // Silence Turbopack warning
   images: {
     remotePatterns: [
       {
