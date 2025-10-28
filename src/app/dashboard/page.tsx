@@ -209,6 +209,7 @@ export default function Dashboard() {
                     src={session.user?.image || '/default-avatar.png'}
                     alt="Profile"
                     fill
+                    sizes="32px"
                     className="rounded-full object-cover"
                   />
                 </div>

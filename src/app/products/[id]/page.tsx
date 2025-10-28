@@ -51,6 +51,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<ProductDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [logoError, setLogoError] = useState(false)
+  const [imageError, setImageError] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -248,19 +249,27 @@ export default function ProductDetailPage() {
                 {/* Product Image */}
                 <Card>
                   <CardContent className="p-6">
-                    {product.multimedia && product.multimedia.length > 0 ? (
+                    {product.multimedia && product.multimedia.length > 0 && !imageError ? (
                       <div className="aspect-square relative rounded-lg overflow-hidden bg-gray-100">
                         <Image
                           src={product.multimedia[0].mime_source}
                           alt={product.description_short}
                           fill
+                          loading="eager"
                           className="object-contain"
                           sizes="(max-width: 768px) 100vw, 50vw"
+                          onError={() => setImageError(true)}
                         />
                       </div>
                     ) : (
-                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                        <span className="text-muted-foreground">No image available</span>
+                      <div className="aspect-square relative rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                        <Image
+                          src="/missing-product-image.png"
+                          alt="No image available"
+                          width={400}
+                          height={400}
+                          className="object-contain opacity-50"
+                        />
                       </div>
                     )}
                   </CardContent>
@@ -288,6 +297,7 @@ export default function ProductDetailPage() {
                               alt={product.supplier_name}
                               width={60}
                               height={40}
+                              style={{ height: 'auto' }}
                               className="object-contain"
                               onError={() => setLogoError(true)}
                             />
