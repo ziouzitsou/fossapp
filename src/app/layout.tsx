@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { APP_CONFIG, PWA_CONFIG } from "@/lib/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,13 +15,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FOSSAPP - Lighting Product Database",
-  description: "Professional lighting product database for architects and designers. Search 56,456+ products with ETIM classification.",
-  manifest: "/manifest.json",
+  title: APP_CONFIG.APP_NAME,
+  description: APP_CONFIG.APP_DESCRIPTION,
+  manifest: "/api/manifest", // Dynamic manifest from centralized config
+  metadataBase: APP_CONFIG.isProduction
+    ? new URL(APP_CONFIG.PRODUCTION_URL)
+    : undefined,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "FOSSAPP",
+    title: APP_CONFIG.APP_SHORT_NAME,
   },
 };
 
@@ -29,8 +33,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" }
+    { media: "(prefers-color-scheme: light)", color: PWA_CONFIG.themeColor.light },
+    { media: "(prefers-color-scheme: dark)", color: PWA_CONFIG.themeColor.dark }
   ],
 };
 

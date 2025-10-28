@@ -6,8 +6,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 FOSSAPP is a Next.js 16.0.0 application providing a searchable database of 56,456+ lighting products and accessories for lighting design professionals, architects, and AutoCAD users. Built with App Router, TypeScript, Turbopack, and Supabase PostgreSQL backend.
 
-**Production**: https://app.titancnc.eu (v1.2.1)
+**Production**: https://main.fossapp.online (v1.2.1)
+**Legacy URL**: https://app.titancnc.eu (still active during transition)
 **Development**: Port 8080 (not 3000 - note the custom port configuration)
+
+## Domain Configuration ⚙️
+
+**Current Production Domain**: `main.fossapp.online` (as of 2025-10-28)
+**Previous Domain**: `app.titancnc.eu` (still active during transition)
+
+All production domain references are centralized in `src/lib/config.ts` for easy migration to new domains.
+
+**To change the production domain**:
+1. Edit `src/lib/config.ts` (update `PRODUCTION_DOMAIN` and `PRODUCTION_URL`)
+2. Update `.env.production` (update `NEXTAUTH_URL`)
+3. Update Google OAuth settings
+4. See [DOMAIN_CONFIGURATION.md](./docs/DOMAIN_CONFIGURATION.md) for complete migration guide
+
+**Dynamic Endpoints**:
+- `/api/manifest` - PWA manifest (uses centralized config)
+- `/api/health` - Health check
 
 ## Production Server Access
 
@@ -742,6 +760,7 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 - [PWA.md](./docs/PWA.md) - Progressive Web App implementation, updates, and testing
 - [vps-deployment.md](./docs/vps-deployment.md) - VPS setup and deployment guide
 - [versioning-guide.md](./docs/versioning-guide.md) - Version management strategy
+- [DOMAIN_CONFIGURATION.md](./docs/DOMAIN_CONFIGURATION.md) - Centralized domain configuration and migration guide
 
 **Database & Architecture**:
 - [postgresql_etim_items_schema_overview.md](./docs/postgresql_etim_items_schema_overview.md) - Database schema documentation
