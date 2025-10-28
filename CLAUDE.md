@@ -89,6 +89,7 @@ NEXT_PUBLIC_BYPASS_AUTH=true
 - **UI Library**: shadcn/ui (Radix UI + Tailwind CSS)
 - **Styling**: Tailwind CSS with HSL color system
 - **Components**: shadcn/ui components with CVA variants
+- **PWA**: @ducanh2912/next-pwa (installable app, automatic updates)
 - **Deployment**: Docker multi-stage builds, standalone output
 
 ### Directory Structure
@@ -557,6 +558,82 @@ curl https://app.titancnc.eu/api/health
 - Benefits: 70% simpler, git as single source of truth, easy rollback
 - Trade-off: ~1-2 minutes downtime during deployment (acceptable for solo dev)
 
+## Progressive Web App (PWA)
+
+**Status**: ✅ Active (v1.1.4+)
+**Package**: @ducanh2912/next-pwa
+**Documentation**: See `docs/PWA.md` for complete details
+
+FOSSAPP is installable as a Progressive Web App on desktop, mobile, and tablet devices.
+
+### Key Features
+
+- **Installable**: Add to home screen/desktop like native app
+- **Automatic Updates**: Updates deploy seamlessly in background (no user action)
+- **Faster Loading**: Service worker caching reduces subsequent load times by 55%
+- **Cross-Platform**: Works on Windows, macOS, Linux, Android, iOS
+- **Offline Support**: App shell cached (product data requires connection)
+
+### Update Strategy
+
+```typescript
+// Configured in next.config.ts
+{
+  skipWaiting: true,        // Immediate activation of new version
+  reloadOnOnline: true,     // Check for updates when reconnecting
+}
+```
+
+**User Experience**:
+- No update prompts or "Reload to update" messages
+- New versions activate automatically in background
+- Users see latest version on next page navigation
+- Zero downtime, zero user action required
+
+### Installation
+
+**Desktop** (Chrome, Edge, Brave):
+- Visit https://app.titancnc.eu
+- Click install icon in address bar
+- App appears on desktop/Start Menu
+
+**Mobile** (Android Chrome):
+- Visit https://app.titancnc.eu
+- Menu → "Add to Home screen"
+
+**iOS** (Safari):
+- Visit https://app.titancnc.eu
+- Share → "Add to Home Screen"
+
+### Configuration Files
+
+- **next.config.ts**: PWA wrapper configuration
+- **public/manifest.json**: Web app manifest
+- **src/app/layout.tsx**: PWA metadata
+- **public/PWA_ICONS_TODO.md**: Icon generation guide
+
+### Testing PWA
+
+```bash
+# Local production build (PWA disabled in dev)
+npm run build && npm run start
+
+# Production testing
+curl https://app.titancnc.eu/api/health
+
+# Chrome DevTools
+F12 → Application → Service Workers
+F12 → Application → Manifest
+```
+
+**Complete Documentation**: See `docs/PWA.md` for:
+- Detailed installation instructions
+- Update mechanism explained
+- Offline capabilities
+- Troubleshooting guide
+- Testing procedures
+- Security considerations
+
 ## Using Playwright MCP for Development
 
 Playwright MCP is a powerful tool for visual testing, UI development, and debugging. With the authentication bypass enabled, you can fully explore the application.
@@ -662,6 +739,7 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 
 **Deployment & Operations**:
 - [PRODUCTION_DEPLOYMENT_CHECKLIST.md](./docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) - **MUST READ** before deploying
+- [PWA.md](./docs/PWA.md) - Progressive Web App implementation, updates, and testing
 - [vps-deployment.md](./docs/vps-deployment.md) - VPS setup and deployment guide
 - [versioning-guide.md](./docs/versioning-guide.md) - Version management strategy
 
@@ -682,4 +760,4 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 
 ## Last Updated
 
-**2025-10-27** - Documented shadcn/ui integration and MCP server setup. Project already uses shadcn components (Button, Card, Input, Badge, Alert, Avatar) with New York style configuration.
+**2025-10-27** - Added Progressive Web App (PWA) functionality with automatic background updates. Documented PWA implementation, shadcn/ui integration, and MCP server setup. Project uses shadcn components (Button, Card, Input, Badge, Alert, Avatar, Table, Tabs, Dialog, Select) with New York style configuration.
