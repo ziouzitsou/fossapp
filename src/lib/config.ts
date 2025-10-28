@@ -11,18 +11,12 @@ export const APP_CONFIG = {
   /**
    * Production domain (without protocol)
    * Used for: PWA manifest, canonical URLs, sitemap generation
-   *
-   * Current: main.fossapp.online (as of 2025-10-28)
-   * Previous: app.titancnc.eu (still active during transition)
    */
   PRODUCTION_DOMAIN: 'main.fossapp.online',
 
   /**
    * Production URL (with protocol)
    * Used for: OAuth callbacks, API endpoints, absolute URLs
-   *
-   * Current: https://main.fossapp.online (as of 2025-10-28)
-   * Previous: https://app.titancnc.eu (still active during transition)
    */
   PRODUCTION_URL: 'https://main.fossapp.online',
 

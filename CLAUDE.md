@@ -7,13 +7,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 FOSSAPP is a Next.js 16.0.0 application providing a searchable database of 56,456+ lighting products and accessories for lighting design professionals, architects, and AutoCAD users. Built with App Router, TypeScript, Turbopack, and Supabase PostgreSQL backend.
 
 **Production**: https://main.fossapp.online (v1.2.1)
-**Legacy URL**: https://app.titancnc.eu (still active during transition)
 **Development**: Port 8080 (not 3000 - note the custom port configuration)
 
 ## Domain Configuration ⚙️
 
-**Current Production Domain**: `main.fossapp.online` (as of 2025-10-28)
-**Previous Domain**: `app.titancnc.eu` (still active during transition)
+**Production Domain**: `main.fossapp.online`
+**Previous Domain**: `app.titancnc.eu` (retired 2025-10-28)
 
 All production domain references are centralized in `src/lib/config.ts` for easy migration to new domains.
 
