@@ -808,3 +808,5 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 **2025-10-28** - Upgraded to Next.js 16.0.0 with Turbopack. Added viewport export migration for Next.js 16 metadata API. All tests passing.
 
 **2025-10-27** - Added Progressive Web App (PWA) functionality with automatic background updates. Documented PWA implementation, shadcn/ui integration, and MCP server setup. Project uses shadcn components (Button, Card, Input, Badge, Alert, Avatar, Table, Tabs, Dialog, Select) with New York style configuration.
+- ImageMagick is installed
+- Always close playwrite browser when finished using it
