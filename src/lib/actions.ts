@@ -1,6 +1,7 @@
 'use server'
 
 import { supabaseServer } from './supabase-server'
+import { ProductInfo } from '@/types/product'
 
 // Input validation and sanitization
 function validateSearchQuery(query: string): string {
@@ -70,6 +71,7 @@ export async function searchProductsAction(query: string): Promise<ProductSearch
   }
 }
 
+// Keep this for backward compatibility but it's deprecated
 export interface ProductDetail {
   product_id: string
   foss_pid: string
@@ -99,11 +101,11 @@ export interface ProductDetail {
   }>
 }
 
-export async function getProductByIdAction(productId: string): Promise<ProductDetail | null> {
+export async function getProductByIdAction(productId: string): Promise<ProductInfo | null> {
   try {
     const sanitizedProductId = validateProductId(productId)
     console.log('Getting product details for:', sanitizedProductId)
-    
+
     // Use secure parameterized query with exposed items schema and service role
     const { data, error } = await supabaseServer
       .schema('items')
@@ -111,40 +113,20 @@ export async function getProductByIdAction(productId: string): Promise<ProductDe
       .select('*')
       .eq('product_id', sanitizedProductId)
       .single()
-    
+
     if (error) {
       console.error('Database query error:', error)
       return null
     }
-    
+
     if (data) {
-      console.log('Found product in database:', data.description_short)
-      return {
-        product_id: data.product_id,
-        foss_pid: data.foss_pid,
-        description_short: data.description_short,
-        description_long: data.description_long,
-        supplier_name: data.supplier_name,
-        supplier_logo: data.supplier_logo,
-        supplier_logo_dark: data.supplier_logo_dark,
-        class_name: data.class_name,
-        family: data.family,
-        subfamily: data.subfamily,
-        prices: data.prices || [],
-        multimedia: data.multimedia || [],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        features: data.features ? data.features.map((f: any) => ({
-          feature_name: f.feature_name,
-          fvalueC_desc: f.fvalueC_desc,
-          fvalueN: f.fvalueN,
-          unit_abbrev: f.unit_abbrev,
-          fvalueB: f.fvalueB
-        })) : []
-      }
+      console.log('Found product in database:', data.description_short, 'Class:', data.class)
+      // Return complete ProductInfo with all ETIM fields
+      return data as ProductInfo
     }
   } catch (error) {
     console.error('Get product error:', error)
   }
-  
+
   return null
 }

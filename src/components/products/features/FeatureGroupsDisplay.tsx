@@ -1,0 +1,89 @@
+'use client';
+
+import React from 'react';
+import { ProductInfo } from '@/types/product';
+import { FeatureGroup } from './FeatureGroup';
+import {
+  groupFeaturesByCategory,
+  FEATURE_GROUP_CONFIG,
+  getImportantFeatures
+} from '@/lib/utils/feature-utils';
+import { Card, CardContent } from '@/components/ui/card';
+import { FeatureValueRenderer } from './FeatureValueRenderer';
+
+interface FeatureGroupsDisplayProps {
+  product: ProductInfo;
+  showQuickView?: boolean;
+  defaultExpandedGroups?: string[];
+}
+
+/**
+ * Smart feature display with grouped organization
+ */
+export function FeatureGroupsDisplay({
+  product,
+  showQuickView = true,
+  defaultExpandedGroups = ['EFG00006', 'EFG00009'] // Electrical and Light by default
+}: FeatureGroupsDisplayProps) {
+  const groupedFeatures = groupFeaturesByCategory(product.features);
+
+  // Get important features for quick view
+  const importantFeatures = getImportantFeatures(product.features, 6);
+
+  if (!product.features || product.features.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-muted-foreground">
+          No specifications available
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Quick View - Most Important Features */}
+      {showQuickView && importantFeatures.length > 0 && (
+        <Card className="border-2 border-primary/20">
+          <CardContent className="p-6">
+            <h3 className="text-lg font-bold mb-4">Key Specifications</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {importantFeatures.map((feature, idx) => (
+                <div
+                  key={`important-${feature.FEATUREID}-${idx}`}
+                  className="flex flex-col space-y-1"
+                >
+                  <span className="text-xs text-muted-foreground">
+                    {feature.feature_name}
+                  </span>
+                  <FeatureValueRenderer feature={feature} variant="default" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Grouped Features */}
+      <div className="space-y-4">
+        {Object.entries(groupedFeatures).map(([groupId, features]) => {
+          const config = FEATURE_GROUP_CONFIG[groupId];
+          const groupName = config?.name || 'Other Specifications';
+
+          return (
+            <FeatureGroup
+              key={groupId}
+              groupId={groupId}
+              groupName={groupName}
+              features={features}
+              icon={config?.icon}
+              color={config?.color}
+              defaultExpanded={defaultExpandedGroups.includes(groupId)}
+              collapsible={features.length > 5}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
