@@ -136,9 +136,7 @@ export function hasDisplayableValue(feature: Feature): boolean {
     feature.fvalueC_desc ||
     feature.fvalueN !== null ||
     feature.fvalueR ||
-    feature.fvalueA_desc ||
-    feature.fvalueL_desc ||
-    feature.fvalueD
+    feature.fvalue_detail
   );
 }
 
@@ -166,16 +164,8 @@ export function getFeatureDisplayValue(feature: Feature): string {
     return feature.fvalueR;
   }
 
-  if (feature.fvalueA_desc) {
-    return feature.fvalueA_desc;
-  }
-
-  if (feature.fvalueL_desc) {
-    return feature.fvalueL_desc;
-  }
-
-  if (feature.fvalueD) {
-    return new Date(feature.fvalueD).toLocaleDateString();
+  if (feature.fvalue_detail) {
+    return feature.fvalue_detail;
   }
 
   return '—';
