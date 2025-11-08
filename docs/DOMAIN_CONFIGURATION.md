@@ -4,7 +4,7 @@
 
 FOSSAPP uses a centralized configuration system to manage production URLs and domain references. This makes it easy to update the domain when migrating to a new server or changing the production URL.
 
-**Current Production Domain**: `app.titancnc.eu`
+**Current Production Domain**: `main.fossapp.online`
 
 ## How It Works
 
@@ -35,6 +35,65 @@ The root layout (`src/app/layout.tsx`) imports and uses values from the centrali
 - PWA manifest reference
 - Theme colors
 - Apple Web App settings
+
+## File Structure
+
+```
+src/
+├── lib/
+│   └── config.ts                      # ⭐ Primary configuration file
+├── app/
+│   ├── layout.tsx                     # Uses config for metadata
+│   └── api/
+│       └── manifest/
+│           └── route.ts               # Dynamic manifest endpoint
+└── ...
+
+docs/
+└── DOMAIN_CONFIGURATION.md            # This file
+```
+
+## Helper Functions
+
+### `getProductionUrl(path?)`
+
+Generate absolute URLs with the correct domain:
+
+```typescript
+import { getProductionUrl } from '@/lib/config'
+
+// In production: https://main.fossapp.online
+// In dev: http://localhost:8080
+const baseUrl = getProductionUrl()
+
+// In production: https://main.fossapp.online/products
+// In dev: http://localhost:8080/products
+const productsUrl = getProductionUrl('/products')
+```
+
+### `APP_CONFIG.getBaseUrl()`
+
+Get the current base URL (environment-aware):
+
+```typescript
+import { APP_CONFIG } from '@/lib/config'
+
+const baseUrl = APP_CONFIG.getBaseUrl()
+// Production: https://main.fossapp.online
+// Development: http://localhost:8080
+```
+
+### `APP_CONFIG.getDomain()`
+
+Get the domain without protocol:
+
+```typescript
+import { APP_CONFIG } from '@/lib/config'
+
+const domain = APP_CONFIG.getDomain()
+// Production: main.fossapp.online
+// Development: localhost:8080
+```
 
 ## Changing the Production Domain
 
@@ -81,13 +140,68 @@ SUPABASE_SERVICE_ROLE_KEY=<your-key>
    - Add: `https://new-domain.com/api/auth/callback/google`
    - Remove old domain (after verifying new one works)
 
-### 4. Update Documentation
+### 4. DNS and SSL Configuration
+
+**DNS Setup**:
+```bash
+# Verify DNS resolution
+dig new-domain.com
+nslookup new-domain.com
+
+# Expected: A record pointing to your VPS IP
+```
+
+**SSL Certificate** (Let's Encrypt with Certbot):
+```bash
+# Generate certificate for new domain
+sudo certbot --nginx -d new-domain.com
+```
+
+**Nginx Configuration**:
+```nginx
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name new-domain.com;
+
+    ssl_certificate /etc/letsencrypt/live/new-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/new-domain.com/privkey.pem;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# HTTP to HTTPS redirect
+server {
+    listen 80;
+    listen [::]:80;
+    server_name new-domain.com;
+    return 301 https://$server_name$request_uri;
+}
+```
+
+Test and reload:
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 5. Update Documentation
 
 Search and replace the old domain in documentation files:
 
 ```bash
 cd /home/sysadmin/nextjs/fossapp
-grep -r "app.titancnc.eu" docs/ CLAUDE.md
+grep -r "main.fossapp.online" docs/ CLAUDE.md
 # Manually update each reference
 ```
 
@@ -97,7 +211,7 @@ Files that typically reference the domain:
 - `docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`
 - `docs/vps-deployment.md`
 
-### 5. Rebuild and Deploy
+### 6. Rebuild and Deploy
 
 ```bash
 npm run build
@@ -108,7 +222,7 @@ docker-compose build
 docker-compose up -d
 ```
 
-### 6. Verify
+### 7. Verify Deployment
 
 ```bash
 # Check health endpoint
@@ -119,24 +233,30 @@ curl https://new-domain.com/api/manifest
 
 # Test OAuth login flow
 # Visit https://new-domain.com and sign in with Google
+
+# Test PWA installation
+# Visit in Chrome/Edge, click install icon
 ```
 
-## File Structure
+## Migration Checklist
 
-```
-src/
-├── lib/
-│   └── config.ts                      # ⭐ Primary configuration file
-├── app/
-│   ├── layout.tsx                     # Uses config for metadata
-│   └── api/
-│       └── manifest/
-│           └── route.ts               # Dynamic manifest endpoint
-└── ...
+When changing domains, use this checklist:
 
-docs/
-└── DOMAIN_CONFIGURATION.md            # This file
-```
+- [ ] Update `src/lib/config.ts` (PRODUCTION_DOMAIN, PRODUCTION_URL)
+- [ ] Update `.env.production` (NEXTAUTH_URL)
+- [ ] Update Google OAuth settings (origins + redirect URIs)
+- [ ] Configure DNS records
+- [ ] Generate SSL certificate
+- [ ] Configure Nginx reverse proxy
+- [ ] Update documentation files (grep for old domain)
+- [ ] Rebuild application (`npm run build`)
+- [ ] Test locally with production build (`npm run start`)
+- [ ] Deploy to production
+- [ ] Test OAuth login flow
+- [ ] Test PWA installation
+- [ ] Verify `/api/health` endpoint
+- [ ] Verify `/api/manifest` endpoint
+- [ ] Monitor logs for 24-48 hours
 
 ## Benefits of This Approach
 
@@ -152,54 +272,12 @@ docs/
 The configuration automatically detects the environment:
 
 - **Development**: Uses `http://localhost:8080` or `NEXTAUTH_URL` from `.env.local`
-- **Production**: Uses hardcoded `https://app.titancnc.eu` from `config.ts`
+- **Production**: Uses hardcoded `https://main.fossapp.online` from `config.ts`
 
 This ensures:
 - Local development works without configuration
 - Production always uses the correct domain
 - No accidental localhost references in production
-
-## Helper Functions
-
-### `getProductionUrl(path?)`
-
-Generate absolute URLs with the correct domain:
-
-```typescript
-import { getProductionUrl } from '@/lib/config'
-
-// In production: https://app.titancnc.eu
-// In dev: http://localhost:8080
-const baseUrl = getProductionUrl()
-
-// In production: https://app.titancnc.eu/products
-// In dev: http://localhost:8080/products
-const productsUrl = getProductionUrl('/products')
-```
-
-### `APP_CONFIG.getBaseUrl()`
-
-Get the current base URL (environment-aware):
-
-```typescript
-import { APP_CONFIG } from '@/lib/config'
-
-const baseUrl = APP_CONFIG.getBaseUrl()
-// Production: https://app.titancnc.eu
-// Development: http://localhost:8080
-```
-
-### `APP_CONFIG.getDomain()`
-
-Get the domain without protocol:
-
-```typescript
-import { APP_CONFIG } from '@/lib/config'
-
-const domain = APP_CONFIG.getDomain()
-// Production: app.titancnc.eu
-// Development: localhost:8080
-```
 
 ## Security Considerations
 
@@ -228,6 +306,7 @@ If users can't install the PWA after changing domains:
    - Authorized redirect URIs
 2. Check `NEXTAUTH_URL` in `.env.production`
 3. Restart the application after env changes
+4. Clear browser cookies and try again
 
 ### Wrong Domain in Links/Metadata
 
@@ -235,27 +314,68 @@ If users can't install the PWA after changing domains:
 2. Verify `npm run build` was run after changes
 3. Check no hardcoded URLs exist in components:
    ```bash
-   grep -r "https://app.titancnc.eu" src/
+   grep -r "https://main.fossapp.online" src/
    ```
 
-## Migration Checklist
+### Health Check Fails
 
-When changing domains, use this checklist:
+**Symptoms**: `/api/health` returns 502 or times out
 
-- [ ] Update `src/lib/config.ts` (PRODUCTION_DOMAIN, PRODUCTION_URL)
-- [ ] Update `.env.production` (NEXTAUTH_URL)
-- [ ] Update Google OAuth settings (origins + redirect URIs)
-- [ ] Update documentation files (grep for old domain)
-- [ ] Rebuild application (`npm run build`)
-- [ ] Test locally with production build (`npm run start`)
-- [ ] Deploy to production
-- [ ] Test OAuth login flow
-- [ ] Test PWA installation
-- [ ] Verify `/api/health` endpoint
-- [ ] Verify `/api/manifest` endpoint
-- [ ] Update DNS records (if applicable)
-- [ ] Update SSL certificate (if applicable)
+**Solution**:
+1. Check application is running: `docker-compose ps` or `pm2 status`
+2. Check logs for errors: `docker-compose logs -f`
+3. Verify port 8080 is accessible: `curl http://localhost:8080/api/health`
+4. Check Nginx proxy configuration
+
+## Transition Strategy (Optional)
+
+If you want to keep the old domain active during transition:
+
+### 1. Dual Domain Support
+
+Update Nginx to serve both domains:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name old-domain.com new-domain.com;
+    # ... same configuration
+}
+```
+
+### 2. Monitor Both Domains
+
+Track usage to determine when to switch fully:
+- Monitor access logs
+- Track OAuth success rates
+- Analyze user agent strings (PWA vs browser)
+
+### 3. Redirect Old Domain
+
+After verification period (e.g., 30 days):
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name old-domain.com;
+
+    ssl_certificate /etc/letsencrypt/live/old-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/old-domain.com/privkey.pem;
+
+    # Permanent redirect to new domain
+    return 301 https://new-domain.com$request_uri;
+}
+```
+
+## Current Production Setup
+
+**Domain**: main.fossapp.online
+**Server**: platon.titancnc.eu
+**Deployment Directory**: /opt/fossapp/
+**Nginx Config**: /etc/nginx/sites-available/fossapp
+**SSL**: Let's Encrypt (auto-renewal via certbot)
 
 ## Last Updated
 
-**2025-10-28** - Initial domain configuration documentation created for Next.js 16 upgrade.
+**2025-11-08** - Consolidated domain configuration guide. Removed obsolete references to app.titancnc.eu. Current production domain: main.fossapp.online
