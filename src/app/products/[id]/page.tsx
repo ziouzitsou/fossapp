@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes, FaArrowLeft } from 'react-icons/fa'
 import { MdDashboard, MdWork } from 'react-icons/md'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { VersionDisplay } from '@/components/version-display'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -73,6 +74,13 @@ export default function ProductDetailPage() {
   // Determine template type for the product
   const templateType = product ? getTemplateType(product) : 'generic'
 
+  // Navigation menu items
+  const navigation = [
+    { name: 'Dashboard', icon: MdDashboard, href: '/dashboard', current: false },
+    { name: 'Products', icon: MdWork, href: '/products', current: true },
+    { name: 'Projects', icon: MdWork, href: '/projects', current: false },
+  ]
+
   if (status === 'loading' || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -97,45 +105,56 @@ export default function ProductDetailPage() {
         `}
       >
         <div className="flex flex-col h-full">
-          <div className="p-6 border-b">
-            <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between h-16 px-6 border-b">
+            <div className="flex items-center">
               <Image
-                src="/icon-192x192.png"
+                src="/logo.svg"
                 alt="Company Logo"
-                width={40}
-                height={40}
-                className="rounded"
+                width={80}
+                height={80}
+                className="h-20 w-20 dark:hidden"
               />
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="lg:hidden text-muted-foreground hover:text-foreground"
-              >
-                <FaTimes className="h-6 w-6" />
-              </button>
+              <Image
+                src="/logo-dark.svg"
+                alt="Company Logo"
+                width={80}
+                height={80}
+                className="h-20 w-20 hidden dark:block"
+              />
             </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden text-muted-foreground hover:text-foreground"
+            >
+              <FaTimes className="h-5 w-5" />
+            </button>
           </div>
 
-          <nav className="flex-1 p-6 space-y-2">
-            <div className="space-y-1">
-              <a
-                href="/dashboard"
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                <MdDashboard className="h-5 w-5" />
-                <span>Projects</span>
-              </a>
-              <a
-                href="/products"
-                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-accent text-accent-foreground"
-              >
-                <MdWork className="h-5 w-5" />
-                <span>Products</span>
-              </a>
+          <nav className="mt-8 flex-1">
+            <div className="px-3">
+              {navigation.map((item) => {
+                const Icon = item.icon
+                return (
+                  <a
+                    key={item.name}
+                    href={item.href}
+                    className={`${
+                      item.current
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    } group flex items-center px-3 py-2 text-sm font-medium rounded-md mb-1 transition-colors`}
+                  >
+                    <Icon className="mr-3 h-5 w-5" />
+                    {item.name}
+                  </a>
+                )
+              })}
             </div>
           </nav>
 
-          <div className="p-6 border-t">
-            <div className="text-xs text-muted-foreground">v1.2.1-dev</div>
+          {/* Version display at bottom */}
+          <div className="border-t">
+            <VersionDisplay />
           </div>
         </div>
       </aside>

@@ -1,5 +1,6 @@
 'use client'
 
+import { signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useDevSession } from '@/lib/use-dev-session'
@@ -181,7 +182,7 @@ export default function ProductsPage() {
                       <p className="text-sm text-muted-foreground">{session.user?.email}</p>
                     </div>
                     <button
-                      onClick={() => router.push('/')}
+                      onClick={() => signOut()}
                       className="w-full text-left px-4 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors"
                     >
                       <FaSignOutAlt className="h-4 w-4" />

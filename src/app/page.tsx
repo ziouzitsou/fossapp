@@ -1,82 +1,63 @@
 'use client'
 
-import { useSession, signIn } from 'next-auth/react'
-import { FaGoogle } from 'react-icons/fa'
-import Link from 'next/link'
+import { useSession } from 'next-auth/react'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Lightbulb } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { LoginForm } from '@/components/login-form'
+import { LoginImageSlideshow } from '@/components/login-image-slideshow'
 
 export default function Home() {
   const { data: session, status } = useSession()
+  const router = useRouter()
 
-  if (status === 'loading') {
+  useEffect(() => {
+    if (session) {
+      router.push('/dashboard')
+    }
+  }, [session, router])
+
+  if (status === 'loading' || session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="absolute top-4 right-4">
-          <ThemeToggle />
-        </div>
+      <div className="flex min-h-svh items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     )
   }
 
-  if (session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="absolute top-4 right-4">
+  return (
+    <div className="grid min-h-svh lg:grid-cols-2">
+      {/* Left Panel - Login Form */}
+      <div className="flex flex-col gap-4 p-6 md:p-10">
+        {/* Header with Logo and Theme Toggle */}
+        <div className="flex items-center justify-between">
+          <a href="#" className="flex items-center gap-2 font-medium">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Lightbulb className="size-5" />
+            </div>
+            <span className="text-lg font-semibold">FOSSAPP</span>
+          </a>
           <ThemeToggle />
         </div>
-        <Card className="max-w-md w-full mx-4">
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl">Welcome back!</CardTitle>
-            <CardDescription>You&apos;re successfully signed in</CardDescription>
-          </CardHeader>
-          <CardContent className="text-center space-y-6">
-            <div className="flex flex-col items-center space-y-4">
-              <Avatar className="w-20 h-20">
-                <AvatarImage src={session.user?.image || ''} alt="Profile" />
-                <AvatarFallback>{session.user?.name?.[0] || 'U'}</AvatarFallback>
-              </Avatar>
-              <div>
-                <h2 className="text-xl font-semibold">{session.user?.name}</h2>
-                <p className="text-muted-foreground">{session.user?.email}</p>
-              </div>
-            </div>
 
-            <Button asChild className="w-full">
-              <Link href="/dashboard">
-                Enter Dashboard
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+        {/* Centered Login Form */}
+        <div className="flex flex-1 items-center justify-center">
+          <div className="w-full max-w-xs">
+            <LoginForm />
+          </div>
+        </div>
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
+        {/* Footer */}
+        <div className="text-balance text-center text-xs text-muted-foreground">
+          Professional lighting database • 56,000+ products
+        </div>
       </div>
-      <Card className="max-w-md w-full mx-4">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl">Welcome</CardTitle>
-          <CardDescription>Sign in with your Google account to continue</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            onClick={() => signIn('google')}
-            variant="outline"
-            className="w-full"
-          >
-            <FaGoogle className="mr-2 h-4 w-4 text-red-500" />
-            Sign in with Google
-          </Button>
-        </CardContent>
-      </Card>
+
+      {/* Right Panel - Image Slideshow */}
+      <div className="relative hidden bg-muted lg:block">
+        <LoginImageSlideshow />
+      </div>
     </div>
   )
 }
