@@ -6,8 +6,8 @@ import { useEffect, useState } from 'react'
 import { useDevSession } from '@/lib/use-dev-session'
 import Image from 'next/image'
 import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes, FaSearch, FaHistory, FaTrash } from 'react-icons/fa'
-import { MdDashboard, MdWork } from 'react-icons/md'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { getNavigation } from '@/lib/navigation'
 import { VersionDisplay } from '@/components/version-display'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -94,11 +94,7 @@ export default function ProductsPage() {
     return null
   }
 
-  const navigation = [
-    { name: 'Dashboard', icon: MdDashboard, href: '/dashboard', current: false },
-    { name: 'Products', icon: MdWork, href: '/products', current: true },
-    { name: 'Projects', icon: MdWork, href: '/projects', current: false },
-  ]
+  const navigation = getNavigation('/products')
 
   return (
     <div className="h-screen flex bg-background">

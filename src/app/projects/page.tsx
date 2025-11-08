@@ -6,8 +6,8 @@ import { useEffect, useState } from 'react'
 import { useDevSession } from '@/lib/use-dev-session'
 import Image from 'next/image'
 import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes } from 'react-icons/fa'
-import { MdDashboard, MdWork } from 'react-icons/md'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { getNavigation } from '@/lib/navigation'
 import { VersionDisplay } from '@/components/version-display'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FolderKanban } from 'lucide-react'
@@ -36,11 +36,7 @@ export default function Projects() {
     return null
   }
 
-  const navigation = [
-    { name: 'Dashboard', icon: MdDashboard, href: '/dashboard', current: false },
-    { name: 'Products', icon: MdWork, href: '/products', current: false },
-    { name: 'Projects', icon: MdWork, href: '/projects', current: true },
-  ]
+  const navigation = getNavigation('/projects')
 
   return (
     <div className="h-screen flex bg-background">

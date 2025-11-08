@@ -5,8 +5,8 @@ import { useDevSession } from '@/lib/use-dev-session'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes, FaArrowLeft } from 'react-icons/fa'
-import { MdDashboard, MdWork } from 'react-icons/md'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { getNavigation } from '@/lib/navigation'
 import { VersionDisplay } from '@/components/version-display'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
@@ -75,11 +75,7 @@ export default function ProductDetailPage() {
   const templateType = product ? getTemplateType(product) : 'generic'
 
   // Navigation menu items
-  const navigation = [
-    { name: 'Dashboard', icon: MdDashboard, href: '/dashboard', current: false },
-    { name: 'Products', icon: MdWork, href: '/products', current: true },
-    { name: 'Projects', icon: MdWork, href: '/projects', current: false },
-  ]
+  const navigation = getNavigation('/products')
 
   if (status === 'loading' || isLoading) {
     return (
