@@ -67,7 +67,7 @@ export function FeatureGroupsDisplay({
       {/* Grouped Features */}
       <div className="space-y-4">
         {(() => {
-          const configuredGroups: JSX.Element[] = [];
+          const configuredGroups: React.ReactElement[] = [];
           const unconfiguredFeatures: typeof product.features = [];
 
           // Separate configured and unconfigured groups
