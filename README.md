@@ -55,7 +55,7 @@ FOSSAPP provides access to a comprehensive database of 56,456+ lighting products
 
 4. Configure environment variables in `.env.local`:
    ```
-   NEXTAUTH_URL=http://localhost:3000
+   NEXTAUTH_URL=http://localhost:8080
    NEXTAUTH_SECRET=your-secret-key-here
    GOOGLE_CLIENT_ID=your-google-client-id
    GOOGLE_CLIENT_SECRET=your-google-client-secret
@@ -71,7 +71,7 @@ FOSSAPP provides access to a comprehensive database of 56,456+ lighting products
 3. Enable the Google+ API
 4. Create OAuth 2.0 credentials:
    - Application type: Web application
-   - Authorized redirect URIs: `http://localhost:3000/api/auth/callback/google`
+   - Authorized redirect URIs: `http://localhost:8080/api/auth/callback/google`
 5. Copy the Client ID and Client Secret to your `.env.local` file
 
 ### Running the Application
@@ -80,7 +80,7 @@ FOSSAPP provides access to a comprehensive database of 56,456+ lighting products
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the application.
+Open [http://localhost:8080](http://localhost:8080) to view the application.
 
 ## Project Structure
 
@@ -150,7 +150,7 @@ The application connects to a Supabase PostgreSQL database with the following ke
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the application.
+Open [http://localhost:8080](http://localhost:8080) to view the application.
 
 ### Development Commands
 

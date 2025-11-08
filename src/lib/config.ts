@@ -49,7 +49,7 @@ export const APP_CONFIG = {
     }
 
     // Production: use hardcoded value
-    return 'https://app.titancnc.eu'
+    return APP_CONFIG.PRODUCTION_URL
   },
 
   /**
@@ -64,7 +64,7 @@ export const APP_CONFIG = {
       return 'localhost:8080'
     }
 
-    return 'app.titancnc.eu'
+    return APP_CONFIG.PRODUCTION_DOMAIN
   },
 } as const
 
