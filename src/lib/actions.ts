@@ -326,23 +326,29 @@ async function getActiveCatalogsFallback(): Promise<CatalogInfo[]> {
       return []
     }
 
-    // Get all product counts in one query
-    const catalogIds = catalogs.map(c => c.id)
-    const { data: products, error: productsError } = await supabaseServer
-      .schema('items')
-      .from('product')
-      .select('catalog_id')
-      .in('catalog_id', catalogIds)
+    // Use SQL to count products per catalog (much more efficient)
+    const catalogIds = catalogs.map(c => c.id).join(',')
 
-    if (productsError) {
-      console.error('Error getting products:', productsError)
+    const { data: productCounts, error: countsError } = await supabaseServer.rpc('execute_sql', {
+      query: `
+        SELECT catalog_id, COUNT(*) as count
+        FROM items.product
+        WHERE catalog_id IN (${catalogIds})
+        GROUP BY catalog_id
+      `
+    })
+
+    if (countsError) {
+      console.error('Error getting product counts:', countsError)
     }
 
-    // Count products per catalog
-    const productCounts = new Map<number, number>()
-    products?.forEach((p: any) => {
-      productCounts.set(p.catalog_id, (productCounts.get(p.catalog_id) || 0) + 1)
-    })
+    // Create a map of catalog_id -> count
+    const countMap = new Map<number, number>()
+    if (productCounts && Array.isArray(productCounts)) {
+      productCounts.forEach((row: any) => {
+        countMap.set(parseInt(row.catalog_id), parseInt(row.count))
+      })
+    }
 
     // Map catalogs with counts
     return catalogs.map((catalog: any) => ({
@@ -353,7 +359,7 @@ async function getActiveCatalogsFallback(): Promise<CatalogInfo[]> {
       country_flag: catalog.supplier?.country_flag || undefined,
       supplier_logo: catalog.supplier?.logo || undefined,
       supplier_logo_dark: catalog.supplier?.logo_dark || undefined,
-      product_count: productCounts.get(catalog.id) || 0
+      product_count: countMap.get(catalog.id) || 0
     }))
   } catch (error) {
     console.error('Fallback catalogs error:', error)
