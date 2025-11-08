@@ -284,7 +284,26 @@ export async function getTopFamiliesAction(limit: number = 10): Promise<FamilySt
 
 export async function getActiveCatalogsAction(): Promise<CatalogInfo[]> {
   try {
-    const { data, error } = await supabaseServer
+    // Use a single SQL query to get catalogs with product counts
+    const { data, error } = await supabaseServer.rpc('get_active_catalogs_with_counts')
+
+    if (error) {
+      console.error('Error getting catalogs:', error)
+      // Fallback to manual aggregation if RPC doesn't exist
+      return getActiveCatalogsFallback()
+    }
+
+    return data || []
+  } catch (error) {
+    console.error('Catalogs error:', error)
+    return getActiveCatalogsFallback()
+  }
+}
+
+async function getActiveCatalogsFallback(): Promise<CatalogInfo[]> {
+  try {
+    // Get catalogs with supplier info
+    const { data: catalogs, error: catalogError } = await supabaseServer
       .schema('items')
       .from('catalog')
       .select(`
@@ -302,40 +321,42 @@ export async function getActiveCatalogsAction(): Promise<CatalogInfo[]> {
       .eq('active', true)
       .order('generation_date', { ascending: false })
 
-    if (error) {
-      console.error('Error getting catalogs:', error)
+    if (catalogError || !catalogs) {
+      console.error('Error getting catalogs:', catalogError)
       return []
     }
 
-    // Count products for each catalog
-    const catalogsWithCounts = await Promise.all(
-      (data || []).map(async (catalog: any) => {
-        const { count, error: countError } = await supabaseServer
-          .schema('items')
-          .from('product')
-          .select('*', { count: 'exact', head: true })
-          .eq('catalog_id', catalog.id)
+    // Get all product counts in one query
+    const catalogIds = catalogs.map(c => c.id)
+    const { data: products, error: productsError } = await supabaseServer
+      .schema('items')
+      .from('product')
+      .select('catalog_id')
+      .in('catalog_id', catalogIds)
 
-        if (countError) {
-          console.error('Error counting products:', countError)
-        }
+    if (productsError) {
+      console.error('Error getting products:', productsError)
+    }
 
-        return {
-          catalog_name: catalog.catalog_name,
-          generation_date: catalog.generation_date,
-          supplier_name: catalog.supplier?.supplier_name || 'Unknown',
-          country: catalog.supplier?.country || '',
-          country_flag: catalog.supplier?.country_flag || undefined,
-          supplier_logo: catalog.supplier?.logo || undefined,
-          supplier_logo_dark: catalog.supplier?.logo_dark || undefined,
-          product_count: count || 0
-        }
-      })
-    )
+    // Count products per catalog
+    const productCounts = new Map<number, number>()
+    products?.forEach((p: any) => {
+      productCounts.set(p.catalog_id, (productCounts.get(p.catalog_id) || 0) + 1)
+    })
 
-    return catalogsWithCounts
+    // Map catalogs with counts
+    return catalogs.map((catalog: any) => ({
+      catalog_name: catalog.catalog_name,
+      generation_date: catalog.generation_date,
+      supplier_name: catalog.supplier?.supplier_name || 'Unknown',
+      country: catalog.supplier?.country || '',
+      country_flag: catalog.supplier?.country_flag || undefined,
+      supplier_logo: catalog.supplier?.logo || undefined,
+      supplier_logo_dark: catalog.supplier?.logo_dark || undefined,
+      product_count: productCounts.get(catalog.id) || 0
+    }))
   } catch (error) {
-    console.error('Catalogs error:', error)
+    console.error('Fallback catalogs error:', error)
     return []
   }
 }

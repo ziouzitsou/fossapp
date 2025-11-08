@@ -348,44 +348,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Vendor Logos Section */}
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Vendor Logos</CardTitle>
-                <p className="text-sm text-muted-foreground">All suppliers in the database</p>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-6 items-center justify-start">
-                  {suppliers
-                    .filter(s => s.supplier_logo)
-                    .map((supplier) => (
-                      <div
-                        key={supplier.supplier_name}
-                        className="relative w-24 h-24 p-2 border rounded-lg hover:shadow-md transition-shadow"
-                        title={supplier.supplier_name}
-                      >
-                        <Image
-                          src={supplier.supplier_logo!}
-                          alt={supplier.supplier_name}
-                          fill
-                          sizes="96px"
-                          className="object-contain p-2 dark:hidden"
-                        />
-                        {supplier.supplier_logo_dark && (
-                          <Image
-                            src={supplier.supplier_logo_dark}
-                            alt={supplier.supplier_name}
-                            fill
-                            sizes="96px"
-                            className="object-contain p-2 hidden dark:block"
-                          />
-                        )}
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Top Product Families */}
             <Card>
               <CardHeader>
