@@ -11,14 +11,16 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { VersionDisplay } from '@/components/version-display'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Package, Database, Building2, Grid3x3 } from 'lucide-react'
+import { Package, Building2, Grid3x3, Calendar } from 'lucide-react'
 import {
   getDashboardStatsAction,
   getSupplierStatsAction,
   getTopFamiliesAction,
+  getActiveCatalogsAction,
   type DashboardStats,
   type SupplierStats,
-  type FamilyStats
+  type FamilyStats,
+  type CatalogInfo
 } from '@/lib/actions'
 
 export default function Dashboard() {
@@ -28,6 +30,7 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({ totalProducts: 0, totalSuppliers: 0, totalFamilies: 0 })
   const [suppliers, setSuppliers] = useState<SupplierStats[]>([])
+  const [catalogs, setCatalogs] = useState<CatalogInfo[]>([])
   const [topFamilies, setTopFamilies] = useState<FamilyStats[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -47,14 +50,16 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     setLoading(true)
     try {
-      const [dashboardStats, supplierStats, familyStats] = await Promise.all([
+      const [dashboardStats, supplierStats, catalogStats, familyStats] = await Promise.all([
         getDashboardStatsAction(),
         getSupplierStatsAction(),
+        getActiveCatalogsAction(),
         getTopFamiliesAction(10)
       ])
 
       setStats(dashboardStats)
       setSuppliers(supplierStats)
+      setCatalogs(catalogStats)
       setTopFamilies(familyStats)
     } catch (error) {
       console.error('Error loading dashboard data:', error)
@@ -218,7 +223,7 @@ export default function Dashboard() {
             </div>
 
             {/* Main Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Products</CardTitle>
@@ -228,19 +233,6 @@ export default function Dashboard() {
                   <div className="text-2xl font-bold">{stats.totalProducts.toLocaleString()}</div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Lighting products in database
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Active Catalogs</CardTitle>
-                  <Database className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.totalSuppliers}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Supplier catalogs
                   </p>
                 </CardContent>
               </Card>
@@ -272,50 +264,84 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            {/* Supplier Catalogs Grid */}
+            {/* Active Catalogs */}
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle>Supplier Catalogs</CardTitle>
-                <p className="text-sm text-muted-foreground">Products per supplier catalog</p>
+                <CardTitle>Active Catalogs</CardTitle>
+                <p className="text-sm text-muted-foreground">Currently available supplier catalogs</p>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {suppliers.map((supplier) => (
+                <div className="space-y-4">
+                  {catalogs.map((catalog) => (
                     <div
-                      key={supplier.supplier_name}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors"
+                      key={`${catalog.supplier_name}-${catalog.catalog_name}`}
+                      className="p-4 border rounded-lg hover:bg-accent transition-colors"
                     >
-                      <div className="flex items-center gap-3 flex-1">
-                        {supplier.supplier_logo && (
-                          <div className="relative w-12 h-12 flex-shrink-0">
+                      <div className="flex items-start gap-4">
+                        {/* Supplier Logo */}
+                        {catalog.supplier_logo && (
+                          <div className="relative w-16 h-16 flex-shrink-0">
                             <Image
-                              src={supplier.supplier_logo}
-                              alt={supplier.supplier_name}
+                              src={catalog.supplier_logo}
+                              alt={catalog.supplier_name}
                               fill
-                              sizes="48px"
+                              sizes="64px"
                               className="object-contain dark:hidden"
                             />
-                            {supplier.supplier_logo_dark && (
+                            {catalog.supplier_logo_dark && (
                               <Image
-                                src={supplier.supplier_logo_dark}
-                                alt={supplier.supplier_name}
+                                src={catalog.supplier_logo_dark}
+                                alt={catalog.supplier_name}
                                 fill
-                                sizes="48px"
+                                sizes="64px"
                                 className="object-contain hidden dark:block"
                               />
                             )}
                           </div>
                         )}
+
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{supplier.supplier_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {supplier.product_count.toLocaleString()} products
-                          </p>
+                          {/* Catalog Name & Supplier */}
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-base">{catalog.catalog_name}</h3>
+                              <div className="flex items-center gap-2 mt-1">
+                                {/* Country Flag */}
+                                {catalog.country_flag && (
+                                  <div className="relative w-5 h-4 flex-shrink-0">
+                                    <Image
+                                      src={catalog.country_flag}
+                                      alt={catalog.country}
+                                      fill
+                                      sizes="20px"
+                                      className="object-cover rounded-sm"
+                                    />
+                                  </div>
+                                )}
+                                <span className="text-sm text-muted-foreground">
+                                  {catalog.supplier_name}
+                                  {catalog.country && ` • ${catalog.country}`}
+                                </span>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="ml-2 flex-shrink-0">
+                              {catalog.product_count.toLocaleString()} products
+                            </Badge>
+                          </div>
+
+                          {/* Catalog Date */}
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Calendar className="h-3.5 w-3.5" />
+                            <span>
+                              Generated: {new Date(catalog.generation_date).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <Badge variant="secondary" className="ml-2">
-                        {supplier.product_count.toLocaleString()}
-                      </Badge>
                     </div>
                   ))}
                 </div>

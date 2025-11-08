@@ -194,6 +194,17 @@ export interface SupplierStats {
   supplier_logo_dark?: string
 }
 
+export interface CatalogInfo {
+  catalog_name: string
+  generation_date: string
+  supplier_name: string
+  country: string
+  country_flag?: string
+  supplier_logo?: string
+  supplier_logo_dark?: string
+  product_count: number
+}
+
 export async function getSupplierStatsAction(): Promise<SupplierStats[]> {
   try {
     // Get all products with supplier info
@@ -267,6 +278,64 @@ export async function getTopFamiliesAction(limit: number = 10): Promise<FamilySt
       .slice(0, limit)
   } catch (error) {
     console.error('Families error:', error)
+    return []
+  }
+}
+
+export async function getActiveCatalogsAction(): Promise<CatalogInfo[]> {
+  try {
+    const { data, error } = await supabaseServer
+      .schema('items')
+      .from('catalog')
+      .select(`
+        id,
+        catalog_name,
+        generation_date,
+        supplier:supplier_id (
+          supplier_name,
+          country,
+          country_flag,
+          logo,
+          logo_dark
+        )
+      `)
+      .eq('active', true)
+      .order('generation_date', { ascending: false })
+
+    if (error) {
+      console.error('Error getting catalogs:', error)
+      return []
+    }
+
+    // Count products for each catalog
+    const catalogsWithCounts = await Promise.all(
+      (data || []).map(async (catalog: any) => {
+        const { count, error: countError } = await supabaseServer
+          .schema('items')
+          .from('product')
+          .select('*', { count: 'exact', head: true })
+          .eq('catalog_id', catalog.id)
+
+        if (countError) {
+          console.error('Error counting products:', countError)
+        }
+
+        return {
+          catalog_name: catalog.catalog_name,
+          generation_date: catalog.generation_date,
+          supplier_name: catalog.supplier?.supplier_name || 'Unknown',
+          country: catalog.supplier?.country || '',
+          country_flag: catalog.supplier?.country_flag || undefined,
+          supplier_logo: catalog.supplier?.logo || undefined,
+          supplier_logo_dark: catalog.supplier?.logo_dark || undefined,
+          product_count: count || 0
+        }
+      })
+    )
+
+    return catalogsWithCounts
+  } catch (error) {
+    console.error('Catalogs error:', error)
     return []
   }
 }
