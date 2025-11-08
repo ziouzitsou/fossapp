@@ -47,8 +47,7 @@ export interface ProductSearchResult {
 export async function searchProductsAction(query: string): Promise<ProductSearchResult[]> {
   try {
     const sanitizedQuery = validateSearchQuery(query)
-    console.log('Searching for:', sanitizedQuery)
-    
+
     // Use secure parameterized query with exposed items schema and service role
     const { data, error } = await supabaseServer
       .schema('items')
@@ -57,13 +56,12 @@ export async function searchProductsAction(query: string): Promise<ProductSearch
       .or(`description_short.ilike.%${sanitizedQuery}%,foss_pid.ilike.%${sanitizedQuery}%,supplier_name.ilike.%${sanitizedQuery}%,family.ilike.%${sanitizedQuery}%,subfamily.ilike.%${sanitizedQuery}%`)
       .order('description_short')
       .limit(50)
-    
+
     if (error) {
       console.error('Database query error:', error)
       return []
     }
-    
-    console.log(`Found ${data?.length || 0} products from database`)
+
     return data || []
   } catch (error) {
     console.error('Search error:', error)
@@ -104,7 +102,6 @@ export interface ProductDetail {
 export async function getProductByIdAction(productId: string): Promise<ProductInfo | null> {
   try {
     const sanitizedProductId = validateProductId(productId)
-    console.log('Getting product details for:', sanitizedProductId)
 
     // Use secure parameterized query with exposed items schema and service role
     const { data, error } = await supabaseServer
@@ -120,7 +117,6 @@ export async function getProductByIdAction(productId: string): Promise<ProductIn
     }
 
     if (data) {
-      console.log('Found product in database:', data.description_short, 'Class:', data.class)
       // Return complete ProductInfo with all ETIM fields
       return data as ProductInfo
     }

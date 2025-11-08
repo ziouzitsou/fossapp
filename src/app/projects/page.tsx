@@ -1,52 +1,28 @@
 'use client'
 
+import { signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useDevSession } from '@/lib/use-dev-session'
 import Image from 'next/image'
-import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes, FaSearch } from 'react-icons/fa'
+import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes } from 'react-icons/fa'
 import { MdDashboard, MdWork } from 'react-icons/md'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { VersionDisplay } from '@/components/version-display'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { searchProducts, ProductSearchResult } from '@/lib/supabase'
+import { FolderKanban } from 'lucide-react'
 
-export default function ProductsPage() {
+export default function Projects() {
   const { data: session, status } = useDevSession()
   const router = useRouter()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<ProductSearchResult[]>([])
-  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/')
     }
   }, [status, router])
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return
-    
-    setIsLoading(true)
-    try {
-      const results = await searchProducts(searchQuery)
-      setSearchResults(results)
-    } catch (error) {
-      console.error('Search error:', error)
-      setSearchResults([])
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleProductClick = (productId: string) => {
-    router.push(`/products/${productId}`)
-  }
 
   if (status === 'loading') {
     return (
@@ -62,15 +38,15 @@ export default function ProductsPage() {
 
   const navigation = [
     { name: 'Dashboard', icon: MdDashboard, href: '/dashboard', current: false },
-    { name: 'Products', icon: MdWork, href: '/products', current: true },
-    { name: 'Projects', icon: MdWork, href: '/projects', current: false },
+    { name: 'Products', icon: MdWork, href: '/products', current: false },
+    { name: 'Projects', icon: MdWork, href: '/projects', current: true },
   ]
 
   return (
     <div className="h-screen flex bg-background">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -104,7 +80,7 @@ export default function ProductsPage() {
             <FaTimes className="h-5 w-5" />
           </button>
         </div>
-        
+
         <nav className="mt-8 flex-1">
           <div className="px-3">
             {navigation.map((item) => {
@@ -126,7 +102,7 @@ export default function ProductsPage() {
             })}
           </div>
         </nav>
-        
+
         {/* Version display at bottom */}
         <div className="border-t">
           <VersionDisplay />
@@ -144,14 +120,14 @@ export default function ProductsPage() {
             >
               <FaBars className="h-5 w-5" />
             </button>
-            
+
             <div className="flex-1" />
-            
+
             {/* Right side items */}
             <div className="flex items-center gap-4">
               {/* Theme Toggle */}
               <ThemeToggle />
-              
+
               {/* User menu */}
               <div className="relative">
                 <button
@@ -181,7 +157,7 @@ export default function ProductsPage() {
                       <p className="text-sm text-muted-foreground">{session.user?.email}</p>
                     </div>
                     <button
-                      onClick={() => router.push('/')}
+                      onClick={() => signOut()}
                       className="w-full text-left px-4 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors"
                     >
                       <FaSignOutAlt className="h-4 w-4" />
@@ -198,91 +174,27 @@ export default function ProductsPage() {
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-4xl mx-auto">
             <div className="mb-8">
-              <h1 className="text-2xl font-bold text-foreground">Products</h1>
-              <p className="text-muted-foreground mt-2">Search and explore our product catalog.</p>
+              <h1 className="text-3xl font-bold text-foreground">Projects</h1>
+              <p className="text-muted-foreground mt-2">Manage your lighting projects</p>
             </div>
-            
-            {/* Search Section */}
-            <Card className="mb-6">
+
+            <Card>
               <CardHeader>
-                <CardTitle>Search Products</CardTitle>
-                <CardDescription>Enter product name, model, or description to find products</CardDescription>
+                <div className="flex items-center gap-3">
+                  <FolderKanban className="h-8 w-8 text-primary" />
+                  <div>
+                    <CardTitle>Projects Feature</CardTitle>
+                    <CardDescription>This is the Projects page</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Search products..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    className="flex-1"
-                  />
-                  <Button onClick={handleSearch} disabled={isLoading}>
-                    {isLoading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                    ) : (
-                      <FaSearch className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                <p className="text-muted-foreground">
+                  The Projects feature is coming soon! This page will allow you to create and manage
+                  lighting design projects, organize products, and collaborate with your team.
+                </p>
               </CardContent>
             </Card>
-
-            {/* Search Results */}
-            {searchResults.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Search Results</CardTitle>
-                  <CardDescription>{searchResults.length} products found</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {searchResults.map((product) => (
-                      <div
-                        key={product.product_id}
-                        onClick={() => handleProductClick(product.product_id)}
-                        className="p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h3 className="font-medium text-foreground">{product.description_short}</h3>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Model: {product.foss_pid}
-                            </p>
-                            <div className="flex items-center gap-2 mt-2">
-                              <Badge variant="secondary">{product.supplier_name}</Badge>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            {product.prices.length > 0 && (
-                              <div className="text-sm">
-                                <span className="font-medium">€{product.prices[0].start_price}</span>
-                                {product.prices[0].disc1 > 0 && (
-                                  <p className="text-xs text-muted-foreground">
-                                    -{product.prices[0].disc1}% disc
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Empty State */}
-            {searchQuery && searchResults.length === 0 && !isLoading && (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <p className="text-muted-foreground">No products found for &quot;{searchQuery}&quot;</p>
-                  <p className="text-sm text-muted-foreground mt-2">Try a different search term</p>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </main>
       </div>

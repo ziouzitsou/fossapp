@@ -108,8 +108,9 @@ export default function Dashboard() {
   }
 
   const navigation = [
-    { name: 'Projects', icon: MdDashboard, href: '/dashboard', current: true },
+    { name: 'Dashboard', icon: MdDashboard, href: '/dashboard', current: true },
     { name: 'Products', icon: MdWork, href: '/products', current: false },
+    { name: 'Projects', icon: MdWork, href: '/projects', current: false },
   ]
 
   return (

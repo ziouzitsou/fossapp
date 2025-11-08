@@ -146,6 +146,11 @@ export function hasDisplayableValue(feature: Feature): boolean {
  * @returns Formatted display value
  */
 export function getFeatureDisplayValue(feature: Feature): string {
+  // Handle range values first (PostgreSQL numrange format)
+  if (feature.fvalueR) {
+    return parseAndFormatRange(feature.fvalueR, feature.unit_abbrev || undefined);
+  }
+
   // Handle different value types
   if (feature.fvalueC_desc) {
     return feature.fvalueC_desc;
@@ -153,18 +158,24 @@ export function getFeatureDisplayValue(feature: Feature): string {
 
   if (feature.fvalueN !== null) {
     const unit = feature.unit_abbrev || '';
-    return `${feature.fvalueN}${unit ? ' ' + unit : ''}`;
+    // Format number to remove .0 for whole numbers
+    const value = Number.isInteger(feature.fvalueN)
+      ? feature.fvalueN.toString()
+      : feature.fvalueN.toString();
+    return `${value}${unit ? ' ' + unit : ''}`;
   }
 
   if (feature.fvalueB !== null) {
     return feature.fvalueB ? 'Yes' : 'No';
   }
 
-  if (feature.fvalueR) {
-    return feature.fvalueR;
-  }
-
   if (feature.fvalue_detail) {
+    // Check if fvalue_detail contains a range value (like "[180.0,180.0]")
+    if (typeof feature.fvalue_detail === 'string' &&
+        feature.fvalue_detail.startsWith('[') &&
+        feature.fvalue_detail.includes(',')) {
+      return parseAndFormatRange(feature.fvalue_detail, feature.unit_abbrev || undefined);
+    }
     return feature.fvalue_detail;
   }
 
@@ -219,4 +230,42 @@ export function formatNumericValue(value: number, decimals: number = 0): string 
     return Math.round(value).toString();
   }
   return value.toFixed(decimals);
+}
+
+/**
+ * Parse and format PostgreSQL numrange string
+ * @param rangeStr Range string like "[180.0,180.0]" or "[32.3,34.2]"
+ * @param unit Optional unit to append
+ * @returns Formatted range string
+ */
+export function parseAndFormatRange(rangeStr: string, unit?: string): string {
+  // Parse PostgreSQL numrange format "[lower,upper]" or "(lower,upper)"
+  const match = rangeStr.match(/[\[\(]?([\d.-]+),([\d.-]+)[\]\)]?/);
+
+  if (!match) {
+    return rangeStr; // Return as-is if parsing fails
+  }
+
+  const lower = parseFloat(match[1]);
+  const upper = parseFloat(match[2]);
+
+  // Format numbers (remove .0 for whole numbers, keep decimals otherwise)
+  const formatNum = (num: number): string => {
+    // If it's effectively a whole number, show without decimals
+    if (Number.isInteger(num) || Math.abs(num - Math.round(num)) < 0.0001) {
+      return Math.round(num).toString();
+    }
+    // Otherwise keep the decimal precision from the original
+    return num.toString();
+  };
+
+  const unitStr = unit ? ` ${unit}` : '';
+
+  // If lower equals upper, show as single value
+  if (lower === upper) {
+    return `${formatNum(lower)}${unitStr}`;
+  }
+
+  // Otherwise show as range with tilde
+  return `${formatNum(lower)} ~ ${formatNum(upper)}${unitStr}`;
 }

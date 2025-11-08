@@ -56,7 +56,7 @@ export function FeatureGroupsDisplay({
                   <span className="text-xs text-muted-foreground">
                     {feature.feature_name}
                   </span>
-                  <FeatureValueRenderer feature={feature} variant="default" />
+                  <FeatureValueRenderer feature={feature} />
                 </div>
               ))}
             </div>
@@ -66,23 +66,49 @@ export function FeatureGroupsDisplay({
 
       {/* Grouped Features */}
       <div className="space-y-4">
-        {Object.entries(groupedFeatures).map(([groupId, features]) => {
-          const config = FEATURE_GROUP_CONFIG[groupId];
-          const groupName = config?.name || 'Other Specifications';
+        {(() => {
+          const configuredGroups: JSX.Element[] = [];
+          const unconfiguredFeatures: typeof product.features = [];
 
-          return (
-            <FeatureGroup
-              key={groupId}
-              groupId={groupId}
-              groupName={groupName}
-              features={features}
-              icon={config?.icon}
-              color={config?.color}
-              defaultExpanded={defaultExpandedGroups.includes(groupId)}
-              collapsible={features.length > 5}
-            />
-          );
-        })}
+          // Separate configured and unconfigured groups
+          Object.entries(groupedFeatures).forEach(([groupId, features]) => {
+            const config = FEATURE_GROUP_CONFIG[groupId];
+
+            if (config) {
+              // Render configured groups
+              configuredGroups.push(
+                <FeatureGroup
+                  key={groupId}
+                  groupId={groupId}
+                  groupName={config.name}
+                  features={features}
+                  icon={config.icon}
+                  color={config.color}
+                  defaultExpanded={defaultExpandedGroups.includes(groupId)}
+                  collapsible={features.length > 5}
+                />
+              );
+            } else {
+              // Collect unconfigured features
+              unconfiguredFeatures.push(...features);
+            }
+          });
+
+          // Add single "Other Specifications" section for all unconfigured features
+          if (unconfiguredFeatures.length > 0) {
+            configuredGroups.push(
+              <FeatureGroup
+                key="other"
+                groupId="other"
+                groupName={`Other Specifications (${unconfiguredFeatures.length} total)`}
+                features={unconfiguredFeatures}
+                collapsible={unconfiguredFeatures.length > 5}
+              />
+            );
+          }
+
+          return configuredGroups;
+        })()}
       </div>
     </div>
   );

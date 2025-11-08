@@ -15,11 +15,6 @@ interface ProductLayoutProps {
  * This component acts as a router for different product display templates
  */
 export function ProductLayout({ product, templateType }: ProductLayoutProps) {
-  // Log template selection in development
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[ProductLayout] Rendering ${templateType} template for class ${product.class}`);
-  }
-
   switch (templateType) {
     case 'luminaire':
       return <LuminaireLayout product={product} />;
