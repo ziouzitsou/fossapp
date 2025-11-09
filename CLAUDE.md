@@ -523,8 +523,8 @@ return data
 
 **VPS**: platon.titancnc.eu
 **Domain**: https://main.fossapp.online
-**Current Version**: v1.1.2
-**Deployment**: Simple git-based deployment with Docker
+**Current Version**: v1.3.5
+**Deployment**: Automated via production-deployer agent
 **Deployment Directory**: `/opt/fossapp/`
 **Monitoring**: Docker healthcheck + `/api/health` endpoint
 
@@ -545,6 +545,22 @@ return data
 - `/opt/fossapp-backup-20251027-130630.tar.gz` - Backup of old structure
 
 **Deployment Workflow**:
+
+**Recommended Method** (Automated via Claude Code):
+```
+Use the production-deployer agent in Claude Code:
+"Deploy to production version 1.3.6" (or specify the version you want)
+
+The agent handles:
+- Local build and lint checks
+- Version bumping (npm version patch)
+- Git commit and push with tags
+- SSH to production server
+- Docker build and deployment
+- Health checks and API verification
+```
+
+**Manual Method** (Alternative):
 ```bash
 # 1. Local: Create new version
 npm version patch
@@ -553,7 +569,7 @@ git push origin main --tags
 # 2. Production: Deploy
 ssh -i ~/.ssh/platon.key sysadmin@platon.titancnc.eu
 cd /opt/fossapp
-./deploy.sh v1.1.3
+./deploy.sh v1.3.6
 
 # 3. Verify
 curl https://main.fossapp.online/api/health
@@ -563,9 +579,9 @@ curl https://main.fossapp.online/api/health
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-10-27T11:21:16.913Z",
-  "version": "1.1.2",
-  "uptime": 38.436665712,
+  "timestamp": "2025-11-09T09:51:00.000Z",
+  "version": "1.3.5",
+  "uptime": 199,
   "environment": "production"
 }
 ```
@@ -804,6 +820,8 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 - No breaking changes affect current codebase (no middleware, no custom caching)
 
 ## Last Updated
+
+**2025-11-09** - Automated production deployments using production-deployer agent. Successfully deployed v1.3.5 with full automated workflow including build checks, version bumping, git operations, SSH deployment, Docker build, and comprehensive health verification. Updated deployment documentation to recommend agent-based deployment as primary method.
 
 **2025-11-09** - Documentation consolidation: Removed `versioning-guide.md` (overlapping with PRODUCTION_DEPLOYMENT_CHECKLIST.md). Created `CHANGELOG.md` following Keep a Changelog format for version history. Single source of truth for deployment procedures now in PRODUCTION_DEPLOYMENT_CHECKLIST.md.
 
