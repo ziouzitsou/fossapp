@@ -502,6 +502,19 @@ if (error) throw error
 return data
 ```
 
+### Deploying to Production
+1. **Use production-deployer agent** (recommended):
+   - "Deploy to production version 1.3.6"
+   - Agent handles everything automatically
+
+2. **Update CHANGELOG.md**:
+   - Add entry for new version
+   - Document changes (Added/Changed/Fixed/Security)
+   - Include deployment notes if significant
+
+3. **Manual method** (if needed):
+   - See Production Details section for manual deployment steps
+
 ## Known Issues
 
 - OAuth callback has state cookie issue in WSL2 environment (production works fine)
@@ -819,14 +832,17 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 - Consider upgrading to NextAuth v5 (Auth.js) in future for full Next.js 16 support
 - No breaking changes affect current codebase (no middleware, no custom caching)
 
-## Last Updated
+## Version History
 
-**2025-11-09** - Automated production deployments using production-deployer agent. Successfully deployed v1.3.5 with full automated workflow including build checks, version bumping, git operations, SSH deployment, Docker build, and comprehensive health verification. Updated deployment documentation to recommend agent-based deployment as primary method.
+For detailed version history, deployment notes, and changelog, see **[CHANGELOG.md](./CHANGELOG.md)**.
 
-**2025-11-09** - Documentation consolidation: Removed `versioning-guide.md` (overlapping with PRODUCTION_DEPLOYMENT_CHECKLIST.md). Created `CHANGELOG.md` following Keep a Changelog format for version history. Single source of truth for deployment procedures now in PRODUCTION_DEPLOYMENT_CHECKLIST.md.
+**Current Production Version**: v1.3.5
 
-**2025-10-28** - Upgraded to Next.js 16.0.0 with Turbopack. Added viewport export migration for Next.js 16 metadata API. All tests passing.
+## Documentation Updates
 
-**2025-10-27** - Added Progressive Web App (PWA) functionality with automatic background updates. Documented PWA implementation, shadcn/ui integration, and MCP server setup. Project uses shadcn components (Button, Card, Input, Badge, Alert, Avatar, Table, Tabs, Dialog, Select) with New York style configuration.
+**Last updated**: 2025-11-09
+
+- Deployment workflow now uses production-deployer agent (automated)
+- Documentation kept minimal (details moved to CHANGELOG.md)
 - ImageMagick is installed
-- Always close playwrite browser when finished using it
+- Always close playwright browser when finished using it

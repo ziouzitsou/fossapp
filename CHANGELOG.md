@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.5] - 2025-11-09
+
+### Changed
+- Enhanced product media gallery with improved image handling
+- Updated luminaire layout component for better product presentation
+
+### Deployment
+- **Method**: Automated via production-deployer agent (first automated deployment)
+- **Build time**: 56.4 seconds (Docker)
+- **Startup time**: 199ms
+- **Verification**: All APIs tested and healthy (health, manifest, product search, product detail)
+- **Note**: Successfully implemented agent-based deployment workflow, eliminating manual SSH steps
+
+## [1.3.4] - 2025-11-09
+
+### Added
+- Comprehensive media gallery component
+- Product description enhancements
+
 ## [1.1.4] - 2025-10-27
 
 ### Added
