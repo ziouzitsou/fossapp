@@ -2,64 +2,41 @@
 
 import React from 'react';
 import { ProductInfo } from '@/types/product';
-import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FaPlug } from 'react-icons/fa';
 import { FeatureGroupsDisplay } from '../features/FeatureGroupsDisplay';
+import { MediaGallery } from '../media/MediaGallery';
 
 interface AccessoryLayoutProps {
   product: ProductInfo;
 }
 
 export function AccessoryLayout({ product }: AccessoryLayoutProps) {
-  // Extract product image
-  const productImage = product.multimedia?.find(m => m.mime_code === 'MD01');
-  const technicalDrawing = product.multimedia?.find(m => m.mime_code === 'MD12');
-
   // Check if this is a driver (for compatibility features)
   const isDriver = product.class === 'EC002710';
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[20%_80%]">
-      {/* Left side: Compact image (20% visual focus for accessories) */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="aspect-square relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900">
-            {productImage || technicalDrawing ? (
-              <Image
-                src={(productImage || technicalDrawing)!.mime_source}
-                alt={product.description_short}
-                fill
-                className="object-contain p-4"
-                sizes="200px"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <FaPlug className="text-4xl text-muted-foreground" />
-              </div>
-            )}
-          </div>
+    <div className="grid gap-6 lg:grid-cols-[30%_70%]">
+      {/* Left side: Media gallery (30% for accessories) */}
+      <MediaGallery
+        multimedia={product.multimedia || []}
+        productName={product.description_short}
+      />
 
-          {/* Document links */}
-          <div className="mt-4 space-y-2">
-            {product.multimedia?.filter(m => m.mime_code === 'MD14' || m.mime_code === 'MD22').map((doc, idx) => (
-              <a
-                key={idx}
-                href={doc.mime_source}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-xs text-blue-600 hover:underline"
-              >
-                📄 {doc.mime_code === 'MD14' ? 'Installation Manual' : 'Spec Sheet'}
-              </a>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Right side: Technical specifications focus */}
+      {/* Right side: Description and specifications */}
       <div className="space-y-6">
+        {/* Long Description */}
+        {product.description_long && (
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-bold mb-2">Description</h3>
+              <p className="text-sm text-muted-foreground whitespace-pre-line">
+                {product.description_long}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Compatibility Finder (for drivers) */}
         {isDriver && (
           <Card className="border-green-200 dark:border-green-800">

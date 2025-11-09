@@ -2,54 +2,43 @@
 
 import React from 'react';
 import { ProductInfo } from '@/types/product';
-import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FeatureGroupsDisplay } from '../features/FeatureGroupsDisplay';
+import { MediaGallery } from '../media/MediaGallery';
 
 interface GenericLayoutProps {
   product: ProductInfo;
 }
 
 export function GenericLayout({ product }: GenericLayoutProps) {
-  const productImage = product.multimedia?.find(m => m.mime_code === 'MD01');
-
   return (
     <div className="grid gap-6 lg:grid-cols-[30%_70%]">
-      {/* Left side: Basic image (30% for generic) */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="aspect-square relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900">
-            {productImage ? (
-              <Image
-                src={productImage.mime_source}
-                alt={product.description_short}
-                fill
-                className="object-contain"
-                sizes="(max-width: 768px) 100vw, 30vw"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <span className="text-muted-foreground">No image available</span>
-              </div>
-            )}
-          </div>
+      {/* Left side: Media gallery (30% for generic) */}
+      <div className="space-y-4">
+        <MediaGallery
+          multimedia={product.multimedia || []}
+          productName={product.description_short}
+        />
 
-          {/* Basic product info */}
-          <div className="mt-4 space-y-2">
-            <div>
-              <div className="text-xs text-muted-foreground">Model</div>
-              <div className="font-mono text-sm">{product.foss_pid}</div>
-            </div>
-            {product.manufacturer_pid && (
+        {/* Basic product info */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="space-y-2">
               <div>
-                <div className="text-xs text-muted-foreground">Manufacturer ID</div>
-                <div className="font-mono text-sm">{product.manufacturer_pid}</div>
+                <div className="text-xs text-muted-foreground">Model</div>
+                <div className="font-mono text-sm">{product.foss_pid}</div>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              {product.manufacturer_pid && (
+                <div>
+                  <div className="text-xs text-muted-foreground">Manufacturer ID</div>
+                  <div className="font-mono text-sm">{product.manufacturer_pid}</div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Right side: All specifications equally weighted */}
       <div className="space-y-6">

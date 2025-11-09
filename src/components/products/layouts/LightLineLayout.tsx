@@ -2,19 +2,17 @@
 
 import React from 'react';
 import { ProductInfo } from '@/types/product';
-import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FaLink } from 'react-icons/fa';
 import { FeatureGroupsDisplay } from '../features/FeatureGroupsDisplay';
+import { MediaGallery } from '../media/MediaGallery';
 
 interface LightLineLayoutProps {
   product: ProductInfo;
 }
 
 export function LightLineLayout({ product }: LightLineLayoutProps) {
-  const productImage = product.multimedia?.find(m => m.mime_code === 'MD01');
-
   // Extract track-specific features
   const trackType = product.features?.find(f =>
     f.feature_name?.toLowerCase().includes('track') ||
@@ -26,30 +24,26 @@ export function LightLineLayout({ product }: LightLineLayoutProps) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[40%_60%]">
-      {/* Left side: Medium image focus (40% for light-line) */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="aspect-square relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900">
-            {productImage ? (
-              <Image
-                src={productImage.mime_source}
-                alt={product.description_short}
-                fill
-                className="object-contain"
-                sizes="(max-width: 768px) 100vw, 40vw"
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full">
-                <FaLink className="text-4xl text-muted-foreground mb-2" />
-                <span className="text-muted-foreground">Track System Component</span>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Left side: Media gallery (40% for light-line) */}
+      <MediaGallery
+        multimedia={product.multimedia || []}
+        productName={product.description_short}
+      />
 
-      {/* Right side: System information and specs */}
+      {/* Right side: Description and specifications */}
       <div className="space-y-6">
+        {/* Long Description */}
+        {product.description_long && (
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-bold mb-2">Description</h3>
+              <p className="text-sm text-muted-foreground whitespace-pre-line">
+                {product.description_long}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* System Compatibility Indicator */}
         <Card className="border-2 border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/20">
           <CardContent className="p-6">
