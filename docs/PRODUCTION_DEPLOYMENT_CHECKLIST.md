@@ -1,9 +1,11 @@
 # Production Deployment Checklist
 
-**Last Updated**: 2025-10-27
+**Last Updated**: 2025-11-09
 **Current Version**: v1.1.4
 
 This checklist was created after the v1.1.4 deployment to prevent common issues.
+
+> **Note**: For version history and release notes, see [CHANGELOG.md](../CHANGELOG.md)
 
 ---
 
@@ -311,6 +313,7 @@ docker system prune -a --volumes  # CAUTION: Removes all unused data
 
 ## 📚 Related Documentation
 
+- [CHANGELOG.md](../CHANGELOG.md) - Version history and release notes
 - [DEPLOYMENT.md](./DEPLOYMENT.md) - General deployment guide
 - [CLAUDE.md](../CLAUDE.md) - Project overview and development guide
 - [Production Server Details](../CLAUDE.md#production-server-access) - SSH and VPS info

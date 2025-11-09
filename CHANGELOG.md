@@ -1,0 +1,89 @@
+# Changelog
+
+All notable changes to FOSSAPP will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [1.1.4] - 2025-10-27
+
+### Added
+- Supplier logo dark mode support for better theme consistency
+- Enhanced product detail page with dark mode logos
+
+### Changed
+- Improved supplier logo display logic
+- Updated product detail TypeScript interfaces
+
+### Fixed
+- ESLint errors in production build (unused variables)
+- TypeScript type errors for supplier logo properties
+- React hooks exhaustive dependencies warnings
+
+### Deployment
+- **Lessons learned**: Always run `npm run build` before tagging
+- **Issue**: Had to recreate tag 3 times due to build failures
+- **Resolution**: Created PRODUCTION_DEPLOYMENT_CHECKLIST.md
+
+## [1.1.1] - 2025-07-01
+
+### Added
+- Version display component in sidebar navigation
+- Environment indicator (shows `-dev` suffix in development)
+- Monospace font styling for version badge
+
+### Changed
+- Consistent UI across dashboard and products pages
+- Production deployment testing and verification
+
+## [1.1.0] - 2025-06-30
+
+### Added
+- Docker containerization with multi-stage build
+- Health check endpoint (`/api/health`)
+- Automatic log rotation (10MB × 5 files)
+- Blue-green VPS deployment strategy
+- Comprehensive deployment documentation
+
+### Changed
+- Port configuration to 8080 (from default 3000)
+- Production environment templates
+
+## [1.0.0] - 2025-06-30
+
+### Added
+- Product search and display (56,456+ lighting products)
+- Google OAuth authentication via NextAuth.js
+- Supabase PostgreSQL database integration
+- Responsive design with Tailwind CSS and Radix UI
+- Product details pages with full specifications
+- Security-hardened API endpoints
+- Professional lighting design focus
+
+### Security
+- Row-level security policies on database
+- Service role isolation for server-side operations
+- Input validation and sanitization
+
+---
+
+## Version Guidelines
+
+- **MAJOR** (1.0.0 → 2.0.0): Breaking changes, major architectural updates
+- **MINOR** (1.0.0 → 1.1.0): New features, backwards compatible additions
+- **PATCH** (1.0.0 → 1.0.1): Bug fixes, security patches, small improvements
+
+## Deployment Process
+
+Before creating a new version, **always**:
+
+1. Run `npm run build` to test production build
+2. Fix all ESLint/TypeScript errors
+3. Commit and push changes
+4. **Only then** run `npm version patch|minor|major`
+5. Push tags: `git push origin main --tags`
+6. Deploy to production: `./deploy.sh v1.x.x`
+
+See [PRODUCTION_DEPLOYMENT_CHECKLIST.md](./docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) for complete workflow.

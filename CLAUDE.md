@@ -756,9 +756,9 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 
 **Deployment & Operations**:
 - [PRODUCTION_DEPLOYMENT_CHECKLIST.md](./docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md) - **MUST READ** before deploying
+- [CHANGELOG.md](./CHANGELOG.md) - Version history and release notes (SemVer)
 - [PWA.md](./docs/PWA.md) - Progressive Web App implementation, updates, and testing
 - [vps-deployment.md](./docs/vps-deployment.md) - VPS setup and deployment guide
-- [versioning-guide.md](./docs/versioning-guide.md) - Version management strategy
 - [DOMAIN_CONFIGURATION.md](./docs/DOMAIN_CONFIGURATION.md) - Centralized domain configuration and migration guide
 
 **Database & Architecture**:
@@ -804,6 +804,8 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 - No breaking changes affect current codebase (no middleware, no custom caching)
 
 ## Last Updated
+
+**2025-11-09** - Documentation consolidation: Removed `versioning-guide.md` (overlapping with PRODUCTION_DEPLOYMENT_CHECKLIST.md). Created `CHANGELOG.md` following Keep a Changelog format for version history. Single source of truth for deployment procedures now in PRODUCTION_DEPLOYMENT_CHECKLIST.md.
 
 **2025-10-28** - Upgraded to Next.js 16.0.0 with Turbopack. Added viewport export migration for Next.js 16 metadata API. All tests passing.
 
