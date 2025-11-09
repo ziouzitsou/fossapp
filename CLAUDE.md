@@ -66,7 +66,7 @@ docker-compose restart    # Restart after env changes
 
 # Health Check
 curl http://localhost:8080/api/health          # Local
-curl https://app.titancnc.eu/api/health        # Production
+curl https://main.fossapp.online/api/health    # Production
 ```
 
 ## Development Authentication Bypass
@@ -522,7 +522,7 @@ return data
 ## Production Details
 
 **VPS**: platon.titancnc.eu
-**Domain**: https://app.titancnc.eu
+**Domain**: https://main.fossapp.online
 **Current Version**: v1.1.2
 **Deployment**: Simple git-based deployment with Docker
 **Deployment Directory**: `/opt/fossapp/`
@@ -556,7 +556,7 @@ cd /opt/fossapp
 ./deploy.sh v1.1.3
 
 # 3. Verify
-curl https://app.titancnc.eu/api/health
+curl https://main.fossapp.online/api/health
 ```
 
 **Health Check Response**:
@@ -610,16 +610,16 @@ FOSSAPP is installable as a Progressive Web App on desktop, mobile, and tablet d
 ### Installation
 
 **Desktop** (Chrome, Edge, Brave):
-- Visit https://app.titancnc.eu
+- Visit https://main.fossapp.online
 - Click install icon in address bar
 - App appears on desktop/Start Menu
 
 **Mobile** (Android Chrome):
-- Visit https://app.titancnc.eu
+- Visit https://main.fossapp.online
 - Menu → "Add to Home screen"
 
 **iOS** (Safari):
-- Visit https://app.titancnc.eu
+- Visit https://main.fossapp.online
 - Share → "Add to Home Screen"
 
 ### Configuration Files
@@ -636,7 +636,7 @@ FOSSAPP is installable as a Progressive Web App on desktop, mobile, and tablet d
 npm run build && npm run start
 
 # Production testing
-curl https://app.titancnc.eu/api/health
+curl https://main.fossapp.online/api/health
 
 # Chrome DevTools
 F12 → Application → Service Workers
