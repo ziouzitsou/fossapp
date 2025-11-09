@@ -13,8 +13,8 @@ interface LuminaireLayoutProps {
 
 export function LuminaireLayout({ product }: LuminaireLayoutProps) {
   return (
-    <div className="grid gap-6 lg:grid-cols-[60%_40%]">
-      {/* Left side: Media gallery with all resources (60% visual focus for luminaires) */}
+    <div className="grid gap-6 lg:grid-cols-[55%_45%]">
+      {/* Left side: Media carousel with photos, drawings, and photometric data */}
       <MediaGallery
         multimedia={product.multimedia || []}
         productName={product.description_short}

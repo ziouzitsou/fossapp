@@ -6,7 +6,8 @@ import { MIME_CODES } from '@/types/product';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FaImage, FaFileAlt, FaFilePdf, FaChartArea, FaExternalLinkAlt, FaDownload } from 'react-icons/fa';
+import { Badge } from '@/components/ui/badge';
+import { FaImage, FaFileAlt, FaFilePdf, FaChartArea, FaExternalLinkAlt, FaDownload, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 interface MediaGalleryProps {
   multimedia: Multimedia[];
@@ -14,11 +15,11 @@ interface MediaGalleryProps {
 }
 
 /**
- * Displays all available media for a product
- * Only shows media types that exist in the multimedia array
+ * Displays all available media for a product as a carousel
+ * Combines photos, technical drawings, and photometric data into one slideshow
  */
 export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
-  const [selectedImage, setSelectedImage] = useState<Multimedia | null>(null);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   // Group multimedia by type
   const productPhotos = multimedia.filter(m => m.mime_code === 'MD01');
@@ -28,44 +29,63 @@ export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
   const manual = multimedia.find(m => m.mime_code === 'MD14');
   const specsheet = multimedia.find(m => m.mime_code === 'MD22');
 
-  // Set initial selected image
-  React.useEffect(() => {
-    if (productPhotos.length > 0 && !selectedImage) {
-      setSelectedImage(productPhotos[0]);
-    }
-  }, [productPhotos, selectedImage]);
+  // Build carousel slides: photos + technical drawing + photometric
+  const carouselSlides: Array<{ media: Multimedia; label: string; type: 'photo' | 'drawing' | 'photometric' }> = [
+    ...productPhotos.map((photo, idx) => ({
+      media: photo,
+      label: productPhotos.length > 1 ? `Photo ${idx + 1}` : 'Product Photo',
+      type: 'photo' as const
+    })),
+    ...(technicalDrawing ? [{
+      media: technicalDrawing,
+      label: 'Technical Drawing',
+      type: 'drawing' as const
+    }] : []),
+    ...(photometric ? [{
+      media: photometric,
+      label: 'Photometric Data',
+      type: 'photometric' as const
+    }] : [])
+  ];
 
-  const getMediaIcon = (code: string) => {
-    switch (code) {
-      case 'MD01': return FaImage;
-      case 'MD12': return FaFileAlt;
-      case 'MD16': return FaChartArea;
-      case 'MD04': return FaExternalLinkAlt;
-      case 'MD14': return FaFilePdf;
-      case 'MD22': return FaFilePdf;
-      default: return FaFileAlt;
+  const hasCarousel = carouselSlides.length > 0;
+  const currentMedia = carouselSlides[currentSlide];
+
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % carouselSlides.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + carouselSlides.length) % carouselSlides.length);
+  };
+
+  const getMediaIcon = (type: 'photo' | 'drawing' | 'photometric') => {
+    switch (type) {
+      case 'photo': return FaImage;
+      case 'drawing': return FaFileAlt;
+      case 'photometric': return FaChartArea;
     }
   };
 
-  const renderMediaButton = (media: Multimedia, label: string) => {
-    const Icon = getMediaIcon(media.mime_code);
-    const isLink = media.mime_code === 'MD04';
-    const isDocument = ['MD14', 'MD22', 'MD16'].includes(media.mime_code);
+  const getMediaBadgeVariant = (type: 'photo' | 'drawing' | 'photometric') => {
+    switch (type) {
+      case 'photo': return 'default';
+      case 'drawing': return 'secondary';
+      case 'photometric': return 'outline';
+    }
+  };
 
+  const renderDocumentButton = (media: Multimedia, label: string, icon: any) => {
     return (
       <Button
         key={media.mime_code}
         variant="outline"
         className="flex items-center gap-2 w-full justify-start"
-        onClick={() => {
-          if (isLink || isDocument) {
-            window.open(media.mime_source, '_blank');
-          }
-        }}
+        onClick={() => window.open(media.mime_source, '_blank')}
       >
-        <Icon className="h-4 w-4" />
+        {React.createElement(icon, { className: 'h-4 w-4' })}
         <span className="text-sm">{label}</span>
-        {(isLink || isDocument) && <FaExternalLinkAlt className="h-3 w-3 ml-auto" />}
+        <FaExternalLinkAlt className="h-3 w-3 ml-auto" />
       </Button>
     );
   };
@@ -73,76 +93,109 @@ export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
   return (
     <Card>
       <CardContent className="p-6">
-        {/* Main image display */}
-        <div className="aspect-square relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900 mb-4">
-          {selectedImage ? (
-            <Image
-              src={selectedImage.mime_source}
-              alt={productName}
-              fill
-              className="object-contain"
-              sizes="(max-width: 768px) 100vw, 60vw"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <span className="text-muted-foreground">No image available</span>
-            </div>
-          )}
-        </div>
-
-        {/* Photo thumbnails */}
-        {productPhotos.length > 1 && (
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-            {productPhotos.map((photo, idx) => (
-              <button
-                key={idx}
-                onClick={() => setSelectedImage(photo)}
-                className={`flex-shrink-0 w-20 h-20 border-2 rounded overflow-hidden ${
-                  selectedImage === photo
-                    ? 'border-primary'
-                    : 'border-border hover:border-primary/50'
-                }`}
-              >
+        {/* Carousel Container */}
+        {hasCarousel ? (
+          <>
+            {/* Main Carousel Display - Improved aspect ratio with max-height */}
+            <div className="relative group">
+              <div className="aspect-[4/3] max-h-[500px] relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900">
                 <Image
-                  src={photo.mime_source}
-                  alt={`${productName} - view ${idx + 1}`}
-                  width={80}
-                  height={80}
-                  className="object-cover w-full h-full"
+                  src={currentMedia.media.mime_source}
+                  alt={currentMedia.label}
+                  fill
+                  className="object-contain"
+                  sizes="(max-width: 768px) 100vw, 60vw"
+                  priority={currentSlide === 0}
                 />
-              </button>
-            ))}
-          </div>
-        )}
 
-        {/* Technical Drawing */}
-        {technicalDrawing && (
-          <div className="mb-2">
-            <button
-              onClick={() => setSelectedImage(technicalDrawing)}
-              className={`w-full p-3 border-2 rounded flex items-center gap-3 hover:bg-accent transition-colors ${
-                selectedImage === technicalDrawing
-                  ? 'border-primary bg-accent'
-                  : 'border-border'
-              }`}
-            >
-              <FaFileAlt className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <div className="text-left">
-                <div className="font-medium text-sm">Technical Drawing</div>
-                <div className="text-xs text-muted-foreground">SVG/CAD format</div>
+                {/* Media Type Badge */}
+                <div className="absolute top-3 left-3">
+                  <Badge variant={getMediaBadgeVariant(currentMedia.type)} className="flex items-center gap-1.5">
+                    {React.createElement(getMediaIcon(currentMedia.type), { className: 'h-3 w-3' })}
+                    {currentMedia.label}
+                  </Badge>
+                </div>
+
+                {/* Slide Counter */}
+                {carouselSlides.length > 1 && (
+                  <div className="absolute top-3 right-3">
+                    <Badge variant="secondary" className="bg-black/60 text-white">
+                      {currentSlide + 1} / {carouselSlides.length}
+                    </Badge>
+                  </div>
+                )}
               </div>
-            </button>
+
+              {/* Navigation Arrows - Only show if multiple slides */}
+              {carouselSlides.length > 1 && (
+                <>
+                  <button
+                    onClick={prevSlide}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Previous slide"
+                  >
+                    <FaChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={nextSlide}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Next slide"
+                  >
+                    <FaChevronRight className="h-5 w-5" />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Thumbnail Navigation - Only show if multiple slides */}
+            {carouselSlides.length > 1 && (
+              <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
+                {carouselSlides.map((slide, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentSlide(idx)}
+                    className={`flex-shrink-0 w-20 h-20 border-2 rounded overflow-hidden transition-all ${
+                      currentSlide === idx
+                        ? 'border-primary ring-2 ring-primary/20'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    title={slide.label}
+                  >
+                    <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900">
+                      <Image
+                        src={slide.media.mime_source}
+                        alt={slide.label}
+                        fill
+                        className="object-cover"
+                        sizes="80px"
+                      />
+                      {/* Small icon indicator for non-photo slides */}
+                      {slide.type !== 'photo' && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          {React.createElement(getMediaIcon(slide.type), {
+                            className: 'h-6 w-6 text-white'
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="aspect-[4/3] max-h-[500px] flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-900">
+            <span className="text-muted-foreground">No media available</span>
           </div>
         )}
 
-        {/* Additional Resources */}
-        {(photometric || productLink || manual || specsheet) && (
-          <div className="mt-4 space-y-2">
-            <div className="text-sm font-medium mb-2">Additional Resources</div>
-            {photometric && renderMediaButton(photometric, 'Photometric Data')}
-            {manual && renderMediaButton(manual, 'Installation Manual')}
-            {specsheet && renderMediaButton(specsheet, 'Specification Sheet')}
-            {productLink && renderMediaButton(productLink, 'Manufacturer Page')}
+        {/* Additional Document Resources */}
+        {(productLink || manual || specsheet) && (
+          <div className="mt-6 space-y-2">
+            <div className="text-sm font-medium mb-3">Documentation</div>
+            {manual && renderDocumentButton(manual, 'Installation Manual', FaFilePdf)}
+            {specsheet && renderDocumentButton(specsheet, 'Specification Sheet', FaFilePdf)}
+            {productLink && renderDocumentButton(productLink, 'Manufacturer Page', FaExternalLinkAlt)}
           </div>
         )}
       </CardContent>
