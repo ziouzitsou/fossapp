@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.7] - 2025-11-10
+
+### Added
+- Logo animation effects (glow, shimmer, neon, float)
+- Enhanced FossappLogo component with configurable effects
+- Lighting-themed visual effects in globals.css
+- Default glow + float effect on landing page logo
+
+### Changed
+- FOSSAPP logo now supports multiple visual effect types
+- Landing page logo enhanced with glow animation
+- Improved visual appeal for lighting products database branding
+
+### Deployment
+- **Method**: Automated via production-deployer agent
+- **Build verification**: Local build passed successfully (8.7s with Turbopack)
+- **Pre-deployment checks**: All environment variables verified
+
 ## [1.3.6] - 2025-11-10
 
 ### Added

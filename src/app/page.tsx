@@ -34,7 +34,7 @@ export default function Home() {
         {/* Header with Logo */}
         <div className="flex items-center justify-center py-4">
           <a href="#" className="flex items-center gap-2 font-medium">
-            <FossappLogo width={200} height={120} />
+            <FossappLogo width={200} height={120} effect="glow" />
           </a>
         </div>
 

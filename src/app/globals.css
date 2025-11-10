@@ -67,3 +67,106 @@
     @apply bg-background text-foreground font-sans;
   }
 }
+
+/* Logo Effects */
+@layer components {
+  .logo-container {
+    display: inline-block;
+  }
+
+  /* Subtle Glow Effect - Pulsing light glow */
+  .logo-glow {
+    filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.4));
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.4));
+    }
+    50% {
+      filter: drop-shadow(0 0 16px hsl(var(--primary) / 0.6));
+    }
+  }
+
+  /* Floating Animation - Gentle up/down movement */
+  .logo-float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  /* Shimmer Effect - Light sweep across logo */
+  .logo-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .logo-shimmer::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 100%
+    );
+    animation: shimmer 3s ease-in-out infinite;
+  }
+
+  .dark .logo-shimmer::after {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.2) 50%,
+      transparent 100%
+    );
+  }
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    100% {
+      transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+  }
+
+  /* Neon Glow Effect - Bright neon-style glow */
+  .logo-neon {
+    filter: drop-shadow(0 0 10px hsl(var(--primary)));
+    animation: neon-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes neon-pulse {
+    0%, 100% {
+      filter:
+        drop-shadow(0 0 5px hsl(var(--primary)))
+        drop-shadow(0 0 10px hsl(var(--primary) / 0.8))
+        drop-shadow(0 0 15px hsl(var(--primary) / 0.6));
+    }
+    50% {
+      filter:
+        drop-shadow(0 0 10px hsl(var(--primary)))
+        drop-shadow(0 0 20px hsl(var(--primary) / 0.8))
+        drop-shadow(0 0 30px hsl(var(--primary) / 0.6));
+    }
+  }
+
+  /* Hover enhancement for interactive feel */
+  .logo-container:hover .logo-glow,
+  .logo-container:hover .logo-neon {
+    animation-duration: 1.5s;
+  }
+}
