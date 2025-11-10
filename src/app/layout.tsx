@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { APP_CONFIG, PWA_CONFIG } from "@/lib/config";
+import { WhatsNewDialog } from "@/components/whats-new-dialog";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,7 +49,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <WhatsNewDialog />
+        </Providers>
       </body>
     </html>
   );
