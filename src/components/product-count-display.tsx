@@ -1,7 +1,18 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import { getProductCountAction } from '@/lib/actions'
 
-export async function ProductCountDisplay() {
-  const productCount = await getProductCountAction()
+export function ProductCountDisplay() {
+  const [productCount, setProductCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      const count = await getProductCountAction()
+      setProductCount(count)
+    }
+    fetchCount()
+  }, [])
 
   if (productCount === null) {
     return <>Professional lighting database</>
