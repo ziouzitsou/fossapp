@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.6] - 2025-11-10
+
+### Added
+- Customers feature with listing and detail pages
+- Customer search functionality with pagination (1,700 customers)
+- Three new server actions: searchCustomersAction, listCustomersAction, getCustomerByIdAction
+- Customers navigation menu item
+
+### Notes
+- Requires Supabase 'customers' schema to be exposed in API settings post-deployment
+- Customer data table: customers.foss_customers (1,700 records)
+
+### Deployment
+- **Method**: Automated via production-deployer agent
+- **Build verification**: Local build passed successfully (10.1s with Turbopack)
+- **Pre-deployment checks**: All environment variables verified
+
 ## [1.3.5] - 2025-11-09
 
 ### Changed
