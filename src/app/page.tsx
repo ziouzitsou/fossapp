@@ -1,32 +1,23 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { LoginForm } from '@/components/login-form'
 import { LoginImageSlideshow } from '@/components/login-image-slideshow'
 import { FossappLogo } from '@/components/fossapp-logo'
-import { getProductCountAction } from '@/lib/actions'
+import { ProductCountDisplay } from '@/components/product-count-display'
 
 export default function Home() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [productCount, setProductCount] = useState<number | null>(null)
 
   useEffect(() => {
     if (session) {
       router.push('/dashboard')
     }
   }, [session, router])
-
-  useEffect(() => {
-    const fetchProductCount = async () => {
-      const count = await getProductCountAction()
-      setProductCount(count)
-    }
-    fetchProductCount()
-  }, [])
 
   if (status === 'loading' || session) {
     return (
@@ -57,11 +48,7 @@ export default function Home() {
 
         {/* Footer */}
         <div className="text-balance text-center text-xs text-muted-foreground">
-          {productCount !== null ? (
-            <>Professional lighting database • {Math.floor(productCount / 100) * 100}+ products</>
-          ) : (
-            <>Professional lighting database • Loading...</>
-          )}
+          <ProductCountDisplay />
         </div>
       </div>
 
