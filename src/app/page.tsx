@@ -30,12 +30,16 @@ export default function Home() {
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       {/* Left Panel - Login Form */}
-      <div className="flex flex-col gap-4 p-6 md:p-10">
-        {/* Header with Logo and Theme Toggle */}
-        <div className="flex items-center justify-between">
+      <div className="relative flex flex-col gap-4 p-6 md:p-10">
+        {/* Header with Logo */}
+        <div className="flex items-center justify-center py-4">
           <a href="#" className="flex items-center gap-2 font-medium">
-            <FossappLogo width={70} height={40} />
+            <FossappLogo width={200} height={120} />
           </a>
+        </div>
+
+        {/* Theme Toggle - Top Right Corner */}
+        <div className="absolute top-6 right-6 md:top-10 md:right-10">
           <ThemeToggle />
         </div>
 

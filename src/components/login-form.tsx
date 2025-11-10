@@ -44,10 +44,6 @@ export function LoginForm() {
           </svg>
           Sign in with Google
         </Button>
-
-        <p className="px-8 text-center text-sm text-muted-foreground">
-          Access 56,000+ lighting products and technical specifications
-        </p>
       </div>
     </div>
   )
