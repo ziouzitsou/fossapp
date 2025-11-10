@@ -3,10 +3,11 @@
 import { useSession } from 'next-auth/react'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Lightbulb } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { LoginForm } from '@/components/login-form'
 import { LoginImageSlideshow } from '@/components/login-image-slideshow'
+import { FossappLogo } from '@/components/fossapp-logo'
+import { ProductCountDisplay } from '@/components/product-count-display'
 
 export default function Home() {
   const { data: session, status } = useSession()
@@ -33,10 +34,7 @@ export default function Home() {
         {/* Header with Logo and Theme Toggle */}
         <div className="flex items-center justify-between">
           <a href="#" className="flex items-center gap-2 font-medium">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Lightbulb className="size-5" />
-            </div>
-            <span className="text-lg font-semibold">FOSSAPP</span>
+            <FossappLogo width={70} height={40} />
           </a>
           <ThemeToggle />
         </div>
@@ -50,7 +48,7 @@ export default function Home() {
 
         {/* Footer */}
         <div className="text-balance text-center text-xs text-muted-foreground">
-          Professional lighting database • 56,000+ products
+          <ProductCountDisplay />
         </div>
       </div>
 

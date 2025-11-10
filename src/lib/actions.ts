@@ -134,6 +134,25 @@ export interface DashboardStats {
   totalFamilies: number
 }
 
+export async function getProductCountAction(): Promise<number | null> {
+  try {
+    const { count, error } = await supabaseServer
+      .schema('items')
+      .from('product_info')
+      .select('*', { count: 'exact', head: true })
+
+    if (error) {
+      console.error('Error getting product count:', error)
+      return null
+    }
+
+    return count || 0
+  } catch (error) {
+    console.error('Product count error:', error)
+    return null
+  }
+}
+
 export async function getDashboardStatsAction(): Promise<DashboardStats> {
   try {
     // Get total products count
