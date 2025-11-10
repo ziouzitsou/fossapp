@@ -7,6 +7,7 @@ import { useDevSession } from '@/lib/use-dev-session'
 import Image from 'next/image'
 import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes } from 'react-icons/fa'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { ThemeSelector } from '@/components/theme-selector'
 import { getNavigation } from '@/lib/navigation'
 import { VersionDisplay } from '@/components/version-display'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -165,6 +166,9 @@ export default function Dashboard() {
 
             {/* Right side items */}
             <div className="flex items-center gap-4">
+              {/* Theme Selector */}
+              <ThemeSelector />
+
               {/* Theme Toggle */}
               <ThemeToggle />
 

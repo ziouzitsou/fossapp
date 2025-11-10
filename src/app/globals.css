@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 @layer base {
+  /* Default theme (Blue - Original) */
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
@@ -29,6 +30,15 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    /* Sidebar colors (for consistency) */
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 222.2 84% 4.9%;
+    --sidebar-primary: 221.2 83.2% 53.3%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 210 40% 96.1%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 221.2 83.2% 53.3%;
   }
 
   .dark {
@@ -56,6 +66,159 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    /* Sidebar colors */
+    --sidebar: 222.2 84% 4.9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217.2 91.2% 59.8%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-accent: 217.2 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 224.3 76.3% 48%;
+  }
+
+  /* Supabase Theme */
+  .theme-supabase {
+    --background: 0 0% 98.8235%;
+    --foreground: 0 0% 9.0196%;
+    --card: 0 0% 98.8235%;
+    --card-foreground: 0 0% 9.0196%;
+    --popover: 0 0% 98.8235%;
+    --popover-foreground: 0 0% 32.1569%;
+    --primary: 151.3274 66.8639% 66.8627%;
+    --primary-foreground: 153.3333 13.0435% 13.5294%;
+    --secondary: 0 0% 99.2157%;
+    --secondary-foreground: 0 0% 9.0196%;
+    --muted: 0 0% 92.9412%;
+    --muted-foreground: 0 0% 12.5490%;
+    --accent: 0 0% 92.9412%;
+    --accent-foreground: 0 0% 12.5490%;
+    --destructive: 9.8901 81.9820% 43.5294%;
+    --destructive-foreground: 0 100% 99.4118%;
+    --border: 0 0% 87.4510%;
+    --input: 0 0% 96.4706%;
+    --ring: 151.3274 66.8639% 66.8627%;
+    --radius: 0.5rem;
+    --chart-1: 151.3274 66.8639% 66.8627%;
+    --chart-2: 217.2193 91.2195% 59.8039%;
+    --chart-3: 258.3117 89.5349% 66.2745%;
+    --chart-4: 37.6923 92.1260% 50.1961%;
+    --chart-5: 160.1183 84.0796% 39.4118%;
+    --sidebar: 0 0% 98.8235%;
+    --sidebar-foreground: 0 0% 43.9216%;
+    --sidebar-primary: 151.3274 66.8639% 66.8627%;
+    --sidebar-primary-foreground: 153.3333 13.0435% 13.5294%;
+    --sidebar-accent: 0 0% 92.9412%;
+    --sidebar-accent-foreground: 0 0% 12.5490%;
+    --sidebar-border: 0 0% 87.4510%;
+    --sidebar-ring: 151.3274 66.8639% 66.8627%;
+  }
+
+  .theme-supabase.dark {
+    --background: 0 0% 7.0588%;
+    --foreground: 214.2857 31.8182% 91.3725%;
+    --card: 0 0% 9.0196%;
+    --card-foreground: 214.2857 31.8182% 91.3725%;
+    --popover: 0 0% 14.1176%;
+    --popover-foreground: 0 0% 66.2745%;
+    --primary: 154.8980 100.0000% 19.2157%;
+    --primary-foreground: 152.7273 19.2982% 88.8235%;
+    --secondary: 0 0% 14.1176%;
+    --secondary-foreground: 0 0% 98.0392%;
+    --muted: 0 0% 12.1569%;
+    --muted-foreground: 0 0% 63.5294%;
+    --accent: 0 0% 19.2157%;
+    --accent-foreground: 0 0% 98.0392%;
+    --destructive: 6.6667 60.0000% 20.5882%;
+    --destructive-foreground: 12.0000 12.1951% 91.9608%;
+    --border: 0 0% 16.0784%;
+    --input: 0 0% 14.1176%;
+    --ring: 141.8919 69.1589% 58.0392%;
+    --chart-1: 141.8919 69.1589% 58.0392%;
+    --chart-2: 213.1169 93.9024% 67.8431%;
+    --chart-3: 255.1351 91.7355% 76.2745%;
+    --chart-4: 43.2558 96.4126% 56.2745%;
+    --chart-5: 172.4551 66.0079% 50.3922%;
+    --sidebar: 0 0% 7.0588%;
+    --sidebar-foreground: 0 0% 53.7255%;
+    --sidebar-primary: 154.8980 100.0000% 19.2157%;
+    --sidebar-primary-foreground: 152.7273 19.2982% 88.8235%;
+    --sidebar-accent: 0 0% 19.2157%;
+    --sidebar-accent-foreground: 0 0% 98.0392%;
+    --sidebar-border: 0 0% 16.0784%;
+    --sidebar-ring: 141.8919 69.1589% 58.0392%;
+  }
+
+  /* Graphite Theme */
+  .theme-graphite {
+    --background: 0 0% 94.1176%;
+    --foreground: 0 0% 20%;
+    --card: 0 0% 96.0784%;
+    --card-foreground: 0 0% 20%;
+    --popover: 0 0% 96.0784%;
+    --popover-foreground: 0 0% 20%;
+    --primary: 0 0% 37.6471%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 87.8431%;
+    --secondary-foreground: 0 0% 20%;
+    --muted: 0 0% 85.0980%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 0 0% 75.2941%;
+    --accent-foreground: 0 0% 20%;
+    --destructive: 0 60.0000% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 81.5686%;
+    --input: 0 0% 87.8431%;
+    --ring: 0 0% 37.6471%;
+    --radius: 0.35rem;
+    --chart-1: 0 0% 37.6471%;
+    --chart-2: 180 17.9191% 33.9216%;
+    --chart-3: 0 0% 56.4706%;
+    --chart-4: 0 0% 65.8824%;
+    --chart-5: 0 0% 75.2941%;
+    --sidebar: 0 0% 91.7647%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 0 0% 37.6471%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 75.2941%;
+    --sidebar-accent-foreground: 0 0% 20%;
+    --sidebar-border: 0 0% 81.5686%;
+    --sidebar-ring: 0 0% 37.6471%;
+  }
+
+  .theme-graphite.dark {
+    --background: 0 0% 10.1961%;
+    --foreground: 0 0% 85.0980%;
+    --card: 0 0% 12.5490%;
+    --card-foreground: 0 0% 85.0980%;
+    --popover: 0 0% 12.5490%;
+    --popover-foreground: 0 0% 85.0980%;
+    --primary: 0 0% 62.7451%;
+    --primary-foreground: 0 0% 10.1961%;
+    --secondary: 0 0% 18.8235%;
+    --secondary-foreground: 0 0% 85.0980%;
+    --muted: 0 0% 16.4706%;
+    --muted-foreground: 0 0% 50.1961%;
+    --accent: 0 0% 25.0980%;
+    --accent-foreground: 0 0% 85.0980%;
+    --destructive: 0 66.3043% 63.9216%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 20.7843%;
+    --input: 0 0% 18.8235%;
+    --ring: 0 0% 62.7451%;
+    --chart-1: 0 0% 62.7451%;
+    --chart-2: 187.0588 15.1786% 56.0784%;
+    --chart-3: 0 0% 43.9216%;
+    --chart-4: 0 0% 34.5098%;
+    --chart-5: 0 0% 25.0980%;
+    --sidebar: 0 0% 12.1569%;
+    --sidebar-foreground: 0 0% 85.0980%;
+    --sidebar-primary: 0 0% 62.7451%;
+    --sidebar-primary-foreground: 0 0% 10.1961%;
+    --sidebar-accent: 0 0% 25.0980%;
+    --sidebar-accent-foreground: 0 0% 85.0980%;
+    --sidebar-border: 0 0% 20.7843%;
+    --sidebar-ring: 0 0% 62.7451%;
   }
 }
 

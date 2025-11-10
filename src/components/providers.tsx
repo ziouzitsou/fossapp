@@ -2,6 +2,7 @@
 
 import { SessionProvider } from 'next-auth/react'
 import { ThemeProvider } from './theme-provider'
+import { MultiThemeProvider } from '@/lib/theme-context'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -11,7 +12,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       enableSystem
       disableTransitionOnChange
     >
-      <SessionProvider>{children}</SessionProvider>
+      <MultiThemeProvider>
+        <SessionProvider>{children}</SessionProvider>
+      </MultiThemeProvider>
     </ThemeProvider>
   )
 }
