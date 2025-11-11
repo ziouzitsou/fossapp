@@ -27,7 +27,10 @@ export async function GET(
 
     return NextResponse.json({ data: product })
   } catch (error) {
-    console.error('Product detail error:', error)
+    // Sanitized error logging
+    console.error('API product detail error:',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
     return NextResponse.json({ error: 'Failed to fetch product' }, { status: 500 })
   }
 }

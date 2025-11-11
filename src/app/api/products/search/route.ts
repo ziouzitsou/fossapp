@@ -19,7 +19,10 @@ export async function GET(request: NextRequest) {
     const results = await searchProductsAction(query, userId)
     return NextResponse.json({ data: results })
   } catch (error) {
-    console.error('Search error:', error)
+    // Sanitized error logging
+    console.error('API search error:',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
     return NextResponse.json({ error: 'Search failed' }, { status: 500 })
   }
 }

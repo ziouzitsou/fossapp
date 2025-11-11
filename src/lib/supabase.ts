@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+  throw new Error('Missing required Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
@@ -21,29 +21,18 @@ export interface ProductSearchResult {
   }>
 }
 
-import { searchProductsAction } from './actions'
-
 export async function searchProducts(query: string): Promise<ProductSearchResult[]> {
   try {
-    // Use server action for better database connectivity
-    const results = await searchProductsAction(query)
-    return results
-  } catch (error) {
-    console.error('Search error:', error)
-    
-    // Fallback to API endpoint if server action fails
-    try {
-      const response = await fetch(`/api/products/search?q=${encodeURIComponent(query)}`)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      
-      const result = await response.json()
-      return result.data || []
-    } catch (apiError) {
-      console.error('API fallback error:', apiError)
-      throw error
+    const response = await fetch(`/api/products/search?q=${encodeURIComponent(query)}`)
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
     }
+
+    const result = await response.json()
+    return result.data || []
+  } catch (error) {
+    console.error('Search error:', error instanceof Error ? error.message : 'Unknown error')
+    throw error
   }
 }

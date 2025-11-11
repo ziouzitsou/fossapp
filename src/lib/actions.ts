@@ -59,7 +59,13 @@ export async function searchProductsAction(query: string, userId?: string): Prom
       .limit(50)
 
     if (error) {
-      console.error('Database query error:', error)
+      // Log sanitized error (no full error object that may contain tokens/connection strings)
+      console.error('Product search failed:', {
+        message: error.message,
+        code: error.code,
+        query: sanitizedQuery.substring(0, 50), // Truncate for privacy
+        userId: userId?.split('@')[0], // Log only username part
+      })
       return []
     }
 
@@ -76,7 +82,10 @@ export async function searchProductsAction(query: string, userId?: string): Prom
 
     return data || []
   } catch (error) {
-    console.error('Search error:', error)
+    // Generic error without exposing internals
+    console.error('Search action error:',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
     return []
   }
 }
@@ -124,7 +133,13 @@ export async function getProductByIdAction(productId: string, userId?: string): 
       .single()
 
     if (error) {
-      console.error('Database query error:', error)
+      // Log sanitized error
+      console.error('Product fetch failed:', {
+        message: error.message,
+        code: error.code,
+        productId: sanitizedProductId.substring(0, 8) + '...', // Partial ID for privacy
+        userId: userId?.split('@')[0], // Log only username part
+      })
       return null
     }
 
@@ -146,7 +161,10 @@ export async function getProductByIdAction(productId: string, userId?: string): 
       return data as ProductInfo
     }
   } catch (error) {
-    console.error('Get product error:', error)
+    // Generic error without exposing internals
+    console.error('Get product action error:',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
   }
 
   return null
