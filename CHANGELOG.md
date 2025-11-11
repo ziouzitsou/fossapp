@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **CRITICAL**: Fixed NextAuth handler not using secure authOptions (Gemini audit finding)
 - **CRITICAL**: Server-side Google Workspace domain validation (prevents unauthorized account access)
 - **CRITICAL**: Removed server action import from client bundle (prevents service role key exposure)
 - Sanitized error logging to prevent PII and credential leaks in logs
@@ -31,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auth callback: separate validation for missing email vs unauthorized domain
 
 ### Fixed
+- **CRITICAL**: NextAuth route handler now uses authOptions from src/lib/auth.ts (was bypassing all domain validation)
 - Next.js 16 build compatibility (server actions in client bundles)
 - OAuth domain bypass vulnerability (now validated server-side)
 - Inconsistent environment variable validation patterns
@@ -44,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Playwright configuration for smoke testing critical paths
 - Deploy-check script validates: type-check, lint, tests, and build
 - Created GitHub issue #6 for LOW priority technical debt (race conditions, input validation, user ID logging)
+- Gemini LLM security audit completed (GEMINI_AUDIT_20251111.md)
+- Comprehensive audit response document (GEMINI_AUDIT_RESPONSE.md)
 
 ### Testing
 - Health endpoint validation
