@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.8] - 2025-11-11
+
+### Added
+- Multi-theme system with three theme options: Default (green/emerald), Supabase (teal/green), and Graphite (zinc/slate)
+- Theme selector component with visual color indicators for each theme
+- LocalStorage-based theme persistence across sessions
+- Full light/dark mode support for all themes
+- System font stack for improved performance and native feel
+- Hover effects and smooth transitions on theme selector
+- Responsive design for theme customization
+
+### Changed
+- Migrated from Geist fonts to system font stack
+- Removed font files from public directory for faster loading
+- Updated CSS variables structure to support multiple themes
+- Enhanced sidebar with theme switcher component
+- Improved color palette with consistent theming across all components
+
+### Technical
+- Theme implementation using CSS custom properties with HSL color system
+- Client-side theme state management with localStorage
+- Backward-compatible with existing dark/light mode toggle
+- Zero-runtime CSS with compile-time theme generation
+
+### Deployment
+- **Method**: Manual deployment following PRODUCTION_DEPLOYMENT_CHECKLIST.md
+- **Build verification**: Local build passed successfully (11.9s with Turbopack)
+- **Docker build time**: 42.9 seconds (production optimization)
+- **Version**: Bumped from 1.3.7 to 1.3.8 (patch release)
+- **Deployment time**: Container started in ~52 seconds
+- **Health check**: Passed - API responding correctly with version 1.3.8
+
 ## [1.3.7] - 2025-11-10
 
 ### Added
