@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2025-11-11
+
+### Added
+- User access monitoring system with comprehensive event tracking
+- Analytics database schema in separate `analytics` namespace
+- Most Active Users dashboard card showing top 5 active users
+- User event logging with pathname and user agent tracking
+- Empty state UI for analytics cards when no data available
+- User activity tracking API endpoint (/api/user-events)
+
+### Changed
+- Moved user events table to `analytics.user_events` schema for better organization
+- Enhanced event logging with detailed request metadata (pathname, user_agent)
+- Improved dashboard layout with analytics cards
+- Updated Supabase migrations for analytics schema
+
+### Technical
+- Analytics schema separation from main application schema
+- Server-side event logging with service role access
+- Type-safe analytics data structures
+- Migration-based schema evolution (20251111_create_user_events_table.sql)
+
+### Deployment
+- **Version**: Minor bump from 1.3.8 to 1.4.0 (new analytics features)
+- **Build verification**: Local build passed successfully (10.4s with Turbopack)
+- **Changes merged**: PR #4 (user events) and PR #5 (analytics enhancements)
+- **Main branch**: Commit 578927a (analytics schema enhancements)
+
 ## [1.3.8] - 2025-11-11
 
 ### Added
