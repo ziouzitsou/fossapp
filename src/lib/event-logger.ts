@@ -41,33 +41,44 @@ export interface EventData {
  *
  * @param eventType - Type of event being logged
  * @param userId - User identifier (email from NextAuth session)
- * @param eventData - Optional metadata about the event
- * @param sessionId - Optional session identifier for grouping events
+ * @param options - Optional event metadata
+ * @param options.eventData - Flexible JSONB metadata
+ * @param options.sessionId - Session identifier for grouping events
+ * @param options.pathname - Route/page path (e.g., /products, /dashboard)
+ * @param options.userAgent - Browser and device information
  * @returns Promise<boolean> - true if logged successfully, false otherwise
  *
  * @example
  * // Log a login event
- * await logEvent('login', 'user@example.com', { method: 'google' })
+ * await logEvent('login', 'user@example.com', {
+ *   eventData: { method: 'google' },
+ *   pathname: '/'
+ * })
  *
  * @example
  * // Log a product search
  * await logEvent('search', 'user@example.com', {
- *   search_query: 'downlight',
- *   results_count: 42
+ *   eventData: { search_query: 'downlight', results_count: 42 },
+ *   pathname: '/products',
+ *   userAgent: req.headers['user-agent']
  * })
  *
  * @example
  * // Log a product view
  * await logEvent('product_view', 'user@example.com', {
- *   product_id: 'DL-123456',
- *   supplier: 'Delta Light'
+ *   eventData: { product_id: 'DL-123456', supplier: 'Delta Light' },
+ *   pathname: '/products/DL-123456'
  * })
  */
 export async function logEvent(
   eventType: EventType,
   userId: string,
-  eventData?: EventData,
-  sessionId?: string
+  options?: {
+    eventData?: EventData
+    sessionId?: string
+    pathname?: string
+    userAgent?: string
+  }
 ): Promise<boolean> {
   try {
     // Validate required parameters
@@ -76,14 +87,16 @@ export async function logEvent(
       return false
     }
 
-    // Insert event into database
+    // Insert event into analytics.user_events table
     const { error } = await supabaseServer
-      .from('user_events')
+      .from('analytics.user_events')
       .insert({
         event_type: eventType,
         user_id: userId,
-        event_data: eventData || null,
-        session_id: sessionId || null,
+        event_data: options?.eventData || null,
+        session_id: options?.sessionId || null,
+        pathname: options?.pathname || null,
+        user_agent: options?.userAgent || null,
       })
 
     if (error) {
@@ -93,7 +106,7 @@ export async function logEvent(
 
     // Success - log to console in development
     if (process.env.NODE_ENV === 'development') {
-      console.log('[EventLogger]', { eventType, userId, eventData })
+      console.log('[EventLogger]', { eventType, userId, ...options })
     }
 
     return true
@@ -117,6 +130,8 @@ export async function logEventsBatch(
     userId: string
     eventData?: EventData
     sessionId?: string
+    pathname?: string
+    userAgent?: string
   }>
 ): Promise<boolean> {
   try {
@@ -129,10 +144,12 @@ export async function logEventsBatch(
       user_id: e.userId,
       event_data: e.eventData || null,
       session_id: e.sessionId || null,
+      pathname: e.pathname || null,
+      user_agent: e.userAgent || null,
     }))
 
     const { error } = await supabaseServer
-      .from('user_events')
+      .from('analytics.user_events')
       .insert(records)
 
     if (error) {

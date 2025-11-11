@@ -66,8 +66,11 @@ export async function searchProductsAction(query: string, userId?: string): Prom
     // Log search event if userId is provided
     if (userId) {
       await logEvent('search', userId, {
-        search_query: sanitizedQuery,
-        results_count: data?.length || 0,
+        eventData: {
+          search_query: sanitizedQuery,
+          results_count: data?.length || 0,
+        },
+        pathname: '/products'
       })
     }
 
@@ -129,10 +132,13 @@ export async function getProductByIdAction(productId: string, userId?: string): 
       // Log product view event if userId is provided
       if (userId) {
         await logEvent('product_view', userId, {
-          product_id: sanitizedProductId,
-          foss_pid: data.foss_pid,
-          supplier: data.supplier_name,
-          description: data.description_short,
+          eventData: {
+            product_id: sanitizedProductId,
+            foss_pid: data.foss_pid,
+            supplier: data.supplier_name,
+            description: data.description_short,
+          },
+          pathname: `/products/${sanitizedProductId}`
         })
       }
 
@@ -592,5 +598,69 @@ export async function listCustomersAction(params: CustomerListParams = {}): Prom
       pageSize: 20,
       totalPages: 0
     }
+  }
+}
+
+// Analytics Actions
+
+export interface ActiveUser {
+  user_id: string
+  event_count: number
+  last_active: string
+  login_count: number
+  search_count: number
+  product_view_count: number
+}
+
+export async function getMostActiveUsersAction(limit: number = 5): Promise<ActiveUser[]> {
+  try {
+    // Get user activity counts from analytics.user_events
+    const { data, error } = await supabaseServer
+      .from('analytics.user_events')
+      .select('user_id, event_type, created_at')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error getting active users:', error)
+      return []
+    }
+
+    if (!data || data.length === 0) {
+      return []
+    }
+
+    // Aggregate by user
+    const userMap = new Map<string, ActiveUser>()
+
+    data.forEach((event) => {
+      const existing = userMap.get(event.user_id)
+      if (existing) {
+        existing.event_count++
+        if (event.event_type === 'login') existing.login_count++
+        if (event.event_type === 'search') existing.search_count++
+        if (event.event_type === 'product_view') existing.product_view_count++
+        // Update last_active if this event is more recent
+        if (new Date(event.created_at) > new Date(existing.last_active)) {
+          existing.last_active = event.created_at
+        }
+      } else {
+        userMap.set(event.user_id, {
+          user_id: event.user_id,
+          event_count: 1,
+          last_active: event.created_at,
+          login_count: event.event_type === 'login' ? 1 : 0,
+          search_count: event.event_type === 'search' ? 1 : 0,
+          product_view_count: event.event_type === 'product_view' ? 1 : 0,
+        })
+      }
+    })
+
+    // Convert to array and sort by event count descending
+    return Array.from(userMap.values())
+      .sort((a, b) => b.event_count - a.event_count)
+      .slice(0, limit)
+  } catch (error) {
+    console.error('Most active users error:', error)
+    return []
   }
 }
