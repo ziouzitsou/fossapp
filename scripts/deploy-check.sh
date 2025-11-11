@@ -38,14 +38,11 @@ run_check() {
 # Check 1: TypeScript type checking
 run_check "Type checking" "npm run type-check"
 
-# Check 2: ESLint
-run_check "Linting" "npm run lint"
-
-# Check 3: Smoke tests
+# Check 2: Smoke tests
 run_check "Smoke tests" "npm run test:ci"
 
-# Check 4: Production build
-run_check "Production build" "npm run build"
+# Check 3: Production build (includes ESLint in strict mode)
+run_check "Production build (with linting)" "npm run build"
 
 # Summary
 echo ""
