@@ -8,6 +8,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ Require authentication
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      )
+    }
+
     const resolvedParams = await params
     const productId = resolvedParams.id
 
@@ -15,10 +24,7 @@ export async function GET(
       return NextResponse.json({ error: 'Product ID required' }, { status: 400 })
     }
 
-    // Get user session for event logging
-    const session = await getServerSession(authOptions)
-    const userId = session?.user?.email || undefined
-
+    const userId = session.user.email
     const product = await getProductByIdAction(productId, userId)
 
     if (!product) {

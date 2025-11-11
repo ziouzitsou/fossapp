@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CRITICAL**: Fixed NextAuth handler not using secure authOptions (Gemini audit finding)
 - **CRITICAL**: Server-side Google Workspace domain validation (prevents unauthorized account access)
 - **CRITICAL**: Removed server action import from client bundle (prevents service role key exposure)
+- **MEDIUM**: Product catalog API now requires authentication (Gemini audit recommendation)
 - Sanitized error logging to prevent PII and credential leaks in logs
 - Enhanced environment variable validation with descriptive error messages
 - Made ALLOWED_DOMAIN environment variable required (no fallback to prevent config errors)
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ALLOWED_DOMAIN to .env.local and .env.production files
 
 ### Changed
+- **BREAKING**: API endpoints now require authentication (401 for unauthenticated requests)
 - Client-side search now uses API endpoint instead of direct server action
 - Error logging uses sanitized patterns (message/code only, no full error objects)
 - Environment variables validated without TypeScript non-null assertions
@@ -58,7 +60,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Product search functionality
 
 ### Deployment Notes
+- **BREAKING CHANGE**: All API endpoints now require authentication
 - **IMPORTANT**: Add `ALLOWED_DOMAIN=foss.gr` to production `.env.production`
+- Users must be logged in to access product data via API
+- Landing page will need adjustment if it calls API endpoints before auth
 - Install Playwright browsers: `npx playwright install chromium`
 - Run pre-deployment checks: `./scripts/deploy-check.sh`
 - Smoke tests require dev server: `npm run test:ci`

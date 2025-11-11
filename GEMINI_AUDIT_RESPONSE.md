@@ -15,7 +15,7 @@
 |----|----------|---------|--------|--------------|
 | 1 | CRITICAL | Insecure Authentication | ✅ FIXED | Applied secure authOptions |
 | 2 | HIGH | Lack of RLS | 📋 DESIGN | Documented design decision |
-| 3 | MEDIUM | API Not Requiring Auth | ⚠️ DECISION NEEDED | Pending business decision |
+| 3 | MEDIUM | API Not Requiring Auth | ✅ FIXED | Auth required for all product endpoints |
 | 4 | LOW | Health Check Info | 📋 BACKLOG | Low priority |
 | 5 | LOW | SQL Injection | ❌ FALSE POSITIVE | No raw SQL used |
 
@@ -94,49 +94,44 @@ This is an intentional architectural choice for a single-organization internal t
 
 ---
 
-### ⚠️ ISSUE #3: Medium - API Endpoints Not Requiring Authentication (DECISION NEEDED)
+### ✅ ISSUE #3: Medium - API Endpoints Not Requiring Authentication (FIXED)
 
 **Finding**: API endpoints `/api/products/search` and `/api/products/[id]` get session but don't enforce authentication.
 
 **Impact**: Product data accessible to unauthenticated users.
 
-**Status**: ⚠️ BUSINESS DECISION REQUIRED
+**Status**: ✅ FIXED (2025-11-11)
 
 **Current Behavior**:
 - Endpoints get session for event logging (if available)
 - Return data regardless of authentication status
 - Product catalog accessible without login
 
-**Question for Stakeholders**:
+**Decision**: User chose Option B - Require Authentication for internal company database use case.
 
-**Option A: Keep Public Access** (Current)
-- ✅ Product catalog is public information (like a website)
-- ✅ Landing page can show product count without login
-- ✅ Good for SEO and discoverability
-- ❌ Product data exposed to anyone
-- Use case: Public lighting product catalog
-
-**Option B: Require Authentication**
-- ✅ Product data protected
-- ✅ Track all product views by user
-- ✅ Control who sees catalog
-- ❌ Landing page can't show stats
-- ❌ More restrictive user experience
-- Use case: Internal company product database
-
-**Recommended Fix if Option B** (Require Auth):
+**Fix Applied**:
 ```typescript
-// In /api/products/search/route.ts
-const session = await getServerSession(authOptions)
-if (!session?.user?.email) {
-  return NextResponse.json(
-    { error: 'Unauthorized' },
-    { status: 401 }
-  )
+// Both /api/products/search and /api/products/[id] now require auth
+export async function GET(request: NextRequest) {
+  // ✅ Require authentication
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.email) {
+    return NextResponse.json(
+      { error: 'Unauthorized - Authentication required' },
+      { status: 401 }
+    )
+  }
+  // ... rest of endpoint logic
 }
 ```
 
-**Action Required**: Dimitri to decide whether product catalog should be public or private.
+**What This Fixes**:
+- ✅ Product data now protected (auth required)
+- ✅ All product views tracked by user email
+- ✅ Control who accesses catalog (@foss.gr only)
+- ✅ Returns 401 Unauthorized for unauthenticated requests
+
+**Breaking Change**: Landing page can no longer call API endpoints before authentication. Application now fully requires login to access any product data.
 
 ---
 
@@ -220,14 +215,15 @@ async function getActiveCatalogsFallback(): Promise<CatalogInfo[]> {
 
 ## Actions Taken
 
-### Immediate (2025-11-11)
+### Completed (2025-11-11)
 - ✅ Fixed critical authentication bypass
+- ✅ Added authentication to product API endpoints
 - ✅ Verified build passes
 - ✅ Updated CHANGELOG.md
 - ✅ Created this response document
+- ✅ Updated response with API auth implementation
 
 ### Pending
-- ⚠️ Decision needed: Should API endpoints require authentication?
 - 📋 Consider RLS for v2.0 (defense-in-depth)
 - 📋 Consider restricting health check details (low priority)
 
@@ -265,13 +261,13 @@ async function getActiveCatalogsFallback(): Promise<CatalogInfo[]> {
 - ✅ Server actions with service_role (not exposed to client)
 
 ### Remaining Considerations
-- ⚠️ API endpoints accessible without auth (decision pending)
 - 📋 No RLS at database level (acceptable for single-org internal tool)
 - 📋 Version info in health check (low risk)
 
 ### Overall Security Level
-**Before Gemini Audit**: 🟡 Medium Risk (auth bypass)
-**After Critical Fix**: 🟢 Good Security (appropriate for internal tool)
+**Before Gemini Audit**: 🟡 Medium Risk (auth bypass, public API)
+**After Critical Fix**: 🟢 Good Security (auth enforced, API protected)
+**After API Protection**: 🟢 Strong Security (appropriate for internal tool)
 
 ---
 

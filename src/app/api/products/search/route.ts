@@ -4,6 +4,15 @@ import { authOptions } from '@/lib/auth'
 import { searchProductsAction } from '@/lib/actions'
 
 export async function GET(request: NextRequest) {
+  // ✅ Require authentication
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.email) {
+    return NextResponse.json(
+      { error: 'Unauthorized - Authentication required' },
+      { status: 401 }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const query = searchParams.get('q')
 
@@ -12,10 +21,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get user session for event logging
-    const session = await getServerSession(authOptions)
-    const userId = session?.user?.email || undefined
-
+    const userId = session.user.email
     const results = await searchProductsAction(query, userId)
     return NextResponse.json({ data: results })
   } catch (error) {
