@@ -18,11 +18,14 @@ import {
   getSupplierStatsAction,
   getTopFamiliesAction,
   getActiveCatalogsAction,
+  getMostActiveUsersAction,
   type DashboardStats,
   type SupplierStats,
   type FamilyStats,
-  type CatalogInfo
+  type CatalogInfo,
+  type ActiveUser
 } from '@/lib/actions'
+import { MostActiveUsersCard } from '@/components/most-active-users-card'
 
 export default function Dashboard() {
   const { data: session, status } = useDevSession()
@@ -33,6 +36,7 @@ export default function Dashboard() {
   const [suppliers, setSuppliers] = useState<SupplierStats[]>([])
   const [catalogs, setCatalogs] = useState<CatalogInfo[]>([])
   const [topFamilies, setTopFamilies] = useState<FamilyStats[]>([])
+  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -51,17 +55,19 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     setLoading(true)
     try {
-      const [dashboardStats, supplierStats, catalogStats, familyStats] = await Promise.all([
+      const [dashboardStats, supplierStats, catalogStats, familyStats, mostActiveUsers] = await Promise.all([
         getDashboardStatsAction(),
         getSupplierStatsAction(),
         getActiveCatalogsAction(),
-        getTopFamiliesAction(10)
+        getTopFamiliesAction(10),
+        getMostActiveUsersAction(5)
       ])
 
       setStats(dashboardStats)
       setSuppliers(supplierStats)
       setCatalogs(catalogStats)
       setTopFamilies(familyStats)
+      setActiveUsers(mostActiveUsers)
     } catch (error) {
       console.error('Error loading dashboard data:', error)
     } finally {
@@ -348,8 +354,11 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
+            {/* Most Active Users */}
+            <MostActiveUsersCard users={activeUsers} loading={loading} />
+
             {/* Top Product Families */}
-            <Card>
+            <Card className="mt-6">
               <CardHeader>
                 <CardTitle>Top Product Families</CardTitle>
                 <p className="text-sm text-muted-foreground">Most popular product categories</p>
