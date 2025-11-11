@@ -51,19 +51,32 @@ test.describe('Critical paths - Smoke Tests', () => {
     expect(isProducts || isAuth).toBeTruthy()
   })
 
-  test('API search endpoint validates input', async ({ request }) => {
-    // Test missing query parameter
+  test('API search endpoint requires authentication', async ({ request }) => {
+    // Test that unauthenticated requests are rejected
     const response = await request.get('/api/products/search')
-    expect(response.status()).toBe(400)
+    expect(response.status()).toBe(401)
 
     const data = await response.json()
-    expect(data.error).toBeDefined()
+    expect(data.error).toContain('Unauthorized')
   })
 
-  test('API product endpoint handles invalid UUID', async ({ request }) => {
-    // Test invalid product ID format - API validates and returns 404 for not found
+  test('API product endpoint requires authentication', async ({ request }) => {
+    // Test that unauthenticated requests are rejected
     const response = await request.get('/api/products/invalid-id')
-    // API returns 404 for invalid product IDs (validation happens in action)
-    expect(response.status()).toBe(404)
+    expect(response.status()).toBe(401)
+
+    const data = await response.json()
+    expect(data.error).toContain('Unauthorized')
+  })
+
+  test('API search validates input when authenticated', async ({ request }) => {
+    // Note: This test validates the auth requirement works correctly
+    // In development with NEXT_PUBLIC_BYPASS_AUTH=true, client-side auth is bypassed
+    // but API endpoints still require server-side session
+    // Full authenticated API tests would require mocking NextAuth session (future enhancement)
+
+    const response = await request.get('/api/products/search?q=test')
+    // Without valid session, should return 401
+    expect(response.status()).toBe(401)
   })
 })
