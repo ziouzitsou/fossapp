@@ -5,9 +5,14 @@ import { logEvent } from './event-logger'
 // Validate required environment variables at module load time
 const googleClientId = process.env.GOOGLE_CLIENT_ID
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET
+const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN
 
 if (!googleClientId || !googleClientSecret) {
   throw new Error('Missing required authentication environment variables: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET')
+}
+
+if (!ALLOWED_DOMAIN) {
+  throw new Error('ALLOWED_DOMAIN environment variable is required')
 }
 
 export const authOptions: NextAuthOptions = {
@@ -17,7 +22,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: googleClientSecret,
       authorization: {
         params: {
-          hd: process.env.ALLOWED_DOMAIN || 'foss.gr', // UI hint (not secure alone)
+          hd: ALLOWED_DOMAIN, // UI hint (not secure alone)
         },
       },
     })
@@ -25,11 +30,15 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       // ✅ Server-side domain validation (CRITICAL)
-      const allowedDomain = process.env.ALLOWED_DOMAIN || 'foss.gr'
       const email = user?.email
 
-      if (!email || !email.endsWith(`@${allowedDomain}`)) {
-        console.warn(`Rejected login attempt from: ${email || 'unknown'}`)
+      if (!email) {
+        console.warn('Rejected login attempt: missing email')
+        return false
+      }
+
+      if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+        console.warn(`Rejected login attempt from unauthorized domain: ${email}`)
         return false
       }
 

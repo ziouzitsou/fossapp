@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CRITICAL**: Removed server action import from client bundle (prevents service role key exposure)
 - Sanitized error logging to prevent PII and credential leaks in logs
 - Enhanced environment variable validation with descriptive error messages
+- Made ALLOWED_DOMAIN environment variable required (no fallback to prevent config errors)
 
 ### Added
 - Pre-deployment validation script (`scripts/deploy-check.sh`)
@@ -19,24 +20,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type-check npm script for TypeScript validation
 - Test scripts (test, test:ci) for automated testing
 - ALLOWED_DOMAIN environment variable for workspace restriction
+- ALLOWED_DOMAIN to .env.local and .env.production files
 
 ### Changed
 - Client-side search now uses API endpoint instead of direct server action
 - Error logging uses sanitized patterns (message/code only, no full error objects)
 - Environment variables validated without TypeScript non-null assertions
 - Improved error messages for missing configuration
+- Search error handling: returns empty array instead of throwing errors (better UX)
+- Auth callback: separate validation for missing email vs unauthorized domain
 
 ### Fixed
 - Next.js 16 build compatibility (server actions in client bundles)
 - OAuth domain bypass vulnerability (now validated server-side)
 - Inconsistent environment variable validation patterns
 - Potential token/credential exposure in console logs
+- Inconsistent error handling in searchProducts (now returns empty array on error)
+- Unclear log messages when email is missing in auth callback
 
 ### Technical
 - Auth callback validates email domain server-side in addition to OAuth 'hd' parameter
 - All error handlers use sanitized logging (message only, no error objects)
 - Playwright configuration for smoke testing critical paths
 - Deploy-check script validates: type-check, lint, tests, and build
+- Created GitHub issue #6 for LOW priority technical debt (race conditions, input validation, user ID logging)
 
 ### Testing
 - Health endpoint validation

@@ -26,13 +26,17 @@ export async function searchProducts(query: string): Promise<ProductSearchResult
     const response = await fetch(`/api/products/search?q=${encodeURIComponent(query)}`)
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
+      console.error('Search failed:', {
+        status: response.status,
+        query: query.substring(0, 50)
+      })
+      return []  // ✅ Return empty array instead of throwing
     }
 
     const result = await response.json()
     return result.data || []
   } catch (error) {
     console.error('Search error:', error instanceof Error ? error.message : 'Unknown error')
-    throw error
+    return []  // ✅ Consistent: return empty array on error
   }
 }
