@@ -1,7 +1,7 @@
 # Production Deployment Checklist
 
 **Last Updated**: 2025-11-11
-**Current Version**: v1.4.2
+**Current Version**: v1.4.3
 
 This checklist was created after the v1.1.4 deployment to prevent common issues.
 **Updated v1.4.1**: Added automated pre-deployment script with smoke tests.

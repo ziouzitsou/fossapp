@@ -32,3 +32,189 @@ When responding to an audit, please follow the format in `20251111_CLAUDE_RESPON
 -   An **Audit Quality Assessment** section with feedback on my audit. This is valuable for my learning process.
 
 By following this process, we can work together to create a more secure and reliable application.
+
+---
+
+## Automation
+
+### Available Automation Scripts
+
+The following scripts are available in `../scripts/` for automating security audits:
+
+#### 1. Manual Audit
+```bash
+cd /home/sysadmin/nextjs/fossapp
+./scripts/run-gemini-audit.sh
+```
+
+**Features**:
+- Interactive mode (prompts for approval)
+- Comprehensive security scan
+- Formatted markdown output
+- Quick summary of findings
+- Alert for critical/high severity issues
+
+**Auto-approve mode**:
+```bash
+./scripts/run-gemini-audit.sh --auto-approve
+```
+
+#### 2. Pre-Deployment Audit
+```bash
+./scripts/pre-deploy-audit.sh
+```
+
+**Features**:
+- Runs deployment checks first
+- Automated security audit
+- **Blocks deployment** if critical/high issues found
+- Returns exit code 1 for CI/CD integration
+
+**Use case**: Add to deployment pipeline to prevent deploying vulnerable code.
+
+#### 3. Scheduled Audits
+```bash
+# Weekly audits (recommended)
+./scripts/schedule-audit.sh weekly
+
+# Daily audits (high-security projects)
+./scripts/schedule-audit.sh daily
+
+# Monthly audits (stable projects)
+./scripts/schedule-audit.sh monthly
+```
+
+**Note**: In WSL, cron may not be available. Use Windows Task Scheduler instead:
+1. Open Task Scheduler
+2. Create Basic Task
+3. Action: `wsl.exe bash /home/sysadmin/nextjs/fossapp/scripts/run-gemini-audit.sh --auto-approve`
+
+### Automation Use Cases
+
+#### Use Case 1: Pre-Release Security Check
+```bash
+# Before creating a new version
+npm run build && \
+./scripts/pre-deploy-audit.sh && \
+npm version patch && \
+git push --tags
+```
+
+#### Use Case 2: CI/CD Integration
+```yaml
+# .github/workflows/security-audit.yml
+name: Security Audit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Gemini Security Audit
+        run: ./scripts/pre-deploy-audit.sh
+```
+
+#### Use Case 3: Weekly Security Review
+```bash
+# Windows Task Scheduler (every Monday 2 AM)
+wsl.exe bash /home/sysadmin/nextjs/fossapp/scripts/run-gemini-audit.sh --auto-approve
+```
+
+### Audit Output
+
+**Generated files**:
+- `YYYYMMDD_HHMMSS_GEMINI_AUDIT.md` - Audit report
+- `audit.log` - Execution log (when scheduled)
+
+**Expected format**:
+```markdown
+# Gemini Security Audit - YYYY-MM-DD
+
+## Summary of Findings
+| Severity | Finding | Location |
+
+## Detailed Findings
+### 1. [Severity]: [Title]
+...
+```
+
+### Response Workflow
+
+After receiving an audit report:
+
+1. **Review the report**: `cat audits/YYYYMMDD_HHMMSS_GEMINI_AUDIT.md`
+2. **Create response**: `audits/YYYYMMDD_HHMMSS_CLAUDE_RESPONSE.md`
+3. **Address findings**: Fix, document, or defer issues
+4. **Update status**: Use the Issues Summary table format
+
+### Alert Thresholds
+
+The automation scripts use these severity levels:
+
+| Severity | Action |
+|----------|--------|
+| 🔴 Critical | Block deployment, immediate fix required |
+| 🟠 High | Block deployment, fix before release |
+| 🟡 Medium | Review required, can deploy with justification |
+| 🟢 Low | Document and backlog |
+
+### Best Practices
+
+1. **Run audits before major releases**
+   ```bash
+   ./scripts/pre-deploy-audit.sh
+   ```
+
+2. **Schedule regular audits** (weekly recommended)
+   ```bash
+   ./scripts/schedule-audit.sh weekly
+   ```
+
+3. **Review audit logs periodically**
+   ```bash
+   tail -f audits/audit.log
+   ```
+
+4. **Keep audit history** (do not delete old audits)
+   - Useful for tracking security improvements
+   - Reference for future similar issues
+   - Evidence of security due diligence
+
+5. **Document all responses** (even for false positives)
+   - Helps improve future audits
+   - Provides context for design decisions
+   - Creates institutional knowledge
+
+### Troubleshooting
+
+**Issue**: Gemini CLI not found
+```bash
+# Check if Gemini is installed
+gemini --version
+
+# If not installed, follow Gemini installation docs
+```
+
+**Issue**: Audit script fails with permission error
+```bash
+# Make scripts executable
+chmod +x scripts/*.sh
+```
+
+**Issue**: Cron not working in WSL
+- WSL doesn't always support cron
+- Use Windows Task Scheduler instead (see Scheduled Audits section)
+
+**Issue**: Audit takes too long
+- Normal: 2-5 minutes for full codebase audit
+- Use `--include-directories` to limit scope for faster audits
+
+**Issue**: Too many false positives
+- Review `audits/YYYYMMDD_CLAUDE_RESPONSE.md` for patterns
+- Consider customizing the audit prompt in `run-gemini-audit.sh`
+- Document common false positives in this README

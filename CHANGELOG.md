@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3] - 2025-11-11
+
+### Security
+- Fixed SQL injection vulnerability in catalog fallback function (`getActiveCatalogsFallback`)
+- Replaced raw SQL with parameterized Supabase query builder
+- Added automated Gemini security audit system
+
+### Added
+- Pre-deployment security audit script (`scripts/pre-deploy-audit.sh`)
+- Automated audit scheduling helpers (`scripts/run-gemini-audit.sh`, `scripts/schedule-audit.sh`)
+- Comprehensive audit documentation (`audits/AUTOMATION_QUICK_START.md`)
+- Quick start guide for audit automation
+
+### Changed
+- Updated `.gitignore` to exclude audit reports from repository
+- Improved audit README with automation instructions
+
 ## [1.4.2] - 2025-11-11
 
 **SECURITY RELEASE**: Critical fixes for authentication and API protection based on Gemini audit recommendations.

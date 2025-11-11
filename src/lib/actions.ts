@@ -388,27 +388,28 @@ async function getActiveCatalogsFallback(): Promise<CatalogInfo[]> {
       return []
     }
 
-    // Use SQL to count products per catalog (much more efficient)
-    const catalogIds = catalogs.map(c => c.id).join(',')
+    // Count products per catalog using safe parameterized query
+    // Extract catalog IDs (validated as numbers from database)
+    const catalogIds = catalogs.map(c => c.id).filter(id => Number.isInteger(id))
 
-    const { data: productCounts, error: countsError } = await supabaseServer.rpc('execute_sql', {
-      query: `
-        SELECT catalog_id, COUNT(*) as count
-        FROM items.product
-        WHERE catalog_id IN (${catalogIds})
-        GROUP BY catalog_id
-      `
-    })
+    // Use Supabase query builder with .in() for safe parameterization
+    // This approach avoids SQL injection by using parameterized queries
+    const { data: products, error: countsError } = await supabaseServer
+      .schema('items')
+      .from('product')
+      .select('catalog_id')
+      .in('catalog_id', catalogIds)
 
     if (countsError) {
       console.error('Error getting product counts:', countsError)
     }
 
-    // Create a map of catalog_id -> count
+    // Create a map of catalog_id -> count by aggregating results
     const countMap = new Map<number, number>()
-    if (productCounts && Array.isArray(productCounts)) {
-      productCounts.forEach((row: any) => {
-        countMap.set(parseInt(row.catalog_id), parseInt(row.count))
+    if (products && Array.isArray(products)) {
+      products.forEach((product: any) => {
+        const catalogId = product.catalog_id
+        countMap.set(catalogId, (countMap.get(catalogId) || 0) + 1)
       })
     }
 

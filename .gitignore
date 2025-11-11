@@ -33,6 +33,13 @@ yarn-error.log*
 # playwright screenshots
 .playwright-mcp/
 
+# security audits (keep docs, exclude reports and logs)
+audits/*_GEMINI_AUDIT.md
+audits/*_CLAUDE_RESPONSE.md
+audits/*.log
+!audits/README.md
+!audits/AUTOMATION_*.md
+
 # env files (can opt-in for committing if needed)
 .env*
 
