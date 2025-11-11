@@ -1,9 +1,10 @@
 # Production Deployment Checklist
 
-**Last Updated**: 2025-11-09
-**Current Version**: v1.1.4
+**Last Updated**: 2025-11-11
+**Current Version**: v1.4.0
 
 This checklist was created after the v1.1.4 deployment to prevent common issues.
+**Updated v1.4.1**: Added automated pre-deployment script with smoke tests.
 
 > **Note**: For version history and release notes, see [CHANGELOG.md](../CHANGELOG.md)
 
@@ -11,24 +12,36 @@ This checklist was created after the v1.1.4 deployment to prevent common issues.
 
 ## ⚠️ Critical: Pre-Deployment Checks
 
-### 1. Local Build Test (MANDATORY)
+### 1. Run Automated Pre-Deployment Script (MANDATORY)
 ```bash
 # ALWAYS run this BEFORE committing/pushing
-npm run build
+./scripts/deploy-check.sh
 ```
+
+**What it does**:
+- ✓ TypeScript type checking (`npm run type-check`)
+- ✓ ESLint validation (`npm run lint`)
+- ✓ Playwright smoke tests (7 critical path tests)
+- ✓ Production build test (`npm run build`)
 
 **Why?** Production builds are stricter than dev mode:
 - ESLint runs with `--strict` mode
 - TypeScript type checking is enforced
 - All warnings become errors
 - Missing dependencies are caught
+- Critical functionality is verified
 
 **Lessons from v1.1.4**:
 - Dev server didn't catch unused `theme` variable → Production build failed
 - Dev server didn't catch missing `supplier_logo_dark` in interface → Production build failed
 - Dev server allowed React hooks warnings → Production build failed
 
-### 2. Fix All ESLint/TypeScript Errors
+**New in v1.4.1+**:
+- Smoke tests catch broken auth flows before deployment
+- Type-check catches TypeScript errors early
+- Script exits on first failure (fail-fast)
+
+### 2. Fix All Errors Reported by Script
 
 Common issues to check:
 ```typescript
@@ -102,11 +115,11 @@ ssh -i ~/.ssh/platon.key sysadmin@platon.titancnc.eu \
 # 2. Test in dev mode
 npm run dev
 
-# 3. Test build (CRITICAL!)
-npm run build
+# 3. Run pre-deployment checks (CRITICAL!)
+./scripts/deploy-check.sh
 
 # 4. Fix any errors that appear
-# 5. Repeat until build succeeds
+# 5. Repeat until all checks pass
 ```
 
 ### Step 2: Commit & Push
@@ -211,13 +224,15 @@ docker system prune -a --volumes
 
 Before running `npm version patch`:
 
-- [ ] `npm run build` succeeds locally
-- [ ] No ESLint errors/warnings
-- [ ] No TypeScript errors
+- [ ] `./scripts/deploy-check.sh` passes all checks
+  - [ ] TypeScript type-check passes
+  - [ ] ESLint validation passes
+  - [ ] Smoke tests pass (7 tests)
+  - [ ] Production build succeeds
 - [ ] All dependencies in package.json
 - [ ] Changes committed and pushed to main
 - [ ] Dev server tested (npm run dev)
-- [ ] All features tested locally
+- [ ] All features tested manually
 
 Before deploying to production:
 
@@ -238,10 +253,16 @@ After deployment:
 
 ## 🎯 Best Practices
 
-### 1. Always Test Build Locally
+### 1. Always Run Pre-Deployment Script
 ```bash
-# Add this to your workflow
-npm run build && echo "✅ Build successful" || echo "❌ Build failed"
+# Add this to your workflow (runs all checks)
+./scripts/deploy-check.sh
+
+# Or run individual checks
+npm run type-check  # TypeScript validation
+npm run lint        # ESLint validation
+npm run test:ci     # Smoke tests (3.8s)
+npm run build       # Production build
 ```
 
 ### 2. Commit Messages
@@ -338,4 +359,35 @@ docker system prune -a --volumes  # CAUTION: Removes all unused data
 
 ---
 
-**Remember**: 5 minutes of local testing saves 30 minutes of deployment debugging! 🚀
+## 🎉 v1.4.1 Improvements (External Audit Fixes)
+
+**What changed**:
+1. ✅ Automated pre-deployment script (`scripts/deploy-check.sh`)
+2. ✅ Playwright smoke tests (7 critical path tests in 3.8s)
+3. ✅ Type-check script for TypeScript validation
+4. ✅ Security fixes (domain validation, error sanitization)
+5. ✅ Single command replaces manual checklist: `./scripts/deploy-check.sh`
+
+**What you get**:
+- **Faster**: One command vs 4 manual steps
+- **Safer**: Tests catch broken auth flows before deployment
+- **Consistent**: Same checks every time, no forgetting steps
+- **Fail-fast**: Stops at first failure with clear error output
+
+**New workflow**:
+```bash
+# Old way (v1.4.0 and before)
+npm run build              # Manual
+# Check for errors
+# Fix issues
+# Test manually
+
+# New way (v1.4.1+)
+./scripts/deploy-check.sh  # Automated
+# Fix any failures
+# Done!
+```
+
+---
+
+**Remember**: 5 minutes of automated testing saves 30 minutes of deployment debugging! 🚀
