@@ -14,8 +14,11 @@ export const authOptions: NextAuthOptions = {
       // Log successful login event
       if (user?.email) {
         await logEvent('login', user.email, {
-          provider: account?.provider || 'unknown',
-          login_timestamp: new Date().toISOString(),
+          eventData: {
+            provider: account?.provider || 'unknown',
+            login_timestamp: new Date().toISOString(),
+          },
+          pathname: '/'
         })
       }
       return true
@@ -36,7 +39,9 @@ export const authOptions: NextAuthOptions = {
       // Note: session might be null in some cases
       if (session?.user?.email) {
         await logEvent('logout', session.user.email, {
-          logout_timestamp: new Date().toISOString(),
+          eventData: {
+            logout_timestamp: new Date().toISOString(),
+          }
         })
       }
     },
