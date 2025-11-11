@@ -22,10 +22,10 @@ export function ThemeSelector() {
         </div>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="blue">
+        <SelectItem value="default">
           <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded-full bg-[hsl(221.2,83.2%,53.3%)]" />
-            <span>Blue (Default)</span>
+            <div className="h-4 w-4 rounded-full bg-[hsl(223.8136,0%,63.0163%)]" />
+            <span>Default</span>
           </div>
         </SelectItem>
         <SelectItem value="supabase">

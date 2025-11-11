@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
-type Theme = 'blue' | 'supabase' | 'graphite'
+type Theme = 'default' | 'supabase' | 'graphite'
 
 interface ThemeContextType {
   theme: Theme
@@ -12,14 +12,14 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function MultiThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('blue')
+  const [theme, setThemeState] = useState<Theme>('default')
   const [mounted, setMounted] = useState(false)
 
   // Load theme from localStorage on mount
   useEffect(() => {
     setMounted(true)
     const savedTheme = localStorage.getItem('app-theme') as Theme | null
-    if (savedTheme && ['blue', 'supabase', 'graphite'].includes(savedTheme)) {
+    if (savedTheme && ['default', 'supabase', 'graphite'].includes(savedTheme)) {
       setThemeState(savedTheme)
     }
   }, [])
@@ -33,7 +33,7 @@ export function MultiThemeProvider({ children }: { children: React.ReactNode }) 
     // Remove all theme classes
     root.classList.remove('theme-supabase', 'theme-graphite')
 
-    // Add new theme class (blue is default, no class needed)
+    // Add new theme class (default has no class, uses :root)
     if (theme === 'supabase') {
       root.classList.add('theme-supabase')
     } else if (theme === 'graphite') {
