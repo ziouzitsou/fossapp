@@ -66,8 +66,11 @@ export async function searchProductsAction(query: string, userId?: string): Prom
     // Log search event if userId is provided
     if (userId) {
       await logEvent('search', userId, {
-        search_query: sanitizedQuery,
-        results_count: data?.length || 0,
+        eventData: {
+          search_query: sanitizedQuery,
+          results_count: data?.length || 0,
+        },
+        pathname: '/products'
       })
     }
 
@@ -129,10 +132,13 @@ export async function getProductByIdAction(productId: string, userId?: string): 
       // Log product view event if userId is provided
       if (userId) {
         await logEvent('product_view', userId, {
-          product_id: sanitizedProductId,
-          foss_pid: data.foss_pid,
-          supplier: data.supplier_name,
-          description: data.description_short,
+          eventData: {
+            product_id: sanitizedProductId,
+            foss_pid: data.foss_pid,
+            supplier: data.supplier_name,
+            description: data.description_short,
+          },
+          pathname: `/products/${sanitizedProductId}`
         })
       }
 
