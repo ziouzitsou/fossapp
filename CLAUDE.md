@@ -409,6 +409,58 @@ git push --tags
 
 **Note**: Gemini CLI uses free tier - be mindful of token usage for large audits.
 
+### Gemini Code Auditor Agent 🤖
+
+**Agent**: Interactive code review during development (as of v1.4.3)
+**Location**: `.claude/agents/gemini-code-auditor.md`
+**Documentation**: [docs/gemini-auditor.md](./docs/gemini-auditor.md)
+
+**Purpose**: AI-powered code auditing within Claude Code conversations for immediate feedback during development.
+
+**Usage**:
+```
+User: "Review the authentication implementation"
+Claude: [Invokes gemini-code-auditor agent]
+Claude: "Audit complete. Grade: A-, 0 critical issues, 2 warnings..."
+```
+
+**Triggers**:
+- User requests: "Review this code", "Audit the new API endpoint"
+- Proactive: After completing significant features or security-sensitive changes
+
+**Audit Coverage**:
+- 🔒 Security (SQL injection, XSS, auth bypass, secrets)
+- 📊 Code Quality (TypeScript, error handling, duplication)
+- 🏗️ Architecture (Server/Client components, routing)
+- ⚡ Performance (queries, caching, bundle size)
+- ♿ Accessibility (WCAG, semantic HTML, ARIA)
+- 🎯 Project-Specific (Supabase dual-client, NextAuth, shadcn/ui)
+
+**Output Format**:
+- 📊 Audit Summary (grade, issue counts)
+- 🚨 Critical Issues (must fix before deployment)
+- ⚠️ Warnings (should fix soon)
+- 💡 Suggestions (nice to have)
+- ✅ Strengths (what code does well)
+- 📝 Detailed Analysis (with code examples)
+
+**Agent vs Scripts**:
+| Use Case | Tool |
+|----------|------|
+| Interactive development review | 🤖 gemini-code-auditor agent |
+| Pre-deployment security gate | 📜 `./scripts/pre-deploy-audit.sh` |
+| Scheduled weekly audits | 📜 `./scripts/run-gemini-audit.sh --auto-approve` |
+| CI/CD integration | 📜 Scripts (exit codes for automation) |
+| Historical tracking | 📜 Scripts (markdown reports in `audits/`) |
+
+**Test Results** (2025-11-11):
+- ✅ Grade: A- (SQL injection fix audit)
+- ✅ No token limit issues (Gemini free tier)
+- ✅ Detailed, actionable feedback with code examples
+- ✅ Project-aware (mentioned dual-client pattern, port 8080)
+
+**See Also**: [Complete Agent Documentation](./docs/gemini-auditor.md)
+
 ## API Architecture
 
 **REST Endpoint Pattern** (App Router style):
