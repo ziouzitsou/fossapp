@@ -25,7 +25,7 @@ See [Deployment Workflow](#deployment-workflow) for detailed requirements.
 
 FOSSAPP is a Next.js 16.0.0 application providing a searchable database of 56,456+ lighting products and accessories for lighting design professionals, architects, and AutoCAD users. Built with App Router, TypeScript, Turbopack, and Supabase PostgreSQL backend.
 
-**Production**: https://main.fossapp.online (v1.2.1)
+**Production**: https://main.fossapp.online (v1.4.3)
 **Development**: Port 8080 (not 3000 - note the custom port configuration)
 
 ## Domain Configuration ⚙️
@@ -337,6 +337,78 @@ const handleSearch = async (query: string) => {
 - Migration `fix_product_info_permissions`: Initial grants to service_role, anon, authenticated
 - Migration `restrict_product_info_to_authenticated`: Revoked anon access for security
 
+### Automated Security Auditing 🔍
+
+**System**: Gemini AI-powered security audits (as of v1.4.3)
+**Location**: `audits/` folder with automation scripts in `scripts/`
+
+**Available Commands**:
+```bash
+# Manual security audit
+./scripts/run-gemini-audit.sh --auto-approve
+
+# Pre-deployment security gate (blocks if critical/high issues found)
+./scripts/pre-deploy-audit.sh
+
+# Schedule recurring audits
+./scripts/schedule-audit.sh weekly
+```
+
+**How It Works**:
+1. Gemini CLI analyzes codebase for security vulnerabilities
+2. Generates markdown report: `audits/YYYYMMDD_HHMMSS_GEMINI_AUDIT.md`
+3. Categorizes findings by severity (Critical/High/Medium/Low)
+4. Blocks deployment if critical/high severity issues found
+5. Maintains audit history locally (excluded from git)
+
+**Audit Focus Areas**:
+- Authentication & Authorization (NextAuth.js, domain validation)
+- Database Security (Supabase clients, RLS policies, SQL injection)
+- API Security (input validation, error handling, CORS)
+- Code Quality (secrets management, dependency vulnerabilities)
+- Production Deployment (Docker security, logging)
+
+**Documentation**:
+- **Quick Start**: `audits/AUTOMATION_QUICK_START.md`
+- **Complete Guide**: `audits/README.md`
+- **Setup Details**: `audits/AUTOMATION_SETUP_COMPLETE.md`
+
+**Severity Response Guide**:
+| Severity | Action |
+|----------|--------|
+| 🔴 Critical | Block deployment, fix immediately |
+| 🟠 High | Block deployment, fix before release |
+| 🟡 Medium | Review required, document decision |
+| 🟢 Low | Document and backlog |
+
+**Integration**:
+- Pre-deployment checks: `./scripts/pre-deploy-audit.sh`
+- CI/CD ready: Returns exit codes for automation
+- Scheduled audits: Weekly via Windows Task Scheduler (WSL)
+
+**Git Configuration**:
+- Audit reports: Excluded from repository (sensitive)
+- Documentation: Tracked in git (public)
+- Execution logs: Local only
+
+**Future Enhancement**: Dedicated audit agent planned for seamless integration with Claude Code workflow.
+
+**Example Workflow**:
+```bash
+# Before deployment
+./scripts/pre-deploy-audit.sh
+
+# If passed
+npm version patch
+git push --tags
+
+# If failed
+# Review: cat audits/YYYYMMDD_HHMMSS_GEMINI_AUDIT.md
+# Fix issues, then retry
+```
+
+**Note**: Gemini CLI uses free tier - be mindful of token usage for large audits.
+
 ## API Architecture
 
 **REST Endpoint Pattern** (App Router style):
@@ -555,7 +627,7 @@ return data
 
 **VPS**: platon.titancnc.eu
 **Domain**: https://main.fossapp.online
-**Current Version**: v1.3.5
+**Current Version**: v1.4.3
 **Deployment**: Automated via production-deployer agent
 **Deployment Directory**: `/opt/fossapp/`
 **Monitoring**: Docker healthcheck + `/api/health` endpoint
