@@ -2,6 +2,25 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ MANDATORY: Pre-Deployment Validation
+
+**BEFORE any production deployment, version bump, or git tag creation**:
+
+1. **ALWAYS run**: `./scripts/deploy-check.sh`
+2. **If script fails**: STOP immediately and report errors to user
+3. **Never skip failures**: Do not proceed with "it might work" assumptions
+4. **Show all output**: Report exact error messages to user
+
+This applies to:
+- production-deployer agent
+- Manual deployments
+- Version bumps (npm version)
+- Any git operations that affect production
+
+See [Deployment Workflow](#deployment-workflow) for detailed requirements.
+
+---
+
 ## Project Overview
 
 FOSSAPP is a Next.js 16.0.0 application providing a searchable database of 56,456+ lighting products and accessories for lighting design professionals, architects, and AutoCAD users. Built with App Router, TypeScript, Turbopack, and Supabase PostgreSQL backend.
@@ -565,12 +584,89 @@ Use the production-deployer agent in Claude Code:
 "Deploy to production version 1.3.6" (or specify the version you want)
 
 The agent handles:
-- Local build and lint checks
+- Pre-deployment validation (./scripts/deploy-check.sh)
 - Version bumping (npm version patch)
 - Git commit and push with tags
 - SSH to production server
 - Docker build and deployment
 - Health checks and API verification
+```
+
+**⚠️ CRITICAL: Agent Error Handling Requirements**:
+
+When using the production-deployer agent, it MUST:
+
+1. **Run Pre-Deployment Script FIRST**:
+   ```bash
+   ./scripts/deploy-check.sh
+   ```
+   - If ANY check fails, STOP immediately and report to user
+   - Do NOT proceed with version bump or deployment
+   - Show the exact error output to the user
+
+2. **Report All Script Output**:
+   - Show user the full output of deploy-check.sh
+   - If type-check fails → Show TypeScript errors
+   - If smoke tests fail → Show which test failed and why
+   - If build fails → Show build errors (ESLint, missing deps, etc.)
+
+3. **Never Skip Errors**:
+   - Do NOT continue if any validation step fails
+   - Do NOT assume "it will work in production"
+   - Do NOT create version tags if checks fail
+   - Do NOT push to git if checks fail
+
+4. **Clear Communication**:
+   ```
+   ❌ BAD: "Build might have issues, proceeding anyway..."
+   ✅ GOOD: "❌ Pre-deployment checks FAILED. Cannot deploy.
+             Error: TypeScript type checking failed with 3 errors.
+             Fix these errors before deploying."
+   ```
+
+5. **Verification After Each Step**:
+   - After running script → Verify exit code is 0
+   - After git push → Verify push succeeded
+   - After VPS deploy → Verify health check passes
+   - After health check → Compare version numbers match
+
+**Example Deployment Flow**:
+```
+User: "Deploy to production version 1.4.1"
+
+Agent:
+1. ✓ Running ./scripts/deploy-check.sh...
+   ✓ Type checking... PASSED
+   ✓ Smoke tests (7)... PASSED
+   ✓ Production build... PASSED
+
+2. ✓ All checks passed. Proceeding with deployment.
+
+3. ✓ Version bumped to 1.4.1
+4. ✓ Committed and pushed to GitHub
+5. ✓ Deployed to platon.titancnc.eu
+6. ✓ Health check: {"status":"healthy","version":"1.4.1"}
+
+Deployment successful! ✅
+```
+
+**If ANY step fails**:
+```
+User: "Deploy to production version 1.4.1"
+
+Agent:
+1. ❌ Running ./scripts/deploy-check.sh... FAILED
+
+   Error output:
+   ⚙️  Type checking... ✓ PASSED
+   ⚙️  Smoke tests... ✗ FAILED
+
+   Test "health endpoint responds" failed:
+   Expected status 200, got 500
+
+   ❌ Cannot proceed with deployment.
+
+   Please fix the failing test and try again.
 ```
 
 **Manual Method** (Alternative):
