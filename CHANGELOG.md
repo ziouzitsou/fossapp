@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **CRITICAL**: Server-side Google Workspace domain validation (prevents unauthorized account access)
+- **CRITICAL**: Removed server action import from client bundle (prevents service role key exposure)
+- Sanitized error logging to prevent PII and credential leaks in logs
+- Enhanced environment variable validation with descriptive error messages
+
+### Added
+- Pre-deployment validation script (`scripts/deploy-check.sh`)
+- Playwright smoke tests for critical API endpoints and auth flows (7 tests)
+- Type-check npm script for TypeScript validation
+- Test scripts (test, test:ci) for automated testing
+- ALLOWED_DOMAIN environment variable for workspace restriction
+
+### Changed
+- Client-side search now uses API endpoint instead of direct server action
+- Error logging uses sanitized patterns (message/code only, no full error objects)
+- Environment variables validated without TypeScript non-null assertions
+- Improved error messages for missing configuration
+
+### Fixed
+- Next.js 16 build compatibility (server actions in client bundles)
+- OAuth domain bypass vulnerability (now validated server-side)
+- Inconsistent environment variable validation patterns
+- Potential token/credential exposure in console logs
+
+### Technical
+- Auth callback validates email domain server-side in addition to OAuth 'hd' parameter
+- All error handlers use sanitized logging (message only, no error objects)
+- Playwright configuration for smoke testing critical paths
+- Deploy-check script validates: type-check, lint, tests, and build
+
+### Testing
+- Health endpoint validation
+- Manifest JSON validation
+- Login page accessibility
+- Protected route authentication checks
+- API input validation
+- Product search functionality
+
+### Deployment Notes
+- **IMPORTANT**: Add `ALLOWED_DOMAIN=foss.gr` to production `.env.production`
+- Install Playwright browsers: `npx playwright install chromium`
+- Run pre-deployment checks: `./scripts/deploy-check.sh`
+- Smoke tests require dev server: `npm run test:ci`
+
 ## [1.4.0] - 2025-11-11
 
 ### Added
