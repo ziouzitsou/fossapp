@@ -30,10 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migration-based schema evolution (20251111_create_user_events_table.sql)
 
 ### Deployment
+- **Method**: Automated deployment via production-deployer agent
 - **Version**: Minor bump from 1.3.8 to 1.4.0 (new analytics features)
 - **Build verification**: Local build passed successfully (10.4s with Turbopack)
+- **Production build**: 55.6 seconds (Docker multi-stage build)
 - **Changes merged**: PR #4 (user events) and PR #5 (analytics enhancements)
 - **Main branch**: Commit 578927a (analytics schema enhancements)
+- **Deployment time**: Container started in ~40 seconds
+- **Health check**: Passed - API responding correctly with version 1.4.0
+- **Verification**: Landing page, product search API, and container logs verified
 
 ## [1.3.8] - 2025-11-11
 
