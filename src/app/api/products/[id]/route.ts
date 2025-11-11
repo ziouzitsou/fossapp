@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/lib/auth'
 import { getProductByIdAction } from '@/lib/actions'
 
 export async function GET(
@@ -8,13 +10,17 @@ export async function GET(
   try {
     const resolvedParams = await params
     const productId = resolvedParams.id
-    
+
     if (!productId) {
       return NextResponse.json({ error: 'Product ID required' }, { status: 400 })
     }
 
-    const product = await getProductByIdAction(productId)
-    
+    // Get user session for event logging
+    const session = await getServerSession(authOptions)
+    const userId = session?.user?.email || undefined
+
+    const product = await getProductByIdAction(productId, userId)
+
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }

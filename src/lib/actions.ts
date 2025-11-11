@@ -2,6 +2,7 @@
 
 import { supabaseServer } from './supabase-server'
 import { ProductInfo } from '@/types/product'
+import { logEvent } from './event-logger'
 
 // Input validation and sanitization
 function validateSearchQuery(query: string): string {
@@ -44,7 +45,7 @@ export interface ProductSearchResult {
   }>
 }
 
-export async function searchProductsAction(query: string): Promise<ProductSearchResult[]> {
+export async function searchProductsAction(query: string, userId?: string): Promise<ProductSearchResult[]> {
   try {
     const sanitizedQuery = validateSearchQuery(query)
 
@@ -60,6 +61,14 @@ export async function searchProductsAction(query: string): Promise<ProductSearch
     if (error) {
       console.error('Database query error:', error)
       return []
+    }
+
+    // Log search event if userId is provided
+    if (userId) {
+      await logEvent('search', userId, {
+        search_query: sanitizedQuery,
+        results_count: data?.length || 0,
+      })
     }
 
     return data || []
@@ -99,7 +108,7 @@ export interface ProductDetail {
   }>
 }
 
-export async function getProductByIdAction(productId: string): Promise<ProductInfo | null> {
+export async function getProductByIdAction(productId: string, userId?: string): Promise<ProductInfo | null> {
   try {
     const sanitizedProductId = validateProductId(productId)
 
@@ -117,6 +126,16 @@ export async function getProductByIdAction(productId: string): Promise<ProductIn
     }
 
     if (data) {
+      // Log product view event if userId is provided
+      if (userId) {
+        await logEvent('product_view', userId, {
+          product_id: sanitizedProductId,
+          foss_pid: data.foss_pid,
+          supplier: data.supplier_name,
+          description: data.description_short,
+        })
+      }
+
       // Return complete ProductInfo with all ETIM fields
       return data as ProductInfo
     }

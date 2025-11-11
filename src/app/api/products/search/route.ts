@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/lib/auth'
 import { searchProductsAction } from '@/lib/actions'
 
 export async function GET(request: NextRequest) {
@@ -10,7 +12,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const results = await searchProductsAction(query)
+    // Get user session for event logging
+    const session = await getServerSession(authOptions)
+    const userId = session?.user?.email || undefined
+
+    const results = await searchProductsAction(query, userId)
     return NextResponse.json({ data: results })
   } catch (error) {
     console.error('Search error:', error)
