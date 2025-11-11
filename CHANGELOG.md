@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2025-11-11
+
+**SECURITY RELEASE**: Critical fixes for authentication and API protection based on Gemini audit recommendations.
+
 ### Security
 - **CRITICAL**: Fixed NextAuth handler not using secure authOptions (Gemini audit finding)
 - **CRITICAL**: Server-side Google Workspace domain validation (prevents unauthorized account access)
@@ -67,6 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Install Playwright browsers: `npx playwright install chromium`
 - Run pre-deployment checks: `./scripts/deploy-check.sh`
 - Smoke tests require dev server: `npm run test:ci`
+- Deployed to production: 2025-11-11 at 18:49 UTC
+- Health check confirmed: v1.4.2 live at https://main.fossapp.online
+- API authentication verified: Returns 401 for unauthenticated requests
 
 ## [1.4.0] - 2025-11-11
 
