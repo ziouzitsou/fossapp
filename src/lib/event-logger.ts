@@ -89,7 +89,8 @@ export async function logEvent(
 
     // Insert event into analytics.user_events table
     const { error } = await supabaseServer
-      .from('analytics.user_events')
+      .schema('analytics')
+      .from('user_events')
       .insert({
         event_type: eventType,
         user_id: userId,
@@ -149,7 +150,8 @@ export async function logEventsBatch(
     }))
 
     const { error } = await supabaseServer
-      .from('analytics.user_events')
+      .schema('analytics')
+      .from('user_events')
       .insert(records)
 
     if (error) {

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.4] - 2025-11-12
+
+### Fixed
+- Fixed Active Catalogs showing incorrect product counts (0 and 1000)
+  - Created database function `get_active_catalogs_with_counts()` for efficient server-side aggregation
+  - Resolves pagination limit issues in fallback function
+- Fixed Most Active Users not displaying analytics data
+  - Corrected schema references in `actions.ts` and `event-logger.ts`
+  - Created database function `get_most_active_users()` for analytics aggregation
+  - Fixed Supabase client schema queries to use `.schema('analytics').from('user_events')`
+
+### Added
+- Database migration: `add_catalog_counts_function` - Efficient catalog product counting
+- Database migration: `add_most_active_users_function` - User activity aggregation
+- Both functions granted to `authenticated` and `service_role` roles
+
+### Changed
+- Dashboard now uses RPC functions for better performance and reliability
+- Analytics queries now properly reference the analytics schema
+
 ## [1.4.3] - 2025-11-11
 
 ### Security
