@@ -6,7 +6,7 @@
  */
 
 import { MdDashboard, MdWork } from 'react-icons/md'
-import { FaUsers } from 'react-icons/fa'
+import { FaUsers, FaFolderOpen } from 'react-icons/fa'
 import type { IconType } from 'react-icons'
 
 export interface NavigationItem {
@@ -26,7 +26,7 @@ export function getNavigation(currentPath: string): NavigationItem[] {
     { name: 'Dashboard', icon: MdDashboard, href: '/dashboard' },
     { name: 'Products', icon: MdWork, href: '/products' },
     { name: 'Customers', icon: FaUsers, href: '/customers' },
-    { name: 'Projects', icon: MdWork, href: '/projects' },
+    { name: 'Projects', icon: FaFolderOpen, href: '/projects' },
   ]
 
   return allItems.map(item => ({
@@ -43,5 +43,5 @@ export const navigationItems = [
   { name: 'Dashboard', icon: MdDashboard, href: '/dashboard' },
   { name: 'Products', icon: MdWork, href: '/products' },
   { name: 'Customers', icon: FaUsers, href: '/customers' },
-  { name: 'Projects', icon: MdWork, href: '/projects' },
+  { name: 'Projects', icon: FaFolderOpen, href: '/projects' },
 ] as const

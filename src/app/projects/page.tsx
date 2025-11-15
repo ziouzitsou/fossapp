@@ -1,28 +1,46 @@
 'use client'
 
-import { signOut } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
-import Image from 'next/image'
-import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes } from 'react-icons/fa'
-import { ThemeToggle } from '@/components/theme-toggle'
-import { getNavigation } from '@/lib/navigation'
-import { VersionDisplay } from '@/components/version-display'
+import { listProjectsAction, ProjectListItem } from '@/lib/actions'
+import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { FolderKanban } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
-export default function Projects() {
-  const { data: session, status } = useDevSession()
+export default function ProjectsPage() {
   const router = useRouter()
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { data: session, status } = useDevSession()
+  const [projects, setProjects] = useState<ProjectListItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/')
     }
   }, [status, router])
+
+  useEffect(() => {
+    async function loadProjects() {
+      setIsLoading(true)
+      try {
+        const data = await listProjectsAction()
+        setProjects(data)
+      } catch (error) {
+        console.error('Failed to load projects:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    if (status === 'authenticated') {
+      loadProjects()
+    }
+  }, [status])
 
   if (status === 'loading') {
     return (
@@ -36,164 +54,130 @@ export default function Projects() {
     return null
   }
 
-  const navigation = getNavigation('/projects')
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+      draft: 'outline',
+      quotation: 'secondary',
+      approved: 'default',
+      in_progress: 'default',
+      completed: 'secondary',
+      cancelled: 'destructive',
+      on_hold: 'outline',
+    }
+    return (
+      <Badge variant={variants[status] || 'default'}>
+        {status.replace('_', ' ').toUpperCase()}
+      </Badge>
+    )
+  }
+
+  const getPriorityBadge = (priority: string) => {
+    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+      low: 'outline',
+      medium: 'secondary',
+      high: 'default',
+      urgent: 'destructive',
+    }
+    return (
+      <Badge variant={variants[priority] || 'default'}>
+        {priority.toUpperCase()}
+      </Badge>
+    )
+  }
+
+  const formatCurrency = (amount: number | undefined, currency: string = 'EUR') => {
+    if (!amount) return '-'
+    return new Intl.NumberFormat('el-GR', {
+      style: 'currency',
+      currency,
+    }).format(amount)
+  }
+
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return '-'
+    return new Date(dateStr).toLocaleDateString('el-GR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    })
+  }
 
   return (
-    <div className="h-screen flex bg-background">
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div className={`${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } fixed inset-y-0 left-0 z-30 w-64 bg-card shadow-lg border-r transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
-        <div className="flex items-center justify-between h-16 px-6 border-b">
-          <div className="flex items-center">
-            <Image
-              src="/logo.svg"
-              alt="Company Logo"
-              width={80}
-              height={80}
-              className="h-20 w-20 dark:hidden"
-            />
-            <Image
-              src="/logo-dark.svg"
-              alt="Company Logo"
-              width={80}
-              height={80}
-              className="h-20 w-20 hidden dark:block"
-            />
+    <DashboardLayout>
+      <div className="container mx-auto py-10">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Projects</h1>
+            <p className="text-muted-foreground">Manage lighting design projects</p>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-muted-foreground hover:text-foreground"
-          >
-            <FaTimes className="h-5 w-5" />
-          </button>
+          <Button asChild>
+            <Link href="/projects/new">+ New Project</Link>
+          </Button>
         </div>
 
-        <nav className="mt-8 flex-1">
-          <div className="px-3">
-            {navigation.map((item) => {
-              const Icon = item.icon
-              return (
-                <a
-                  key={item.name}
-                  href={item.href}
-                  className={`${
-                    item.current
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  } group flex items-center px-3 py-2 text-sm font-medium rounded-md mb-1 transition-colors`}
-                >
-                  <Icon className="mr-3 h-5 w-5" />
-                  {item.name}
-                </a>
-              )
-            })}
+        {isLoading ? (
+          <div className="grid gap-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-32 w-full" />
+            ))}
           </div>
-        </nav>
-
-        {/* Version display at bottom */}
-        <div className="border-t">
-          <VersionDisplay />
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top bar */}
-        <header className="bg-card shadow-sm border-b">
-          <div className="flex items-center h-16 px-6">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-muted-foreground hover:text-foreground"
-            >
-              <FaBars className="h-5 w-5" />
-            </button>
-
-            <div className="flex-1" />
-
-            {/* Right side items */}
-            <div className="flex items-center gap-4">
-              {/* Theme Toggle */}
-              <ThemeToggle />
-
-              {/* User menu */}
-              <div className="relative">
-                <button
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-3 text-sm rounded-full hover:bg-accent p-2 transition-colors"
-                >
-                  <div className="relative w-8 h-8">
-                    <Image
-                      src={session.user?.image || '/default-avatar.png'}
-                      alt="Profile"
-                      fill
-                      sizes="32px"
-                      className="rounded-full object-cover"
-                    />
-                  </div>
-                  <span className="hidden md:block font-medium text-foreground">
-                    {session.user?.name}
-                  </span>
-                  <FaChevronDown className="h-3 w-3 text-muted-foreground" />
-                </button>
-
-                {/* Dropdown menu */}
-                {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-popover rounded-md shadow-lg py-1 z-50 border">
-                    <div className="px-4 py-2 border-b">
-                      <p className="text-sm font-medium text-popover-foreground">{session.user?.name}</p>
-                      <p className="text-sm text-muted-foreground">{session.user?.email}</p>
-                    </div>
-                    <button
-                      onClick={() => signOut()}
-                      className="w-full text-left px-4 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors"
+        ) : projects.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center">
+              <p className="text-muted-foreground mb-4">No projects found</p>
+              <Button asChild>
+                <Link href="/projects/new">Create your first project</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Project Code</TableHead>
+                    <TableHead>Project Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead className="text-right">Budget</TableHead>
+                    <TableHead>Completion</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {projects.map((project) => (
+                    <TableRow
+                      key={project.id}
+                      className="cursor-pointer hover:bg-accent"
+                      onClick={() => router.push(`/projects/${project.id}`)}
                     >
-                      <FaSignOutAlt className="h-4 w-4" />
-                      Sign out
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Main content area */}
-        <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-foreground">Projects</h1>
-              <p className="text-muted-foreground mt-2">Manage your lighting projects</p>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <FolderKanban className="h-8 w-8 text-primary" />
-                  <div>
-                    <CardTitle>Projects Feature</CardTitle>
-                    <CardDescription>This is the Projects page</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  The Projects feature is coming soon! This page will allow you to create and manage
-                  lighting design projects, organize products, and collaborate with your team.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
+                      <TableCell className="font-medium">{project.project_code}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{project.name_en || project.name}</div>
+                        {project.customer_name_en || project.customer_name ? (
+                          <div className="text-sm text-muted-foreground">
+                            {project.customer_name_en || project.customer_name}
+                          </div>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="capitalize">{project.project_type || '-'}</TableCell>
+                      <TableCell>{project.city || '-'}</TableCell>
+                      <TableCell>{getStatusBadge(project.status)}</TableCell>
+                      <TableCell>{getPriorityBadge(project.priority)}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(project.estimated_budget, project.currency)}
+                      </TableCell>
+                      <TableCell>{formatDate(project.expected_completion_date)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
       </div>
-    </div>
+    </DashboardLayout>
   )
 }

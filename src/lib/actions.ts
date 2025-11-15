@@ -659,3 +659,388 @@ export async function getMostActiveUsersAction(limit: number = 5): Promise<Activ
     return []
   }
 }
+
+// ============================================================================
+// PROJECT ACTIONS
+// ============================================================================
+
+function validateProjectId(projectId: string): string {
+  if (!projectId || typeof projectId !== 'string') {
+    throw new Error('Invalid project ID')
+  }
+
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!uuidRegex.test(projectId)) {
+    throw new Error('Invalid project ID format')
+  }
+
+  return projectId
+}
+
+export interface ProjectListItem {
+  id: string
+  project_code: string
+  name: string
+  name_en?: string
+  customer_name?: string
+  customer_name_en?: string
+  city?: string
+  project_type?: string
+  status: string
+  priority: string
+  estimated_budget?: number
+  currency?: string
+  start_date?: string
+  expected_completion_date?: string
+  created_at: string
+}
+
+export interface ProjectProduct {
+  id: string
+  product_id: string
+  foss_pid: string
+  description_short: string
+  quantity: number
+  unit_price?: number
+  discount_percent?: number
+  total_price?: number
+  room_location?: string
+  mounting_height?: number
+  status: string
+  notes?: string
+}
+
+export interface ProjectContact {
+  id: string
+  contact_type: string
+  name: string
+  company?: string
+  email?: string
+  phone?: string
+  mobile?: string
+  role?: string
+  is_primary: boolean
+  notes?: string
+}
+
+export interface ProjectDocument {
+  id: string
+  document_type: string
+  title: string
+  description?: string
+  file_path?: string
+  file_url?: string
+  mime_type?: string
+  file_size_bytes?: number
+  version: string
+  is_latest: boolean
+  created_at: string
+  created_by?: string
+}
+
+export interface ProjectPhase {
+  id: string
+  phase_number: number
+  phase_name: string
+  description?: string
+  budget?: number
+  status: string
+  start_date?: string
+  end_date?: string
+}
+
+export interface ProjectDetail {
+  id: string
+  project_code: string
+  name: string
+  name_en?: string
+  description?: string
+  customer_id?: string
+  customer_name?: string
+  customer_name_en?: string
+  customer_email?: string
+  customer_phone?: string
+  street_address?: string
+  postal_code?: string
+  city?: string
+  region?: string
+  prefecture?: string
+  country?: string
+  latitude?: number
+  longitude?: number
+  project_type?: string
+  project_category?: string
+  building_area_sqm?: number
+  estimated_budget?: number
+  currency?: string
+  status: string
+  priority: string
+  start_date?: string
+  expected_completion_date?: string
+  actual_completion_date?: string
+  project_manager?: string
+  architect_firm?: string
+  electrical_engineer?: string
+  lighting_designer?: string
+  notes?: string
+  tags?: string[]
+  created_at: string
+  updated_at: string
+  created_by?: string
+  products: ProjectProduct[]
+  contacts: ProjectContact[]
+  documents: ProjectDocument[]
+  phases: ProjectPhase[]
+}
+
+export async function listProjectsAction(): Promise<ProjectListItem[]> {
+  try {
+    // Fetch projects
+    const { data: projects, error: projectsError } = await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .select(`
+        id,
+        project_code,
+        name,
+        name_en,
+        city,
+        project_type,
+        status,
+        priority,
+        estimated_budget,
+        currency,
+        start_date,
+        expected_completion_date,
+        created_at,
+        customer_id
+      `)
+      .order('created_at', { ascending: false })
+
+    if (projectsError) {
+      console.error('List projects error:', projectsError)
+      return []
+    }
+
+    if (!projects || projects.length === 0) {
+      return []
+    }
+
+    // Get unique customer IDs
+    const customerIds = [...new Set(projects.map(p => p.customer_id).filter(Boolean))]
+
+    // Fetch customers in a separate query
+    const { data: customers, error: customersError } = await supabaseServer
+      .schema('customers')
+      .from('customers')
+      .select('id, name, name_en')
+      .in('id', customerIds)
+
+    if (customersError) {
+      console.error('List customers error:', customersError)
+    }
+
+    // Create a map of customers by ID
+    const customerMap = new Map(
+      (customers || []).map(c => [c.id, c])
+    )
+
+    return projects.map((project: any) => {
+      const customer = project.customer_id ? customerMap.get(project.customer_id) : null
+      return {
+        id: project.id,
+        project_code: project.project_code,
+        name: project.name,
+        name_en: project.name_en,
+        customer_name: customer?.name,
+        customer_name_en: customer?.name_en,
+        city: project.city,
+        project_type: project.project_type,
+        status: project.status,
+        priority: project.priority,
+        estimated_budget: project.estimated_budget,
+        currency: project.currency,
+        start_date: project.start_date,
+        expected_completion_date: project.expected_completion_date,
+        created_at: project.created_at,
+      }
+    })
+  } catch (error) {
+    console.error('List projects action error:', error)
+    return []
+  }
+}
+
+export async function getProjectByIdAction(projectId: string): Promise<ProjectDetail | null> {
+  try {
+    const sanitizedProjectId = validateProjectId(projectId)
+
+    // Get project details
+    const { data: project, error: projectError } = await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .select('*')
+      .eq('id', sanitizedProjectId)
+      .single()
+
+    if (projectError || !project) {
+      console.error('Get project error:', projectError)
+      return null
+    }
+
+    // Fetch customer separately if customer_id exists
+    let customer = null
+    if (project.customer_id) {
+      const { data: customerData, error: customerError } = await supabaseServer
+        .schema('customers')
+        .from('customers')
+        .select('id, name, name_en, email, phone')
+        .eq('id', project.customer_id)
+        .single()
+
+      if (customerError) {
+        console.error('Get customer error:', customerError)
+      } else {
+        customer = customerData
+      }
+    }
+
+    // Get project products
+    const { data: projectProducts, error: productsError } = await supabaseServer
+      .schema('projects')
+      .from('project_products')
+      .select(`
+        id,
+        product_id,
+        quantity,
+        unit_price,
+        discount_percent,
+        total_price,
+        room_location,
+        mounting_height,
+        status,
+        notes
+      `)
+      .eq('project_id', sanitizedProjectId)
+      .order('room_location')
+
+    if (productsError) {
+      console.error('Get project products error:', productsError)
+    }
+
+    // Fetch product details separately if we have products
+    const products = []
+    if (projectProducts && projectProducts.length > 0) {
+      const productIds = projectProducts.map(p => p.product_id)
+
+      const { data: productDetails, error: productDetailsError } = await supabaseServer
+        .schema('items')
+        .from('product_info')
+        .select('product_id, foss_pid, description_short')
+        .in('product_id', productIds)
+
+      if (productDetailsError) {
+        console.error('Get product details error:', productDetailsError)
+      }
+
+      // Create a map of product details by ID
+      const productMap = new Map(
+        (productDetails || []).map(p => [p.product_id, p])
+      )
+
+      // Combine project products with product details
+      for (const pp of projectProducts) {
+        const productDetail = productMap.get(pp.product_id)
+        products.push({
+          ...pp,
+          foss_pid: productDetail?.foss_pid || '',
+          description_short: productDetail?.description_short || ''
+        })
+      }
+    }
+
+    // Get contacts
+    const { data: contacts, error: contactsError } = await supabaseServer
+      .schema('projects')
+      .from('project_contacts')
+      .select('*')
+      .eq('project_id', sanitizedProjectId)
+      .order('is_primary', { ascending: false })
+
+    if (contactsError) {
+      console.error('Get project contacts error:', contactsError)
+    }
+
+    // Get documents
+    const { data: documents, error: documentsError } = await supabaseServer
+      .schema('projects')
+      .from('project_documents')
+      .select('*')
+      .eq('project_id', sanitizedProjectId)
+      .order('created_at', { ascending: false })
+
+    if (documentsError) {
+      console.error('Get project documents error:', documentsError)
+    }
+
+    // Get phases
+    const { data: phases, error: phasesError } = await supabaseServer
+      .schema('projects')
+      .from('project_phases')
+      .select('*')
+      .eq('project_id', sanitizedProjectId)
+      .order('phase_number')
+
+    if (phasesError) {
+      console.error('Get project phases error:', phasesError)
+    }
+
+    return {
+      id: project.id,
+      project_code: project.project_code,
+      name: project.name,
+      name_en: project.name_en,
+      description: project.description,
+      customer_id: project.customer_id,
+      customer_name: customer?.name,
+      customer_name_en: customer?.name_en,
+      customer_email: customer?.email,
+      customer_phone: customer?.phone,
+      street_address: project.street_address,
+      postal_code: project.postal_code,
+      city: project.city,
+      region: project.region,
+      prefecture: project.prefecture,
+      country: project.country,
+      latitude: project.latitude,
+      longitude: project.longitude,
+      project_type: project.project_type,
+      project_category: project.project_category,
+      building_area_sqm: project.building_area_sqm,
+      estimated_budget: project.estimated_budget,
+      currency: project.currency,
+      status: project.status,
+      priority: project.priority,
+      start_date: project.start_date,
+      expected_completion_date: project.expected_completion_date,
+      actual_completion_date: project.actual_completion_date,
+      project_manager: project.project_manager,
+      architect_firm: project.architect_firm,
+      electrical_engineer: project.electrical_engineer,
+      lighting_designer: project.lighting_designer,
+      notes: project.notes,
+      tags: project.tags,
+      created_at: project.created_at,
+      updated_at: project.updated_at,
+      created_by: project.created_by,
+      products: products,
+      contacts: contacts || [],
+      documents: documents || [],
+      phases: phases || [],
+    }
+  } catch (error) {
+    console.error('Get project by ID error:', error)
+    return null
+  }
+}
