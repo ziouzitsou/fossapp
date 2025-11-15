@@ -346,8 +346,10 @@ export async function getTopFamiliesAction(limit: number = 10): Promise<FamilySt
 
 export async function getActiveCatalogsAction(): Promise<CatalogInfo[]> {
   try {
-    // Use a single SQL query to get catalogs with product counts
-    const { data, error } = await supabaseServer.rpc('get_active_catalogs_with_counts')
+    // Use items schema function (domain-driven organization)
+    const { data, error } = await supabaseServer
+      .schema('items')
+      .rpc('get_active_catalogs_with_counts')
 
     if (error) {
       console.error('Error getting catalogs:', error)
@@ -633,8 +635,10 @@ export interface ActiveUser {
 
 export async function getMostActiveUsersAction(limit: number = 5): Promise<ActiveUser[]> {
   try {
-    // Use RPC function to get aggregated user activity data
-    const { data, error } = await supabaseServer.rpc('get_most_active_users', { user_limit: limit })
+    // Use analytics schema function (domain-driven organization)
+    const { data, error } = await supabaseServer
+      .schema('analytics')
+      .rpc('get_most_active_users', { user_limit: limit })
 
     if (error) {
       console.error('Error getting active users:', error)

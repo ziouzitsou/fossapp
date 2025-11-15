@@ -213,8 +213,51 @@ import { supabase } from '@/lib/supabase'
 - Industry-standard product classification
 - Hierarchical categorization
 
-**Exposed Schemas**: public, extensions, items, etim
+**Exposed Schemas**: public, extensions, items, etim, analytics
 **Permissions**: Both service_role and anon have SELECT on items.product_info
+
+### Database Functions - Domain-Driven Organization ⚡
+
+**Best Practice**: Functions are organized by domain schema, not in `public.*`
+
+**Current Organization** (as of 2025-11-15):
+```
+items.*          → Product/catalog functions (get_active_catalogs_with_counts)
+analytics.*      → User tracking functions (get_most_active_users)
+etim.*           → Classification functions (future)
+public.*         → Legacy functions marked OBSOLETE (will be removed)
+```
+
+**Calling Functions by Schema**:
+```typescript
+// ✅ CORRECT: Use domain-specific schema
+const { data } = await supabaseServer
+  .schema('items')
+  .rpc('get_active_catalogs_with_counts')
+
+// ✅ CORRECT: Analytics functions in analytics schema
+const { data } = await supabaseServer
+  .schema('analytics')
+  .rpc('get_most_active_users', { user_limit: 5 })
+
+// ❌ DEPRECATED: Old public schema (backwards compatible, but marked obsolete)
+const { data } = await supabaseServer
+  .rpc('get_active_catalogs_with_counts')  // Works but obsolete
+```
+
+**Why Domain-Driven?**
+- Functions live close to their data
+- Clear ownership (items functions work with items tables)
+- Easier to maintain and debug as app scales
+- Better organization for multiple developers
+- Follows PostgreSQL best practices
+
+**Migration Status**:
+- ✅ Active functions moved to domain schemas
+- ⚠️ Old `public.*` functions marked OBSOLETE (commented for safe removal)
+- 🗑️ 10 unused functions identified for future cleanup
+
+See migration: `supabase/migrations/20251115_reorganize_functions_to_domain_schemas.sql`
 
 ### Authentication Flow
 
@@ -674,6 +717,7 @@ return data
 - Export to AutoCAD formats
 - Lighting calculation tools
 - Project collaboration features
+- **Google Drive Shared Drive Integration**: Read/write access to "HUB" Shared Drive for supplier catalogs, product images, and documentation. Complete implementation guide available at [GOOGLE_DRIVE_SHARED_DRIVE_INTEGRATION.md](./docs/GOOGLE_DRIVE_SHARED_DRIVE_INTEGRATION.md). Reference implementation exists in `/home/sysadmin/tools/gdrive-sync/` (standalone OAuth tool).
 
 ## Production Details
 
