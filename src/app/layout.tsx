@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { APP_CONFIG, PWA_CONFIG } from "@/lib/config";
+import { WhatsNewDialog } from "@/components/whats-new-dialog";
 
 export const metadata: Metadata = {
   title: APP_CONFIG.APP_NAME,
@@ -35,7 +36,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <WhatsNewDialog />
+        </Providers>
       </body>
     </html>
   );

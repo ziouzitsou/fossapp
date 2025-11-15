@@ -944,6 +944,116 @@ F12 → Application → Manifest
 - Testing procedures
 - Security considerations
 
+## What's New Dialog
+
+**Location**: `src/components/whats-new-dialog.tsx`
+**Documentation**: `WHATS_NEW.md` (user-friendly changelog)
+**Status**: ✅ Active (v1.4.5+)
+
+### Feature Overview
+
+The What's New dialog automatically shows users new features when they update to a new version. It appears once per version and uses localStorage to track what users have already seen.
+
+**Key Features:**
+- 🎉 Auto-shows 1.5 seconds after login on version update
+- 💾 Tracks last seen version in localStorage
+- 📝 User-friendly language (no technical jargon)
+- 🔗 Links to full changelog (WHATS_NEW.md)
+- ⏱️ Only appears once per version
+
+### How It Works
+
+```typescript
+// Component checks localStorage for last seen version
+const lastSeenVersion = localStorage.getItem('fossapp_last_seen_version')
+
+// If current version is different, show dialog
+if (lastSeenVersion !== '1.4.5') {
+  setTimeout(() => setOpen(true), 1500)
+}
+
+// When user closes dialog, save current version
+localStorage.setItem('fossapp_last_seen_version', '1.4.5')
+```
+
+### Updating for New Releases
+
+**1. Update WHATS_NEW.md**
+   - Add new version section at the top
+   - Write in plain English (user benefits, not technical details)
+   - Use emojis sparingly for visual appeal
+   - Keep it short (2-5 bullet points max)
+
+**2. Update WhatsNewDialog Component**
+   - Edit `src/components/whats-new-dialog.tsx`
+   - Update `LATEST_CHANGES` object with new version info:
+     ```typescript
+     const LATEST_CHANGES = {
+       version: '1.5.0',  // New version
+       date: 'December 1, 2025',
+       title: 'Your Feature Title',
+       description: 'One sentence benefit',
+       features: [
+         'Bullet point 1',
+         'Bullet point 2',
+       ],
+       tagline: 'Who benefits from this',
+     }
+     ```
+
+**3. Test Locally**
+   - Clear localStorage: `localStorage.removeItem('fossapp_last_seen_version')`
+   - Refresh page - dialog should appear
+   - Close dialog - should not appear again
+   - Clear localStorage again - should appear
+
+### Writing Guidelines
+
+**DO:**
+- ✅ Focus on user benefits ("Now you can...")
+- ✅ Use plain English ("track your projects" not "project management feature")
+- ✅ Mention who benefits ("Perfect for architects juggling multiple sites")
+- ✅ Keep it brief (users skim, don't read)
+- ✅ Use active voice ("See all your projects" not "Projects can be viewed")
+
+**DON'T:**
+- ❌ Use technical terms ("Implemented RPC function for catalog aggregation")
+- ❌ Mention implementation details ("Uses localStorage API")
+- ❌ Write long paragraphs
+- ❌ Use corporate speak ("enhanced user experience")
+- ❌ Overuse emojis (1-2 per version max)
+
+### Example (Good vs Bad)
+
+**Bad (Technical):**
+```markdown
+## Version 1.4.5
+- Implemented project management module with CRUD operations
+- Added PostgreSQL schema 'projects' with foreign key relationships
+- Integrated Supabase client-side queries for data fetching
+```
+
+**Good (User-Friendly):**
+```markdown
+## Version 1.4.5 - November 15, 2025 📊
+### Manage Your Projects All in One Place
+
+You asked for it, we built it! Now you can track all your lighting projects right here.
+
+- See all your projects in a clean table - just click to dive in
+- Keep contacts organized - no more hunting for phone numbers!
+- Upload documents - store drawings and specs alongside projects
+
+*Perfect for architects juggling multiple lighting installations.*
+```
+
+### Files
+
+- `WHATS_NEW.md` - User-facing changelog (plain language)
+- `CHANGELOG.md` - Technical changelog (SemVer, deployment notes)
+- `src/components/whats-new-dialog.tsx` - Dialog component
+- `src/app/layout.tsx` - Includes WhatsNewDialog in root layout
+
 ## Using Playwright MCP for Development
 
 Playwright MCP is a powerful tool for visual testing, UI development, and debugging. With the authentication bypass enabled, you can fully explore the application.
