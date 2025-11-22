@@ -215,6 +215,13 @@ const { data } = await supabaseServer
 
 See migration: `supabase/migrations/20251115_reorganize_functions_to_domain_schemas.sql`
 
+### Database Migrations & GitHub Integration
+
+- **Migration Files**: `supabase/migrations/` (55 total in database, 2 in repository)
+- **GitHub Integration**: ✅ Active - automatic preview databases for PRs
+- **Connected Repository**: `ziouzitsou/fossapp` (main branch)
+- **Detailed Documentation**: [docs/migrations/SUPABASE_GITHUB_INTEGRATION.md](./docs/migrations/SUPABASE_GITHUB_INTEGRATION.md)
+
 ### Authentication Flow
 
 1. Unauthenticated users land on `/` (landing page)
