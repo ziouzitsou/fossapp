@@ -706,14 +706,20 @@ return data
 - OAuth callback has state cookie issue in WSL2 environment (production works fine)
 - CORS warnings for cross-origin requests (can configure in `next.config.ts`)
 - Materialized view `items.product_info` requires manual refresh (see `/home/sysadmin/fossdb/utils/matview_maintenance/`)
+  - **Note**: If advanced search is implemented, add 3 search schema views to refresh workflow (+6-9s total time). See [ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md](./docs/ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md#materialized-view-refresh-sequence) for complete refresh sequence.
 
 ## Future Enhancements
 
-- Advanced product filtering (categories, suppliers, price ranges)
+- **Advanced Search & Faceted Filtering**: Production-ready three-tier search architecture with Delta Light-style context-aware filters. Complete database architecture, RPC functions, and integration guide available at [ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md](./docs/ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md). Working demo at `/home/sysadmin/tools/searchdb/search-test-app/` (http://localhost:3001). Features:
+  - Hierarchical taxonomy navigation (30+ categories)
+  - Dynamic facets with real-time counts
+  - 18 technical filters (8 active, ready to deploy)
+  - Sub-200ms queries on 14,889+ products
+  - ETIM → Human taxonomy translation
+  - Materialized view-based performance
 - User favorites and wishlist
 - Product comparison feature
 - Image gallery for products
-- Advanced ETIM classification filters
 - Export to AutoCAD formats
 - Lighting calculation tools
 - Project collaboration features
@@ -1165,6 +1171,14 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 - [DOMAIN_CONFIGURATION.md](./docs/DOMAIN_CONFIGURATION.md) - Centralized domain configuration and migration guide
 
 **Database & Architecture**:
+- [ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md](./docs/ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md) - Three-tier faceted search system with Delta Light-style filters (8,500 words)
+  - Database schema (configuration tables, materialized views)
+  - 7 RPC functions with TypeScript examples
+  - Facet filtering logic and context-aware narrowing
+  - ETIM → Human taxonomy classification system
+  - **Materialized view refresh sequence** (critical dependency chain)
+  - Performance optimization and monitoring
+  - FOSSAPP integration guide
 - [postgresql_etim_items_schema_overview.md](./docs/postgresql_etim_items_schema_overview.md) - Database schema documentation
 - [SUPPLIER_LOGOS.md](./docs/SUPPLIER_LOGOS.md) - Supplier logo guidelines and dark mode support
 
