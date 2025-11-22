@@ -280,7 +280,7 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   {catalogs.map((catalog) => (
                     <div
-                      key={`${catalog.supplier_name}-${catalog.catalog_name}`}
+                      key={`${catalog.supplier_name}-${catalog.catalog_name}-${catalog.generation_date}`}
                       className="p-4 border rounded-lg hover:bg-accent transition-colors"
                     >
                       <div className="flex items-start gap-4">
