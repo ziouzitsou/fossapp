@@ -13,12 +13,47 @@ import { supabaseServer } from './supabase-server'
 
 /**
  * Event types for user access monitoring
+ *
+ * Phase 1 (Implemented):
+ * - Search & Discovery: search, search_refinement, search_no_results
+ * - Product Engagement: product_view, product_image_viewed, product_details_expanded
+ * - User Preferences: theme_toggled
+ * - Error Tracking: client_error, api_error
+ * - Performance: page_load_time, api_response_time
+ *
+ * See USER_ACCESS_MONITORING.md for full event catalog and future phases
  */
 export type EventType =
+  // Authentication
   | 'login'
   | 'logout'
+
+  // Search & Discovery (Phase 1)
   | 'search'
+  | 'search_refinement'        // User modifies search query
+  | 'search_no_results'         // Search returned zero results
+  | 'search_filter_applied'     // User applies filters
+  | 'search_sort_changed'       // User changes sort order
+
+  // Product Engagement (Phase 1)
   | 'product_view'
+  | 'product_image_viewed'      // User views/zooms product image
+  | 'product_details_expanded'  // User expands accordion sections
+  | 'product_favorite_added'    // User adds to favorites (future)
+  | 'product_favorite_removed'  // User removes from favorites (future)
+
+  // User Preferences (Phase 1)
+  | 'theme_toggled'             // User switches light/dark/system theme
+
+  // Error Tracking (Phase 1)
+  | 'client_error'              // Client-side JavaScript errors
+  | 'api_error'                 // API request failures
+
+  // Performance Metrics (Phase 1)
+  | 'page_load_time'            // Page load performance
+  | 'api_response_time'         // API latency tracking
+
+  // Legacy/General
   | 'page_view'
   | 'api_call'
 
@@ -181,4 +216,29 @@ export function generateSessionId(userEmail: string): string {
   // Simple session ID: hash of email + hour (groups events by hour)
   const hourTimestamp = Math.floor(Date.now() / (1000 * 60 * 60))
   return `${userEmail}-${hourTimestamp}`
+}
+
+/**
+ * Client-side event logger (for browser events)
+ * Sends events to API endpoint which then logs server-side
+ *
+ * @param eventType - Type of event
+ * @param eventData - Event metadata
+ * @returns Promise<boolean>
+ */
+export async function logEventClient(
+  eventType: EventType,
+  eventData?: EventData
+): Promise<boolean> {
+  try {
+    const response = await fetch('/api/analytics/log-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventType, eventData }),
+    })
+    return response.ok
+  } catch (error) {
+    console.error('[EventLogger Client] Failed to log event:', error)
+    return false
+  }
 }

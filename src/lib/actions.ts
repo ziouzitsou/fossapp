@@ -71,13 +71,26 @@ export async function searchProductsAction(query: string, userId?: string): Prom
 
     // Log search event if userId is provided
     if (userId) {
+      const resultsCount = data?.length || 0
+
+      // Log regular search event
       await logEvent('search', userId, {
         eventData: {
           search_query: sanitizedQuery,
-          results_count: data?.length || 0,
+          results_count: resultsCount,
         },
         pathname: '/products'
       })
+
+      // Log no-results event separately for easier analytics
+      if (resultsCount === 0) {
+        await logEvent('search_no_results', userId, {
+          eventData: {
+            search_query: sanitizedQuery,
+          },
+          pathname: '/products'
+        })
+      }
     }
 
     return data || []
