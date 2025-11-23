@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
-import { listProjectsAction, ProjectListItem } from '@/lib/actions'
+import { listProjectsAction, ProjectListItem, ProjectListResult } from '@/lib/actions'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,12 +12,20 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+} from '@/components/ui/pagination'
 
 export default function ProjectsPage() {
   const router = useRouter()
   const { data: session, status } = useDevSession()
-  const [projects, setProjects] = useState<ProjectListItem[]>([])
+  const [projectList, setProjectList] = useState<ProjectListResult | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -29,8 +37,8 @@ export default function ProjectsPage() {
     async function loadProjects() {
       setIsLoading(true)
       try {
-        const data = await listProjectsAction()
-        setProjects(data)
+        const data = await listProjectsAction({ page: currentPage, pageSize: 10 })
+        setProjectList(data)
       } catch (error) {
         console.error('Failed to load projects:', error)
       } finally {
@@ -41,7 +49,11 @@ export default function ProjectsPage() {
     if (status === 'authenticated') {
       loadProjects()
     }
-  }, [status])
+  }, [status, currentPage])
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage)
+  }
 
   if (status === 'loading') {
     return (
@@ -122,7 +134,7 @@ export default function ProjectsPage() {
               <Skeleton key={i} className="h-32 w-full" />
             ))}
           </div>
-        ) : projects.length === 0 ? (
+        ) : !projectList || projectList.projects.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center">
               <p className="text-muted-foreground mb-4">No projects found</p>
@@ -148,7 +160,7 @@ export default function ProjectsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {projects.map((project) => (
+                  {projectList.projects.map((project) => (
                     <TableRow
                       key={project.id}
                       className="cursor-pointer hover:bg-accent"
@@ -176,6 +188,35 @@ export default function ProjectsPage() {
                 </TableBody>
               </Table>
             </CardContent>
+
+            {/* Pagination */}
+            {projectList && projectList.totalPages > 1 && (
+              <CardContent className="pt-0">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        aria-disabled={currentPage === 1 || isLoading}
+                        className={currentPage === 1 || isLoading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+
+                    <span className="flex items-center px-4 text-sm text-muted-foreground">
+                      Page {currentPage} of {projectList.totalPages}
+                    </span>
+
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        aria-disabled={currentPage === projectList.totalPages || isLoading}
+                        className={currentPage === projectList.totalPages || isLoading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </CardContent>
+            )}
           </Card>
         )}
       </div>

@@ -807,9 +807,53 @@ export interface ProjectDetail {
   phases: ProjectPhase[]
 }
 
-export async function listProjectsAction(): Promise<ProjectListItem[]> {
+export interface ProjectListParams {
+  page?: number
+  pageSize?: number
+  sortBy?: 'created_at' | 'project_code' | 'name' | 'status'
+  sortOrder?: 'asc' | 'desc'
+}
+
+export interface ProjectListResult {
+  projects: ProjectListItem[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export async function listProjectsAction(params: ProjectListParams = {}): Promise<ProjectListResult> {
+  const {
+    page = 1,
+    pageSize = 10,
+    sortBy = 'created_at',
+    sortOrder = 'desc'
+  } = params
+
+
   try {
-    // Fetch projects
+    // Get total count
+    const { count, error: countError } = await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .select('*', { count: 'exact', head: true })
+
+    if (countError) {
+      console.error('Count error:', countError)
+      return {
+        projects: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0
+      }
+    }
+
+    // Calculate pagination
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    // Fetch projects with pagination
     const { data: projects, error: projectsError } = await supabaseServer
       .schema('projects')
       .from('projects')
@@ -829,15 +873,28 @@ export async function listProjectsAction(): Promise<ProjectListItem[]> {
         created_at,
         customer_id
       `)
-      .order('created_at', { ascending: false })
+      .order(sortBy, { ascending: sortOrder === 'asc' })
+      .range(from, to)
 
     if (projectsError) {
       console.error('List projects error:', projectsError)
-      return []
+      return {
+        projects: [],
+        total: count || 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count || 0) / pageSize)
+      }
     }
 
     if (!projects || projects.length === 0) {
-      return []
+      return {
+        projects: [],
+        total: count || 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count || 0) / pageSize)
+      }
     }
 
     // Get unique customer IDs
@@ -859,7 +916,7 @@ export async function listProjectsAction(): Promise<ProjectListItem[]> {
       (customers || []).map(c => [c.id, c])
     )
 
-    return projects.map((project: any) => {
+    const projectList = projects.map((project: any) => {
       const customer = project.customer_id ? customerMap.get(project.customer_id) : null
       return {
         id: project.id,
@@ -879,9 +936,23 @@ export async function listProjectsAction(): Promise<ProjectListItem[]> {
         created_at: project.created_at,
       }
     })
+
+    return {
+      projects: projectList,
+      total: count || 0,
+      page,
+      pageSize,
+      totalPages: Math.ceil((count || 0) / pageSize)
+    }
   } catch (error) {
     console.error('List projects action error:', error)
-    return []
+    return {
+      projects: [],
+      total: 0,
+      page,
+      pageSize,
+      totalPages: 0
+    }
   }
 }
 
