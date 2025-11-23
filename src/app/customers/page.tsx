@@ -14,6 +14,13 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+} from '@/components/ui/pagination'
+import {
   searchCustomersAction,
   listCustomersAction,
   type CustomerSearchResult,
@@ -354,26 +361,30 @@ export default function CustomersPage() {
 
                   {/* Pagination */}
                   {showAllCustomers && customerList && customerList.totalPages > 1 && (
-                    <div className="flex justify-center items-center gap-2 mt-6">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1 || isLoading}
-                      >
-                        Previous
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        Page {currentPage} of {customerList.totalPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === customerList.totalPages || isLoading}
-                      >
-                        Next
-                      </Button>
+                    <div className="mt-6">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              onClick={() => handlePageChange(currentPage - 1)}
+                              aria-disabled={currentPage === 1 || isLoading}
+                              className={currentPage === 1 || isLoading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                            />
+                          </PaginationItem>
+
+                          <span className="flex items-center px-4 text-sm text-muted-foreground">
+                            Page {currentPage} of {customerList.totalPages}
+                          </span>
+
+                          <PaginationItem>
+                            <PaginationNext
+                              onClick={() => handlePageChange(currentPage + 1)}
+                              aria-disabled={currentPage === customerList.totalPages || isLoading}
+                              className={currentPage === customerList.totalPages || isLoading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
                     </div>
                   )}
                 </CardContent>
