@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
 import {
   searchCustomersAction,
   listCustomersAction,
@@ -121,7 +122,7 @@ export default function CustomersPage() {
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <Spinner size="lg" />
       </div>
     )
   }
@@ -249,7 +250,7 @@ export default function CustomersPage() {
                   />
                   <Button onClick={() => handleSearch()} disabled={isLoading}>
                     {isLoading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      <Spinner size="sm" className="text-white" />
                     ) : (
                       <FaSearch className="h-4 w-4" />
                     )}

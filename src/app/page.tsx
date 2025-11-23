@@ -8,6 +8,7 @@ import { LoginImageSlideshow } from '@/components/login-image-slideshow'
 import { FossappLogo } from '@/components/fossapp-logo'
 import { ProductCountDisplay } from '@/components/product-count-display'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { Spinner } from '@/components/ui/spinner'
 
 export default function Home() {
   const { data: session, status } = useSession()
@@ -22,7 +23,7 @@ export default function Home() {
   if (status === 'loading' || session) {
     return (
       <div className="flex min-h-svh items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <Spinner size="lg" />
       </div>
     )
   }

@@ -10,6 +10,7 @@ import { VersionDisplay } from '@/components/version-display'
 import { UserDropdown } from '@/components/user-dropdown'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
 import { Package, Building2, Grid3x3, Calendar } from 'lucide-react'
 import {
   getDashboardStatsAction,
@@ -75,7 +76,7 @@ export default function Dashboard() {
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <Spinner size="lg" />
       </div>
     )
   }

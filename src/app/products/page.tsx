@@ -14,10 +14,10 @@ import {
   FaPlug,
   FaBoxes
 } from 'react-icons/fa'
-import { Loader2 } from 'lucide-react'
 import { getNavigation } from '@/lib/navigation'
 import { VersionDisplay } from '@/components/version-display'
 import { UserDropdown } from '@/components/user-dropdown'
+import { Spinner } from '@/components/ui/spinner'
 import { IconMapper } from '@/components/icon-mapper'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -335,7 +335,7 @@ export default function ProductsPage() {
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Spinner size="lg" />
       </div>
     )
   }
@@ -591,7 +591,7 @@ export default function ProductsPage() {
           {/* Results Grid */}
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin" />
+              <Spinner size="lg" />
             </div>
           ) : results.length > 0 ? (
             <>
