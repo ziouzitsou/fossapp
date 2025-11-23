@@ -25,6 +25,7 @@ import { Loader2 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { getNavigation } from '@/lib/navigation'
 import { VersionDisplay } from '@/components/version-display'
+import { IconMapper } from '@/components/icon-mapper'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -548,7 +549,7 @@ export default function ProductsPage() {
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl">{category.icon}</span>
+                        <IconMapper name={category.icon} className="w-8 h-8" />
                         <div className="text-left">
                           <div className="font-semibold">{category.name}</div>
                           <div className={cn("text-xs", isActive ? "text-white/80" : "text-muted-foreground")}>
