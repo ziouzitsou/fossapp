@@ -4,11 +4,11 @@ import { useRouter, useParams } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { signOut } from 'next-auth/react'
-import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes, FaArrowLeft, FaEnvelope, FaPhone, FaMobileAlt, FaFax, FaGlobe, FaMapMarkerAlt, FaBuilding, FaIndustry, FaHashtag , FaSun, FaMoon, FaDesktop, FaCheck} from 'react-icons/fa'
-import { useTheme } from 'next-themes'
+import { FaBars, FaTimes, FaArrowLeft, FaEnvelope, FaPhone, FaMobileAlt, FaFax, FaGlobe, FaMapMarkerAlt, FaBuilding, FaIndustry, FaHashtag } from 'react-icons/fa'
 import { getNavigation } from '@/lib/navigation'
 import { VersionDisplay } from '@/components/version-display'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { UserDropdown } from '@/components/user-dropdown'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,16 +18,9 @@ export default function CustomerDetailPage() {
   const { data: session, status } = useDevSession()
   const router = useRouter()
   const params = useParams()
-  const [dropdownOpen, setDropdownOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const { theme, setTheme } = useTheme()
   const [customer, setCustomer] = useState<CustomerDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -159,85 +152,7 @@ export default function CustomerDetailPage() {
 
             <div className="flex items-center gap-2">
               <ThemeToggle />
-
-              <div className="relative">
-                <button
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-3 text-sm rounded-full hover:bg-accent p-2 transition-colors"
-                >
-                  <div className="relative w-8 h-8">
-                    <Image
-                      src={session.user?.image || '/default-avatar.png'}
-                      alt="Profile"
-                      fill
-                      sizes="32px"
-                      className="rounded-full object-cover"
-                    />
-                  </div>
-                  <span className="hidden md:block font-medium text-foreground">
-                    {session.user?.name}
-                  </span>
-                  <FaChevronDown className="h-3 w-3 text-muted-foreground" />
-                </button>
-
-                {dropdownOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setDropdownOpen(false)}
-                    />
-                    <div className="absolute right-0 mt-2 w-48 bg-popover rounded-md shadow-lg py-1 z-50 border">
-                      <div className="px-4 py-2 border-b">
-                        <p className="text-sm font-medium text-popover-foreground">{session.user?.name}</p>
-                        <p className="text-sm text-muted-foreground">{session.user?.email}</p>
-                      </div>
-
-                      {/* Theme options */}
-                      {mounted && (
-                        <>
-                          <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            Theme
-                          </div>
-                          {[
-                            { name: 'Light', value: 'light', icon: FaSun },
-                            { name: 'Dark', value: 'dark', icon: FaMoon },
-                            { name: 'System', value: 'system', icon: FaDesktop },
-                          ].map((themeOption) => {
-                            const Icon = themeOption.icon
-                            const isActive = theme === themeOption.value
-                            return (
-                              <button
-                                key={themeOption.value}
-                                onClick={() => {
-                                  setTheme(themeOption.value)
-                                  setDropdownOpen(false)
-                                }}
-                                className="w-full text-left px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 justify-between"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Icon className="h-4 w-4" />
-                                  <span>{themeOption.name}</span>
-                                </div>
-                                {isActive && <FaCheck className="h-3 w-3 text-primary" />}
-                              </button>
-                            )
-                          })}
-                          <div className="my-1 border-t" />
-                        </>
-                      )}
-
-                      {/* Sign out */}
-                      <button
-                        onClick={() => signOut()}
-                        className="w-full text-left px-4 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors"
-                      >
-                        <FaSignOutAlt className="h-4 w-4" />
-                        Sign out
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+              <UserDropdown user={session.user} />
             </div>
           </div>
         </header>

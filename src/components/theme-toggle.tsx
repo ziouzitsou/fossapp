@@ -2,17 +2,24 @@
 
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
-import { FaSun, FaMoon, FaDesktop } from 'react-icons/fa'
+import { FaSun, FaMoon, FaDesktop, FaCheck } from 'react-icons/fa'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Button } from '@/components/ui/button'
 
 export function ThemeToggle() {
   const [mounted, setMounted] = useState(false)
   const { theme, setTheme } = useTheme()
-  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
-
 
   if (!mounted) {
     return (
@@ -30,46 +37,37 @@ export function ThemeToggle() {
   const CurrentIcon = currentTheme.icon
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => setDropdownOpen(!dropdownOpen)}
-        className="flex items-center justify-center w-9 h-9 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
-        aria-label={`Current theme: ${currentTheme.name}`}
-        title={`Current theme: ${currentTheme.name}. Click to change.`}
-      >
-        <CurrentIcon className="h-4 w-4 text-secondary-foreground" />
-      </button>
-
-      {dropdownOpen && (
-        <>
-          <div 
-            className="fixed inset-0 z-10" 
-            onClick={() => setDropdownOpen(false)}
-          />
-          <div className="absolute right-0 mt-2 w-32 bg-popover rounded-md shadow-lg py-1 z-20 border">
-            {themes.map((themeOption) => {
-              const Icon = themeOption.icon
-              return (
-                <button
-                  key={themeOption.value}
-                  onClick={() => {
-                    setTheme(themeOption.value)
-                    setDropdownOpen(false)
-                  }}
-                  className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-accent hover:text-accent-foreground transition-colors ${
-                    theme === themeOption.value
-                      ? 'text-primary bg-primary/10'
-                      : 'text-popover-foreground'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {themeOption.name}
-                </button>
-              )
-            })}
-          </div>
-        </>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-9 w-9"
+          aria-label={`Current theme: ${currentTheme.name}`}
+          title={`Current theme: ${currentTheme.name}. Click to change.`}
+        >
+          <CurrentIcon className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Theme</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {themes.map((themeOption) => {
+          const Icon = themeOption.icon
+          const isActive = theme === themeOption.value
+          return (
+            <DropdownMenuItem
+              key={themeOption.value}
+              onClick={() => setTheme(themeOption.value)}
+              className="cursor-pointer"
+            >
+              <Icon className="mr-2 h-4 w-4" />
+              <span>{themeOption.name}</span>
+              {isActive && <FaCheck className="ml-auto h-3 w-3 text-primary" />}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
