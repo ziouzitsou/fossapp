@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { FaSignOutAlt, FaChevronDown, FaBars, FaTimes, FaArrowLeft , FaSun, FaMoon, FaDesktop, FaCheck} from 'react-icons/fa'
 import { getNavigation } from '@/lib/navigation'
 import { VersionDisplay } from '@/components/version-display'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,7 +31,6 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<ProductInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [logoError, setLogoError] = useState(false)
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)

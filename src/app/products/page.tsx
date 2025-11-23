@@ -40,6 +40,15 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
 import { cn } from '@/lib/utils'
 
 // Advanced search imports
@@ -675,37 +684,129 @@ export default function ProductsPage() {
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : results.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {results.map((product) => (
-                <Card key={product.product_id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <CardTitle className="text-base line-clamp-2">
-                      {product.description_short}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-1">
-                      {product.supplier_name}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <Badge variant="secondary">{product.foss_pid}</Badge>
-                      {product.price_eur && (
-                        <span className="text-sm font-semibold">
-                          €{product.price_eur.toFixed(2)}
-                        </span>
-                      )}
-                    </div>
-                    {(product.indoor || product.outdoor || product.submersible) && (
-                      <div className="flex gap-1 mt-2">
-                        {product.indoor && <Badge variant="outline" className="text-xs">Indoor</Badge>}
-                        {product.outdoor && <Badge variant="outline" className="text-xs">Outdoor</Badge>}
-                        {product.submersible && <Badge variant="outline" className="text-xs">Submersible</Badge>}
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {results.map((product) => (
+                  <Card
+                    key={product.product_id}
+                    className="hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => router.push(`/products/${product.product_id}`)}
+                  >
+                    <CardHeader>
+                      <CardTitle className="text-base line-clamp-2">
+                        {product.description_short}
+                      </CardTitle>
+                      <CardDescription className="line-clamp-1">
+                        {product.supplier_name}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between">
+                        <Badge variant="secondary">{product.foss_pid}</Badge>
+                        {product.price_eur && (
+                          <span className="text-sm font-semibold">
+                            €{product.price_eur.toFixed(2)}
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      {(product.indoor || product.outdoor || product.submersible) && (
+                        <div className="flex gap-1 mt-2">
+                          {product.indoor && <Badge variant="outline" className="text-xs">Indoor</Badge>}
+                          {product.outdoor && <Badge variant="outline" className="text-xs">Outdoor</Badge>}
+                          {product.submersible && <Badge variant="outline" className="text-xs">Submersible</Badge>}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              {totalCount > filters.limit! && (
+                <div className="mt-8 flex justify-center">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => {
+                            if (filters.page! > 0) {
+                              setFilters(prev => ({ ...prev, page: prev.page! - 1 }))
+                            }
+                          }}
+                          className={filters.page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+
+                      {/* Page Numbers */}
+                      {(() => {
+                        const totalPages = Math.ceil(totalCount / filters.limit!)
+                        const currentPage = filters.page!
+                        const pages: (number | 'ellipsis')[] = []
+
+                        // Always show first page
+                        pages.push(0)
+
+                        // Show pages around current page
+                        const startPage = Math.max(1, currentPage - 1)
+                        const endPage = Math.min(totalPages - 1, currentPage + 1)
+
+                        // Add ellipsis if needed
+                        if (startPage > 1) {
+                          pages.push('ellipsis')
+                        }
+
+                        // Add pages around current
+                        for (let i = startPage; i <= endPage; i++) {
+                          if (i !== 0 && i !== totalPages - 1) {
+                            pages.push(i)
+                          }
+                        }
+
+                        // Add ellipsis if needed
+                        if (endPage < totalPages - 2) {
+                          pages.push('ellipsis')
+                        }
+
+                        // Always show last page if more than 1 page
+                        if (totalPages > 1) {
+                          pages.push(totalPages - 1)
+                        }
+
+                        return pages.map((page, idx) => (
+                          page === 'ellipsis' ? (
+                            <PaginationItem key={`ellipsis-${idx}`}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          ) : (
+                            <PaginationItem key={page}>
+                              <PaginationLink
+                                onClick={() => setFilters(prev => ({ ...prev, page }))}
+                                isActive={currentPage === page}
+                                className="cursor-pointer"
+                              >
+                                {page + 1}
+                              </PaginationLink>
+                            </PaginationItem>
+                          )
+                        ))
+                      })()}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => {
+                            const totalPages = Math.ceil(totalCount / filters.limit!)
+                            if (filters.page! < totalPages - 1) {
+                              setFilters(prev => ({ ...prev, page: prev.page! + 1 }))
+                            }
+                          }}
+                          className={filters.page! >= Math.ceil(totalCount / filters.limit!) - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No products found in this category</p>
