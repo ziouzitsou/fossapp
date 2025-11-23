@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
+import { CommandPalette, useCommandPalette } from '@/components/command-palette'
 import {
   Pagination,
   PaginationContent,
@@ -31,6 +32,7 @@ export default function CustomersPage() {
   const { data: session, status } = useDevSession()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette()
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<CustomerSearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -116,6 +118,11 @@ export default function CustomersPage() {
   const clearSearchHistory = () => {
     setSearchHistory([])
     localStorage.removeItem('customerSearchHistory')
+  }
+
+  // Handle command palette search
+  const handleCommandSearch = (query: string) => {
+    handleSearch(query)
   }
 
   const handleCustomerClick = (customerId: string) => {
@@ -247,14 +254,20 @@ export default function CustomersPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Search customers..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    className="flex-1"
-                  />
+                  <div className="relative flex-1">
+                    <Input
+                      type="text"
+                      placeholder="Search customers..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      onFocus={() => setCommandOpen(true)}
+                      className="pr-16"
+                    />
+                    <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                      <span className="text-xs">⌘</span>K
+                    </kbd>
+                  </div>
                   <Button onClick={() => handleSearch()} disabled={isLoading}>
                     {isLoading ? (
                       <Spinner size="sm" className="text-white" />
@@ -403,6 +416,16 @@ export default function CustomersPage() {
           </div>
         </main>
       </div>
+
+      {/* Command Palette */}
+      <CommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        searchHistory={searchHistory}
+        onSearch={handleCommandSearch}
+        placeholder="Search customers..."
+        emptyMessage="Type to search customers by name, code, email, or city..."
+      />
     </div>
   )
 }

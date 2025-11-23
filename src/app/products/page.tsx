@@ -19,6 +19,7 @@ import { VersionDisplay } from '@/components/version-display'
 import { UserDropdown } from '@/components/user-dropdown'
 import { Spinner } from '@/components/ui/spinner'
 import { IconMapper } from '@/components/icon-mapper'
+import { CommandPalette, useCommandPalette } from '@/components/command-palette'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -69,6 +70,7 @@ export default function ProductsPage() {
   const { data: session, status } = useDevSession()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette()
 
   // Root categories from database (level 1 taxonomy)
   const [rootCategories, setRootCategories] = useState<Array<{
@@ -238,6 +240,11 @@ export default function ProductsPage() {
   // Handle search input change
   const handleSearchChange = (value: string) => {
     setFilters(prev => ({ ...prev, query: value, page: 0 }))
+  }
+
+  // Handle command palette search
+  const handleCommandSearch = (query: string) => {
+    setFilters(prev => ({ ...prev, query, page: 0 }))
   }
 
   // Handle sort change
@@ -496,8 +503,12 @@ export default function ProductsPage() {
                 placeholder={`Search ${activeCategoryInfo?.name || 'products'}...`}
                 value={filters.query}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-10"
+                onFocus={() => setCommandOpen(true)}
+                className="pl-10 pr-16"
               />
+              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                <span className="text-xs">⌘</span>K
+              </kbd>
             </div>
 
             {/* Sort */}
@@ -738,6 +749,16 @@ export default function ProductsPage() {
           )}
         </div>
       </div>
+
+      {/* Command Palette */}
+      <CommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        searchHistory={searchHistory}
+        onSearch={handleCommandSearch}
+        placeholder={`Search ${activeCategoryInfo?.name || 'products'}...`}
+        emptyMessage="Type to search products..."
+      />
     </div>
   )
 }
