@@ -11,6 +11,7 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command'
+import { DialogTitle } from '@/components/ui/dialog'
 import { FaHistory, FaClock } from 'react-icons/fa'
 
 interface CommandPaletteProps {
@@ -48,6 +49,7 @@ export function CommandPalette({
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
+      <DialogTitle className="sr-only">Search</DialogTitle>
       <CommandInput
         placeholder={placeholder}
         value={search}
