@@ -3,6 +3,7 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { APP_CONFIG, PWA_CONFIG } from "@/lib/config";
 import { WhatsNewDialog } from "@/components/whats-new-dialog";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
 export const metadata: Metadata = {
   title: APP_CONFIG.APP_NAME,
@@ -37,8 +38,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
         <Providers>
-          {children}
-          <WhatsNewDialog />
+          <SidebarProvider>
+            {children}
+            <WhatsNewDialog />
+          </SidebarProvider>
         </Providers>
       </body>
     </html>

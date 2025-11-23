@@ -3,20 +3,15 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useMemo } from 'react'
 import { useDevSession } from '@/lib/use-dev-session'
-import Image from 'next/image'
 import {
   FaSearch,
-  FaBars,
-  FaTimes,
   FaLightbulb,
   FaTools,
   FaSlidersH,
   FaPlug,
   FaBoxes
 } from 'react-icons/fa'
-import { getNavigation } from '@/lib/navigation'
-import { VersionDisplay } from '@/components/version-display'
-import { UserDropdown } from '@/components/user-dropdown'
+import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { Spinner } from '@/components/ui/spinner'
 import { IconMapper } from '@/components/icon-mapper'
 import { CommandPalette, useCommandPalette } from '@/components/command-palette'
@@ -69,7 +64,6 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function ProductsPage() {
   const { data: session, status } = useDevSession()
   const router = useRouter()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette()
 
   // Root categories from database (level 1 taxonomy)
@@ -352,98 +346,9 @@ export default function ProductsPage() {
     return null
   }
 
-  const navigation = getNavigation('/products')
-
   return (
-    <div className="h-screen flex bg-background">
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div className={`${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } fixed inset-y-0 left-0 z-30 w-64 bg-card shadow-lg border-r transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
-        <div className="flex items-center justify-between h-16 px-6 border-b">
-          <div className="flex items-center">
-            <Image
-              src="/logo.svg"
-              alt="Company Logo"
-              width={80}
-              height={80}
-              className="h-20 w-20 dark:hidden"
-            />
-            <Image
-              src="/logo-dark.svg"
-              alt="Company Logo"
-              width={80}
-              height={80}
-              className="h-20 w-20 hidden dark:block"
-            />
-          </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-muted-foreground hover:text-foreground"
-          >
-            <FaTimes className="h-5 w-5" />
-          </button>
-        </div>
-
-        <nav className="mt-8 flex-1">
-          <div className="px-3">
-            {navigation.map((item) => {
-              const NavIcon = item.icon
-              return (
-                <a
-                  key={item.name}
-                  href={item.href}
-                  className={`${
-                    item.current
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  } group flex items-center px-3 py-2 text-sm font-medium rounded-md mb-1 transition-colors`}
-                >
-                  <NavIcon className="mr-3 h-5 w-5" />
-                  {item.name}
-                </a>
-              )
-            })}
-          </div>
-        </nav>
-
-        {/* Version display at bottom */}
-        <div className="border-t">
-          <VersionDisplay />
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top bar */}
-        <header className="bg-card shadow-sm border-b">
-          <div className="flex items-center h-16 px-6">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-muted-foreground hover:text-foreground"
-            >
-              <FaBars className="h-5 w-5" />
-            </button>
-
-            <div className="flex-1" />
-
-            {/* Right side items */}
-            <div className="flex items-center gap-4">
-              {/* User menu */}
-              <UserDropdown user={session.user} />
-            </div>
-          </div>
-        </header>
-
-        {/* Category Navigation - Horizontal Scrolling Cards */}
+    <ProtectedPageLayout>
+      {/* Category Navigation - Horizontal Scrolling Cards */}
         <div className="border-b bg-muted/50">
           <div className="px-6 py-4">
             <ScrollArea className="w-full whitespace-nowrap">
@@ -748,7 +653,6 @@ export default function ProductsPage() {
             </div>
           )}
         </div>
-      </div>
 
       {/* Command Palette */}
       <CommandPalette
@@ -759,6 +663,6 @@ export default function ProductsPage() {
         placeholder={`Search ${activeCategoryInfo?.name || 'products'}...`}
         emptyMessage="Type to search products..."
       />
-    </div>
+    </ProtectedPageLayout>
   )
 }
