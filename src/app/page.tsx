@@ -3,11 +3,11 @@
 import { useSession } from 'next-auth/react'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { LoginForm } from '@/components/login-form'
 import { LoginImageSlideshow } from '@/components/login-image-slideshow'
 import { FossappLogo } from '@/components/fossapp-logo'
 import { ProductCountDisplay } from '@/components/product-count-display'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export default function Home() {
   const { data: session, status } = useSession()

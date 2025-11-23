@@ -46,11 +46,7 @@ export function MultiThemeProvider({ children }: { children: React.ReactNode }) 
     localStorage.setItem('app-theme', newTheme)
   }
 
-  // Avoid hydration mismatch
-  if (!mounted) {
-    return <>{children}</>
-  }
-
+  // Always provide the context, even before mounting to avoid hydration issues
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>
       {children}
