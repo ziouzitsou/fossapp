@@ -259,8 +259,16 @@ See migration: `supabase/migrations/20251115_reorganize_functions_to_domain_sche
 **shadcn/ui Integration**:
 - Project uses **shadcn/ui** component library (Radix UI + Tailwind CSS)
 - Configuration: `components.json` (New York style, RSC enabled)
-- Installed components: Button, Card, Input, Badge, Alert, Avatar
+- **Migration Status**: ✅ Phase 6 completed (2025-11-23) - Full sidebar migration
+- Installed components: Button, Card, Input, Badge, Alert, Avatar, Sidebar, Pagination, ToggleGroup, Command, and more
 - Add new components: `npx shadcn@latest add <component-name>`
+
+**Navigation Architecture** (as of Phase 6 migration):
+- **AppSidebar** (`src/components/app-sidebar.tsx`) - Unified sidebar using shadcn Sidebar primitives
+- **ProtectedPageLayout** (`src/components/protected-page-layout.tsx`) - Wrapper for all authenticated pages
+- **SidebarProvider** - Wraps entire app in root layout for sidebar context
+- **Keyboard Shortcut**: Cmd/Ctrl+B toggles sidebar
+- **Code Reduction**: -269 lines (eliminated duplicate sidebar code across pages)
 
 **Patterns**:
 - CVA (Class Variance Authority) for variant management
