@@ -34,6 +34,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   Pagination,
   PaginationContent,
@@ -439,22 +440,30 @@ export default function ProductsPage() {
         <div className="border-b bg-muted/50">
           <div className="px-6 py-4">
             <ScrollArea className="w-full whitespace-nowrap">
-              <div className="flex gap-3 py-2 px-3">
+              <ToggleGroup
+                type="single"
+                value={activeRootCategory}
+                onValueChange={(value) => {
+                  if (value) {
+                    setActiveRootCategory(value)
+                    clearFiltersForNewCategory()
+                  }
+                }}
+                className="flex gap-3 py-2 px-3 justify-start"
+              >
                 {rootCategories.map((category) => {
                   const isActive = category.code === activeRootCategory
 
                   return (
-                    <button
+                    <ToggleGroupItem
                       key={category.code}
-                      onClick={() => {
-                        setActiveRootCategory(category.code)
-                        clearFiltersForNewCategory()
-                      }}
+                      value={category.code}
+                      aria-label={`Select ${category.name} category`}
                       className={cn(
-                        "flex-shrink-0 p-4 rounded-lg border-2 transition-all min-w-[200px]",
-                        isActive
-                          ? `border-primary bg-gradient-to-br ${category.color} text-white shadow-lg scale-105`
-                          : "border-border hover:border-primary/50 bg-background"
+                        "flex-shrink-0 p-4 rounded-lg border-2 transition-all min-w-[200px] h-auto",
+                        "data-[state=on]:border-primary data-[state=on]:shadow-lg data-[state=on]:scale-105",
+                        "hover:border-primary/50",
+                        isActive && `data-[state=on]:bg-gradient-to-br ${category.color} data-[state=on]:text-white`
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -466,10 +475,10 @@ export default function ProductsPage() {
                           </div>
                         </div>
                       </div>
-                    </button>
+                    </ToggleGroupItem>
                   )
                 })}
-              </div>
+              </ToggleGroup>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
           </div>
