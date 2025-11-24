@@ -10,25 +10,26 @@ import {
   type TaxonomyCategory
 } from '@/lib/real-taxonomy-data'
 import {
-  getProductsByTaxonomyAction,
-  type ProductByTaxonomy
+  getProductsByTaxonomyPaginatedAction,
+  type ProductByTaxonomy,
+  type ProductByTaxonomyResult
 } from '@/lib/actions'
 import { CategoryLevel1 } from '@/components/products/CategoryLevel1'
-import { SupplierFilter } from '@/components/products/SupplierFilter'
 import { InfoTooltip } from '@/components/products/InfoTooltip'
+import { FilterPanel, type FilterValues } from '@/components/filters/FilterPanel'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+} from '@/components/ui/pagination'
+import { ChevronRight } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -41,13 +42,34 @@ export default function ProductsPage() {
   const [level1, setLevel1] = useState<string | null>(searchParams.get('level1'))
   const [level2, setLevel2] = useState<string | null>(searchParams.get('level2'))
   const [level3, setLevel3] = useState<string | null>(searchParams.get('level3'))
-  const [supplierId, setSupplierId] = useState<number | null>(
-    searchParams.get('supplier') ? Number(searchParams.get('supplier')) : null
-  )
 
-  // Products state
-  const [products, setProducts] = useState<ProductByTaxonomy[]>([])
+  // Initialize filter values from URL
+  const [filterValues, setFilterValues] = useState<FilterValues>(() => {
+    const filters: FilterValues = {}
+
+    // Parse supplier
+    const supplier = searchParams.get('supplier')
+    if (supplier) filters.supplier = Number(supplier)
+
+    // Parse other filters from URL (e.g., cri, voltage, etc.)
+    searchParams.forEach((value, key) => {
+      if (!['level1', 'level2', 'level3', 'supplier'].includes(key)) {
+        try {
+          filters[key] = JSON.parse(value)
+        } catch {
+          filters[key] = value
+        }
+      }
+    })
+
+    return filters
+  })
+
+  // Products state with pagination
+  const [productResult, setProductResult] = useState<ProductByTaxonomyResult | null>(null)
   const [loading, setLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 20
 
   // Update URL when filters change
   useEffect(() => {
@@ -55,37 +77,56 @@ export default function ProductsPage() {
     if (level1) params.set('level1', level1)
     if (level2) params.set('level2', level2)
     if (level3) params.set('level3', level3)
-    if (supplierId) params.set('supplier', supplierId.toString())
+
+    // Add all filter values to URL
+    Object.entries(filterValues).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (typeof value === 'object') {
+          params.set(key, JSON.stringify(value))
+        } else {
+          params.set(key, value.toString())
+        }
+      }
+    })
 
     router.replace(`/products?${params.toString()}`, { scroll: false })
-  }, [level1, level2, level3, supplierId, router])
+  }, [level1, level2, level3, filterValues, router])
 
-  // Fetch products when taxonomy or supplier changes
+  // Reset page when taxonomy or filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [level1, level2, level3, filterValues])
+
+  // Fetch products when taxonomy, filters, or page changes
   useEffect(() => {
     async function fetchProducts() {
       const currentCategory = level3 || level2 || level1
       if (!currentCategory) {
-        setProducts([])
+        setProductResult(null)
         return
       }
 
       setLoading(true)
       try {
-        const result = await getProductsByTaxonomyAction(
+        const result = await getProductsByTaxonomyPaginatedAction(
           currentCategory,
-          supplierId || undefined
+          {
+            page: currentPage,
+            pageSize,
+            supplierId: filterValues.supplier || undefined
+          }
         )
-        setProducts(result)
+        setProductResult(result)
       } catch (error) {
         console.error('Error fetching products:', error)
-        setProducts([])
+        setProductResult(null)
       } finally {
         setLoading(false)
       }
     }
 
     fetchProducts()
-  }, [level1, level2, level3, supplierId])
+  }, [level1, level2, level3, filterValues, currentPage, pageSize])
 
   // Get categories for current level
   const level1Categories = realTaxonomy
@@ -122,10 +163,6 @@ export default function ProductsPage() {
 
   const handleLevel3Change = (code: string) => {
     setLevel3(code)
-  }
-
-  const handleSupplierChange = (id: number | null) => {
-    setSupplierId(id)
   }
 
   // Redirect if unauthenticated
@@ -195,51 +232,41 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Level 3: Dropdown Menu */}
+      {/* Level 3: Horizontal Tabs */}
       {level2 && level3Categories.length > 0 && (
         <div className="border-b bg-muted/20">
-          <div className="px-6 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-medium flex items-center">
-                  Product Types
-                  <InfoTooltip
-                    content="Select a specific product type to narrow down your search results."
-                    side="right"
-                  />
-                </h4>
-              </div>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-2">
-                    {level3
-                      ? findCategoryByCode(level3)?.name
-                      : 'Select type'}
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  {level3Categories.map((category) => {
-                    const IconComponent = (LucideIcons[category.icon as keyof typeof LucideIcons] as React.ComponentType<{ className?: string }>) || LucideIcons.Box
-
-                    return (
-                      <DropdownMenuItem
-                        key={category.code}
-                        onClick={() => handleLevel3Change(category.code)}
-                        className="gap-2"
-                      >
-                        <IconComponent className="h-4 w-4" />
-                        <span>{category.name}</span>
-                        <span className="ml-auto text-xs text-muted-foreground">
-                          {category.productCount}
-                        </span>
-                      </DropdownMenuItem>
-                    )
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium flex items-center">
+                Product Types
+                <InfoTooltip
+                  content="Select a specific product type to narrow down your search results."
+                  side="right"
+                />
+              </h4>
             </div>
+
+            <Tabs value={level3 || ''} onValueChange={handleLevel3Change}>
+              <TabsList className="w-full justify-start h-auto flex-wrap">
+                {level3Categories.map((category) => {
+                  const IconComponent = (LucideIcons[category.icon as keyof typeof LucideIcons] as React.ComponentType<{ className?: string }>) || LucideIcons.Box
+
+                  return (
+                    <TabsTrigger
+                      key={category.code}
+                      value={category.code}
+                      className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                    >
+                      <IconComponent className="h-4 w-4" />
+                      <span>{category.name}</span>
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        {category.productCount}
+                      </Badge>
+                    </TabsTrigger>
+                  )
+                })}
+              </TabsList>
+            </Tabs>
           </div>
         </div>
       )}
@@ -265,18 +292,11 @@ export default function ProductsPage() {
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Filter Panel (left sidebar on desktop) */}
           <aside className="lg:w-80">
-            <Card>
-              <CardHeader>
-                <CardTitle>Filters</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {/* Supplier Filter */}
-                <SupplierFilter
-                  selectedSupplierId={supplierId}
-                  onSupplierChange={handleSupplierChange}
-                />
-              </CardContent>
-            </Card>
+            <FilterPanel
+              taxonomyCode={currentCategory?.code}
+              values={filterValues}
+              onChange={setFilterValues}
+            />
           </aside>
 
           {/* Product Grid */}
@@ -291,13 +311,13 @@ export default function ProductsPage() {
                   Select a category to browse products
                 </p>
               </div>
-            ) : products.length > 0 ? (
+            ) : productResult && productResult.products.length > 0 ? (
               <>
                 <div className="mb-4 text-sm text-muted-foreground">
-                  {products.length} product{products.length !== 1 ? 's' : ''} found
+                  Showing {productResult.products.length} of {productResult.total} product{productResult.total !== 1 ? 's' : ''} (Page {currentPage} of {productResult.totalPages})
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {products.map((product) => (
+                  {productResult.products.map((product) => (
                     <Card
                       key={product.product_id}
                       className="hover:shadow-lg transition-shadow cursor-pointer"
@@ -324,15 +344,44 @@ export default function ProductsPage() {
                     </Card>
                   ))}
                 </div>
+
+                {/* Pagination */}
+                {productResult.totalPages > 1 && (
+                  <div className="mt-6">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                            aria-disabled={currentPage === 1 || loading}
+                            className={currentPage === 1 || loading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+
+                        <span className="flex items-center px-4 text-sm text-muted-foreground">
+                          Page {currentPage} of {productResult.totalPages}
+                        </span>
+
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                            aria-disabled={currentPage === productResult.totalPages || loading}
+                            className={currentPage === productResult.totalPages || loading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
               </>
             ) : (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
                   No products found in this category
                 </p>
-                {supplierId && (
+                {Object.keys(filterValues).length > 0 && (
                   <p className="text-sm text-muted-foreground mt-2">
-                    Try removing the supplier filter
+                    Try removing some filters
                   </p>
                 )}
               </div>
