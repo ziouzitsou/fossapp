@@ -1381,53 +1381,7 @@ export async function getProductsByTaxonomyPaginatedAction(
     const sanitizedTaxonomyCode = validateTaxonomyCode(taxonomyCode)
     const sanitizedSupplierId = options.supplierId ? validateSupplierId(options.supplierId) : null
 
-    // First, get product IDs matching the taxonomy
-    // Note: We limit to 1000 to avoid "Bad Request" with large result sets
-    const { data: productIds, error: taxonomyError } = await supabaseServer
-      .schema('search')
-      .from('product_taxonomy_flags')
-      .select('product_id')
-      .contains('taxonomy_path', [sanitizedTaxonomyCode])
-      .limit(1000)
-
-    if (taxonomyError || !productIds) {
-      console.error('Error getting products by taxonomy:', taxonomyError)
-      return {
-        products: [],
-        total: 0,
-        page,
-        pageSize,
-        totalPages: 0
-      }
-    }
-
-    if (productIds.length === 0) {
-      return {
-        products: [],
-        total: 0,
-        page,
-        pageSize,
-        totalPages: 0
-      }
-    }
-
-    const allIds = productIds.map(p => p.product_id)
-    const total = allIds.length
-
-    // Paginate the IDs array BEFORE querying products
-    const paginatedIds = allIds.slice(offset, offset + pageSize)
-
-    if (paginatedIds.length === 0) {
-      return {
-        products: [],
-        total,
-        page,
-        pageSize,
-        totalPages: Math.ceil(total / pageSize)
-      }
-    }
-
-    // Filter by supplier if provided - get catalog IDs first
+    // Get catalog IDs for supplier filter if provided
     let catalogIds: number[] | undefined
     if (sanitizedSupplierId) {
       const { data: catalogs, error: catalogError } = await supabaseServer
@@ -1450,19 +1404,158 @@ export async function getProductsByTaxonomyPaginatedAction(
       catalogIds = catalogs.map(c => c.id)
     }
 
-    // Build query for products (no separate count query needed)
-    let productQuery = supabaseServer
+    // Build base query for product IDs with taxonomy filter
+    let baseQuery = supabaseServer
+      .schema('search')
+      .from('product_taxonomy_flags')
+      .select('product_id')
+      .contains('taxonomy_path', [sanitizedTaxonomyCode])
+
+    // If supplier filter is active, we need to join with product_info to filter by catalog_id
+    // Since we can't do joins easily in Supabase, we'll get all matching product IDs first,
+    // then filter by catalog_id when fetching products
+    // For accurate pagination with supplier filter, we need to get the filtered products first
+
+    let allMatchingIds: string[] = []
+    let total = 0
+
+    if (catalogIds) {
+      // When supplier is filtered, we need to get products that match BOTH taxonomy AND catalog
+      // First get all product IDs that match taxonomy
+      const { data: taxonomyMatches, error: taxonomyError } = await supabaseServer
+        .schema('search')
+        .from('product_taxonomy_flags')
+        .select('product_id')
+        .contains('taxonomy_path', [sanitizedTaxonomyCode])
+
+      if (taxonomyError || !taxonomyMatches) {
+        console.error('Error getting products by taxonomy:', taxonomyError)
+        return {
+          products: [],
+          total: 0,
+          page,
+          pageSize,
+          totalPages: 0
+        }
+      }
+
+      if (taxonomyMatches.length === 0) {
+        return {
+          products: [],
+          total: 0,
+          page,
+          pageSize,
+          totalPages: 0
+        }
+      }
+
+      const taxonomyIds = taxonomyMatches.map(p => p.product_id)
+
+      // Now get products that match both taxonomy AND catalog
+      const { data: filteredProducts, error: filterError } = await supabaseServer
+        .schema('items')
+        .from('product_info')
+        .select('product_id')
+        .in('product_id', taxonomyIds)
+        .in('catalog_id', catalogIds)
+
+      if (filterError) {
+        console.error('Error filtering products by catalog:', filterError)
+        return {
+          products: [],
+          total: 0,
+          page,
+          pageSize,
+          totalPages: 0
+        }
+      }
+
+      allMatchingIds = (filteredProducts || []).map(p => p.product_id)
+      total = allMatchingIds.length
+    } else {
+      // No supplier filter - just count and get IDs from taxonomy
+      const { count: totalCount, error: countError } = await supabaseServer
+        .schema('search')
+        .from('product_taxonomy_flags')
+        .select('product_id', { count: 'exact', head: true })
+        .contains('taxonomy_path', [sanitizedTaxonomyCode])
+
+      if (countError) {
+        console.error('Error counting products by taxonomy:', countError)
+        return {
+          products: [],
+          total: 0,
+          page,
+          pageSize,
+          totalPages: 0
+        }
+      }
+
+      total = totalCount || 0
+
+      if (total === 0) {
+        return {
+          products: [],
+          total: 0,
+          page,
+          pageSize,
+          totalPages: 0
+        }
+      }
+
+      // Get only the product IDs for the current page
+      const { data: productIds, error: taxonomyError } = await supabaseServer
+        .schema('search')
+        .from('product_taxonomy_flags')
+        .select('product_id')
+        .contains('taxonomy_path', [sanitizedTaxonomyCode])
+        .range(offset, offset + pageSize - 1)
+
+      if (taxonomyError || !productIds) {
+        console.error('Error getting products by taxonomy:', taxonomyError)
+        return {
+          products: [],
+          total: 0,
+          page,
+          pageSize,
+          totalPages: 0
+        }
+      }
+
+      allMatchingIds = productIds.map(p => p.product_id)
+    }
+
+    if (allMatchingIds.length === 0) {
+      return {
+        products: [],
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize)
+      }
+    }
+
+    // For supplier filtering, we already have all IDs, so paginate them
+    const paginatedIds = catalogIds
+      ? allMatchingIds.slice(offset, offset + pageSize)
+      : allMatchingIds
+
+    if (paginatedIds.length === 0) {
+      return {
+        products: [],
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize)
+      }
+    }
+
+    // Get full product details for the paginated IDs
+    const { data: products, error: productsError } = await supabaseServer
       .schema('items')
       .from('product_info')
       .select('product_id, foss_pid, description_short, description_long, supplier_name, supplier_logo, supplier_logo_dark, prices, multimedia, catalog_id')
       .in('product_id', paginatedIds)
-
-    if (catalogIds) {
-      productQuery = productQuery.in('catalog_id', catalogIds)
-    }
-
-    // Get products (already paginated by paginatedIds)
-    const { data: products, error: productsError } = await productQuery
       .order('description_short')
 
     if (productsError) {
