@@ -1128,3 +1128,205 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
     return null
   }
 }
+
+// ============================================================================
+// TAXONOMY & SUPPLIER ACTIONS
+// ============================================================================
+
+function validateTaxonomyCode(taxonomyCode: string): string {
+  if (!taxonomyCode || typeof taxonomyCode !== 'string') {
+    throw new Error('Invalid taxonomy code')
+  }
+
+  // Taxonomy codes follow pattern: CATEGORY-SUBCATEGORY-TYPE
+  // Examples: LUMINAIRE, LUMINAIRE-CEILING, LUMINAIRE-CEILING-RECESSED
+  const sanitized = taxonomyCode.trim().toUpperCase()
+  const validPattern = /^[A-Z]+(-[A-Z]+)*$/
+
+  if (!validPattern.test(sanitized) || sanitized.length > 100) {
+    throw new Error('Invalid taxonomy code format')
+  }
+
+  return sanitized
+}
+
+function validateSupplierId(supplierId: number): number {
+  if (!Number.isInteger(supplierId) || supplierId <= 0) {
+    throw new Error('Invalid supplier ID')
+  }
+  return supplierId
+}
+
+export interface Supplier {
+  id: number
+  supplier_name: string
+  code: string
+  logo?: string
+  logo_dark?: string
+  country?: string
+  product_count: number
+}
+
+/**
+ * Fetch active suppliers with product counts
+ */
+export async function getActiveSuppliersAction(): Promise<Supplier[]> {
+  try {
+    // Query active catalogs with supplier info
+    const { data: catalogs, error: catalogError } = await supabaseServer
+      .schema('items')
+      .from('catalog')
+      .select(`
+        id,
+        supplier_id,
+        supplier:supplier_id (
+          id,
+          supplier_name,
+          code,
+          logo,
+          logo_dark,
+          country
+        )
+      `)
+      .eq('active', true)
+
+    if (catalogError || !catalogs) {
+      console.error('Error getting active suppliers:', catalogError)
+      return []
+    }
+
+    // Get product counts per supplier
+    const supplierIds = [...new Set(catalogs.map(c => c.supplier_id))]
+
+    const { data: products, error: productsError } = await supabaseServer
+      .schema('items')
+      .from('product')
+      .select('catalog_id')
+      .in('catalog_id', catalogs.map(c => c.id))
+
+    if (productsError) {
+      console.error('Error counting products:', productsError)
+    }
+
+    // Count products per catalog
+    const catalogProductCounts = new Map<number, number>()
+    if (products && Array.isArray(products)) {
+      products.forEach((p: any) => {
+        const count = catalogProductCounts.get(p.catalog_id) || 0
+        catalogProductCounts.set(p.catalog_id, count + 1)
+      })
+    }
+
+    // Aggregate by supplier
+    const supplierMap = new Map<number, Supplier>()
+
+    catalogs.forEach((catalog: any) => {
+      const supplier = catalog.supplier
+      if (!supplier) return
+
+      const catalogProductCount = catalogProductCounts.get(catalog.id) || 0
+
+      const existing = supplierMap.get(supplier.id)
+      if (existing) {
+        existing.product_count += catalogProductCount
+      } else {
+        supplierMap.set(supplier.id, {
+          id: supplier.id,
+          supplier_name: supplier.supplier_name,
+          code: supplier.code,
+          logo: supplier.logo || undefined,
+          logo_dark: supplier.logo_dark || undefined,
+          country: supplier.country || undefined,
+          product_count: catalogProductCount
+        })
+      }
+    })
+
+    // Convert to array and sort by product count descending
+    return Array.from(supplierMap.values())
+      .sort((a, b) => b.product_count - a.product_count)
+  } catch (error) {
+    console.error('Get active suppliers error:', error)
+    return []
+  }
+}
+
+export interface ProductByTaxonomy {
+  product_id: string
+  foss_pid: string
+  description_short: string
+  description_long: string
+  supplier_name: string
+  supplier_logo?: string
+  supplier_logo_dark?: string
+  prices: Array<{
+    date: string
+    disc1: number
+    start_price: number
+  }>
+  multimedia?: Array<{
+    mime_code: string
+    mime_source: string
+  }>
+}
+
+/**
+ * Get products filtered by taxonomy code and optional supplier
+ */
+export async function getProductsByTaxonomyAction(
+  taxonomyCode: string,
+  supplierId?: number
+): Promise<ProductByTaxonomy[]> {
+  try {
+    const sanitizedTaxonomyCode = validateTaxonomyCode(taxonomyCode)
+    const sanitizedSupplierId = supplierId ? validateSupplierId(supplierId) : null
+
+    // Build the query - join taxonomy flags with product info
+    let query = supabaseServer
+      .schema('search')
+      .from('product_taxonomy_flags')
+      .select(`
+        product_id
+      `)
+      .eq('taxonomy_code', sanitizedTaxonomyCode)
+
+    const { data: productIds, error: taxonomyError } = await query
+
+    if (taxonomyError || !productIds) {
+      console.error('Error getting products by taxonomy:', taxonomyError)
+      return []
+    }
+
+    if (productIds.length === 0) {
+      return []
+    }
+
+    // Get product details
+    const ids = productIds.map(p => p.product_id)
+
+    let productQuery = supabaseServer
+      .schema('items')
+      .from('product_info')
+      .select('product_id, foss_pid, description_short, description_long, supplier_name, supplier_logo, supplier_logo_dark, prices, multimedia')
+      .in('product_id', ids)
+
+    // Filter by supplier if provided
+    if (sanitizedSupplierId) {
+      productQuery = productQuery.eq('supplier_id', sanitizedSupplierId)
+    }
+
+    const { data: products, error: productsError } = await productQuery
+      .order('description_short')
+      .limit(100)
+
+    if (productsError) {
+      console.error('Error fetching product details:', productsError)
+      return []
+    }
+
+    return products || []
+  } catch (error) {
+    console.error('Get products by taxonomy error:', error)
+    return []
+  }
+}
