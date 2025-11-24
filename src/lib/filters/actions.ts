@@ -15,6 +15,7 @@ export interface FilterDefinition {
     min?: number
     max?: number
     step?: number
+    unit?: string
     options?: Array<{ value: string; label: string }>
     labels?: Record<string, string>
     description?: string

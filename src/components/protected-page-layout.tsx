@@ -8,9 +8,10 @@ import { useDevSession } from '@/lib/use-dev-session'
 
 interface ProtectedPageLayoutProps {
   children: React.ReactNode
+  headerContent?: React.ReactNode
 }
 
-export function ProtectedPageLayout({ children }: ProtectedPageLayoutProps) {
+export function ProtectedPageLayout({ children, headerContent }: ProtectedPageLayoutProps) {
   const { data: session } = useDevSession()
 
   return (
@@ -20,6 +21,7 @@ export function ProtectedPageLayout({ children }: ProtectedPageLayoutProps) {
         {/* Header */}
         <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
           <SidebarTrigger className="-ml-1" />
+          {headerContent && <div className="ml-4">{headerContent}</div>}
           <div className="flex-1" />
           <UserDropdown user={session?.user} />
         </header>

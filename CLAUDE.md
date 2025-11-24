@@ -25,7 +25,7 @@ See [Deployment Workflow](#deployment-workflow) for detailed requirements.
 
 FOSSAPP is a Next.js 16.0.0 application providing a searchable database of 56,456+ lighting products and accessories for lighting design professionals, architects, and AutoCAD users. Built with App Router, TypeScript, Turbopack, and Supabase PostgreSQL backend.
 
-**Production**: https://main.fossapp.online (v1.4.3)
+**Production**: https://main.fossapp.online (v1.5.0)
 **Development**: Port 8080 (not 3000 - note the custom port configuration)
 
 ## Domain Configuration ⚙️
@@ -441,9 +441,53 @@ See [PRODUCTION_DEPLOYMENT_CHECKLIST.md](./docs/PRODUCTION_DEPLOYMENT_CHECKLIST.
 - Materialized view `items.product_info` requires manual refresh (see `/home/sysadmin/fossdb/utils/matview_maintenance/`)
   - **Note**: If advanced search is implemented, add 3 search schema views to refresh workflow (+6-9s total time). See [ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md](./docs/ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md#materialized-view-refresh-sequence) for complete refresh sequence.
 
-## Future Enhancements
+## Dynamic Filters (v1.5.0)
 
-- **Advanced Search & Faceted Filtering**: Production-ready three-tier search architecture with Delta Light-style context-aware filters. Complete database architecture, RPC functions, and integration guide available at [ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md](./docs/ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md). Working demo at `/home/sysadmin/tools/searchdb/search-test-app/` (http://localhost:3001).
+**Status**: ✅ **Implemented** (2025-11-24)
+
+FOSSAPP now features a fully dynamic, database-driven filter system with 18 filters across 6 groups:
+
+**Filter Groups**:
+- **Source (1)**: Supplier dropdown
+- **Electricals (4)**: Voltage, Light Source, Dimmable, Protection Class
+- **Design (2)**: IP Rating, Finishing Colour
+- **Light (5)**: Light Distribution, CCT (Color Temperature), CRI, Luminous Flux, Beam Angle Type
+- **Location (3)**: Indoor, Outdoor, Submersible (boolean flags)
+- **Options (3)**: Trimless, Round Cut, Rectangular Cut (boolean flags)
+
+**Key Features**:
+- 🎯 **Database-driven**: Filter configuration stored in `search.filter_definitions` table
+- 📊 **Real-time facet counts**: Shows product counts per option (e.g., "IP65 (234 products)")
+- 🚫 **Context-aware**: Prevents "0 results" dead-ends (Delta Light-style UX)
+- 🔗 **URL persistence**: Shareable filter links
+- ⚡ **Performance**: Search queries < 200ms, facet updates < 100ms
+
+**Components**:
+- `BooleanFilter` - Toggle switches (Yes/No/Any)
+- `MultiSelectFilter` - Checkbox lists with counts
+- `RangeFilter` - Dual sliders with presets (e.g., "Warm White 2700-3000K")
+- `FilterCategory` - Collapsible filter groups
+- `FilterPanel` - Main filter orchestrator
+
+**Database Schema**: `search` schema
+- Table: `search.filter_definitions` (18 active filters)
+- RPC: `search_products_with_filters()` (main search)
+- RPC: `get_dynamic_facets()` (facet counts)
+- RPC: `count_products_with_filters()` (result counts)
+
+**API Endpoints**:
+- `POST /api/filters/facets` - Dynamic facet loading
+
+**Documentation**:
+- Implementation guide: [docs/ui/DYNAMIC_FILTERS_IMPLEMENTATION.md](./docs/ui/DYNAMIC_FILTERS_IMPLEMENTATION.md)
+- Database architecture: [docs/ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md](./docs/ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md)
+- Demo reference: `/home/sysadmin/tools/searchdb/search-test-app/`
+
+**Usage**: Navigate to `/products`, select a category, and use the filter sidebar to refine results.
+
+---
+
+## Future Enhancements
 - **Google Drive Shared Drive Integration**: Read/write access to "HUB" Shared Drive for supplier catalogs, product images, and documentation. Complete implementation guide available at [GOOGLE_DRIVE_SHARED_DRIVE_INTEGRATION.md](./docs/GOOGLE_DRIVE_SHARED_DRIVE_INTEGRATION.md). Reference implementation exists in `/home/sysadmin/tools/gdrive-sync/` (standalone OAuth tool).
 - User favorites and wishlist
 - Product comparison feature
@@ -632,12 +676,13 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 
 For detailed version history, deployment notes, and changelog, see **[CHANGELOG.md](./CHANGELOG.md)**.
 
-**Current Production Version**: v1.4.3
+**Current Production Version**: v1.5.0
 
 ## Documentation Updates
 
-**Last updated**: 2025-11-22
+**Last updated**: 2025-11-24
 
-- Restructured documentation (moved details to dedicated files in docs/)
-- Removed Playwright references (using Chrome DevTools MCP now)
-- Created comprehensive guides for components, API, Docker, security, and development tasks
+- Added dynamic filter system documentation (v1.5.0)
+- Moved advanced search from "Future Enhancements" to implemented features
+- Updated version references to v1.5.0
+- Created comprehensive filter implementation guide

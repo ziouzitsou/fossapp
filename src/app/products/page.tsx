@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
 import { type TaxonomyCategory } from '@/lib/real-taxonomy-data'
@@ -15,8 +15,10 @@ import { InfoTooltip } from '@/components/products/InfoTooltip'
 import { FilterPanel, type FilterValues } from '@/components/filters/FilterPanel'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Pagination,
@@ -29,7 +31,7 @@ import { ChevronRight } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export default function ProductsPage() {
+function ProductsPageContent() {
   const { data: session, status } = useDevSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -166,7 +168,7 @@ export default function ProductsPage() {
 
     while (current) {
       trail.unshift(current.name)
-      const parentCode = current.code.split('-').slice(0, -1).join('-') ||
+      const parentCode: string | null = current.code.split('-').slice(0, -1).join('-') ||
                         (current.level === 2 ? current.code.split('-')[0] : null)
       current = parentCode ? findCategory(parentCode) : null
     }
@@ -347,9 +349,25 @@ export default function ProductsPage() {
           {/* Product Grid */}
           <main className="flex-1">
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Spinner size="lg" />
-              </div>
+              <>
+                <Skeleton className="h-6 w-64 mb-4" />
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Card key={i}>
+                      <CardHeader>
+                        <Skeleton className="h-5 w-full mb-2" />
+                        <Skeleton className="h-4 w-32" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between">
+                          <Skeleton className="h-6 w-24" />
+                          <Skeleton className="h-4 w-16" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
             ) : !currentCategory ? (
               <div className="text-center py-12">
                 <p className="text-lg text-muted-foreground">
@@ -420,16 +438,26 @@ export default function ProductsPage() {
                 )}
               </>
             ) : (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">
-                  No products found in this category
-                </p>
-                {Object.keys(filterValues).length > 0 && (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Try removing some filters
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <div className="text-6xl mb-4">🔍</div>
+                  <h3 className="text-lg font-semibold mb-2">No products found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {Object.keys(filterValues).length > 0
+                      ? 'Try adjusting your filters or clearing some selections'
+                      : 'No products match the selected category'}
                   </p>
-                )}
-              </div>
+                  {Object.keys(filterValues).length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setFilterValues({})}
+                      className="mt-2"
+                    >
+                      Clear all filters
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </main>
         </div>
@@ -437,5 +465,19 @@ export default function ProductsPage() {
         </>
       )}
     </ProtectedPageLayout>
+  )
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={
+      <ProtectedPageLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Spinner size="lg" />
+        </div>
+      </ProtectedPageLayout>
+    }>
+      <ProductsPageContent />
+    </Suspense>
   )
 }

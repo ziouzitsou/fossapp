@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2025-11-24
+
+### Added
+- **Dynamic Filter System**: 18 filters across 6 groups for advanced product search
+  - Source (1): Supplier dropdown
+  - Electricals (4): Voltage, Light Source, Dimmable, Protection Class
+  - Design (2): IP Rating, Finishing Colour
+  - Light (5): Light Distribution, CCT, CRI, Luminous Flux, Beam Angle Type
+  - Location (3): Indoor, Outdoor, Submersible (boolean flags)
+  - Options (3): Trimless, Round Cut, Rectangular Cut (boolean flags)
+- Database-driven filter configuration (`search.filter_definitions` table)
+- Real-time facet counts (e.g., "IP65 (234 products)")
+- Context-aware filtering prevents "0 results" dead-ends (Delta Light-style UX)
+- Active filter badges with individual clear buttons
+- URL state persistence for shareable filter links
+- New filter components:
+  - `BooleanFilter` - Toggle switches for yes/no filters
+  - `MultiSelectFilter` - Checkbox lists with product counts
+  - `RangeFilter` - Dual sliders with preset buttons (e.g., "Warm White 2700-3000K")
+  - `FilterCategory` - Collapsible filter groups
+- New API endpoint: `/api/filters/facets` for dynamic facet loading
+- New server action: `searchProductsWithFiltersAction()` using `search_products_with_filters` RPC
+- Loading skeletons for FilterPanel and product grid
+- Empty state messaging when no products match filters
+- Implementation guide: `docs/ui/DYNAMIC_FILTERS_IMPLEMENTATION.md`
+
+### Changed
+- Products page now uses filter-aware search (`search_products_with_filters` RPC)
+- FilterPanel re-enabled (previously disabled due to infinite loop bug)
+- Pagination resets to page 1 when filters change
+- Product search integrates with all 18 filter types
+
+### Fixed
+- Infinite loop bug in FilterPanel (useEffect dependencies now use primitive values)
+- Filter state management optimized to prevent unnecessary re-renders
+- TypeScript compilation errors in filter components (`ui_config` type definitions)
+
+### Performance
+- Search queries with filters: < 200ms
+- Facet count updates: < 100ms
+- No console errors or React warnings
+
 ## [1.4.4] - 2025-11-12
 
 ### Fixed

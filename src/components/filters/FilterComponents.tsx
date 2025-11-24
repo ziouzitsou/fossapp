@@ -118,7 +118,8 @@ export function CategoricalFilter({
   onChange,
   availableOptions
 }: CategoricalFilterProps) {
-  const options = availableOptions || filter.ui_config?.options || []
+  const options: Array<{ value: string; label: string; count?: number }> =
+    availableOptions || filter.ui_config?.options || []
 
   const handleToggle = (optionValue: string) => {
     const newValue = value.includes(optionValue)

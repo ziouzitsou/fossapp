@@ -492,7 +492,7 @@ export function getBreadcrumb(code: string): string[] {
 
   while (current) {
     trail.unshift(current.name)
-    const parentCode = current.code.split('-').slice(0, -1).join('-') ||
+    const parentCode: string | null = current.code.split('-').slice(0, -1).join('-') ||
                       (current.level === 2 ? current.code.split('-')[0] : null)
     current = parentCode ? findCategoryByCode(parentCode) : null
   }
