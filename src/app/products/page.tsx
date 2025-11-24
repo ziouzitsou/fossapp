@@ -3,14 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
-import {
-  realTaxonomy,
-  findCategoryByCode,
-  getBreadcrumb,
-  type TaxonomyCategory
-} from '@/lib/real-taxonomy-data'
+import { type TaxonomyCategory } from '@/lib/real-taxonomy-data'
 import {
   getProductsByTaxonomyPaginatedAction,
+  getTaxonomyWithCountsAction,
   type ProductByTaxonomy,
   type ProductByTaxonomyResult
 } from '@/lib/actions'
@@ -65,6 +61,10 @@ export default function ProductsPage() {
     return filters
   })
 
+  // Taxonomy state - fetched from database
+  const [taxonomy, setTaxonomy] = useState<TaxonomyCategory[]>([])
+  const [taxonomyLoading, setTaxonomyLoading] = useState(true)
+
   // Products state with pagination
   const [productResult, setProductResult] = useState<ProductByTaxonomyResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -91,6 +91,22 @@ export default function ProductsPage() {
 
     router.replace(`/products?${params.toString()}`, { scroll: false })
   }, [level1, level2, level3, filterValues, router])
+
+  // Fetch taxonomy data on mount
+  useEffect(() => {
+    async function fetchTaxonomy() {
+      setTaxonomyLoading(true)
+      try {
+        const data = await getTaxonomyWithCountsAction()
+        setTaxonomy(data)
+      } catch (error) {
+        console.error('Error fetching taxonomy:', error)
+      } finally {
+        setTaxonomyLoading(false)
+      }
+    }
+    fetchTaxonomy()
+  }, [])
 
   // Reset page when taxonomy or filters change
   useEffect(() => {
@@ -128,10 +144,41 @@ export default function ProductsPage() {
     fetchProducts()
   }, [level1, level2, level3, filterValues, currentPage, pageSize])
 
+  // Helper function to find category by code in dynamic taxonomy
+  const findCategory = (code: string, categories: TaxonomyCategory[] = taxonomy): TaxonomyCategory | null => {
+    for (const category of categories) {
+      if (category.code === code) return category
+      if (category.children) {
+        const found = findCategory(code, category.children)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  // Helper function to get breadcrumb trail
+  const getBreadcrumbTrail = (code: string): string[] => {
+    const category = findCategory(code)
+    if (!category) return ['Home']
+
+    const trail: string[] = []
+    let current: TaxonomyCategory | null = category
+
+    while (current) {
+      trail.unshift(current.name)
+      const parentCode = current.code.split('-').slice(0, -1).join('-') ||
+                        (current.level === 2 ? current.code.split('-')[0] : null)
+      current = parentCode ? findCategory(parentCode) : null
+    }
+
+    trail.unshift('Home')
+    return trail
+  }
+
   // Get categories for current level
-  const level1Categories = realTaxonomy
+  const level1Categories = taxonomy
   const level2Categories = level1
-    ? realTaxonomy.find(cat => cat.code === level1)?.children || []
+    ? taxonomy.find(cat => cat.code === level1)?.children || []
     : []
   const level3Categories = level2
     ? level2Categories.find(cat => cat.code === level2)?.children || []
@@ -139,15 +186,15 @@ export default function ProductsPage() {
 
   // Get current category for display
   const currentCategory = level3
-    ? findCategoryByCode(level3)
+    ? findCategory(level3)
     : level2
-    ? findCategoryByCode(level2)
+    ? findCategory(level2)
     : level1
-    ? findCategoryByCode(level1)
+    ? findCategory(level1)
     : null
 
   // Get breadcrumb
-  const breadcrumb = currentCategory ? getBreadcrumb(currentCategory.code) : ['Home']
+  const breadcrumb = currentCategory ? getBreadcrumbTrail(currentCategory.code) : ['Home']
 
   // Handle level changes
   const handleLevel1Change = (code: string) => {
@@ -178,7 +225,7 @@ export default function ProductsPage() {
 
   return (
     <ProtectedPageLayout>
-      {status === 'loading' ? (
+      {(status === 'loading' || taxonomyLoading) ? (
         <div className="flex items-center justify-center flex-1">
           <Spinner size="lg" />
         </div>
@@ -214,7 +261,7 @@ export default function ProductsPage() {
                     <TabsTrigger
                       key={category.code}
                       value={category.code}
-                      className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                      className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all hover:bg-primary/10 hover:scale-105"
                     >
                       <IconComponent className="h-4 w-4" />
                       <span>{category.name}</span>
@@ -253,7 +300,7 @@ export default function ProductsPage() {
                     <TabsTrigger
                       key={category.code}
                       value={category.code}
-                      className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                      className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all hover:bg-primary/10 hover:scale-105"
                     >
                       <IconComponent className="h-4 w-4" />
                       <span>{category.name}</span>
