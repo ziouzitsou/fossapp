@@ -156,7 +156,7 @@ export function CategoricalFilter({
           return (
             <div
               key={option.value}
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-2 px-2 py-1 rounded-md transition-all hover:bg-primary/5"
             >
               <Checkbox
                 id={`${filter.filter_key}-${option.value}`}
@@ -223,10 +223,10 @@ export function BooleanFilter({
         <button
           onClick={() => onChange(value === true ? undefined : true)}
           className={cn(
-            'flex-1 px-3 py-2 text-sm rounded-md border transition-colors',
+            'flex-1 px-3 py-2 text-sm rounded-md border transition-all',
             value === true
               ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border hover:border-primary/50 hover:bg-muted/50'
+              : 'border-border hover:border-primary/50 hover:bg-muted/50 hover:scale-105'
           )}
         >
           {labels.true}
@@ -235,10 +235,10 @@ export function BooleanFilter({
         <button
           onClick={() => onChange(value === false ? undefined : false)}
           className={cn(
-            'flex-1 px-3 py-2 text-sm rounded-md border transition-colors',
+            'flex-1 px-3 py-2 text-sm rounded-md border transition-all',
             value === false
               ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border hover:border-primary/50 hover:bg-muted/50'
+              : 'border-border hover:border-primary/50 hover:bg-muted/50 hover:scale-105'
           )}
         >
           {labels.false}

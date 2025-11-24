@@ -72,10 +72,10 @@ export function SupplierFilter({
       <button
         onClick={() => handleSelect(null)}
         className={cn(
-          'w-full flex items-center justify-between px-3 py-2.5 rounded-md border transition-colors',
+          'w-full flex items-center justify-between px-3 py-2.5 rounded-md border transition-all',
           selected === null
             ? 'border-primary bg-primary/5 text-primary'
-            : 'border-border hover:border-primary/50 hover:bg-muted/50'
+            : 'border-border hover:border-primary/50 hover:bg-muted/50 hover:scale-[1.02]'
         )}
       >
         <span className="font-medium">All Suppliers</span>
@@ -93,10 +93,10 @@ export function SupplierFilter({
               key={supplier.id}
               onClick={() => handleSelect(supplier.id)}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-md border transition-colors',
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-md border transition-all',
                 isSelected
                   ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                  : 'border-border hover:border-primary/50 hover:bg-muted/50 hover:scale-[1.02]'
               )}
             >
               {/* Supplier Logo */}

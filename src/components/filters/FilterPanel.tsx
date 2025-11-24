@@ -34,51 +34,19 @@ export function FilterPanel({
   const [filterOptions, setFilterOptions] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
 
-  // Load filter definitions
+  // TEMPORARILY DISABLED: Load filter definitions
+  // TODO: Fix infinite loop issue before re-enabling
   useEffect(() => {
-    async function loadFilters() {
-      setLoading(true)
-      const groups = await getFilterDefinitionsAction(taxonomyCode)
-      setFilterGroups(groups)
-      setLoading(false)
-    }
-
-    loadFilters()
+    setLoading(false)
+    // Disable ETIM filter loading for now
+    // const groups = await getFilterDefinitionsAction(taxonomyCode)
+    // setFilterGroups(groups)
   }, [taxonomyCode])
 
-  // Load options for categorical filters
+  // TEMPORARILY DISABLED: Load options for categorical filters
+  // TODO: Fix infinite loop issue before re-enabling
   useEffect(() => {
-    async function loadFilterOptions() {
-      const options: Record<string, any> = {}
-
-      for (const group of filterGroups) {
-        for (const filter of group.filters) {
-          // Skip supplier (handled separately)
-          if (filter.filter_key === 'supplier') continue
-
-          if (filter.filter_type === 'categorical') {
-            const values = await getFilterValuesAction(
-              filter.filter_key,
-              filter.etim_feature_id,
-              taxonomyCode
-            )
-            options[filter.filter_key] = values
-          } else if (filter.filter_type === 'range') {
-            const range = await getFilterRangeAction(
-              filter.etim_feature_id,
-              taxonomyCode
-            )
-            options[filter.filter_key] = range
-          }
-        }
-      }
-
-      setFilterOptions(options)
-    }
-
-    if (filterGroups.length > 0) {
-      loadFilterOptions()
-    }
+    // Disabled to prevent infinite loop
   }, [filterGroups, taxonomyCode])
 
   const handleFilterChange = (filterKey: string, value: any) => {
