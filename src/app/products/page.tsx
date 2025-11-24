@@ -172,20 +172,18 @@ export default function ProductsPage() {
     }
   }, [status, router])
 
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
-
-  if (!session) {
+  if (!session && status !== 'loading') {
     return null
   }
 
   return (
     <ProtectedPageLayout>
+      {status === 'loading' ? (
+        <div className="flex items-center justify-center flex-1">
+          <Spinner size="lg" />
+        </div>
+      ) : (
+        <>
       {/* Level 1: Horizontal cards */}
       <CategoryLevel1
         categories={level1Categories}
@@ -389,6 +387,8 @@ export default function ProductsPage() {
           </main>
         </div>
       </div>
+        </>
+      )}
     </ProtectedPageLayout>
   )
 }

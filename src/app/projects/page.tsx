@@ -55,15 +55,7 @@ export default function ProjectsPage() {
     setCurrentPage(newPage)
   }
 
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
-
-  if (!session) {
+  if (!session && status !== 'loading') {
     return null
   }
 
@@ -117,7 +109,12 @@ export default function ProjectsPage() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto py-10">
+      {status === 'loading' || isLoading ? (
+        <div className="flex items-center justify-center flex-1">
+          <Spinner size="lg" />
+        </div>
+      ) : (
+        <div className="container mx-auto py-10">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold">Projects</h1>
@@ -220,6 +217,7 @@ export default function ProjectsPage() {
           </Card>
         )}
       </div>
+      )}
     </DashboardLayout>
   )
 }

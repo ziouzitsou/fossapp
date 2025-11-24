@@ -129,15 +129,7 @@ export default function CustomersPage() {
     loadAllCustomers(newPage)
   }
 
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
-
-  if (!session) {
+  if (!session && status !== 'loading') {
     return null
   }
 
@@ -145,7 +137,12 @@ export default function CustomersPage() {
 
   return (
     <ProtectedPageLayout>
-      <div className="p-6">
+      {status === 'loading' ? (
+        <div className="flex items-center justify-center flex-1">
+          <Spinner size="lg" />
+        </div>
+      ) : (
+        <div className="p-6">
           <div className="max-w-4xl mx-auto">
             <div className="mb-8">
               <h1 className="text-2xl font-bold text-foreground">Customers</h1>
@@ -321,6 +318,7 @@ export default function CustomersPage() {
             )}
           </div>
         </div>
+      )}
 
       {/* Command Palette */}
       <CommandPalette

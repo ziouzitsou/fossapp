@@ -69,21 +69,18 @@ export default function Dashboard() {
     }
   }
 
-  if (status === 'loading' || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
-
-  if (!session) {
+  if (!session && status !== 'loading') {
     return null
   }
 
   return (
     <ProtectedPageLayout>
-      <div className="p-6">
+      {(status === 'loading' || loading) ? (
+        <div className="flex items-center justify-center flex-1">
+          <Spinner size="lg" />
+        </div>
+      ) : (
+        <div className="p-6">
         <div className="max-w-7xl mx-auto">
             <div className="mb-8">
               <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
@@ -248,6 +245,7 @@ export default function Dashboard() {
             </Card>
           </div>
         </div>
+      )}
       </ProtectedPageLayout>
   )
 }
