@@ -2,29 +2,32 @@
 
 import { useState, useEffect } from 'react'
 import { Building2, Check } from 'lucide-react'
-import { getActiveSuppliersAction, type Supplier } from '@/lib/actions'
+import { getSuppliersWithTaxonomyCountsAction, type Supplier } from '@/lib/actions'
 import { cn } from '@/lib/utils'
 import { useTheme } from 'next-themes'
 
 interface SupplierFilterProps {
   selectedSupplierId?: number | null
   onSupplierChange?: (supplierId: number | null) => void
+  taxonomyCode?: string
 }
 
 export function SupplierFilter({
   selectedSupplierId = null,
-  onSupplierChange
+  onSupplierChange,
+  taxonomyCode
 }: SupplierFilterProps) {
   const [selected, setSelected] = useState<number | null>(selectedSupplierId)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const { theme } = useTheme()
 
-  // Fetch suppliers on mount
+  // Fetch suppliers whenever taxonomy changes
   useEffect(() => {
     async function fetchSuppliers() {
       try {
-        const data = await getActiveSuppliersAction()
+        setLoading(true)
+        const data = await getSuppliersWithTaxonomyCountsAction(taxonomyCode)
         setSuppliers(data)
       } catch (error) {
         console.error('Error fetching suppliers:', error)
@@ -34,7 +37,7 @@ export function SupplierFilter({
     }
 
     fetchSuppliers()
-  }, [])
+  }, [taxonomyCode])
 
   const handleSelect = (supplierId: number | null) => {
     setSelected(supplierId)

@@ -201,6 +201,7 @@ export function FilterPanel({
                         key={filter.filter_key}
                         selectedSupplierId={values.supplier}
                         onSupplierChange={(id) => handleFilterChange('supplier', id)}
+                        taxonomyCode={taxonomyCode}
                       />
                     )
                   }

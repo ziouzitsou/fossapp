@@ -1173,81 +1173,128 @@ export interface Supplier {
  */
 export async function getActiveSuppliersAction(): Promise<Supplier[]> {
   try {
-    // Query active catalogs with supplier info
-    const { data: catalogs, error: catalogError } = await supabaseServer
+    // Get all suppliers
+    const { data: suppliers, error: supplierError } = await supabaseServer
       .schema('items')
-      .from('catalog')
-      .select(`
-        id,
-        supplier_id,
-        supplier:supplier_id (
-          id,
-          supplier_name,
-          code,
-          logo,
-          logo_dark,
-          country
-        )
-      `)
-      .eq('active', true)
+      .from('supplier')
+      .select('id, supplier_name, code, logo, logo_dark, country')
 
-    if (catalogError || !catalogs) {
-      console.error('Error getting active suppliers:', catalogError)
+    if (supplierError || !suppliers) {
+      console.error('Error getting active suppliers:', supplierError)
       return []
     }
 
-    // Get product counts per supplier
-    const supplierIds = [...new Set(catalogs.map(c => c.supplier_id))]
+    // Get product counts from search.product_filter_index (source of truth)
+    const { data: productCounts, error: countError } = await supabaseServer
+      .schema('search')
+      .from('product_filter_index')
+      .select('alphanumeric_value, product_id')
+      .eq('filter_key', 'supplier')
 
-    const { data: products, error: productsError } = await supabaseServer
-      .schema('items')
-      .from('product')
-      .select('catalog_id')
-      .in('catalog_id', catalogs.map(c => c.id))
-
-    if (productsError) {
-      console.error('Error counting products:', productsError)
+    if (countError) {
+      console.error('Error counting products:', countError)
+      return []
     }
 
-    // Count products per catalog
-    const catalogProductCounts = new Map<number, number>()
-    if (products && Array.isArray(products)) {
-      products.forEach((p: any) => {
-        const count = catalogProductCounts.get(p.catalog_id) || 0
-        catalogProductCounts.set(p.catalog_id, count + 1)
+    // Count products per supplier name
+    const supplierCountMap = new Map<string, number>()
+    if (productCounts && Array.isArray(productCounts)) {
+      // Use Set to count distinct product_ids per supplier
+      const supplierProductSets = new Map<string, Set<string>>()
+
+      productCounts.forEach((row: any) => {
+        const supplierName = row.alphanumeric_value
+        if (!supplierProductSets.has(supplierName)) {
+          supplierProductSets.set(supplierName, new Set())
+        }
+        supplierProductSets.get(supplierName)!.add(row.product_id)
+      })
+
+      // Convert sets to counts
+      supplierProductSets.forEach((productSet, supplierName) => {
+        supplierCountMap.set(supplierName, productSet.size)
       })
     }
 
-    // Aggregate by supplier
-    const supplierMap = new Map<number, Supplier>()
+    // Map suppliers with their product counts
+    const suppliersWithCounts: Supplier[] = suppliers.map((supplier: any) => ({
+      id: supplier.id,
+      supplier_name: supplier.supplier_name,
+      code: supplier.code,
+      logo: supplier.logo || undefined,
+      logo_dark: supplier.logo_dark || undefined,
+      country: supplier.country || undefined,
+      product_count: supplierCountMap.get(supplier.supplier_name) || 0
+    }))
 
-    catalogs.forEach((catalog: any) => {
-      const supplier = catalog.supplier
-      if (!supplier) return
-
-      const catalogProductCount = catalogProductCounts.get(catalog.id) || 0
-
-      const existing = supplierMap.get(supplier.id)
-      if (existing) {
-        existing.product_count += catalogProductCount
-      } else {
-        supplierMap.set(supplier.id, {
-          id: supplier.id,
-          supplier_name: supplier.supplier_name,
-          code: supplier.code,
-          logo: supplier.logo || undefined,
-          logo_dark: supplier.logo_dark || undefined,
-          country: supplier.country || undefined,
-          product_count: catalogProductCount
-        })
-      }
-    })
-
-    // Convert to array and sort by product count descending
-    return Array.from(supplierMap.values())
-      .sort((a, b) => b.product_count - a.product_count)
+    // Sort by product count descending
+    return suppliersWithCounts.sort((a, b) => b.product_count - a.product_count)
   } catch (error) {
     console.error('Get active suppliers error:', error)
+    return []
+  }
+}
+
+/**
+ * Fetch suppliers with product counts filtered by taxonomy (context-aware)
+ */
+export async function getSuppliersWithTaxonomyCountsAction(
+  taxonomyCode?: string
+): Promise<Supplier[]> {
+  try {
+    // Get all suppliers
+    const { data: suppliers, error: supplierError } = await supabaseServer
+      .schema('items')
+      .from('supplier')
+      .select('id, supplier_name, code, logo, logo_dark, country')
+
+    if (supplierError || !suppliers) {
+      console.error('Error getting suppliers:', supplierError)
+      return []
+    }
+
+    // If no taxonomy filter, get global counts
+    if (!taxonomyCode) {
+      return getActiveSuppliersAction()
+    }
+
+    // Get product counts filtered by taxonomy using RPC function
+    const { data: supplierCounts, error: countError } = await supabaseServer
+      .schema('search')
+      .rpc('get_supplier_counts_by_taxonomy', {
+        p_taxonomy_code: taxonomyCode
+      })
+
+    if (countError) {
+      console.error('Error counting products by taxonomy:', countError)
+      return []
+    }
+
+    // Create map of supplier counts
+    const supplierCountMap = new Map<string, number>()
+    if (supplierCounts && Array.isArray(supplierCounts)) {
+      supplierCounts.forEach((row: any) => {
+        supplierCountMap.set(row.supplier_name, row.product_count)
+      })
+    }
+
+    // Map suppliers with their filtered counts
+    const suppliersWithCounts: Supplier[] = suppliers.map((supplier: any) => ({
+      id: supplier.id,
+      supplier_name: supplier.supplier_name,
+      code: supplier.code,
+      logo: supplier.logo || undefined,
+      logo_dark: supplier.logo_dark || undefined,
+      country: supplier.country || undefined,
+      product_count: supplierCountMap.get(supplier.supplier_name) || 0
+    }))
+
+    // Sort by product count descending, filter out suppliers with 0 products
+    return suppliersWithCounts
+      .filter(s => s.product_count > 0)
+      .sort((a, b) => b.product_count - a.product_count)
+  } catch (error) {
+    console.error('Get suppliers with taxonomy counts error:', error)
     return []
   }
 }
@@ -1381,17 +1428,17 @@ export async function getProductsByTaxonomyPaginatedAction(
     const sanitizedTaxonomyCode = validateTaxonomyCode(taxonomyCode)
     const sanitizedSupplierId = options.supplierId ? validateSupplierId(options.supplierId) : null
 
-    // Get catalog IDs for supplier filter if provided
-    let catalogIds: number[] | undefined
+    // Get supplier name for filter if provided
+    let supplierName: string | undefined
     if (sanitizedSupplierId) {
-      const { data: catalogs, error: catalogError } = await supabaseServer
+      const { data: supplier, error: supplierError } = await supabaseServer
         .schema('items')
-        .from('catalog')
-        .select('id')
-        .eq('supplier_id', sanitizedSupplierId)
-        .eq('active', true)
+        .from('supplier')
+        .select('supplier_name')
+        .eq('id', sanitizedSupplierId)
+        .single()
 
-      if (catalogError || !catalogs || catalogs.length === 0) {
+      if (supplierError || !supplier) {
         return {
           products: [],
           total: 0,
@@ -1401,26 +1448,15 @@ export async function getProductsByTaxonomyPaginatedAction(
         }
       }
 
-      catalogIds = catalogs.map(c => c.id)
+      supplierName = supplier.supplier_name
     }
 
     // Build base query for product IDs with taxonomy filter
-    let baseQuery = supabaseServer
-      .schema('search')
-      .from('product_taxonomy_flags')
-      .select('product_id')
-      .contains('taxonomy_path', [sanitizedTaxonomyCode])
-
-    // If supplier filter is active, we need to join with product_info to filter by catalog_id
-    // Since we can't do joins easily in Supabase, we'll get all matching product IDs first,
-    // then filter by catalog_id when fetching products
-    // For accurate pagination with supplier filter, we need to get the filtered products first
-
     let allMatchingIds: string[] = []
     let total = 0
 
-    if (catalogIds) {
-      // When supplier is filtered, we need to get products that match BOTH taxonomy AND catalog
+    if (supplierName) {
+      // When supplier is filtered, we need to get products that match BOTH taxonomy AND supplier
       // First get all product IDs that match taxonomy
       const { data: taxonomyMatches, error: taxonomyError } = await supabaseServer
         .schema('search')
@@ -1451,16 +1487,16 @@ export async function getProductsByTaxonomyPaginatedAction(
 
       const taxonomyIds = taxonomyMatches.map(p => p.product_id)
 
-      // Now get products that match both taxonomy AND catalog
+      // Now get products that match both taxonomy AND supplier using RPC function
+      // Use RPC to bypass PostgREST limitations with materialized views
       const { data: filteredProducts, error: filterError } = await supabaseServer
-        .schema('items')
-        .from('product_info')
-        .select('product_id')
-        .in('product_id', taxonomyIds)
-        .in('catalog_id', catalogIds)
+        .rpc('get_products_by_taxonomy_and_supplier', {
+          p_taxonomy_ids: taxonomyIds,
+          p_supplier_name: supplierName
+        })
 
       if (filterError) {
-        console.error('Error filtering products by catalog:', filterError)
+        console.error('Error filtering products by supplier:', filterError)
         return {
           products: [],
           total: 0,
@@ -1536,7 +1572,7 @@ export async function getProductsByTaxonomyPaginatedAction(
     }
 
     // For supplier filtering, we already have all IDs, so paginate them
-    const paginatedIds = catalogIds
+    const paginatedIds = supplierName
       ? allMatchingIds.slice(offset, offset + pageSize)
       : allMatchingIds
 
@@ -1569,13 +1605,15 @@ export async function getProductsByTaxonomyPaginatedAction(
       }
     }
 
-    return {
+    const result = {
       products: products || [],
       total,
       page,
       pageSize,
       totalPages: Math.ceil(total / pageSize)
     }
+
+    return result
   } catch (error) {
     console.error('Get products by taxonomy paginated error:', error)
     return {
