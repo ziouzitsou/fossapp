@@ -370,7 +370,7 @@ function ProductsPageContent() {
       {/* Level 2: Horizontal Tabs */}
       {level1 && level2Categories.length > 0 && (
         <div className="border-b bg-muted/30">
-          <div className="px-6 py-4">
+          <div className="px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-base font-semibold flex items-center">
                 Subcategories
@@ -409,7 +409,7 @@ function ProductsPageContent() {
       {/* Level 3: Horizontal Tabs */}
       {level2 && level3Categories.length > 0 && (
         <div className="border-b bg-muted/20">
-          <div className="px-6 py-4">
+          <div className="px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-medium flex items-center">
                 Product Types
@@ -447,7 +447,7 @@ function ProductsPageContent() {
 
       {/* Breadcrumb */}
       {currentCategory && (
-        <div className="px-6 py-3 bg-muted/10">
+        <div className="px-4 sm:px-6 lg:px-8 py-3 bg-muted/10">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {breadcrumb.map((crumb, index) => (
               <div key={index} className="flex items-center gap-2">
