@@ -247,48 +247,6 @@ useEffect(() => {
 }, [])
 ```
 
-### 4. API Client with Error Tracking (`src/lib/api-client.ts`)
-
-Enhanced fetch wrapper with automatic error and performance tracking:
-
-```typescript
-import { apiClient, apiGet, apiPost } from '@/lib/api-client'
-
-// Automatic error tracking and performance monitoring
-const data = await apiGet('/api/products/search?q=downlight')
-
-// Or use the raw client
-const response = await apiClient('/api/endpoint', {
-  method: 'POST',
-  trackPerformance: true // default
-})
-```
-
-**Features**:
-- Automatic `api_error` logging for failed requests
-- Automatic `api_response_time` tracking
-- Network error handling
-- Convenience methods (`apiGet`, `apiPost`)
-
-### 5. Performance Tracking Hook (`src/hooks/use-page-performance.ts`)
-
-Custom hook for page load performance monitoring:
-
-```typescript
-import { usePagePerformance } from '@/hooks/use-page-performance'
-
-function MyPage() {
-  usePagePerformance() // Automatically tracks page load
-  return <div>...</div>
-}
-```
-
-**Metrics Tracked**:
-- Total page load time
-- DOM content loaded time
-- DOM interactive time
-- Transfer size (KB)
-
 ### Integration Points
 
 **1. NextAuth Callbacks** (`src/lib/auth.ts`)

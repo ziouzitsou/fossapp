@@ -1,11 +1,17 @@
 # Icon Migration Guide
 
 **Date**: 2025-11-23
-**Status**: Active
+**Status**: Archived (IconMapper component removed - use Lucide icons directly)
 
 ## Overview
 
-FOSSAPP uses **Lucide React** icons instead of emojis for consistent, professional-looking icons across all platforms and browsers. This guide explains how to migrate from emoji-based icons to Lucide icons.
+FOSSAPP uses **Lucide React** icons instead of emojis for consistent, professional-looking icons across all platforms and browsers.
+
+> **Note**: The `IconMapper` component (`src/components/icon-mapper.tsx`) was removed in the 2025-11 cleanup as it was never used in production. Use Lucide icons directly instead:
+> ```tsx
+> import { Lightbulb } from 'lucide-react'
+> <Lightbulb className="w-6 h-6" />
+> ```
 
 ## Why Lucide Icons?
 

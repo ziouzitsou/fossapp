@@ -46,7 +46,11 @@ export interface ProductSearchResult {
   }>
 }
 
-export async function searchProductsAction(query: string, userId?: string): Promise<ProductSearchResult[]> {
+/**
+ * Simple text-based product search (used by /api/products/search REST endpoint)
+ * For advanced faceted search with filters, use searchProductsAction from search-actions.ts
+ */
+export async function searchProductsSimpleAction(query: string, userId?: string): Promise<ProductSearchResult[]> {
   try {
     const sanitizedQuery = validateSearchQuery(query)
 
