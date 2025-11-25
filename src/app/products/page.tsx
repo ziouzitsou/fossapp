@@ -462,8 +462,10 @@ function ProductsPageContent() {
       )}
 
       {/* Main content: Filters + Products */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex-1 overflow-y-auto">
+        {/* Responsive container - scales with viewport, centered on ultra-wide */}
+        <div className="mx-auto max-w-[1800px] 3xl:max-w-[2200px] 4xl:max-w-[2560px] px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 xl:gap-8">
           {/* Filter Panel (left sidebar on desktop) */}
           <aside className="lg:w-80">
             <FilterPanel
@@ -587,6 +589,7 @@ function ProductsPageContent() {
               </Card>
             )}
           </main>
+          </div>
         </div>
       </div>
         </>
