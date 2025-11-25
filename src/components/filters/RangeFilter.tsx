@@ -1,12 +1,14 @@
 'use client'
 
 import { RangeFilterProps } from './types'
-import { X } from 'lucide-react'
+import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 
 /**
  * RangeFilter - For R (Range) type filters
- * Displays min/max inputs with optional presets and histogram
- * Examples: CCT (Color Temperature), Luminous Flux (Lumens)
+ * Displays dual-thumb slider with "All" toggle, optional presets
+ * Examples: Voltage, CCT (Color Temperature), Luminous Flux (Lumens)
  */
 export default function RangeFilter({
   filterKey,
@@ -15,122 +17,127 @@ export default function RangeFilter({
   value,
   onChange,
   unit = '',
-  minBound,
-  maxBound,
+  minBound = 0,
+  maxBound = 100,
   step = 1,
   presets = [],
   showHistogram = false,
   facets = [],
-  onClear,
-  showClearButton = true
 }: RangeFilterProps) {
-  const handleMinChange = (val: string) => {
-    const numVal = val ? parseFloat(val) : undefined
-    onChange({ ...value, min: numVal })
+  // Get actual range from facets if available
+  const rangeInfo = facets.length > 0 ? facets[0] : null
+  const actualMin = rangeInfo?.min_numeric_value ?? minBound
+  const actualMax = rangeInfo?.max_numeric_value ?? maxBound
+
+  // Determine if "All" is selected (no filter applied)
+  const isAllSelected = value.min === undefined && value.max === undefined
+
+  // Current slider values (use bounds when "All" is selected)
+  const sliderMin = value.min ?? actualMin
+  const sliderMax = value.max ?? actualMax
+
+  const handleSliderChange = (values: number[]) => {
+    const [newMin, newMax] = values
+    // If values match the full range, treat as "All"
+    if (newMin === actualMin && newMax === actualMax) {
+      onChange({ min: undefined, max: undefined })
+    } else {
+      onChange({ min: newMin, max: newMax })
+    }
   }
 
-  const handleMaxChange = (val: string) => {
-    const numVal = val ? parseFloat(val) : undefined
-    onChange({ ...value, max: numVal })
+  const handleAllToggle = (checked: boolean) => {
+    if (checked) {
+      // "All" selected - clear the filter
+      onChange({ min: undefined, max: undefined })
+    } else {
+      // "All" deselected - apply current bounds as filter
+      onChange({ min: actualMin, max: actualMax })
+    }
   }
 
   const applyPreset = (preset: { min: number; max: number }) => {
     onChange({ min: preset.min, max: preset.max })
   }
 
-  const hasValue = value.min !== undefined || value.max !== undefined
-
-  // Get range info from facets
-  const rangeInfo = facets.length > 0 ? facets[0] : null
+  // Format value for display
+  const formatValue = (val: number) => {
+    if (val >= 1000) {
+      return val.toLocaleString()
+    }
+    return val.toString()
+  }
 
   return (
-    <div className="space-y-2">
-      {/* Label with clear button */}
+    <div className="space-y-3">
+      {/* Header: Label + Range Display */}
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium text-foreground">
-          {label} {etimFeatureType && <span className="text-muted-foreground">[{etimFeatureType}]</span>}
+          {label}
+          {unit && <span className="text-muted-foreground ml-1 text-xs">{unit}</span>}
         </label>
-        {showClearButton && hasValue && onClear && (
-          <button
-            onClick={onClear}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            aria-label={`Clear ${label} filter`}
-          >
-            <X size={12} />
-          </button>
-        )}
+        <span className="text-sm text-muted-foreground tabular-nums">
+          {isAllSelected
+            ? `${formatValue(actualMin)}-${formatValue(actualMax)}`
+            : `${formatValue(sliderMin)}-${formatValue(sliderMax)}`
+          }
+        </span>
       </div>
 
-      {/* Range info from facets */}
-      {rangeInfo && rangeInfo.min_numeric_value != null && rangeInfo.max_numeric_value != null && (
-        <div className="text-xs text-muted-foreground">
-          Range: {rangeInfo.min_numeric_value.toLocaleString()} - {rangeInfo.max_numeric_value.toLocaleString()} {unit}
-        </div>
-      )}
+      {/* Dual-thumb Slider */}
+      <Slider
+        value={[sliderMin, sliderMax]}
+        onValueChange={handleSliderChange}
+        min={actualMin}
+        max={actualMax}
+        step={step}
+        minStepsBetweenThumbs={step}
+        disabled={isAllSelected}
+        className={isAllSelected ? 'opacity-50' : ''}
+      />
+
+      {/* All Toggle */}
+      <div className="flex items-center gap-2">
+        <Switch
+          id={`${filterKey}-all`}
+          checked={isAllSelected}
+          onCheckedChange={handleAllToggle}
+        />
+        <Label
+          htmlFor={`${filterKey}-all`}
+          className="text-sm text-muted-foreground cursor-pointer"
+        >
+          All
+        </Label>
+      </div>
 
       {/* Presets */}
-      {presets.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {presets.map((preset) => (
-            <button
-              key={preset.label}
-              onClick={() => applyPreset(preset)}
-              className="text-xs px-2 py-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded transition-colors"
-              title={preset.description}
-            >
-              {preset.label}
-            </button>
-          ))}
+      {presets.length > 0 && !isAllSelected && (
+        <div className="flex flex-wrap gap-1 pt-1">
+          {presets.map((preset) => {
+            const isActive = value.min === preset.min && value.max === preset.max
+            return (
+              <button
+                key={preset.label}
+                onClick={() => applyPreset(preset)}
+                className={`text-xs px-2 py-1 rounded transition-colors ${
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary hover:bg-secondary/80 text-secondary-foreground'
+                }`}
+                title={preset.description}
+              >
+                {preset.label}
+              </button>
+            )
+          })}
         </div>
       )}
 
-      {/* Min/Max inputs */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1">Min {unit}</label>
-          <input
-            type="number"
-            value={value.min ?? ''}
-            onChange={(e) => handleMinChange(e.target.value)}
-            placeholder={minBound?.toString() || 'Min'}
-            min={minBound}
-            max={value.max || maxBound}
-            step={step}
-            className="w-full px-2 py-1 text-sm border border-input rounded-md bg-background focus:ring-1 focus:ring-ring focus:border-ring"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1">Max {unit}</label>
-          <input
-            type="number"
-            value={value.max ?? ''}
-            onChange={(e) => handleMaxChange(e.target.value)}
-            placeholder={maxBound?.toString() || 'Max'}
-            min={value.min || minBound}
-            max={maxBound}
-            step={step}
-            className="w-full px-2 py-1 text-sm border border-input rounded-md bg-background focus:ring-1 focus:ring-ring focus:border-ring"
-          />
-        </div>
-      </div>
-
-      {/* Current selection summary */}
-      {hasValue && (
-        <div className="text-xs text-muted-foreground pt-1 border-t border-border">
-          {value.min != null && value.max != null
-            ? `${value.min.toLocaleString()} - ${value.max.toLocaleString()} ${unit}`
-            : value.min != null
-            ? `≥ ${value.min.toLocaleString()} ${unit}`
-            : value.max != null
-            ? `≤ ${value.max.toLocaleString()} ${unit}`
-            : ''}
-        </div>
-      )}
-
-      {/* TODO: Histogram visualization */}
-      {showHistogram && facets.length > 0 && (
-        <div className="h-12 bg-secondary rounded flex items-end justify-center gap-px p-1">
-          <div className="text-xs text-muted-foreground">Histogram</div>
+      {/* ETIM feature code (for debugging) */}
+      {etimFeatureType && (
+        <div className="text-[10px] text-muted-foreground/50">
+          {etimFeatureType}
         </div>
       )}
     </div>
