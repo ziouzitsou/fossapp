@@ -30,24 +30,35 @@ export interface FilterGroup {
 }
 
 /**
- * Fetch all active filter definitions grouped by category
+ * Fetch all active filter definitions grouped by category.
+ * Uses hierarchical lookup - filters applicable to parent categories
+ * are inherited by child categories (e.g., LUMINAIRE filters appear for LUMINAIRE-CEILING).
  */
 export async function getFilterDefinitionsAction(
   taxonomyCode?: string
 ): Promise<FilterGroup[]> {
   try {
-    let query = supabaseServer
-      .schema('search')
-      .from('filter_definitions')
-      .select('*')
-      .eq('active', true)
+    let data, error
 
-    // Filter by applicable taxonomy codes
     if (taxonomyCode) {
-      query = query.or(`applicable_taxonomy_codes.cs.{${taxonomyCode}},applicable_taxonomy_codes.is.null`)
+      // Use hierarchical RPC function that walks up the taxonomy tree
+      // This ensures LUMINAIRE-CEILING inherits filters from LUMINAIRE
+      const result = await supabaseServer
+        .schema('search')
+        .rpc('get_filters_for_taxonomy', { p_taxonomy_code: taxonomyCode })
+      data = result.data
+      error = result.error
+    } else {
+      // No taxonomy - get all active filters
+      const result = await supabaseServer
+        .schema('search')
+        .from('filter_definitions')
+        .select('*')
+        .eq('active', true)
+        .order('display_order')
+      data = result.data
+      error = result.error
     }
-
-    const { data, error } = await query.order('display_order')
 
     if (error) {
       console.error('Failed to fetch filter definitions:', error)

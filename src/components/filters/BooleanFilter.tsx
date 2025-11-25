@@ -1,12 +1,13 @@
 'use client'
 
 import { BooleanFilterProps } from './types'
-import { X } from 'lucide-react'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Check, X, CircleDashed } from 'lucide-react'
 
 /**
  * BooleanFilter - For L (Logical) type filters
- * Displays Yes/No options with radio-button-like behavior
- * Example: Dimmable (Yes/No)
+ * Displays All/Yes/No toggle group with product counts
+ * Example: Indoor (All | Yes 5,234 | No 8,242)
  */
 export default function BooleanFilter({
   filterKey,
@@ -16,75 +17,76 @@ export default function BooleanFilter({
   onChange,
   facets,
   showCount = true,
-  onClear,
-  showClearButton = true
+  onClear
 }: BooleanFilterProps) {
-  // Sort facets: Yes first, then No
-  const sortedFacets = [...facets].sort((a, b) => {
-    const aIsYes = a.filter_value.toLowerCase() === 'yes'
-    const bIsYes = b.filter_value.toLowerCase() === 'yes'
-    return aIsYes === bIsYes ? 0 : aIsYes ? -1 : 1
-  })
+  // Get counts from facets (DB returns standardized "Yes"/"No" values)
+  const yesCount = facets.find(f => f.filter_value === 'Yes')?.product_count ?? 0
+  const noCount = facets.find(f => f.filter_value === 'No')?.product_count ?? 0
 
-  const handleChange = (facetValue: string) => {
-    const isYes = facetValue.toLowerCase() === 'yes'
-    // If clicking the already-selected value, clear the filter
-    if (value === isYes) {
+  // Convert value to string for ToggleGroup
+  const currentValue = value === null ? 'all' : value ? 'yes' : 'no'
+
+  const handleValueChange = (newValue: string) => {
+    if (newValue === 'all' || newValue === '') {
       onClear?.()
     } else {
-      onChange(isYes)
+      onChange(newValue === 'yes')
     }
+  }
+
+  const formatCount = (count: number) => {
+    if (count >= 1000) {
+      return `${(count / 1000).toFixed(1)}K`
+    }
+    return count.toString()
   }
 
   return (
     <div className="space-y-2">
-      {/* Label with clear button */}
-      <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-foreground">
-          {label} {etimFeatureType && <span className="text-muted-foreground">[{etimFeatureType}]</span>}
-        </label>
-        {showClearButton && value !== null && onClear && (
-          <button
-            onClick={onClear}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            aria-label={`Clear ${label} filter`}
-          >
-            <X size={12} />
-          </button>
-        )}
-      </div>
+      {/* Label */}
+      <label className="text-sm font-medium text-foreground">
+        {label}
+      </label>
 
-      {/* Options */}
-      <div className="space-y-1">
-        {sortedFacets.map((facet) => {
-          const isYes = facet.filter_value.toLowerCase() === 'yes'
-          const isSelected = value === isYes
-
-          return (
-            <div
-              key={facet.filter_value}
-              className="flex items-center justify-between text-sm"
-            >
-              <label className="flex items-center gap-2 cursor-pointer flex-1 hover:bg-accent/50 p-1 rounded transition-colors">
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => handleChange(facet.filter_value)}
-                  className="rounded border-input text-primary focus:ring-ring"
-                />
-                <span className={isSelected ? 'font-medium text-foreground' : 'text-muted-foreground'}>
-                  {facet.filter_value}
-                </span>
-              </label>
-              {showCount && (
-                <span className="text-xs text-muted-foreground">
-                  ({facet.product_count.toLocaleString()})
-                </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
+      {/* Toggle Group */}
+      <ToggleGroup
+        type="single"
+        value={currentValue}
+        onValueChange={handleValueChange}
+        className="justify-start gap-1 p-1 bg-muted/50 rounded-lg border"
+      >
+        <ToggleGroupItem
+          value="all"
+          className="px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition-all
+            data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground data-[state=off]:hover:bg-muted
+            data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:font-medium data-[state=on]:shadow-sm"
+        >
+          <CircleDashed className="h-3.5 w-3.5" />
+          All
+        </ToggleGroupItem>
+        <ToggleGroupItem
+          value="yes"
+          className="px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition-all
+            data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground data-[state=off]:hover:bg-muted
+            data-[state=on]:bg-emerald-600 data-[state=on]:text-white data-[state=on]:font-medium data-[state=on]:shadow-sm"
+        >
+          <Check className="h-3.5 w-3.5" />
+          Yes{showCount && yesCount > 0 && (
+            <span className="ml-0.5 opacity-80">({formatCount(yesCount)})</span>
+          )}
+        </ToggleGroupItem>
+        <ToggleGroupItem
+          value="no"
+          className="px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition-all
+            data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground data-[state=off]:hover:bg-muted
+            data-[state=on]:bg-rose-600 data-[state=on]:text-white data-[state=on]:font-medium data-[state=on]:shadow-sm"
+        >
+          <X className="h-3.5 w-3.5" />
+          No{showCount && noCount > 0 && (
+            <span className="ml-0.5 opacity-80">({formatCount(noCount)})</span>
+          )}
+        </ToggleGroupItem>
+      </ToggleGroup>
     </div>
   )
 }

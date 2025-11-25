@@ -10,6 +10,7 @@ import {
   type ProductByTaxonomy,
   type ProductByTaxonomyResult
 } from '@/lib/actions'
+import { searchProductsAction, countProductsAction } from '@/lib/search-actions'
 import { CategoryLevel1 } from '@/components/products/CategoryLevel1'
 import { InfoTooltip } from '@/components/products/InfoTooltip'
 import { FilterPanel, type FilterValues } from '@/components/filters/FilterPanel'
@@ -115,6 +116,11 @@ function ProductsPageContent() {
     setCurrentPage(1)
   }, [level1, level2, level3, filterValues])
 
+  // Check if any dynamic filters (non-supplier) are active
+  const hasDynamicFilters = Object.keys(filterValues).some(
+    key => key !== 'supplier' && filterValues[key] !== undefined && filterValues[key] !== null
+  )
+
   // Fetch products when taxonomy, filters, or page changes
   useEffect(() => {
     async function fetchProducts() {
@@ -126,15 +132,97 @@ function ProductsPageContent() {
 
       setLoading(true)
       try {
-        const result = await getProductsByTaxonomyPaginatedAction(
-          currentCategory,
-          {
+        // Use searchProductsAction when dynamic filters are active
+        if (hasDynamicFilters) {
+          // First get the count
+          const total = await countProductsAction({
+            categories: [currentCategory],
+            suppliers: filterValues.supplier ? [filterValues.supplier] : null,
+            indoor: filterValues.indoor ?? null,
+            outdoor: filterValues.outdoor ?? null,
+            submersible: filterValues.submersible ?? null,
+            trimless: filterValues.trimless ?? null,
+            cutShapeRound: filterValues.cut_shape_round ?? null,
+            cutShapeRectangular: filterValues.cut_shape_rectangular ?? null,
+            filters: {
+              // Range filters (cct, cri, lumens_output, voltage, beam_angle)
+              ...(filterValues.cct?.min !== undefined || filterValues.cct?.max !== undefined ? { cct: filterValues.cct } : {}),
+              ...(filterValues.cri?.min !== undefined || filterValues.cri?.max !== undefined ? { cri: filterValues.cri } : {}),
+              ...(filterValues.lumens_output?.min !== undefined || filterValues.lumens_output?.max !== undefined ? { lumens_output: filterValues.lumens_output } : {}),
+              ...(filterValues.voltage?.min !== undefined || filterValues.voltage?.max !== undefined ? { voltage: filterValues.voltage } : {}),
+              ...(filterValues.beam_angle?.min !== undefined || filterValues.beam_angle?.max !== undefined ? { beam_angle: filterValues.beam_angle } : {}),
+              // Categorical filters
+              ...(filterValues.ip?.length ? { ip: filterValues.ip } : {}),
+              ...(filterValues.finishing_colour?.length ? { finishing_colour: filterValues.finishing_colour } : {}),
+              ...(filterValues.light_source?.length ? { light_source: filterValues.light_source } : {}),
+              ...(filterValues.light_distribution?.length ? { light_distribution: filterValues.light_distribution } : {}),
+              ...(filterValues.beam_angle_type?.length ? { beam_angle_type: filterValues.beam_angle_type } : {}),
+              ...(filterValues.dimmable?.length ? { dimmable: filterValues.dimmable } : {}),
+              ...(filterValues.class?.length ? { class: filterValues.class } : {})
+            },
+            page: currentPage - 1, // searchProductsAction uses 0-based page
+            limit: pageSize
+          })
+
+          // Then get products
+          const { products } = await searchProductsAction({
+            categories: [currentCategory],
+            suppliers: filterValues.supplier ? [filterValues.supplier] : null,
+            indoor: filterValues.indoor ?? null,
+            outdoor: filterValues.outdoor ?? null,
+            submersible: filterValues.submersible ?? null,
+            trimless: filterValues.trimless ?? null,
+            cutShapeRound: filterValues.cut_shape_round ?? null,
+            cutShapeRectangular: filterValues.cut_shape_rectangular ?? null,
+            filters: {
+              // Range filters
+              ...(filterValues.cct?.min !== undefined || filterValues.cct?.max !== undefined ? { cct: filterValues.cct } : {}),
+              ...(filterValues.cri?.min !== undefined || filterValues.cri?.max !== undefined ? { cri: filterValues.cri } : {}),
+              ...(filterValues.lumens_output?.min !== undefined || filterValues.lumens_output?.max !== undefined ? { lumens_output: filterValues.lumens_output } : {}),
+              ...(filterValues.voltage?.min !== undefined || filterValues.voltage?.max !== undefined ? { voltage: filterValues.voltage } : {}),
+              ...(filterValues.beam_angle?.min !== undefined || filterValues.beam_angle?.max !== undefined ? { beam_angle: filterValues.beam_angle } : {}),
+              // Categorical filters
+              ...(filterValues.ip?.length ? { ip: filterValues.ip } : {}),
+              ...(filterValues.finishing_colour?.length ? { finishing_colour: filterValues.finishing_colour } : {}),
+              ...(filterValues.light_source?.length ? { light_source: filterValues.light_source } : {}),
+              ...(filterValues.light_distribution?.length ? { light_distribution: filterValues.light_distribution } : {}),
+              ...(filterValues.beam_angle_type?.length ? { beam_angle_type: filterValues.beam_angle_type } : {}),
+              ...(filterValues.dimmable?.length ? { dimmable: filterValues.dimmable } : {}),
+              ...(filterValues.class?.length ? { class: filterValues.class } : {})
+            },
+            page: currentPage - 1,
+            limit: pageSize
+          })
+
+          // Map SearchProduct to ProductByTaxonomy format
+          const mappedProducts: ProductByTaxonomy[] = products.map(p => ({
+            product_id: p.product_id,
+            foss_pid: p.foss_pid,
+            description_short: p.description_short,
+            description_long: p.description_long || null,
+            supplier_name: p.supplier_name,
+            prices: p.price_eur ? [{ start_price: p.price_eur }] : []
+          }))
+
+          setProductResult({
+            products: mappedProducts,
+            total,
             page: currentPage,
             pageSize,
-            supplierId: filterValues.supplier || undefined
-          }
-        )
-        setProductResult(result)
+            totalPages: Math.ceil(total / pageSize)
+          })
+        } else {
+          // No dynamic filters - use the simpler taxonomy action
+          const result = await getProductsByTaxonomyPaginatedAction(
+            currentCategory,
+            {
+              page: currentPage,
+              pageSize,
+              supplierId: filterValues.supplier || undefined
+            }
+          )
+          setProductResult(result)
+        }
       } catch (error) {
         console.error('Error fetching products:', error)
         setProductResult(null)
@@ -144,7 +232,7 @@ function ProductsPageContent() {
     }
 
     fetchProducts()
-  }, [level1, level2, level3, filterValues, currentPage, pageSize])
+  }, [level1, level2, level3, filterValues, currentPage, pageSize, hasDynamicFilters])
 
   // Helper function to find category by code in dynamic taxonomy
   const findCategory = (code: string, categories: TaxonomyCategory[] = taxonomy): TaxonomyCategory | null => {
