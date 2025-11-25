@@ -137,7 +137,7 @@ function ProductsPageContent() {
           // First get the count
           const total = await countProductsAction({
             categories: [currentCategory],
-            suppliers: filterValues.supplier ? [filterValues.supplier] : null,
+            suppliers: filterValues.supplier ? [filterValues.supplier.toString()] : undefined,
             indoor: filterValues.indoor ?? null,
             outdoor: filterValues.outdoor ?? null,
             submersible: filterValues.submersible ?? null,
@@ -167,7 +167,7 @@ function ProductsPageContent() {
           // Then get products
           const { products } = await searchProductsAction({
             categories: [currentCategory],
-            suppliers: filterValues.supplier ? [filterValues.supplier] : null,
+            suppliers: filterValues.supplier ? [filterValues.supplier.toString()] : undefined,
             indoor: filterValues.indoor ?? null,
             outdoor: filterValues.outdoor ?? null,
             submersible: filterValues.submersible ?? null,
@@ -199,9 +199,9 @@ function ProductsPageContent() {
             product_id: p.product_id,
             foss_pid: p.foss_pid,
             description_short: p.description_short,
-            description_long: p.description_long || null,
+            description_long: p.description_long || '',
             supplier_name: p.supplier_name,
-            prices: p.price_eur ? [{ start_price: p.price_eur }] : []
+            prices: p.price_eur ? [{ date: '', disc1: 0, start_price: p.price_eur }] : []
           }))
 
           setProductResult({

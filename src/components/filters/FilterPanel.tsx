@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { X } from 'lucide-react'
+import { X, Filter } from 'lucide-react'
 import { SupplierFilter } from '@/components/products/SupplierFilter'
 import {
   BooleanFilter,
@@ -44,7 +44,15 @@ export function FilterPanel({
   // Load filters when taxonomy or filter values change
   // FIX: Use individual filter values as dependencies to prevent infinite loop
   useEffect(() => {
-    loadFilters()
+    // Only load full filters if taxonomy is selected
+    if (taxonomyCode) {
+      loadFilters()
+    } else {
+      // No taxonomy - just show supplier filter (no need to load filter definitions)
+      setFilterGroups([])
+      setFilterFacets([])
+      setLoading(false)
+    }
   }, [
     taxonomyCode,
     values.supplier,
@@ -130,6 +138,7 @@ export function FilterPanel({
     key => values[key] !== undefined && values[key] !== null
   ).length
 
+  // Loading state - show appropriate skeleton
   if (loading) {
     return (
       <Card>
@@ -140,26 +149,81 @@ export function FilterPanel({
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Simulate 6 filter groups */}
-          {Array.from({ length: 6 }).map((_, groupIdx) => (
-            <div key={groupIdx} className="space-y-4">
-              {groupIdx > 0 && <Separator className="my-6" />}
-              {/* Group header */}
-              <Skeleton className="h-5 w-32" />
-              {/* Simulate 2-3 filters per group */}
-              {Array.from({ length: Math.floor(Math.random() * 2) + 2 }).map((_, filterIdx) => (
-                <div key={filterIdx} className="space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ))}
+          {taxonomyCode ? (
+            // Full filter skeleton when category is selected
+            Array.from({ length: 6 }).map((_, groupIdx) => (
+              <div key={groupIdx} className="space-y-4">
+                {groupIdx > 0 && <Separator className="my-6" />}
+                <Skeleton className="h-5 w-32" />
+                {Array.from({ length: 2 }).map((_, filterIdx) => (
+                  <div key={filterIdx} className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ))}
+              </div>
+            ))
+          ) : (
+            // Supplier-only skeleton when no category
+            <div className="space-y-3">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
             </div>
-          ))}
+          )}
         </CardContent>
       </Card>
     )
   }
 
+  // No taxonomy selected - show only Supplier filter with guidance
+  if (!taxonomyCode) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Filters</CardTitle>
+            {values.supplier && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearAll}
+                className="h-8 px-2 text-xs"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {/* Supplier filter always available */}
+          <SupplierFilter
+            selectedSupplierId={values.supplier}
+            onSupplierChange={(id) => handleFilterChange('supplier', id)}
+            taxonomyCode={undefined}
+          />
+
+          {/* Guidance message for technical filters */}
+          <Separator />
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border border-dashed">
+            <Filter className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">
+                More filters available
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Select a product category to access technical filters like IP rating, CCT, beam angle, and more.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Full filter panel when taxonomy is selected
   return (
     <Card>
       <CardHeader>

@@ -68,13 +68,13 @@ export async function getFilterDefinitionsAction(
     // Group by filter group and track minimum display_order per group
     const groups = new Map<string, { filters: FilterDefinition[], minOrder: number }>()
 
-    data?.forEach((filter) => {
+    data?.forEach((filter: FilterDefinition) => {
       const group = filter.group || 'Other'
       if (!groups.has(group)) {
         groups.set(group, { filters: [], minOrder: filter.display_order })
       }
       const groupData = groups.get(group)!
-      groupData.filters.push(filter as FilterDefinition)
+      groupData.filters.push(filter)
       // Update min order if this filter has a lower display_order
       if (filter.display_order < groupData.minOrder) {
         groupData.minOrder = filter.display_order

@@ -1184,35 +1184,21 @@ export async function getActiveSuppliersAction(): Promise<Supplier[]> {
       return []
     }
 
-    // Get product counts from search.product_filter_index (source of truth)
-    const { data: productCounts, error: countError } = await supabaseServer
+    // Get product counts using RPC (aggregated in DB, no row limit issues)
+    const { data: supplierCounts, error: countError } = await supabaseServer
       .schema('search')
-      .from('product_filter_index')
-      .select('alphanumeric_value, product_id')
-      .eq('filter_key', 'supplier')
+      .rpc('get_global_supplier_counts')
 
     if (countError) {
       console.error('Error counting products:', countError)
       return []
     }
 
-    // Count products per supplier name
+    // Create map of supplier counts
     const supplierCountMap = new Map<string, number>()
-    if (productCounts && Array.isArray(productCounts)) {
-      // Use Set to count distinct product_ids per supplier
-      const supplierProductSets = new Map<string, Set<string>>()
-
-      productCounts.forEach((row: any) => {
-        const supplierName = row.alphanumeric_value
-        if (!supplierProductSets.has(supplierName)) {
-          supplierProductSets.set(supplierName, new Set())
-        }
-        supplierProductSets.get(supplierName)!.add(row.product_id)
-      })
-
-      // Convert sets to counts
-      supplierProductSets.forEach((productSet, supplierName) => {
-        supplierCountMap.set(supplierName, productSet.size)
+    if (supplierCounts && Array.isArray(supplierCounts)) {
+      supplierCounts.forEach((row: any) => {
+        supplierCountMap.set(row.supplier_name, Number(row.product_count))
       })
     }
 
@@ -1227,8 +1213,10 @@ export async function getActiveSuppliersAction(): Promise<Supplier[]> {
       product_count: supplierCountMap.get(supplier.supplier_name) || 0
     }))
 
-    // Sort by product count descending
-    return suppliersWithCounts.sort((a, b) => b.product_count - a.product_count)
+    // Sort by product count descending, filter out suppliers with 0 products
+    return suppliersWithCounts
+      .filter(s => s.product_count > 0)
+      .sort((a, b) => b.product_count - a.product_count)
   } catch (error) {
     console.error('Get active suppliers error:', error)
     return []
@@ -1506,7 +1494,7 @@ export async function getProductsByTaxonomyPaginatedAction(
         }
       }
 
-      allMatchingIds = (filteredProducts || []).map(p => p.product_id)
+      allMatchingIds = (filteredProducts || []).map((p: { product_id: string }) => p.product_id)
       total = allMatchingIds.length
     } else {
       // No supplier filter - just count and get IDs from taxonomy
