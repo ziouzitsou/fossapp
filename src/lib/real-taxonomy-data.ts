@@ -464,39 +464,3 @@ export const realTaxonomy: TaxonomyCategory[] = [
     ]
   }
 ]
-
-// Helper function to find category by code
-export function findCategoryByCode(code: string): TaxonomyCategory | null {
-  function search(categories: TaxonomyCategory[]): TaxonomyCategory | null {
-    for (const category of categories) {
-      if (category.code === code) {
-        return category
-      }
-      if (category.children) {
-        const found = search(category.children)
-        if (found) return found
-      }
-    }
-    return null
-  }
-  return search(realTaxonomy)
-}
-
-// Helper function to get breadcrumb trail
-export function getBreadcrumb(code: string): string[] {
-  const category = findCategoryByCode(code)
-  if (!category) return ['Home']
-
-  const trail: string[] = []
-  let current: TaxonomyCategory | null = category
-
-  while (current) {
-    trail.unshift(current.name)
-    const parentCode: string | null = current.code.split('-').slice(0, -1).join('-') ||
-                      (current.level === 2 ? current.code.split('-')[0] : null)
-    current = parentCode ? findCategoryByCode(parentCode) : null
-  }
-
-  trail.unshift('Home')
-  return trail
-}
