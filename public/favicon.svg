@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+ <rect x="12" y="12" width="475" height="475" rx="75" ry="75" fill="#f6f82c" stroke-linecap="square" stroke-linejoin="round" stroke-width=".38" style="paint-order:stroke fill markers"/>
+ <path d="m131 106v304h88v-155l97 81v-162l-97 81v-90h151v-76h-239z"/>
+ <style>@media (prefers-color-scheme: light) { :root { filter: none; } }
+@media (prefers-color-scheme: dark) { :root { filter: invert(100%); } }</style>
+</svg>

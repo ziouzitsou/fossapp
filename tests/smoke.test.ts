@@ -22,7 +22,7 @@ test.describe('Critical paths - Smoke Tests', () => {
 
   test('login page loads', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByText(/Welcome to FOSSAPP|FOSSAPP/i)).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Welcome to FOSSAPP/i })).toBeVisible()
   })
 
   test('unauthenticated dashboard access redirects', async ({ page }) => {
