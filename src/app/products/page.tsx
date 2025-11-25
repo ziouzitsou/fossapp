@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
 import { type TaxonomyCategory } from '@/lib/real-taxonomy-data'
@@ -37,13 +37,13 @@ function ProductsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Get URL state
-  const [level1, setLevel1] = useState<string | null>(searchParams.get('level1'))
-  const [level2, setLevel2] = useState<string | null>(searchParams.get('level2'))
-  const [level3, setLevel3] = useState<string | null>(searchParams.get('level3'))
+  // Get URL state - derived from searchParams (reactive to URL changes)
+  const level1 = searchParams.get('level1')
+  const level2 = searchParams.get('level2')
+  const level3 = searchParams.get('level3')
 
-  // Initialize filter values from URL
-  const [filterValues, setFilterValues] = useState<FilterValues>(() => {
+  // Parse filter values from URL - memoized to prevent infinite loops
+  const filterValues: FilterValues = useMemo(() => {
     const filters: FilterValues = {}
 
     // Parse supplier
@@ -62,7 +62,7 @@ function ProductsPageContent() {
     })
 
     return filters
-  })
+  }, [searchParams])
 
   // Taxonomy state - fetched from database
   const [taxonomy, setTaxonomy] = useState<TaxonomyCategory[]>([])
@@ -74,15 +74,15 @@ function ProductsPageContent() {
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 20
 
-  // Update URL when filters change
-  useEffect(() => {
+  // Helper to update filter values via URL - memoized to prevent re-renders
+  const setFilterValues = useCallback((newFilters: FilterValues) => {
     const params = new URLSearchParams()
     if (level1) params.set('level1', level1)
     if (level2) params.set('level2', level2)
     if (level3) params.set('level3', level3)
 
     // Add all filter values to URL
-    Object.entries(filterValues).forEach(([key, value]) => {
+    Object.entries(newFilters).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         if (typeof value === 'object') {
           params.set(key, JSON.stringify(value))
@@ -93,7 +93,7 @@ function ProductsPageContent() {
     })
 
     router.replace(`/products?${params.toString()}`, { scroll: false })
-  }, [level1, level2, level3, filterValues, router])
+  }, [level1, level2, level3, router])
 
   // Fetch taxonomy data on mount
   useEffect(() => {
@@ -116,10 +116,11 @@ function ProductsPageContent() {
     setCurrentPage(1)
   }, [level1, level2, level3, filterValues])
 
-  // Check if any dynamic filters (non-supplier) are active
-  const hasDynamicFilters = Object.keys(filterValues).some(
-    key => key !== 'supplier' && filterValues[key] !== undefined && filterValues[key] !== null
-  )
+  // Check if any dynamic filters (non-supplier) are active - memoized
+  const hasDynamicFilters = useMemo(() =>
+    Object.keys(filterValues).some(
+      key => key !== 'supplier' && filterValues[key] !== undefined && filterValues[key] !== null
+    ), [filterValues])
 
   // Fetch products when taxonomy, filters, or page changes
   useEffect(() => {
@@ -286,21 +287,59 @@ function ProductsPageContent() {
   // Get breadcrumb
   const breadcrumb = currentCategory ? getBreadcrumbTrail(currentCategory.code) : ['Home']
 
-  // Handle level changes
-  const handleLevel1Change = (code: string) => {
-    setLevel1(code)
-    setLevel2(null)
-    setLevel3(null)
-  }
+  // Handle level changes - update URL directly (searchParams are reactive)
+  const handleLevel1Change = useCallback((code: string) => {
+    const params = new URLSearchParams()
+    params.set('level1', code)
+    // Clear level2, level3 when level1 changes
+    // Preserve filter values
+    Object.entries(filterValues).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (typeof value === 'object') {
+          params.set(key, JSON.stringify(value))
+        } else {
+          params.set(key, value.toString())
+        }
+      }
+    })
+    router.push(`/products?${params.toString()}`, { scroll: false })
+  }, [filterValues, router])
 
-  const handleLevel2Change = (code: string) => {
-    setLevel2(code)
-    setLevel3(null)
-  }
+  const handleLevel2Change = useCallback((code: string) => {
+    const params = new URLSearchParams()
+    if (level1) params.set('level1', level1)
+    params.set('level2', code)
+    // Clear level3 when level2 changes
+    // Preserve filter values
+    Object.entries(filterValues).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (typeof value === 'object') {
+          params.set(key, JSON.stringify(value))
+        } else {
+          params.set(key, value.toString())
+        }
+      }
+    })
+    router.push(`/products?${params.toString()}`, { scroll: false })
+  }, [level1, filterValues, router])
 
-  const handleLevel3Change = (code: string) => {
-    setLevel3(code)
-  }
+  const handleLevel3Change = useCallback((code: string) => {
+    const params = new URLSearchParams()
+    if (level1) params.set('level1', level1)
+    if (level2) params.set('level2', level2)
+    params.set('level3', code)
+    // Preserve filter values
+    Object.entries(filterValues).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (typeof value === 'object') {
+          params.set(key, JSON.stringify(value))
+        } else {
+          params.set(key, value.toString())
+        }
+      }
+    })
+    router.push(`/products?${params.toString()}`, { scroll: false })
+  }, [level1, level2, filterValues, router])
 
   // Redirect if unauthenticated
   useEffect(() => {

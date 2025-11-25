@@ -39,19 +39,76 @@ export function FilterPanel({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(['Source', 'Electricals', 'Design', 'Light', 'Location', 'Options'])
   )
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   // Load filters when taxonomy or filter values change
-  // FIX: Use individual filter values as dependencies to prevent infinite loop
   useEffect(() => {
-    // Only load full filters if taxonomy is selected
-    if (taxonomyCode) {
-      loadFilters()
-    } else {
-      // No taxonomy - just show supplier filter (no need to load filter definitions)
+    // No taxonomy - just show supplier filter (no need to load filter definitions)
+    if (!taxonomyCode) {
       setFilterGroups([])
       setFilterFacets([])
       setLoading(false)
+      return
+    }
+
+    // Track if this effect is still current (for cleanup)
+    let isCurrent = true
+
+    const loadFilters = async () => {
+      setLoading(true)
+
+      try {
+        // Load filter definitions grouped by 'group' field
+        const groups = await getFilterDefinitionsAction(taxonomyCode)
+
+        // Check if effect was cleaned up
+        if (!isCurrent) return
+
+        setFilterGroups(groups)
+
+        // Load dynamic facets with product counts
+        const facetResponse = await fetch('/api/filters/facets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            taxonomyCode,
+            supplier: values.supplier,
+            indoor: values.indoor,
+            outdoor: values.outdoor,
+            submersible: values.submersible,
+            trimless: values.trimless,
+            cut_shape_round: values.cut_shape_round,
+            cut_shape_rectangular: values.cut_shape_rectangular
+          })
+        })
+
+        // Check if effect was cleaned up
+        if (!isCurrent) return
+
+        if (facetResponse.ok) {
+          const facets = await facetResponse.json()
+          setFilterFacets(facets)
+        } else {
+          console.error('Failed to load facets:', await facetResponse.text())
+          setFilterFacets([])
+        }
+      } catch (error) {
+        if (!isCurrent) return
+        console.error('Error loading filters:', error)
+        setFilterGroups([])
+        setFilterFacets([])
+      } finally {
+        if (isCurrent) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadFilters()
+
+    // Cleanup function - marks this effect as stale
+    return () => {
+      isCurrent = false
     }
   }, [
     taxonomyCode,
@@ -63,47 +120,6 @@ export function FilterPanel({
     values.cut_shape_round,
     values.cut_shape_rectangular
   ])
-
-  const loadFilters = async () => {
-    try {
-      setLoading(true)
-
-      // Load filter definitions grouped by 'group' field
-      const groups = await getFilterDefinitionsAction(taxonomyCode)
-      setFilterGroups(groups)
-
-      // Load dynamic facets with product counts
-      const facetResponse = await fetch('/api/filters/facets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          taxonomyCode,
-          supplier: values.supplier,
-          indoor: values.indoor,
-          outdoor: values.outdoor,
-          submersible: values.submersible,
-          trimless: values.trimless,
-          cut_shape_round: values.cut_shape_round,
-          cut_shape_rectangular: values.cut_shape_rectangular
-        })
-      })
-
-      if (facetResponse.ok) {
-        const facets = await facetResponse.json()
-        setFilterFacets(facets)
-      } else {
-        console.error('Failed to load facets:', await facetResponse.text())
-        setFilterFacets([])
-      }
-
-    } catch (error) {
-      console.error('Error loading filters:', error)
-      setFilterGroups([])
-      setFilterFacets([])
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const toggleGroup = (groupName: string) => {
     setExpandedGroups(prev => {
