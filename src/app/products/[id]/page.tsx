@@ -76,7 +76,7 @@ export default function ProductDetailPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => router.push('/products')}
+          onClick={() => router.back()}
           className="flex items-center gap-2"
         >
           <FaArrowLeft className="h-4 w-4" />
@@ -84,26 +84,27 @@ export default function ProductDetailPage() {
         </Button>
       }
     >
-      {(status === 'loading' || isLoading) ? (
-        <div className="flex items-center justify-center flex-1">
-          <Spinner size="lg" />
-        </div>
-      ) : !product ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">Product not found</p>
-            <Button
-              onClick={() => router.push('/products')}
-              className="mt-4"
-            >
-              Back to Products
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {/* Product Header with Type Badge */}
-          <div className="mb-6">
+      <div className="px-4 sm:px-6 lg:px-8 py-6">
+        {(status === 'loading' || isLoading) ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Spinner size="lg" />
+          </div>
+        ) : !product ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground">Product not found</p>
+              <Button
+                onClick={() => router.back()}
+                className="mt-4"
+              >
+                Back to Products
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Product Header with Type Badge */}
+            <div className="mb-6">
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
@@ -168,13 +169,14 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          {/* Smart Template Layout */}
-          <ProductLayout
-            product={product}
-            templateType={templateType}
-          />
-        </>
-      )}
+            {/* Smart Template Layout */}
+            <ProductLayout
+              product={product}
+              templateType={templateType}
+            />
+          </>
+        )}
+      </div>
     </ProtectedPageLayout>
   )
 }

@@ -55,3 +55,6 @@ audits/*.log
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# test scripts
+/tmp/
