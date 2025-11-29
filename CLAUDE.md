@@ -500,7 +500,7 @@ FOSSAPP now features a fully dynamic, database-driven filter system with 18 filt
 
 **VPS**: platon.titancnc.eu
 **Domain**: https://main.fossapp.online
-**Current Version**: v1.4.3
+**Current Version**: v1.5.0
 **Deployment**: Automated via production-deployer agent
 **Deployment Directory**: `/opt/fossapp/`
 **Monitoring**: Docker healthcheck + `/api/health` endpoint
@@ -648,6 +648,7 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 - [DOCKER_DEPLOYMENT.md](./docs/DOCKER_DEPLOYMENT.md) - Docker deployment details
 
 **Development**:
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - **Code patterns, domain organization, DB functions**
 - [COMPONENT_ARCHITECTURE.md](./docs/COMPONENT_ARCHITECTURE.md) - shadcn/ui patterns and component guide
 - [API_PATTERNS.md](./docs/API_PATTERNS.md) - API architecture and server actions
 - [DEVELOPMENT_TASKS.md](./docs/DEVELOPMENT_TASKS.md) - Common development tasks
@@ -658,8 +659,8 @@ The `docs/` folder contains **supplementary documentation** and detailed guides:
 - [postgresql_etim_items_schema_overview.md](./docs/postgresql_etim_items_schema_overview.md) - Database schema
 - [SUPPLIER_LOGOS.md](./docs/SUPPLIER_LOGOS.md) - Supplier logo guidelines
 
-**Historical**:
-- [migrations/NEXTJS_16_UPGRADE.md](./docs/migrations/NEXTJS_16_UPGRADE.md) - Next.js 16 upgrade notes
+**Historical** (archived):
+- [migrations/archive/](./docs/migrations/archive/) - Completed migration docs
 
 **Key Principle**: Keep CLAUDE.md concise for quick reference; use docs/ for detailed explanations.
 
@@ -680,9 +681,10 @@ For detailed version history, deployment notes, and changelog, see **[CHANGELOG.
 
 ## Documentation Updates
 
-**Last updated**: 2025-11-24
+**Last updated**: 2025-11-29
 
-- Added dynamic filter system documentation (v1.5.0)
-- Moved advanced search from "Future Enhancements" to implemented features
+- Added ARCHITECTURE.md - comprehensive coding patterns guide
+- Domain-organized server actions (src/lib/actions/)
+- Database aggregation functions for dashboard performance
+- Archived completed migration docs
 - Updated version references to v1.5.0
-- Created comprehensive filter implementation guide
