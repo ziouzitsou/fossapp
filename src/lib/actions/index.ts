@@ -6,26 +6,26 @@
  * or from specific domain files for explicit imports.
  *
  * Structure:
- * - dashboard.ts  → Stats, analytics, supplier/family aggregations
+ * - dashboard.ts  → Stats, analytics, supplier/family aggregations, catalogs
  * - customers.ts  → Customer CRUD and search
- * - projects.ts   → Project CRUD and listing (TODO: migrate)
- * - products.ts   → Product search and details (TODO: migrate)
- * - suppliers.ts  → Supplier listing (TODO: migrate)
- * - taxonomy.ts   → Taxonomy tree operations (TODO: migrate)
+ * - projects.ts   → Project CRUD and listing
+ * - products.ts   → Product search and details
+ * - suppliers.ts  → Supplier listing with counts
+ * - taxonomy.ts   → Taxonomy tree operations
  * - validation.ts → Shared validation utilities
  */
 
 // ============================================================================
-// MIGRATED DOMAIN EXPORTS
+// DASHBOARD & ANALYTICS
 // ============================================================================
 
-// Dashboard & Analytics
 export {
   getDashboardStatsAction,
   getProductCountAction,
   getSupplierStatsAction,
   getTopFamiliesAction,
   getMostActiveUsersAction,
+  getActiveCatalogsAction,
   type DashboardStats,
   type SupplierStats,
   type FamilyStats,
@@ -33,7 +33,10 @@ export {
   type ActiveUser,
 } from './dashboard'
 
-// Customers
+// ============================================================================
+// CUSTOMERS
+// ============================================================================
+
 export {
   searchCustomersAction,
   getCustomerByIdAction,
@@ -44,31 +47,28 @@ export {
   type CustomerListResult,
 } from './customers'
 
-// Validation utilities (for use in other modules)
-export {
-  validateSearchQuery,
-  validateProductId,
-  validateCustomerId,
-  validateProjectId,
-} from './validation'
-
 // ============================================================================
-// NOT YET MIGRATED - Re-export from original actions.ts
-// TODO: Migrate these to their domain files
+// PRODUCTS
 // ============================================================================
 
 export {
-  // Products
   searchProductsBasicAction,
   getProductByIdAction,
   getProductsByTaxonomyAction,
   getProductsByTaxonomyPaginatedAction,
-  type ProductSearchResult,
   type ProductDetail,
   type ProductByTaxonomy,
   type ProductByTaxonomyResult,
+} from './products'
 
-  // Projects
+// Re-export ProductSearchResult from types (canonical location)
+export type { ProductSearchResult } from '@/types/product'
+
+// ============================================================================
+// PROJECTS
+// ============================================================================
+
+export {
   listProjectsAction,
   getProjectByIdAction,
   type ProjectListItem,
@@ -79,15 +79,36 @@ export {
   type ProjectDetail,
   type ProjectListParams,
   type ProjectListResult,
+} from './projects'
 
-  // Suppliers
+// ============================================================================
+// SUPPLIERS
+// ============================================================================
+
+export {
   getActiveSuppliersAction,
   getSuppliersWithTaxonomyCountsAction,
   type Supplier,
+} from './suppliers'
 
-  // Taxonomy
+// ============================================================================
+// TAXONOMY
+// ============================================================================
+
+export {
   getTaxonomyWithCountsAction,
+  type TaxonomyCategory,
+} from './taxonomy'
 
-  // Catalogs (uses dashboard interface but function in original file)
-  getActiveCatalogsAction,
-} from '../actions'
+// ============================================================================
+// VALIDATION UTILITIES
+// ============================================================================
+
+export {
+  validateSearchQuery,
+  validateProductId,
+  validateCustomerId,
+  validateProjectId,
+  validateTaxonomyCode,
+  validateSupplierId,
+} from './validation'

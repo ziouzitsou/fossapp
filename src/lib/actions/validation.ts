@@ -1,4 +1,5 @@
-'use server'
+// Shared validation utilities for server actions
+// Note: No 'use server' directive - these are pure utility functions called by server actions
 
 import { VALIDATION } from '@/lib/constants'
 
@@ -50,10 +51,33 @@ export function validateProjectId(projectId: string): string {
     throw new Error('Invalid project ID')
   }
 
-  const numericRegex = /^\d+$/
-  if (!numericRegex.test(projectId)) {
+  // Project IDs are UUIDs
+  if (!VALIDATION.UUID_REGEX.test(projectId)) {
     throw new Error('Invalid project ID format')
   }
 
   return projectId
+}
+
+export function validateTaxonomyCode(code: string): string {
+  if (!code || typeof code !== 'string') {
+    throw new Error('Invalid taxonomy code')
+  }
+
+  const sanitized = code.trim()
+  // Allow alphanumeric, dots, and hyphens for taxonomy codes
+  const validPattern = /^[a-zA-Z0-9.\-_]+$/
+
+  if (!validPattern.test(sanitized) || sanitized.length > VALIDATION.TAXONOMY_CODE_MAX_LENGTH) {
+    throw new Error('Invalid taxonomy code format')
+  }
+
+  return sanitized
+}
+
+export function validateSupplierId(supplierId: number): number {
+  if (!Number.isInteger(supplierId) || supplierId <= 0) {
+    throw new Error('Invalid supplier ID')
+  }
+  return supplierId
 }
