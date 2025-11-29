@@ -1,6 +1,6 @@
 'use client'
 
-import { TaxonomyCategory } from '@/lib/real-taxonomy-data'
+import { TaxonomyCategory } from '@/lib/taxonomy-data'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'

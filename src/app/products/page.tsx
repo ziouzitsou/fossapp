@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
-import { type TaxonomyCategory } from '@/lib/real-taxonomy-data'
+import { type TaxonomyCategory } from '@/lib/taxonomy-data'
 import {
   getProductsByTaxonomyPaginatedAction,
   getTaxonomyWithCountsAction,

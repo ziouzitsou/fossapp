@@ -1,10 +1,10 @@
 'use server'
 
 import { supabaseServer } from '../supabase-server'
-import { TaxonomyCategory } from '../real-taxonomy-data'
+import { TaxonomyCategory } from '../taxonomy-data'
 
 // Re-export type for convenience
-export type { TaxonomyCategory } from '../real-taxonomy-data'
+export type { TaxonomyCategory } from '../taxonomy-data'
 
 // ============================================================================
 // TAXONOMY WITH COUNTS
