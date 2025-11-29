@@ -4,6 +4,21 @@ Hey there! Here's what we've been working on to make your lighting design work e
 
 ---
 
+## Version 1.5.0 - November 24, 2025 🚀
+
+### Smoother & Faster
+
+**We've been polishing things up** to make your experience better.
+
+- **Faster product searches** - results load quicker than before
+- **Improved product display** - cleaner layout for easier browsing
+- **UI refinements** throughout the app
+- **Various bug fixes** for a smoother experience
+
+*Small improvements that add up to a better workflow.*
+
+---
+
 ## Version 1.4.5 - November 15, 2025 📊
 
 ### Manage Your Projects All in One Place
