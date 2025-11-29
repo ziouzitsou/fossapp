@@ -34,17 +34,9 @@ function validateProductId(productId: string): string {
   return productId
 }
 
-export interface ProductSearchResult {
-  product_id: string
-  foss_pid: string
-  description_short: string
-  supplier_name: string
-  prices: Array<{
-    date: string
-    disc1: number
-    start_price: number
-  }>
-}
+// Import and re-export ProductSearchResult from centralized types
+import type { ProductSearchResult } from '@/types/product'
+export type { ProductSearchResult } from '@/types/product'
 
 export async function searchProductsAction(query: string, userId?: string): Promise<ProductSearchResult[]> {
   try {

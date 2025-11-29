@@ -3,6 +3,22 @@
 
 export type TemplateType = 'luminaire' | 'accessory' | 'lightline' | 'generic';
 
+/**
+ * Lightweight product type for search results
+ * Contains only essential fields for listing display
+ */
+export interface ProductSearchResult {
+  product_id: string
+  foss_pid: string
+  description_short: string
+  supplier_name: string
+  prices: Array<{
+    date: string
+    disc1: number
+    start_price: number
+  }>
+}
+
 // Main product interface matching items.product_info materialized view
 export interface ProductInfo {
   // Core identification
