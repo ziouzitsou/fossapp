@@ -1,18 +1,19 @@
 import { cn } from "@/lib/utils"
-import { Loader2 } from "lucide-react"
+import { FossSpinner } from "@/components/foss-spinner"
 
 interface SpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
   size?: "sm" | "md" | "lg" | "xl"
+  variant?: "auto" | "light" | "dark"
 }
 
-const sizeClasses = {
-  sm: "h-4 w-4",
-  md: "h-8 w-8",
-  lg: "h-12 w-12",
-  xl: "h-16 w-16",
+const sizeMap = {
+  sm: 20,
+  md: 32,
+  lg: 48,
+  xl: 64,
 }
 
-export function Spinner({ size = "md", className, ...props }: SpinnerProps) {
+export function Spinner({ size = "md", variant = "auto", className, ...props }: SpinnerProps) {
   return (
     <div
       role="status"
@@ -20,7 +21,7 @@ export function Spinner({ size = "md", className, ...props }: SpinnerProps) {
       className={cn("flex items-center justify-center", className)}
       {...props}
     >
-      <Loader2 className={cn("animate-spin text-primary", sizeClasses[size])} />
+      <FossSpinner size={sizeMap[size]} variant={variant} />
       <span className="sr-only">Loading...</span>
     </div>
   )

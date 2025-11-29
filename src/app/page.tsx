@@ -22,14 +22,14 @@ export default function Home() {
 
   if (status === 'loading' || session) {
     return (
-      <div className="flex min-h-svh items-center justify-center">
-        <Spinner size="lg" />
+      <div className="flex min-h-svh w-full items-center justify-center">
+        <Spinner size="xl" />
       </div>
     )
   }
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-2">
+    <div className="grid min-h-svh w-full md:grid-cols-2">
       {/* Left Panel - Login Form */}
       <div className="relative flex flex-col gap-4 p-6 md:p-10">
         {/* Header with Logo */}
@@ -57,8 +57,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Right Panel - Image Slideshow */}
-      <div className="relative hidden bg-muted lg:block">
+      {/* Right Panel - Image Slideshow (hidden on mobile, visible from md:768px+) */}
+      <div className="relative hidden bg-muted md:block min-h-svh">
         <LoginImageSlideshow />
       </div>
     </div>

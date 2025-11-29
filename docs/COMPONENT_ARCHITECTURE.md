@@ -36,6 +36,42 @@ Current components in `src/components/ui/`:
 - **Badge** - Status indicators and tags
 - **Alert** - Notifications and messages
 - **Avatar** - User profile images
+- **Spinner** - Loading indicator (uses FossSpinner)
+
+### Custom Components
+
+#### FossSpinner
+
+Custom branded loading spinner featuring the Foss "F" logo with an animated yellow dot tracing its outline.
+
+**Location**: `src/components/foss-spinner.tsx`
+
+**Usage**:
+```tsx
+// Direct usage
+import { FossSpinner, FossSpinnerInline } from '@/components/foss-spinner'
+
+<FossSpinner size={64} />                    // Custom size in pixels
+<FossSpinner variant="dark" />               // White F for dark backgrounds
+<FossSpinnerInline />                        // Small inline spinner (20px)
+
+// Via Spinner wrapper (recommended)
+import { Spinner } from '@/components/ui/spinner'
+
+<Spinner size="lg" />                        // sm=20, md=32, lg=48, xl=64
+<Spinner size="lg" variant="dark" />         // For dark backgrounds
+```
+
+**Props**:
+- `size`: Number (pixels) or "sm" | "md" | "lg" | "xl" via Spinner wrapper
+- `variant`: "auto" (default, respects dark mode) | "light" (black F) | "dark" (white F)
+- `className`: Additional CSS classes
+
+**Design Guidelines**:
+- Always center spinners in the main content area, not in sidebars
+- Use `variant="dark"` on dark backgrounds (e.g., `bg-black`)
+- Use `variant="auto"` (default) when the spinner should respond to system dark mode
+- Standard placement: `<div className="flex items-center justify-center flex-1">`
 
 ### Popular Components to Add
 
