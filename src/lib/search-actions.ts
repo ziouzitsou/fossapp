@@ -4,10 +4,11 @@ import { supabaseServer } from './supabase-server'
 import type { SearchFilters, SearchProduct, TaxonomyNode, FilterFacet, DynamicFacet, FilterDefinition } from '@/types/search'
 
 /**
- * Search products with advanced filters
- * Uses search.search_products_with_filters function
+ * Advanced search with dynamic filters (filter sidebar, facets, etc.)
+ * Used by: /products page with filter sidebar
+ * For basic text search, use searchProductsBasicAction from actions.ts
  */
-export async function searchProductsAction(filters: SearchFilters) {
+export async function searchProductsWithFiltersAction(filters: SearchFilters) {
   try {
     const { data, error } = await supabaseServer
       .schema('search')

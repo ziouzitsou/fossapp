@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
-import { searchProductsAction } from '@/lib/actions'
+import { searchProductsBasicAction } from '@/lib/actions'
 
 export async function GET(request: NextRequest) {
   // ✅ Require authentication
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const userId = session.user.email
-    const results = await searchProductsAction(query, userId)
+    const results = await searchProductsBasicAction(query, userId)
     return NextResponse.json({ data: results })
   } catch (error) {
     // Sanitized error logging

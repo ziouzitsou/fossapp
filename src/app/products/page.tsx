@@ -10,7 +10,7 @@ import {
   type ProductByTaxonomy,
   type ProductByTaxonomyResult
 } from '@/lib/actions'
-import { searchProductsAction, countProductsAction } from '@/lib/search-actions'
+import { searchProductsWithFiltersAction, countProductsAction } from '@/lib/search-actions'
 import { CategoryLevel1 } from '@/components/products/CategoryLevel1'
 import { InfoTooltip } from '@/components/products/InfoTooltip'
 import { FilterPanel, type FilterValues } from '@/components/filters/FilterPanel'
@@ -133,7 +133,7 @@ function ProductsPageContent() {
 
       setLoading(true)
       try {
-        // Use searchProductsAction when dynamic filters are active
+        // Use searchProductsWithFiltersAction when dynamic filters are active
         if (hasDynamicFilters) {
           // First get the count
           const total = await countProductsAction({
@@ -161,12 +161,12 @@ function ProductsPageContent() {
               ...(filterValues.dimmable?.length ? { dimmable: filterValues.dimmable } : {}),
               ...(filterValues.class?.length ? { class: filterValues.class } : {})
             },
-            page: currentPage - 1, // searchProductsAction uses 0-based page
+            page: currentPage - 1, // searchProductsWithFiltersAction uses 0-based page
             limit: pageSize
           })
 
           // Then get products
-          const { products } = await searchProductsAction({
+          const { products } = await searchProductsWithFiltersAction({
             categories: [currentCategory],
             suppliers: filterValues.supplier ? [filterValues.supplier.toString()] : undefined,
             indoor: filterValues.indoor ?? null,
