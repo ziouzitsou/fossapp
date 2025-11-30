@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FeatureGroupsDisplay } from '../features/FeatureGroupsDisplay';
 import { MediaGallery } from '../media/MediaGallery';
+import { MarkdownDescription } from '@/components/ui/markdown-description';
 
 interface GenericLayoutProps {
   product: ProductInfo;
@@ -47,9 +48,7 @@ export function GenericLayout({ product }: GenericLayoutProps) {
           <Card>
             <CardContent className="p-6">
               <h3 className="text-lg font-bold mb-2">Description</h3>
-              <p className="text-sm text-muted-foreground">
-                {product.description_long}
-              </p>
+              <MarkdownDescription content={product.description_long} />
             </CardContent>
           </Card>
         )}

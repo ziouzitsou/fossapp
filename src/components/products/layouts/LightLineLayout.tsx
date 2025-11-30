@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { FaLink } from 'react-icons/fa';
 import { FeatureGroupsDisplay } from '../features/FeatureGroupsDisplay';
 import { MediaGallery } from '../media/MediaGallery';
+import { MarkdownDescription } from '@/components/ui/markdown-description';
 
 interface LightLineLayoutProps {
   product: ProductInfo;
@@ -37,9 +38,7 @@ export function LightLineLayout({ product }: LightLineLayoutProps) {
           <Card>
             <CardContent className="p-6">
               <h3 className="text-lg font-bold mb-2">Description</h3>
-              <p className="text-sm text-muted-foreground whitespace-pre-line">
-                {product.description_long}
-              </p>
+              <MarkdownDescription content={product.description_long} />
             </CardContent>
           </Card>
         )}
