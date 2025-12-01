@@ -71,6 +71,9 @@ export type { ProductSearchResult } from '@/types/product'
 export {
   listProjectsAction,
   getProjectByIdAction,
+  createProjectAction,
+  updateProjectAction,
+  deleteProjectAction,
   type ProjectListItem,
   type ProjectProduct,
   type ProjectContact,
@@ -79,6 +82,9 @@ export {
   type ProjectDetail,
   type ProjectListParams,
   type ProjectListResult,
+  type CreateProjectInput,
+  type UpdateProjectInput,
+  type ActionResult,
 } from './projects'
 
 // ============================================================================

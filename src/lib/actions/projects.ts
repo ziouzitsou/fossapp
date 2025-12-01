@@ -271,6 +271,249 @@ export async function listProjectsAction(params: ProjectListParams = {}): Promis
 }
 
 // ============================================================================
+// CREATE PROJECT INPUT
+// ============================================================================
+
+export interface CreateProjectInput {
+  project_code: string
+  name: string
+  name_en?: string
+  description?: string
+  customer_id?: string
+  street_address?: string
+  postal_code?: string
+  city?: string
+  region?: string
+  prefecture?: string
+  country?: string
+  project_type?: string
+  project_category?: string
+  building_area_sqm?: number
+  estimated_budget?: number
+  currency?: string
+  status?: string
+  priority?: string
+  start_date?: string
+  expected_completion_date?: string
+  project_manager?: string
+  architect_firm?: string
+  electrical_engineer?: string
+  lighting_designer?: string
+  notes?: string
+  tags?: string[]
+}
+
+export interface UpdateProjectInput extends Partial<CreateProjectInput> {
+  actual_completion_date?: string
+}
+
+export interface ActionResult<T = void> {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+// ============================================================================
+// CREATE PROJECT
+// ============================================================================
+
+export async function createProjectAction(
+  input: CreateProjectInput
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    // Validate required fields
+    if (!input.project_code?.trim()) {
+      return { success: false, error: 'Project code is required' }
+    }
+    if (!input.name?.trim()) {
+      return { success: false, error: 'Project name is required' }
+    }
+
+    const { data, error } = await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .insert({
+        project_code: input.project_code.trim(),
+        name: input.name.trim(),
+        name_en: input.name_en?.trim() || null,
+        description: input.description?.trim() || null,
+        customer_id: input.customer_id || null,
+        street_address: input.street_address?.trim() || null,
+        postal_code: input.postal_code?.trim() || null,
+        city: input.city?.trim() || null,
+        region: input.region?.trim() || null,
+        prefecture: input.prefecture?.trim() || null,
+        country: input.country?.trim() || 'Greece',
+        project_type: input.project_type || null,
+        project_category: input.project_category || null,
+        building_area_sqm: input.building_area_sqm || null,
+        estimated_budget: input.estimated_budget || null,
+        currency: input.currency || 'EUR',
+        status: input.status || 'draft',
+        priority: input.priority || 'medium',
+        start_date: input.start_date || null,
+        expected_completion_date: input.expected_completion_date || null,
+        project_manager: input.project_manager?.trim() || null,
+        architect_firm: input.architect_firm?.trim() || null,
+        electrical_engineer: input.electrical_engineer?.trim() || null,
+        lighting_designer: input.lighting_designer?.trim() || null,
+        notes: input.notes?.trim() || null,
+        tags: input.tags || null,
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      console.error('Create project error:', error)
+      if (error.code === '23505') {
+        return { success: false, error: 'A project with this code already exists' }
+      }
+      return { success: false, error: 'Failed to create project' }
+    }
+
+    return { success: true, data: { id: data.id } }
+  } catch (error) {
+    console.error('Create project error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// ============================================================================
+// UPDATE PROJECT
+// ============================================================================
+
+export async function updateProjectAction(
+  projectId: string,
+  input: UpdateProjectInput
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const sanitizedProjectId = validateProjectId(projectId)
+
+    // Build update object, only including non-undefined values
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    }
+
+    if (input.project_code !== undefined) {
+      if (!input.project_code.trim()) {
+        return { success: false, error: 'Project code cannot be empty' }
+      }
+      updateData.project_code = input.project_code.trim()
+    }
+    if (input.name !== undefined) {
+      if (!input.name.trim()) {
+        return { success: false, error: 'Project name cannot be empty' }
+      }
+      updateData.name = input.name.trim()
+    }
+    if (input.name_en !== undefined) updateData.name_en = input.name_en?.trim() || null
+    if (input.description !== undefined) updateData.description = input.description?.trim() || null
+    if (input.customer_id !== undefined) updateData.customer_id = input.customer_id || null
+    if (input.street_address !== undefined) updateData.street_address = input.street_address?.trim() || null
+    if (input.postal_code !== undefined) updateData.postal_code = input.postal_code?.trim() || null
+    if (input.city !== undefined) updateData.city = input.city?.trim() || null
+    if (input.region !== undefined) updateData.region = input.region?.trim() || null
+    if (input.prefecture !== undefined) updateData.prefecture = input.prefecture?.trim() || null
+    if (input.country !== undefined) updateData.country = input.country?.trim() || null
+    if (input.project_type !== undefined) updateData.project_type = input.project_type || null
+    if (input.project_category !== undefined) updateData.project_category = input.project_category || null
+    if (input.building_area_sqm !== undefined) updateData.building_area_sqm = input.building_area_sqm || null
+    if (input.estimated_budget !== undefined) updateData.estimated_budget = input.estimated_budget || null
+    if (input.currency !== undefined) updateData.currency = input.currency || 'EUR'
+    if (input.status !== undefined) updateData.status = input.status || 'draft'
+    if (input.priority !== undefined) updateData.priority = input.priority || 'medium'
+    if (input.start_date !== undefined) updateData.start_date = input.start_date || null
+    if (input.expected_completion_date !== undefined) updateData.expected_completion_date = input.expected_completion_date || null
+    if (input.actual_completion_date !== undefined) updateData.actual_completion_date = input.actual_completion_date || null
+    if (input.project_manager !== undefined) updateData.project_manager = input.project_manager?.trim() || null
+    if (input.architect_firm !== undefined) updateData.architect_firm = input.architect_firm?.trim() || null
+    if (input.electrical_engineer !== undefined) updateData.electrical_engineer = input.electrical_engineer?.trim() || null
+    if (input.lighting_designer !== undefined) updateData.lighting_designer = input.lighting_designer?.trim() || null
+    if (input.notes !== undefined) updateData.notes = input.notes?.trim() || null
+    if (input.tags !== undefined) updateData.tags = input.tags || null
+
+    const { data, error } = await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .update(updateData)
+      .eq('id', sanitizedProjectId)
+      .select('id')
+      .single()
+
+    if (error) {
+      console.error('Update project error:', error)
+      if (error.code === '23505') {
+        return { success: false, error: 'A project with this code already exists' }
+      }
+      return { success: false, error: 'Failed to update project' }
+    }
+
+    return { success: true, data: { id: data.id } }
+  } catch (error) {
+    console.error('Update project error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// ============================================================================
+// DELETE PROJECT
+// ============================================================================
+
+export async function deleteProjectAction(
+  projectId: string
+): Promise<ActionResult> {
+  try {
+    const sanitizedProjectId = validateProjectId(projectId)
+
+    // Delete related records first (due to foreign key constraints)
+    // Delete project products
+    await supabaseServer
+      .schema('projects')
+      .from('project_products')
+      .delete()
+      .eq('project_id', sanitizedProjectId)
+
+    // Delete project contacts
+    await supabaseServer
+      .schema('projects')
+      .from('project_contacts')
+      .delete()
+      .eq('project_id', sanitizedProjectId)
+
+    // Delete project documents
+    await supabaseServer
+      .schema('projects')
+      .from('project_documents')
+      .delete()
+      .eq('project_id', sanitizedProjectId)
+
+    // Delete project phases
+    await supabaseServer
+      .schema('projects')
+      .from('project_phases')
+      .delete()
+      .eq('project_id', sanitizedProjectId)
+
+    // Delete the project
+    const { error } = await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .delete()
+      .eq('id', sanitizedProjectId)
+
+    if (error) {
+      console.error('Delete project error:', error)
+      return { success: false, error: 'Failed to delete project' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Delete project error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// ============================================================================
 // GET PROJECT BY ID
 // ============================================================================
 
