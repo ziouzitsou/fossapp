@@ -15,17 +15,18 @@ const VERSION_STORAGE_KEY = 'fossapp_last_seen_version'
 
 // Latest version content - update this when releasing new versions
 const LATEST_CHANGES = {
-  version: '1.5.0',
-  date: 'November 24, 2025',
-  title: 'Smoother & Faster',
-  description: "We've been polishing things up to make your experience better.",
+  version: '1.6.0',
+  date: 'December 1, 2025',
+  title: 'Project Management',
+  description: 'Full project management capabilities are now available. Create, edit, and organize your lighting projects all in one place.',
   features: [
-    'Faster product searches - results load quicker than before',
-    'Improved product display - cleaner layout for easier browsing',
-    'UI refinements throughout the app',
-    'Various bug fixes for a smoother experience',
+    'Create new projects with detailed information (budget, dates, team, location)',
+    'Edit existing projects with a convenient slide-out form',
+    'Delete projects with confirmation and cascade cleanup',
+    'Quick actions menu on project list for faster navigation',
+    'Customer links - click customer names to view their details',
   ],
-  tagline: 'Small improvements that add up to a better workflow.',
+  tagline: 'Manage your lighting projects from start to finish.',
 }
 
 export function WhatsNewDialog() {

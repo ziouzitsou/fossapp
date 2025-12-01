@@ -4,6 +4,22 @@ Hey there! Here's what we've been working on to make your lighting design work e
 
 ---
 
+## Version 1.6.0 - December 1, 2025 🛠️
+
+### Full Project Management
+
+**Create, edit, and manage your lighting projects!** No more view-only - you're now in control.
+
+- **Create new projects** with a convenient slide-out form
+- **Edit anything** - budget, dates, team members, location
+- **Delete projects** safely with confirmation and automatic cleanup
+- **Quick actions menu** on the project list for faster workflows
+- **Clickable customer names** - jump to customer details with one click
+
+*Manage your lighting projects from start to finish.*
+
+---
+
 ## Version 1.5.0 - November 24, 2025 🚀
 
 ### Smoother & Faster
