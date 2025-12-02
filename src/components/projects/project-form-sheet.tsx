@@ -69,10 +69,6 @@ const PROJECT_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
-// Currency options - EUR only for Greek market
-const CURRENCIES = [
-  { value: 'EUR', label: 'EUR (€)' },
-]
 
 interface ProjectFormSheetProps {
   open: boolean
@@ -418,37 +414,25 @@ export function ProjectFormSheet({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="estimated_budget">Budget</Label>
-                    <Input
-                      id="estimated_budget"
-                      name="estimated_budget"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.estimated_budget ?? ''}
-                      onChange={handleNumberChange}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="currency">Currency</Label>
-                    <Select
-                      value={formData.currency}
-                      onValueChange={(v) => handleSelectChange('currency', v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Currency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CURRENCIES.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>
-                            {c.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        €
+                      </span>
+                      <Input
+                        id="estimated_budget"
+                        name="estimated_budget"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.estimated_budget ?? ''}
+                        onChange={handleNumberChange}
+                        placeholder="0.00"
+                        className="pl-7"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="building_area_sqm">Area (m²)</Label>
