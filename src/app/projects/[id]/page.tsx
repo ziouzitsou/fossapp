@@ -14,6 +14,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ProjectFormSheet, DeleteProjectDialog, ProjectVersionsCard } from '@/components/projects'
+import { ArrowLeft } from 'lucide-react'
 
 interface ProjectPageProps {
   params: Promise<{ id: string }>
@@ -122,13 +123,15 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       <div className="p-6">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Link href="/projects" className="text-sm text-muted-foreground hover:text-foreground">
-              Projects
-            </Link>
-            <span className="text-muted-foreground">/</span>
-            <span className="text-sm font-medium">{project.project_code}</span>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/projects')}
+            className="flex items-center gap-2 mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Projects
+          </Button>
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold">{project.name}</h1>
