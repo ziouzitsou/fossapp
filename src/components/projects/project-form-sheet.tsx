@@ -69,11 +69,9 @@ const PROJECT_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
-// Currency options
+// Currency options - EUR only for Greek market
 const CURRENCIES = [
   { value: 'EUR', label: 'EUR (€)' },
-  { value: 'USD', label: 'USD ($)' },
-  { value: 'GBP', label: 'GBP (£)' },
 ]
 
 interface ProjectFormSheetProps {
