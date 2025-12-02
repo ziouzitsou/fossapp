@@ -27,11 +27,13 @@ import {
   updateProjectAction,
   type CreateProjectInput,
   type ProjectDetail,
+  type CustomerSearchResult,
 } from '@/lib/actions'
 import {
   createProjectWithDriveAction,
   type CreateProjectWithDriveInput,
 } from '@/lib/actions/project-drive'
+import { CustomerCombobox } from '@/components/customer-combobox'
 
 // Project status options
 const PROJECT_STATUSES = [
@@ -200,12 +202,23 @@ export function ProjectFormSheet({
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handleCustomerChange = (customerId: string | null, customer: CustomerSearchResult | null) => {
+    setFormData((prev) => ({ ...prev, customer_id: customerId || undefined }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
     setError(null)
 
     try {
+      // Validate customer is selected
+      if (!formData.customer_id) {
+        setError('Please select a customer')
+        setIsSubmitting(false)
+        return
+      }
+
       if (isEditing && project) {
         // Editing existing project - use standard update
         const result = await updateProjectAction(project.id, formData)
@@ -338,6 +351,22 @@ export function ProjectFormSheet({
                     placeholder="Enter project name"
                     required
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Customer *</Label>
+                  <CustomerCombobox
+                    value={formData.customer_id}
+                    onValueChange={handleCustomerChange}
+                    placeholder="Search and select customer..."
+                    initialCustomer={project ? {
+                      id: project.customer_id || '',
+                      name: project.customer_name || ''
+                    } : null}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Type at least 2 characters to search
+                  </p>
                 </div>
 
                 <div className="space-y-2">
