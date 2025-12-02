@@ -46,6 +46,9 @@ audits/*.log
 # env files (can opt-in for committing if needed)
 .env*
 
+# Google service account credentials (NEVER commit)
+/credentials/
+
 # MCP configuration with secrets
 .mcp.json
 
