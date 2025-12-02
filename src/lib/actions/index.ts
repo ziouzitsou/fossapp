@@ -74,7 +74,13 @@ export {
   createProjectAction,
   updateProjectAction,
   deleteProjectAction,
+  generateProjectCodeAction,
+  getProjectVersionsAction,
+  createProjectVersionAction,
+  updateProjectDriveFolderAction,
+  archiveProjectAction,
   type ProjectListItem,
+  type ProjectVersion,
   type ProjectProduct,
   type ProjectContact,
   type ProjectDocument,
@@ -84,6 +90,7 @@ export {
   type ProjectListResult,
   type CreateProjectInput,
   type UpdateProjectInput,
+  type CreateVersionInput,
   type ActionResult,
 } from './projects'
 

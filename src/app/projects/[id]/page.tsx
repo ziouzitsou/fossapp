@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ProjectFormSheet, DeleteProjectDialog } from '@/components/projects'
+import { ProjectFormSheet, DeleteProjectDialog, ProjectVersionsCard } from '@/components/projects'
 
 interface ProjectPageProps {
   params: Promise<{ id: string }>
@@ -156,6 +156,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="versions">
+              Files & Versions
+              {project.versions.length > 0 && ` (${project.versions.length})`}
+            </TabsTrigger>
             <TabsTrigger value="products">Products ({project.products.length})</TabsTrigger>
             <TabsTrigger value="contacts">Contacts ({project.contacts.length})</TabsTrigger>
             <TabsTrigger value="documents">Documents ({project.documents.length})</TabsTrigger>
@@ -316,6 +320,19 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Files & Versions Tab */}
+          <TabsContent value="versions">
+            <ProjectVersionsCard
+              projectId={project.id}
+              projectCode={project.project_code}
+              currentVersion={project.current_version}
+              versions={project.versions}
+              googleDriveFolderId={project.google_drive_folder_id}
+              isArchived={project.is_archived}
+              onVersionChange={loadProject}
+            />
           </TabsContent>
 
           {/* Products Tab */}
