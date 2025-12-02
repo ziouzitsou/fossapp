@@ -15,18 +15,18 @@ const VERSION_STORAGE_KEY = 'fossapp_last_seen_version'
 
 // Latest version content - update this when releasing new versions
 const LATEST_CHANGES = {
-  version: '1.6.0',
-  date: 'December 1, 2025',
-  title: 'Project Management',
-  description: 'Full project management capabilities are now available. Create, edit, and organize your lighting projects all in one place.',
+  version: '1.7.0',
+  date: 'December 2, 2025',
+  title: 'Google Drive Integration',
+  description: 'Projects now integrate with Google Drive. Create a project and get an organized folder structure in HUB Shared Drive automatically.',
   features: [
-    'Create new projects with detailed information (budget, dates, team, location)',
-    'Edit existing projects with a convenient slide-out form',
-    'Delete projects with confirmation and cascade cleanup',
-    'Quick actions menu on project list for faster navigation',
-    'Customer links - click customer names to view their details',
+    'Auto-generated project codes (YYMM-NNN format)',
+    'Automatic Google Drive folder creation with standard structure',
+    'Project version management - create snapshots of your project files',
+    'Customer selector - link projects to your customers',
+    'Files & Versions tab to manage project documents',
   ],
-  tagline: 'Manage your lighting projects from start to finish.',
+  tagline: 'Your project files, organized automatically.',
 }
 
 export function WhatsNewDialog() {

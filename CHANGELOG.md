@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2025-12-02
+
+### Added
+- **Google Drive Integration for Projects**
+  - Auto-generated project codes in YYMM-NNN format (e.g., 2512-001)
+  - Automatic Google Drive folder creation in HUB Shared Drive when projects are created
+  - Standard folder structure: Documentation, Images, Technical, Correspondence
+  - Project version management (v1, v2, etc.) with full folder copies
+  - Files & Versions tab on project detail page
+  - Archive projects with automatic Drive folder management
+  - View Drive folder links directly from project detail page
+- **Customer Selector** - Required field in project form with searchable dropdown
+  - Debounced search (300ms) for performance
+  - Shows customer name, code, city, and email in results
+- **Back to Projects Button** - Arrow navigation on project detail page
+- New components:
+  - `CustomerCombobox` - Searchable customer dropdown
+  - `ProjectVersionsCard` - Version management UI with Drive links
+- New server actions:
+  - `createProjectWithDriveAction()` - Creates project + Drive folder atomically
+  - `createProjectVersionWithDriveAction()` - Creates new version with folder copy
+  - `archiveProjectWithDriveAction()` - Archives project and moves Drive folder
+  - `deleteProjectVersionWithDriveAction()` - Removes version and Drive folder
+- New service: `GoogleDriveProjectService` for Drive API operations
+- Documentation: `docs/PROJECT_MANAGEMENT/` with full implementation guides
+
+### Changed
+- Project form now requires customer selection
+- Project codes are auto-generated (no manual entry)
+- Currency simplified to EUR only (Greek market)
+- Budget field shows inline € symbol instead of currency dropdown
+- Standardized page padding to `p-6` across all main pages
+
+### Fixed
+- Inconsistent padding across Dashboard, Products, Projects, and Customers pages
+- Currency dropdown removed (was single EUR option)
+
+## [1.6.0] - 2025-12-01
+
+### Added
+- **Project Management System** - Full CRUD for lighting design projects
+  - Create, edit, delete projects with detailed information
+  - Project status tracking (Draft, Quotation, Approved, In Progress, Completed, etc.)
+  - Priority levels (Low, Medium, High, Urgent)
+  - Budget and timeline management
+  - Team member assignments (PM, Architect, Electrical Engineer, Lighting Designer)
+  - Location details with Greek address fields
+- Projects list page with pagination and quick actions
+- Project detail page with tabbed interface (Overview, Products, Contacts, Documents, Timeline)
+- Database schema: `projects.projects` table with comprehensive fields
+- Delete confirmation dialogs with project name verification
+
 ## [1.5.0] - 2025-11-24
 
 ### Added
