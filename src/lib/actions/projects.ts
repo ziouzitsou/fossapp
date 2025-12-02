@@ -23,6 +23,20 @@ export interface ProjectListItem {
   start_date?: string
   expected_completion_date?: string
   created_at: string
+  // Google Drive integration fields
+  google_drive_folder_id?: string
+  current_version: number
+  is_archived: boolean
+}
+
+export interface ProjectVersion {
+  id: string
+  project_id: string
+  version_number: number
+  google_drive_folder_id?: string
+  created_at: string
+  created_by?: string
+  notes?: string
 }
 
 export interface ProjectProduct {
@@ -117,10 +131,16 @@ export interface ProjectDetail {
   created_at: string
   updated_at: string
   created_by?: string
+  // Google Drive integration fields
+  google_drive_folder_id?: string
+  current_version: number
+  is_archived: boolean
+  // Related data
   products: ProjectProduct[]
   contacts: ProjectContact[]
   documents: ProjectDocument[]
   phases: ProjectPhase[]
+  versions: ProjectVersion[]
 }
 
 export interface ProjectListParams {
@@ -190,7 +210,10 @@ export async function listProjectsAction(params: ProjectListParams = {}): Promis
         start_date,
         expected_completion_date,
         created_at,
-        customer_id
+        customer_id,
+        google_drive_folder_id,
+        current_version,
+        is_archived
       `)
       .order(sortBy, { ascending: sortOrder === 'asc' })
       .range(from, to)
@@ -247,7 +270,10 @@ export async function listProjectsAction(params: ProjectListParams = {}): Promis
         currency: project.currency,
         start_date: project.start_date,
         expected_completion_date: project.expected_completion_date,
-        created_at: project.created_at
+        created_at: project.created_at,
+        google_drive_folder_id: project.google_drive_folder_id,
+        current_version: project.current_version ?? 1,
+        is_archived: project.is_archived ?? false
       }
     })
 
@@ -641,6 +667,18 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
       console.error('Get project phases error:', phasesError)
     }
 
+    // Get versions
+    const { data: versions, error: versionsError } = await supabaseServer
+      .schema('projects')
+      .from('project_versions')
+      .select('*')
+      .eq('project_id', sanitizedProjectId)
+      .order('version_number', { ascending: false })
+
+    if (versionsError) {
+      console.error('Get project versions error:', versionsError)
+    }
+
     return {
       id: project.id,
       project_code: project.project_code,
@@ -679,13 +717,187 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
       created_at: project.created_at,
       updated_at: project.updated_at,
       created_by: project.created_by,
+      // Google Drive integration fields
+      google_drive_folder_id: project.google_drive_folder_id,
+      current_version: project.current_version ?? 1,
+      is_archived: project.is_archived ?? false,
+      // Related data
       products: products,
       contacts: contacts || [],
       documents: documents || [],
       phases: phases || [],
+      versions: versions || [],
     }
   } catch (error) {
     console.error('Get project by ID error:', error)
     return null
+  }
+}
+
+// ============================================================================
+// GENERATE PROJECT CODE
+// ============================================================================
+
+/**
+ * Generate the next project code using the database function
+ * Format: YYMM-NNN (e.g., 2512-001)
+ */
+export async function generateProjectCodeAction(): Promise<ActionResult<{ project_code: string }>> {
+  try {
+    const { data, error } = await supabaseServer
+      .schema('projects')
+      .rpc('generate_project_code')
+
+    if (error) {
+      console.error('Generate project code error:', error)
+      return { success: false, error: 'Failed to generate project code' }
+    }
+
+    return { success: true, data: { project_code: data } }
+  } catch (error) {
+    console.error('Generate project code error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// ============================================================================
+// GET PROJECT VERSIONS
+// ============================================================================
+
+export async function getProjectVersionsAction(
+  projectId: string
+): Promise<ActionResult<ProjectVersion[]>> {
+  try {
+    const sanitizedProjectId = validateProjectId(projectId)
+
+    const { data, error } = await supabaseServer
+      .schema('projects')
+      .from('project_versions')
+      .select('*')
+      .eq('project_id', sanitizedProjectId)
+      .order('version_number', { ascending: false })
+
+    if (error) {
+      console.error('Get project versions error:', error)
+      return { success: false, error: 'Failed to get project versions' }
+    }
+
+    return { success: true, data: data || [] }
+  } catch (error) {
+    console.error('Get project versions error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// ============================================================================
+// CREATE PROJECT VERSION
+// ============================================================================
+
+export interface CreateVersionInput {
+  project_id: string
+  version_number: number
+  google_drive_folder_id?: string
+  notes?: string
+  created_by?: string
+}
+
+export async function createProjectVersionAction(
+  input: CreateVersionInput
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const sanitizedProjectId = validateProjectId(input.project_id)
+
+    const { data, error } = await supabaseServer
+      .schema('projects')
+      .from('project_versions')
+      .insert({
+        project_id: sanitizedProjectId,
+        version_number: input.version_number,
+        google_drive_folder_id: input.google_drive_folder_id || null,
+        notes: input.notes?.trim() || null,
+        created_by: input.created_by || null,
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      console.error('Create project version error:', error)
+      return { success: false, error: 'Failed to create project version' }
+    }
+
+    // Update current_version on the project
+    await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .update({ current_version: input.version_number, updated_at: new Date().toISOString() })
+      .eq('id', sanitizedProjectId)
+
+    return { success: true, data: { id: data.id } }
+  } catch (error) {
+    console.error('Create project version error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// ============================================================================
+// UPDATE PROJECT GOOGLE DRIVE FOLDER
+// ============================================================================
+
+export async function updateProjectDriveFolderAction(
+  projectId: string,
+  googleDriveFolderId: string
+): Promise<ActionResult> {
+  try {
+    const sanitizedProjectId = validateProjectId(projectId)
+
+    const { error } = await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .update({
+        google_drive_folder_id: googleDriveFolderId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', sanitizedProjectId)
+
+    if (error) {
+      console.error('Update project drive folder error:', error)
+      return { success: false, error: 'Failed to update project drive folder' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Update project drive folder error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// ============================================================================
+// ARCHIVE PROJECT
+// ============================================================================
+
+export async function archiveProjectAction(
+  projectId: string
+): Promise<ActionResult> {
+  try {
+    const sanitizedProjectId = validateProjectId(projectId)
+
+    const { error } = await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .update({
+        is_archived: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', sanitizedProjectId)
+
+    if (error) {
+      console.error('Archive project error:', error)
+      return { success: false, error: 'Failed to archive project' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Archive project error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
   }
 }

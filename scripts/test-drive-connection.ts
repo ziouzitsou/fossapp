@@ -74,7 +74,7 @@ async function testDriveConnection() {
 
       const filesResponse = await drive.files.list({
         q: `'${hubDrive.id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        driveId: hubDrive.id,
+        driveId: hubDrive.id!,
         includeItemsFromAllDrives: true,
         supportsAllDrives: true,
         corpora: 'drive',
