@@ -119,7 +119,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto py-10">
+      <div className="p-6">
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">

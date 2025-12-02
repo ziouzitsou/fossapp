@@ -146,7 +146,7 @@ export default function ProjectsPage() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="container mx-auto py-10">
+        <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-3xl font-bold">Projects</h1>
