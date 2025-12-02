@@ -24,11 +24,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Spinner } from '@/components/ui/spinner'
 import {
-  createProjectAction,
   updateProjectAction,
   type CreateProjectInput,
   type ProjectDetail,
 } from '@/lib/actions'
+import {
+  createProjectWithDriveAction,
+  type CreateProjectWithDriveInput,
+} from '@/lib/actions/project-drive'
 
 // Project status options
 const PROJECT_STATUSES = [
@@ -203,22 +206,56 @@ export function ProjectFormSheet({
     setError(null)
 
     try {
-      let result
       if (isEditing && project) {
-        result = await updateProjectAction(project.id, formData)
-      } else {
-        result = await createProjectAction(formData)
-      }
-
-      if (result.success) {
-        onOpenChange(false)
-        if (onSuccess && result.data?.id) {
-          onSuccess(result.data.id)
-        } else if (onSuccess && project) {
-          onSuccess(project.id)
+        // Editing existing project - use standard update
+        const result = await updateProjectAction(project.id, formData)
+        if (result.success) {
+          onOpenChange(false)
+          if (onSuccess) {
+            onSuccess(project.id)
+          }
+        } else {
+          setError(result.error || 'An error occurred')
         }
       } else {
-        setError(result.error || 'An error occurred')
+        // Creating new project with auto-generated code and Drive folder
+        const createInput: CreateProjectWithDriveInput = {
+          name: formData.name,
+          name_en: formData.name_en,
+          description: formData.description,
+          customer_id: formData.customer_id,
+          street_address: formData.street_address,
+          postal_code: formData.postal_code,
+          city: formData.city,
+          region: formData.region,
+          prefecture: formData.prefecture,
+          country: formData.country,
+          project_type: formData.project_type,
+          project_category: formData.project_category,
+          building_area_sqm: formData.building_area_sqm,
+          estimated_budget: formData.estimated_budget,
+          currency: formData.currency,
+          status: formData.status,
+          priority: formData.priority,
+          start_date: formData.start_date,
+          expected_completion_date: formData.expected_completion_date,
+          project_manager: formData.project_manager,
+          architect_firm: formData.architect_firm,
+          electrical_engineer: formData.electrical_engineer,
+          lighting_designer: formData.lighting_designer,
+          notes: formData.notes,
+          tags: formData.tags,
+        }
+
+        const result = await createProjectWithDriveAction(createInput)
+        if (result.success && result.data) {
+          onOpenChange(false)
+          if (onSuccess) {
+            onSuccess(result.data.id)
+          }
+        } else {
+          setError(result.error || 'An error occurred')
+        }
       }
     } catch (err) {
       console.error('Submit error:', err)
@@ -256,15 +293,20 @@ export function ProjectFormSheet({
               <TabsContent value="basic" className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="project_code">Project Code *</Label>
-                    <Input
-                      id="project_code"
-                      name="project_code"
-                      value={formData.project_code}
-                      onChange={handleInputChange}
-                      placeholder="e.g., PRJ-2024-001"
-                      required
-                    />
+                    <Label htmlFor="project_code">Project Code</Label>
+                    {isEditing ? (
+                      <Input
+                        id="project_code"
+                        name="project_code"
+                        value={formData.project_code}
+                        disabled
+                        className="bg-muted"
+                      />
+                    ) : (
+                      <div className="flex items-center h-10 px-3 rounded-md border border-input bg-muted text-muted-foreground text-sm">
+                        Auto-generated (YYMM-NNN)
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
@@ -585,7 +627,7 @@ export function ProjectFormSheet({
               {isSubmitting ? (
                 <>
                   <Spinner size="sm" className="mr-2" />
-                  {isEditing ? 'Saving...' : 'Creating...'}
+                  {isEditing ? 'Saving...' : 'Creating project & Drive folder...'}
                 </>
               ) : isEditing ? (
                 'Save Changes'

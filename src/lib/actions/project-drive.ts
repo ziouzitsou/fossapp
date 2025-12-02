@@ -451,7 +451,7 @@ export async function deleteProjectVersionWithDriveAction(
 /**
  * Get the Google Drive web link for a project or version folder
  */
-export function getProjectDriveLink(folderId: string): string {
+export async function getProjectDriveLinkAction(folderId: string): Promise<string> {
   return `https://drive.google.com/drive/folders/${folderId}`
 }
 
