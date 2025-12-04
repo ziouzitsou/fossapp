@@ -79,6 +79,9 @@ export {
   createProjectVersionAction,
   updateProjectDriveFolderAction,
   archiveProjectAction,
+  addProductToProjectAction,
+  updateProjectProductQuantityAction,
+  removeProductFromProjectAction,
   type ProjectListItem,
   type ProjectVersion,
   type ProjectProduct,
@@ -91,6 +94,7 @@ export {
   type CreateProjectInput,
   type UpdateProjectInput,
   type CreateVersionInput,
+  type AddProductToProjectInput,
   type ActionResult,
 } from './projects'
 

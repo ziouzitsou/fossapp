@@ -27,10 +27,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ProjectFormSheet, DeleteProjectDialog } from '@/components/projects'
+import { useActiveProject } from '@/lib/active-project-context'
+import { FaCheck } from 'react-icons/fa'
 
 export default function ProjectsPage() {
   const router = useRouter()
   const { data: session, status } = useDevSession()
+  const { activeProject, setActiveProject, isActive } = useActiveProject()
   const [projectList, setProjectList] = useState<ProjectListResult | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
@@ -39,6 +42,21 @@ export default function ProjectsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<ProjectListItem | null>(null)
+
+  const handleActivateClick = (project: ProjectListItem, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isActive(project.id)) {
+      // Deactivate if already active
+      setActiveProject(null)
+    } else {
+      // Activate this project
+      setActiveProject({
+        id: project.id,
+        project_code: project.project_code,
+        name: project.name,
+      })
+    }
+  }
 
   const loadProjects = useCallback(async () => {
     setIsLoading(true)
@@ -174,6 +192,7 @@ export default function ProjectsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[70px] text-center">Active</TableHead>
                       <TableHead>Project Code</TableHead>
                       <TableHead>Project Name</TableHead>
                       <TableHead>Type</TableHead>
@@ -189,9 +208,24 @@ export default function ProjectsPage() {
                     {projectList.projects.map((project) => (
                       <TableRow
                         key={project.id}
-                        className="cursor-pointer hover:bg-accent"
+                        className={`cursor-pointer hover:bg-accent ${isActive(project.id) ? 'bg-primary/5' : ''}`}
                         onClick={() => router.push(`/projects/${project.id}`)}
                       >
+                        <TableCell className="text-center">
+                          <Button
+                            variant={isActive(project.id) ? 'default' : 'outline'}
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => handleActivateClick(project, e)}
+                            title={isActive(project.id) ? 'Deactivate project' : 'Activate project'}
+                          >
+                            {isActive(project.id) ? (
+                              <FaCheck className="h-4 w-4" />
+                            ) : (
+                              <span className="h-4 w-4 rounded-full border-2 border-current" />
+                            )}
+                          </Button>
+                        </TableCell>
                         <TableCell className="font-medium">{project.project_code}</TableCell>
                         <TableCell>
                           <div className="font-medium">{project.name}</div>

@@ -4,6 +4,39 @@ Hey there! Here's what we've been working on to make your lighting design work e
 
 ---
 
+## Version 1.8.0 - December 4, 2025 📋
+
+### Active Projects & Product Lists
+
+**Add products to projects without leaving your workflow!** Set an active project and build your product list from anywhere.
+
+- **Activate a project** from the Projects page - it stays active while you browse products
+- **Active project badge** in the header shows which project you're working on
+- **Add to Project button** on every product detail page - one click to add
+- **Full pricing** in the Products tab - see unit prices, discounts, and calculated totals
+- **Quantity controls** - adjust quantities with +/- buttons right in the table
+- **Summary row** shows subtotal, discount savings (in red), and grand total
+
+*Build your product lists faster - no more switching back and forth!*
+
+---
+
+## Version 1.7.0 - December 2, 2025 📁
+
+### Google Drive Integration
+
+**Projects now integrate with Google Drive!** Create a project and get an organized folder structure automatically.
+
+- Auto-generated project codes (YYMM-NNN format)
+- Automatic Google Drive folder creation with standard structure
+- Project version management - create snapshots of your project files
+- Customer selector - link projects to your customers
+- Files & Versions tab to manage project documents
+
+*Your project files, organized automatically.*
+
+---
+
 ## Version 1.6.0 - December 1, 2025 🛠️
 
 ### Full Project Management

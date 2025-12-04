@@ -15,18 +15,19 @@ const VERSION_STORAGE_KEY = 'fossapp_last_seen_version'
 
 // Latest version content - update this when releasing new versions
 const LATEST_CHANGES = {
-  version: '1.7.0',
-  date: 'December 2, 2025',
-  title: 'Google Drive Integration',
-  description: 'Projects now integrate with Google Drive. Create a project and get an organized folder structure in HUB Shared Drive automatically.',
+  version: '1.8.0',
+  date: 'December 4, 2025',
+  title: 'Active Projects & Product Lists',
+  description: 'Set an active project and add products directly from product pages. Track quantities, prices, and discounts all in one place.',
   features: [
-    'Auto-generated project codes (YYMM-NNN format)',
-    'Automatic Google Drive folder creation with standard structure',
-    'Project version management - create snapshots of your project files',
-    'Customer selector - link projects to your customers',
-    'Files & Versions tab to manage project documents',
+    'Activate projects from the Projects page - your active project follows you everywhere',
+    'Add products to your active project with one click from any product page',
+    'Active project badge in the header - always know which project you\'re working on',
+    'Full pricing breakdown in Products tab - unit prices, discounts, and totals',
+    'Quantity controls - adjust quantities with +/- buttons directly in the table',
+    'Summary row with subtotal, discount savings, and grand total',
   ],
-  tagline: 'Your project files, organized automatically.',
+  tagline: 'Build your product lists faster than ever.',
 }
 
 export function WhatsNewDialog() {

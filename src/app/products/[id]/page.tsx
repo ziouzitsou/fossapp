@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { FaArrowLeft } from 'react-icons/fa'
+import { FaArrowLeft, FaHeart, FaRegHeart, FaPlus, FaFolder } from 'react-icons/fa'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -17,16 +17,55 @@ import { ProductInfo } from '@/types/product'
 import { getTemplateType } from '@/lib/utils/product-classification'
 import { ProductTypeBadge } from '@/components/products/header/ProductTypeBadge'
 import { ProductLayout } from '@/components/products/layouts/ProductLayout'
+import { useActiveProject } from '@/lib/active-project-context'
+import { addProductToProjectAction } from '@/lib/actions'
 
 export default function ProductDetailPage() {
   const { data: session, status } = useDevSession()
   const router = useRouter()
   const params = useParams()
   const { resolvedTheme } = useTheme()
+  const { activeProject } = useActiveProject()
   const [mounted, setMounted] = useState(false)
   const [product, setProduct] = useState<ProductInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [logoError, setLogoError] = useState(false)
+  const [isFavorite, setIsFavorite] = useState(false)
+  const [isAddingToProject, setIsAddingToProject] = useState(false)
+  const [addedMessage, setAddedMessage] = useState<string | null>(null)
+
+  const handleFavoriteClick = () => {
+    setIsFavorite(!isFavorite)
+    // TODO: Implement favorite persistence
+  }
+
+  const handleAddToProject = async () => {
+    if (!activeProject || !product) return
+
+    setIsAddingToProject(true)
+    setAddedMessage(null)
+
+    try {
+      const result = await addProductToProjectAction({
+        project_id: activeProject.id,
+        product_id: product.product_id,
+      })
+
+      if (result.success) {
+        setAddedMessage(`Added to ${activeProject.project_code}`)
+        setTimeout(() => setAddedMessage(null), 3000)
+      } else {
+        setAddedMessage(result.error || 'Failed to add')
+        setTimeout(() => setAddedMessage(null), 3000)
+      }
+    } catch (error) {
+      console.error('Error adding to project:', error)
+      setAddedMessage('Failed to add')
+      setTimeout(() => setAddedMessage(null), 3000)
+    } finally {
+      setIsAddingToProject(false)
+    }
+  }
 
   useEffect(() => {
     setMounted(true)
@@ -167,6 +206,55 @@ export default function ProductDetailPage() {
                 )}
               </div>
             )}
+
+            {/* Product Actions */}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {/* Favorite Button */}
+              <Button
+                variant={isFavorite ? 'default' : 'outline'}
+                size="sm"
+                onClick={handleFavoriteClick}
+                className="flex items-center gap-2"
+              >
+                {isFavorite ? (
+                  <FaHeart className="h-4 w-4 text-red-500" />
+                ) : (
+                  <FaRegHeart className="h-4 w-4" />
+                )}
+                {isFavorite ? 'Favorited' : 'Favorite'}
+              </Button>
+
+              {/* Add to Project Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddToProject}
+                disabled={!activeProject || isAddingToProject}
+                className="flex items-center gap-2"
+                title={activeProject ? `Add to ${activeProject.name}` : 'No active project - activate one from Projects page'}
+              >
+                {isAddingToProject ? (
+                  <Spinner size="sm" />
+                ) : (
+                  <>
+                    <FaPlus className="h-3 w-3" />
+                    <FaFolder className="h-4 w-4" />
+                  </>
+                )}
+                {activeProject ? (
+                  <span>Add to {activeProject.project_code}</span>
+                ) : (
+                  <span className="text-muted-foreground">No active project</span>
+                )}
+              </Button>
+
+              {/* Success/Error Message */}
+              {addedMessage && (
+                <span className={`text-sm ${addedMessage.includes('Added') ? 'text-green-600' : 'text-red-600'}`}>
+                  {addedMessage}
+                </span>
+              )}
+            </div>
           </div>
 
             {/* Smart Template Layout */}

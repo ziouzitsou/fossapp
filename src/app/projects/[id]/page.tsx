@@ -5,7 +5,12 @@ import { use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
-import { getProjectByIdAction, ProjectDetail } from '@/lib/actions'
+import {
+  getProjectByIdAction,
+  ProjectDetail,
+  updateProjectProductQuantityAction,
+  removeProductFromProjectAction
+} from '@/lib/actions'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -14,7 +19,8 @@ import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ProjectFormSheet, DeleteProjectDialog, ProjectVersionsCard } from '@/components/projects'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Plus, Minus, Trash2 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 
 interface ProjectPageProps {
   params: Promise<{ id: string }>
@@ -30,6 +36,76 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   // Sheet and dialog state
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+
+  // Product quantity update state
+  const [updatingProducts, setUpdatingProducts] = useState<Set<string>>(new Set())
+
+  const handleQuantityChange = async (productId: string, newQuantity: number) => {
+    if (newQuantity < 1) return
+
+    setUpdatingProducts(prev => new Set(prev).add(productId))
+    try {
+      const result = await updateProjectProductQuantityAction(productId, newQuantity)
+      if (result.success) {
+        // Update local state with recalculated total_price
+        setProject(prev => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            products: prev.products.map(p => {
+              if (p.id !== productId) return p
+              // Recalculate total_price
+              let newTotalPrice = p.total_price
+              if (p.unit_price !== undefined && p.unit_price !== null) {
+                const discountAmount = p.unit_price * ((p.discount_percent || 0) / 100)
+                newTotalPrice = (p.unit_price - discountAmount) * newQuantity
+              }
+              return { ...p, quantity: newQuantity, total_price: newTotalPrice }
+            })
+          }
+        })
+      } else {
+        console.error('Failed to update quantity:', result.error)
+      }
+    } catch (error) {
+      console.error('Error updating quantity:', error)
+    } finally {
+      setUpdatingProducts(prev => {
+        const next = new Set(prev)
+        next.delete(productId)
+        return next
+      })
+    }
+  }
+
+  const handleRemoveProduct = async (productId: string) => {
+    if (!confirm('Remove this product from the project?')) return
+
+    setUpdatingProducts(prev => new Set(prev).add(productId))
+    try {
+      const result = await removeProductFromProjectAction(productId)
+      if (result.success) {
+        // Update local state
+        setProject(prev => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            products: prev.products.filter(p => p.id !== productId)
+          }
+        })
+      } else {
+        console.error('Failed to remove product:', result.error)
+      }
+    } catch (error) {
+      console.error('Error removing product:', error)
+    } finally {
+      setUpdatingProducts(prev => {
+        const next = new Set(prev)
+        next.delete(productId)
+        return next
+      })
+    }
+  }
 
   const loadProject = useCallback(async () => {
     setIsLoading(true)
@@ -117,6 +193,18 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   const totalProductsCost = project.products.reduce((sum, p) => sum + (p.total_price || 0), 0)
   const totalProducts = project.products.reduce((sum, p) => sum + p.quantity, 0)
+
+  // Calculate detailed totals for Products tab summary
+  const productsTotals = project.products.reduce((acc, p) => {
+    const lineTotal = (p.unit_price || 0) * p.quantity
+    const discountAmount = lineTotal * ((p.discount_percent || 0) / 100)
+    return {
+      quantity: acc.quantity + p.quantity,
+      subtotal: acc.subtotal + lineTotal,
+      discountTotal: acc.discountTotal + discountAmount,
+      grandTotal: acc.grandTotal + (p.total_price || lineTotal - discountAmount),
+    }
+  }, { quantity: 0, subtotal: 0, discountTotal: 0, grandTotal: 0 })
 
   return (
     <DashboardLayout>
@@ -354,33 +442,96 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                       <TableRow>
                         <TableHead>Product</TableHead>
                         <TableHead>Location</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-center">Qty</TableHead>
                         <TableHead className="text-right">Unit Price</TableHead>
                         <TableHead className="text-right">Discount</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {project.products.map((product) => (
-                        <TableRow key={product.id}>
-                          <TableCell>
-                            <Link
-                              href={`/products/${product.product_id}`}
-                              className="hover:underline"
-                            >
-                              <div className="font-medium">{product.foss_pid}</div>
-                              <div className="text-sm text-muted-foreground">{product.description_short}</div>
-                            </Link>
-                          </TableCell>
-                          <TableCell>{product.room_location || '-'}</TableCell>
-                          <TableCell className="text-right">{product.quantity}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(product.unit_price, project.currency)}</TableCell>
-                          <TableCell className="text-right">{product.discount_percent || 0}%</TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(product.total_price, project.currency)}</TableCell>
-                          <TableCell>{getStatusBadge(product.status)}</TableCell>
-                        </TableRow>
-                      ))}
+                      {project.products.map((product) => {
+                        const isUpdating = updatingProducts.has(product.id)
+                        return (
+                          <TableRow key={product.id} className={isUpdating ? 'opacity-50' : ''}>
+                            <TableCell>
+                              <Link
+                                href={`/products/${product.product_id}`}
+                                className="hover:underline"
+                              >
+                                <div className="font-medium">{product.foss_pid}</div>
+                                <div className="text-sm text-muted-foreground">{product.description_short}</div>
+                              </Link>
+                            </TableCell>
+                            <TableCell>{product.room_location || '-'}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  disabled={isUpdating || product.quantity <= 1}
+                                  onClick={() => handleQuantityChange(product.id, product.quantity - 1)}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={product.quantity}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value, 10)
+                                    if (!isNaN(val) && val >= 1) {
+                                      handleQuantityChange(product.id, val)
+                                    }
+                                  }}
+                                  className="w-14 h-7 text-center px-1"
+                                  disabled={isUpdating}
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  disabled={isUpdating}
+                                  onClick={() => handleQuantityChange(product.id, product.quantity + 1)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(product.unit_price, project.currency)}</TableCell>
+                            <TableCell className="text-right">{product.discount_percent || 0}%</TableCell>
+                            <TableCell className="text-right font-medium">{formatCurrency(product.total_price, project.currency)}</TableCell>
+                            <TableCell>{getStatusBadge(product.status)}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                disabled={isUpdating}
+                                onClick={() => handleRemoveProduct(product.id)}
+                                title="Remove from project"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                      {/* Summary Row */}
+                      <TableRow className="bg-muted/50 font-medium border-t-2">
+                        <TableCell colSpan={2} className="text-right">
+                          Totals ({project.products.length} products)
+                        </TableCell>
+                        <TableCell className="text-center">{productsTotals.quantity}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(productsTotals.subtotal, project.currency)}</TableCell>
+                        <TableCell className="text-right text-destructive">
+                          -{formatCurrency(productsTotals.discountTotal, project.currency)}
+                        </TableCell>
+                        <TableCell className="text-right text-lg">{formatCurrency(productsTotals.grandTotal, project.currency)}</TableCell>
+                        <TableCell colSpan={2}></TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                 )}
