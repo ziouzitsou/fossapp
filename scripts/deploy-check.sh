@@ -35,6 +35,24 @@ run_check() {
   fi
 }
 
+# Check 0: Security - Auth bypass must not be enabled in production
+echo -n "⚙️  Security: Auth bypass disabled in production... "
+if [ -f ".env.production" ]; then
+  if grep -q "NEXT_PUBLIC_BYPASS_AUTH=true" .env.production 2>/dev/null; then
+    echo -e "${RED}✗ FAILED${NC}"
+    echo ""
+    echo "SECURITY ERROR: NEXT_PUBLIC_BYPASS_AUTH=true found in .env.production"
+    echo "This would bypass authentication in production!"
+    echo "Remove or set to 'false' before deploying."
+    echo ""
+    FAILED=1
+  else
+    echo -e "${GREEN}✓ PASSED${NC}"
+  fi
+else
+  echo -e "${GREEN}✓ PASSED${NC} (no .env.production file)"
+fi
+
 # Check 1: TypeScript type checking
 run_check "Type checking" "npm run type-check"
 
