@@ -4,20 +4,20 @@ Hey there! Here's what we've been working on to make your lighting design work e
 
 ---
 
-## Version 1.8.0 - December 4, 2025 📋
+## Version 1.8.0 - December 5, 2025 🎨
 
-### Active Projects & Product Lists
+### Tile Management System
 
-**Add products to projects without leaving your workflow!** Set an active project and build your product list from anywhere.
+**Create AutoCAD DWG tile drawings from product images!** Professional tile layouts with drag-and-drop simplicity.
 
-- **Activate a project** from the Projects page - it stays active while you browse products
-- **Active project badge** in the header shows which project you're working on
-- **Add to Project button** on every product detail page - one click to add
-- **Full pricing** in the Products tab - see unit prices, discounts, and calculated totals
-- **Quantity controls** - adjust quantities with +/- buttons right in the table
-- **Summary row** shows subtotal, discount savings (in red), and grand total
+- **Tile Builder** at /tiles - drag products into groups, arrange tiles visually
+- **AutoCAD DWG generation** - powered by Autodesk APS Design Automation
+- **Google Drive integration** - automatic upload to HUB/RESOURCES/TILES/
+- **Add to Bucket** button on product pages - build your tile collection as you browse
+- **Real-time progress** - watch your DWG being generated with live terminal updates
+- **Professional output** - 300dpi images, proper AutoCAD layers, technical specifications
 
-*Build your product lists faster - no more switching back and forth!*
+*Generate professional AutoCAD tile drawings in seconds, not hours!*
 
 ---
 

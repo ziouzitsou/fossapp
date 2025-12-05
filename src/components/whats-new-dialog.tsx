@@ -16,18 +16,18 @@ const VERSION_STORAGE_KEY = 'fossapp_last_seen_version'
 // Latest version content - update this when releasing new versions
 const LATEST_CHANGES = {
   version: '1.8.0',
-  date: 'December 4, 2025',
-  title: 'Active Projects & Product Lists',
-  description: 'Set an active project and add products directly from product pages. Track quantities, prices, and discounts all in one place.',
+  date: 'December 5, 2025',
+  title: 'Tile Management System',
+  description: 'Create AutoCAD DWG tile drawings directly from product images. Professional tile layouts with automatic Google Drive integration.',
   features: [
-    'Activate projects from the Projects page - your active project follows you everywhere',
-    'Add products to your active project with one click from any product page',
-    'Active project badge in the header - always know which project you\'re working on',
-    'Full pricing breakdown in Products tab - unit prices, discounts, and totals',
-    'Quantity controls - adjust quantities with +/- buttons directly in the table',
-    'Summary row with subtotal, discount savings, and grand total',
+    'Drag-and-drop tile builder - organize products into groups visually',
+    'AutoCAD DWG generation - powered by Autodesk APS Design Automation',
+    'Google Drive integration - automatic upload to HUB/RESOURCES/TILES/',
+    'Product bucket - add products from detail pages with "Add to Bucket" button',
+    'Real-time progress - watch your DWG being generated with live updates',
+    'Professional output - 300dpi images, proper layering, technical specs included',
   ],
-  tagline: 'Build your product lists faster than ever.',
+  tagline: 'Generate AutoCAD tiles from product images in seconds.',
 }
 
 export function WhatsNewDialog() {
