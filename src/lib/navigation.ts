@@ -24,10 +24,10 @@ export interface NavigationItem {
 export function getNavigation(currentPath: string): NavigationItem[] {
   const allItems = [
     { name: 'Dashboard', icon: MdDashboard, href: '/dashboard' },
+    { name: 'Projects', icon: FaFolderOpen, href: '/projects' },
+    { name: 'Customers', icon: FaUsers, href: '/customers' },
     { name: 'Products', icon: MdWork, href: '/products' },
     { name: 'Tiles', icon: MdLayers, href: '/tiles' },
-    { name: 'Customers', icon: FaUsers, href: '/customers' },
-    { name: 'Projects', icon: FaFolderOpen, href: '/projects' },
   ]
 
   return allItems.map(item => ({
@@ -42,8 +42,8 @@ export function getNavigation(currentPath: string): NavigationItem[] {
  */
 export const navigationItems = [
   { name: 'Dashboard', icon: MdDashboard, href: '/dashboard' },
+  { name: 'Projects', icon: FaFolderOpen, href: '/projects' },
+  { name: 'Customers', icon: FaUsers, href: '/customers' },
   { name: 'Products', icon: MdWork, href: '/products' },
   { name: 'Tiles', icon: MdLayers, href: '/tiles' },
-  { name: 'Customers', icon: FaUsers, href: '/customers' },
-  { name: 'Projects', icon: FaFolderOpen, href: '/projects' },
 ] as const

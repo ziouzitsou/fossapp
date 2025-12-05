@@ -406,7 +406,7 @@ export function TileGroupCard({ group, isOver }: TileGroupCardProps) {
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => {
-                        // TODO: Add view in browser logic
+                        alert('DWG viewer will be implemented in the next version.')
                       }}
                       className="p-1.5 rounded hover:bg-muted transition-colors"
                     >
@@ -414,7 +414,7 @@ export function TileGroupCard({ group, isOver }: TileGroupCardProps) {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>View in browser</p>
+                    <p>View DWG in browser (coming soon)</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

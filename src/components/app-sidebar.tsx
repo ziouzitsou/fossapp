@@ -25,21 +25,21 @@ export function AppSidebar() {
     <Sidebar collapsible="offcanvas">
       {/* Logo Header */}
       <SidebarHeader className="border-b">
-        <div className="flex items-center justify-center py-4">
+        <div className="flex items-center justify-center px-4 py-4">
           <Image
             src="/logo.svg"
             alt="Company Logo"
-            width={60}
+            width={180}
             height={60}
-            className="h-15 w-15 dark:hidden"
+            className="w-full h-auto max-h-12 object-contain dark:hidden"
             priority
           />
           <Image
             src="/logo-dark.svg"
             alt="Company Logo"
-            width={60}
+            width={180}
             height={60}
-            className="h-15 w-15 hidden dark:block"
+            className="w-full h-auto max-h-12 object-contain hidden dark:block"
             priority
           />
         </div>

@@ -11,14 +11,20 @@ export default function TilesPage() {
     <ProtectedPageLayout>
       {/* BucketProvider now in global providers.tsx */}
       <DndProvider>
-        <div className="flex flex-col h-full">
-          {/* Search Bar at Top */}
-          <div className="p-4 border-b bg-background">
+        <div className="flex flex-col h-full p-6">
+          {/* Page Header */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-foreground">Tile Builder</h1>
+            <p className="text-muted-foreground mt-2">Create DWG tile drawings from product images</p>
+          </div>
+
+          {/* Search Bar */}
+          <div className="mb-6">
             <ProductSearch />
           </div>
 
           {/* Main Content Area */}
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 overflow-hidden rounded-lg border bg-background">
             {/* Left: Product Bucket */}
             <div className="w-80 border-r overflow-hidden">
               <ProductBucket />
