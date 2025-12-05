@@ -8,6 +8,55 @@ const CACHE_DIR = join(process.cwd(), '.image-cache')
 const CACHE_MAX_AGE = 60 * 60 * 24 * 30 // 30 days
 const FETCH_TIMEOUT = 30000 // 30 seconds for large images
 
+// SSRF Protection: Only allow images from trusted domains
+const ALLOWED_DOMAINS = [
+  'deltalight.com',
+  'www.deltalight.com',
+  'meyer-lighting.com',
+  'www.meyer-lighting.com',
+  'dga.it',
+  'www.dga.it',
+  'supabase.co',
+  'hyppizgiozyyyelwdius.supabase.co',
+  'flagcdn.com',
+]
+
+/**
+ * Validates that a URL is from an allowed domain to prevent SSRF attacks.
+ * Blocks requests to internal networks (localhost, private IPs, etc.)
+ */
+function isAllowedUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString)
+
+    // Only allow http/https protocols
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      return false
+    }
+
+    // Block localhost and private IP ranges
+    const hostname = url.hostname.toLowerCase()
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.') ||
+      hostname === '0.0.0.0' ||
+      hostname.endsWith('.local')
+    ) {
+      return false
+    }
+
+    // Check against whitelist
+    return ALLOWED_DOMAINS.some(
+      domain => hostname === domain || hostname.endsWith('.' + domain)
+    )
+  } catch {
+    return false
+  }
+}
+
 // Ensure cache directory exists
 if (!existsSync(CACHE_DIR)) {
   mkdirSync(CACHE_DIR, { recursive: true })
@@ -31,6 +80,15 @@ export async function GET(request: NextRequest) {
 
   if (!url) {
     return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 })
+  }
+
+  // SSRF Protection: Validate URL against whitelist
+  if (!isAllowedUrl(url)) {
+    console.warn('Image proxy blocked request to:', url.substring(0, 100))
+    return NextResponse.json(
+      { error: 'Domain not allowed' },
+      { status: 403 }
+    )
   }
 
   // Validate width
