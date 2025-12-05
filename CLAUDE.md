@@ -487,12 +487,59 @@ FOSSAPP now features a fully dynamic, database-driven filter system with 18 filt
 
 ---
 
+## Tile Management (v1.8.0)
+
+**Status**: ✅ **Implemented** (2025-12-05)
+**Route**: `/tiles`
+
+The Tile Management System enables users to create DWG (AutoCAD) tile drawings from product images and technical drawings.
+
+**Key Features**:
+- Search products by `foss_pid` from `items.product_info`
+- Drag-and-drop interface for grouping products into tiles
+- Reorder tile members (vertical stack matches DWG output)
+- Custom notes per tile member
+- Real-time SSE progress streaming with terminal UI
+- Automatic upload to Google Drive (HUB/RESOURCES/TILES/)
+
+**Integration Stack**:
+- **@dnd-kit** - Drag-and-drop functionality
+- **Sharp** - Server-side image processing
+- **APS Design Automation** - AutoCAD cloud processing
+- **Google Drive API** - File storage
+
+**API Endpoints**:
+- `POST /api/tiles/generate` - Start tile generation (returns jobId)
+- `GET /api/tiles/stream/[jobId]` - SSE progress streaming
+- `GET /api/image?url=...&w=...` - Image proxy with caching
+
+**Environment Variables** (in `.env.local`):
+```bash
+APS_CLIENT_ID=<your-aps-client-id>
+APS_CLIENT_SECRET=<your-aps-client-secret>
+APS_REGION=EMEA
+APS_NICKNAME=fossapp
+APS_ACTIVITY_NAME=fossappTileAct2
+APS_BUNDLE_NAME=tilebundle
+```
+
+**localStorage Keys** (state persistence):
+- `tiles-bucket-items` - Products in bucket
+- `tiles-canvas-items` - Products on canvas
+- `tiles-tile-groups` - Created tile groups
+- `tiles-search-history` - Recent searches
+
+**Documentation**: [docs/TILE_MANAGEMENT.md](./docs/TILE_MANAGEMENT.md)
+
+**Usage**: Navigate to `/tiles`, search for products, drag to bucket, create tiles by dropping on canvas, generate DWG.
+
+---
+
 ## Future Enhancements
 - **Google Drive Shared Drive Integration**: Read/write access to "HUB" Shared Drive for supplier catalogs, product images, and documentation. Complete implementation guide available at [GOOGLE_DRIVE_SHARED_DRIVE_INTEGRATION.md](./docs/GOOGLE_DRIVE_SHARED_DRIVE_INTEGRATION.md). Reference implementation exists in `/home/sysadmin/tools/gdrive-sync/` (standalone OAuth tool).
 - User favorites and wishlist
 - Product comparison feature
 - Image gallery for products
-- Export to AutoCAD formats
 - Lighting calculation tools
 - Project collaboration features
 

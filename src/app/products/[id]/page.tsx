@@ -4,7 +4,8 @@ import { useRouter, useParams } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { FaArrowLeft, FaHeart, FaRegHeart, FaPlus, FaFolder } from 'react-icons/fa'
+import { FaArrowLeft, FaHeart, FaRegHeart, FaPlus, FaFolder, FaCheck } from 'react-icons/fa'
+import { MdLayers } from 'react-icons/md'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +20,7 @@ import { ProductTypeBadge } from '@/components/products/header/ProductTypeBadge'
 import { ProductLayout } from '@/components/products/layouts/ProductLayout'
 import { useActiveProject } from '@/lib/active-project-context'
 import { addProductToProjectAction } from '@/lib/actions'
+import { useBucket } from '@/components/tiles/bucket-context'
 
 export default function ProductDetailPage() {
   const { data: session, status } = useDevSession()
@@ -26,6 +28,7 @@ export default function ProductDetailPage() {
   const params = useParams()
   const { resolvedTheme } = useTheme()
   const { activeProject } = useActiveProject()
+  const { addToBucket, isInBucket } = useBucket()
   const [mounted, setMounted] = useState(false)
   const [product, setProduct] = useState<ProductInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -33,10 +36,25 @@ export default function ProductDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false)
   const [isAddingToProject, setIsAddingToProject] = useState(false)
   const [addedMessage, setAddedMessage] = useState<string | null>(null)
+  const [bucketMessage, setBucketMessage] = useState<string | null>(null)
 
   const handleFavoriteClick = () => {
     setIsFavorite(!isFavorite)
     // TODO: Implement favorite persistence
+  }
+
+  const handleAddToBucket = () => {
+    if (!product) return
+
+    if (isInBucket(product.product_id)) {
+      setBucketMessage('Already in bucket')
+      setTimeout(() => setBucketMessage(null), 2000)
+      return
+    }
+
+    addToBucket(product)
+    setBucketMessage('Added to bucket')
+    setTimeout(() => setBucketMessage(null), 2000)
   }
 
   const handleAddToProject = async () => {
@@ -248,10 +266,34 @@ export default function ProductDetailPage() {
                 )}
               </Button>
 
-              {/* Success/Error Message */}
+              {/* Add to Bucket Button (Tiles) */}
+              <Button
+                variant={product && isInBucket(product.product_id) ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={handleAddToBucket}
+                className="flex items-center gap-2"
+                title="Add to Tiles bucket for DWG generation"
+              >
+                {product && isInBucket(product.product_id) ? (
+                  <FaCheck className="h-4 w-4 text-green-600" />
+                ) : (
+                  <>
+                    <FaPlus className="h-3 w-3" />
+                    <MdLayers className="h-4 w-4" />
+                  </>
+                )}
+                <span>{product && isInBucket(product.product_id) ? 'In Bucket' : 'Add to Bucket'}</span>
+              </Button>
+
+              {/* Success/Error Messages */}
               {addedMessage && (
                 <span className={`text-sm ${addedMessage.includes('Added') ? 'text-green-600' : 'text-red-600'}`}>
                   {addedMessage}
+                </span>
+              )}
+              {bucketMessage && (
+                <span className={`text-sm ${bucketMessage.includes('Added') ? 'text-green-600' : 'text-amber-600'}`}>
+                  {bucketMessage}
                 </span>
               )}
             </div>
