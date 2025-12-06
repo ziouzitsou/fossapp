@@ -8,6 +8,103 @@
 
 import sharp from 'sharp'
 
+// Font mapping: SVG font names -> Available system fonts (Liberation/DejaVu/Noto)
+// Liberation fonts are metric-compatible with Microsoft fonts
+const FONT_MAPPINGS: Record<string, string[]> = {
+  // Arial family -> Liberation Sans
+  'arial': ['Liberation Sans', 'DejaVu Sans', 'Noto Sans'],
+  'arialmt': ['Liberation Sans', 'DejaVu Sans', 'Noto Sans'],
+  'arial mt': ['Liberation Sans', 'DejaVu Sans', 'Noto Sans'],
+  'helvetica': ['Liberation Sans', 'DejaVu Sans', 'Noto Sans'],
+  'helvetica neue': ['Liberation Sans', 'DejaVu Sans', 'Noto Sans'],
+  'sans-serif': ['Liberation Sans', 'DejaVu Sans', 'Noto Sans'],
+  // Times family -> Liberation Serif
+  'times': ['Liberation Serif', 'DejaVu Serif', 'Noto Serif'],
+  'times new roman': ['Liberation Serif', 'DejaVu Serif', 'Noto Serif'],
+  'serif': ['Liberation Serif', 'DejaVu Serif', 'Noto Serif'],
+  // Courier family -> Liberation Mono
+  'courier': ['Liberation Mono', 'DejaVu Sans Mono', 'Noto Mono'],
+  'courier new': ['Liberation Mono', 'DejaVu Sans Mono', 'Noto Mono'],
+  'monospace': ['Liberation Mono', 'DejaVu Sans Mono', 'Noto Mono'],
+}
+
+// Fonts that are available in our Docker image
+const AVAILABLE_FONTS = new Set([
+  'liberation sans', 'liberation serif', 'liberation mono',
+  'dejavu sans', 'dejavu serif', 'dejavu sans mono',
+  'noto sans', 'noto serif', 'noto mono',
+])
+
+/**
+ * Extract font-family declarations from SVG content
+ */
+function extractSvgFonts(svgContent: string): string[] {
+  const fonts = new Set<string>()
+
+  // Match font-family in style attributes: font-family="Arial, sans-serif"
+  const attrRegex = /font-family=["']([^"']+)["']/gi
+  let match
+  while ((match = attrRegex.exec(svgContent)) !== null) {
+    match[1].split(',').forEach(font => {
+      fonts.add(font.trim().replace(/["']/g, ''))
+    })
+  }
+
+  // Match font-family in CSS: font-family: Arial, sans-serif;
+  const cssRegex = /font-family:\s*([^;}"']+)/gi
+  while ((match = cssRegex.exec(svgContent)) !== null) {
+    match[1].split(',').forEach(font => {
+      fonts.add(font.trim().replace(/["']/g, ''))
+    })
+  }
+
+  return Array.from(fonts)
+}
+
+/**
+ * Validate that SVG fonts are available or have mappings
+ * Throws an error with missing font details
+ */
+function validateSvgFonts(svgContent: string): { valid: boolean; missingFonts: string[]; warnings: string[] } {
+  const fonts = extractSvgFonts(svgContent)
+  const missingFonts: string[] = []
+  const warnings: string[] = []
+
+  for (const font of fonts) {
+    const fontLower = font.toLowerCase()
+
+    // Check if font is directly available
+    if (AVAILABLE_FONTS.has(fontLower)) {
+      continue
+    }
+
+    // Check if we have a mapping for this font
+    if (FONT_MAPPINGS[fontLower]) {
+      warnings.push(`Font "${font}" will be substituted with "${FONT_MAPPINGS[fontLower][0]}"`)
+      continue
+    }
+
+    // Check partial matches (e.g., "ArialMT" contains "arial")
+    const hasMapping = Object.keys(FONT_MAPPINGS).some(key =>
+      fontLower.includes(key) || key.includes(fontLower)
+    )
+
+    if (hasMapping) {
+      warnings.push(`Font "${font}" will be substituted with a compatible font`)
+      continue
+    }
+
+    // Font is not available and has no mapping
+    missingFonts.push(font)
+  }
+
+  return {
+    valid: missingFonts.length === 0,
+    missingFonts,
+    warnings
+  }
+}
+
 // Types
 export interface ConversionOptions {
   width?: number
@@ -90,7 +187,114 @@ function isSvgContent(buffer: Buffer): boolean {
 }
 
 /**
+ * Detect if image is a "dark theme" image (white/light lines on transparent background)
+ * These images are designed to be displayed on dark backgrounds and need inversion
+ * for light backgrounds or DWG generation.
+ *
+ * Detection criteria:
+ * - Image has alpha channel with significant variation (transparency used for drawing)
+ * - Color/gray pixels are predominantly white (>= 250)
+ */
+async function isDarkThemeImage(imageBuffer: Buffer): Promise<{ isDarkTheme: boolean; reason: string }> {
+  try {
+    const image = sharp(imageBuffer)
+    const metadata = await image.metadata()
+
+    // Must have alpha channel
+    if (!metadata.hasAlpha) {
+      return { isDarkTheme: false, reason: 'No alpha channel' }
+    }
+
+    // Get raw pixel data
+    const { data, info } = await image
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    const channels = info.channels
+    const pixels = info.width * info.height
+
+    // Analyze pixels
+    let whitePixelCount = 0
+    let coloredPixelCount = 0
+    let transparentPixelCount = 0
+    let opaquePixelCount = 0
+
+    for (let i = 0; i < data.length; i += channels) {
+      const alpha = channels === 4 ? data[i + 3] : (channels === 2 ? data[i + 1] : 255)
+
+      if (alpha < 10) {
+        transparentPixelCount++
+        continue
+      }
+
+      opaquePixelCount++
+
+      // Check if pixel is white/near-white
+      if (channels === 2) {
+        // Grayscale + alpha
+        const gray = data[i]
+        if (gray >= 250) whitePixelCount++
+        else coloredPixelCount++
+      } else if (channels === 4) {
+        // RGBA
+        const r = data[i], g = data[i + 1], b = data[i + 2]
+        if (r >= 250 && g >= 250 && b >= 250) whitePixelCount++
+        else coloredPixelCount++
+      } else if (channels === 3) {
+        // RGB (no alpha, but we check anyway)
+        const r = data[i], g = data[i + 1], b = data[i + 2]
+        if (r >= 250 && g >= 250 && b >= 250) whitePixelCount++
+        else coloredPixelCount++
+      } else if (channels === 1) {
+        // Grayscale only
+        if (data[i] >= 250) whitePixelCount++
+        else coloredPixelCount++
+      }
+    }
+
+    // Criteria for dark theme image:
+    // 1. Most of the image is transparent (drawing uses alpha for lines)
+    // 2. Non-transparent pixels are predominantly white
+    const transparentRatio = transparentPixelCount / pixels
+    const whiteRatio = opaquePixelCount > 0 ? whitePixelCount / opaquePixelCount : 0
+
+    // If >50% transparent AND >90% of visible pixels are white → dark theme image
+    if (transparentRatio > 0.5 && whiteRatio > 0.9) {
+      return {
+        isDarkTheme: true,
+        reason: `${(transparentRatio * 100).toFixed(0)}% transparent, ${(whiteRatio * 100).toFixed(0)}% white pixels`
+      }
+    }
+
+    return {
+      isDarkTheme: false,
+      reason: `${(transparentRatio * 100).toFixed(0)}% transparent, ${(whiteRatio * 100).toFixed(0)}% white pixels`
+    }
+  } catch (error) {
+    console.warn('[Dark Theme Detection] Error analyzing image:', error)
+    return { isDarkTheme: false, reason: 'Analysis error' }
+  }
+}
+
+/**
+ * Invert a dark theme image (white on transparent) to light theme (black on white)
+ * Uses the alpha channel to create black lines on white background
+ */
+async function invertDarkThemeImage(imageBuffer: Buffer): Promise<Buffer> {
+  // Strategy: Use alpha channel as the drawing, make it black on white
+  // 1. Negate the image (white → black)
+  // 2. Flatten onto white background
+
+  return sharp(imageBuffer)
+    .negate({ alpha: false }) // Invert colors but not alpha
+    .flatten({ background: { r: 255, g: 255, b: 255 } }) // White background
+    .png()
+    .toBuffer()
+}
+
+/**
  * Convert raster image (JPEG/PNG) to PNG with specified dimensions and DPI
+ * Automatically detects and inverts dark theme images (white on transparent)
  */
 async function convertRasterImage(
   imageBuffer: Buffer,
@@ -98,7 +302,16 @@ async function convertRasterImage(
 ): Promise<Buffer> {
   const { width, height, dpi } = options
 
-  let image = sharp(imageBuffer)
+  // Check if this is a dark theme image that needs inversion
+  const darkThemeCheck = await isDarkThemeImage(imageBuffer)
+
+  let processedBuffer = imageBuffer
+  if (darkThemeCheck.isDarkTheme) {
+    console.log(`[Image] Dark theme image detected (${darkThemeCheck.reason}) - inverting for light background`)
+    processedBuffer = await invertDarkThemeImage(imageBuffer)
+  }
+
+  let image = sharp(processedBuffer)
 
   // Resize if dimensions specified
   if (width || height) {
@@ -109,6 +322,9 @@ async function convertRasterImage(
       withoutEnlargement: false,
     })
   }
+
+  // Ensure white background for any remaining transparency
+  image = image.flatten({ background: { r: 255, g: 255, b: 255 } })
 
   // Set DPI metadata if specified
   if (dpi) {
@@ -121,12 +337,29 @@ async function convertRasterImage(
 /**
  * Convert SVG to PNG using Sharp (fast, memory-efficient)
  * Uses Sharp's built-in SVG support via librsvg
+ * Validates fonts before conversion and throws error if fonts are missing
  */
 async function convertSvgWithSharp(
   svgBuffer: Buffer,
   options: ConversionOptions
 ): Promise<Buffer> {
   const { width = 800, height = 600, dpi = 300 } = options
+
+  // Validate SVG fonts before conversion
+  const svgContent = svgBuffer.toString('utf8')
+  const fontValidation = validateSvgFonts(svgContent)
+
+  if (!fontValidation.valid) {
+    throw new Error(
+      `SVG contains unsupported fonts that cannot be rendered: ${fontValidation.missingFonts.join(', ')}. ` +
+      `Please use standard fonts (Arial, Helvetica, Times, Courier) or embed fonts in the SVG.`
+    )
+  }
+
+  // Log font substitution warnings
+  if (fontValidation.warnings.length > 0) {
+    console.log('[SVG Font] ' + fontValidation.warnings.join('; '))
+  }
 
   return sharp(svgBuffer)
     .resize({
