@@ -4,7 +4,7 @@ import { createHash } from 'crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'fs'
 import { join } from 'path'
 
-const CACHE_DIR = join(process.cwd(), '.image-cache')
+const CACHE_DIR = join('/tmp', '.image-cache')
 const CACHE_MAX_AGE = 60 * 60 * 24 * 30 // 30 days
 const FETCH_TIMEOUT = 30000 // 30 seconds for large images
 
