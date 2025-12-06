@@ -11,11 +11,18 @@ export interface LogMessage {
   step?: string
   message: string
   detail?: string
+  result?: {
+    success: boolean
+    dwgUrl?: string
+    dwgFileId?: string
+    driveLink?: string
+    errors?: string[]
+  }
 }
 
 interface TerminalLogProps {
   jobId: string | null
-  onComplete?: (result: { success: boolean; dwgUrl?: string; driveLink?: string }) => void
+  onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string }) => void
   onClose?: () => void
   className?: string
 }
@@ -84,15 +91,25 @@ export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalL
           setIsConnected(false)
           eventSource.close()
 
-          // Extract result from detail (contains the links)
+          // Extract result from completion message
           if (onComplete) {
             const success = msg.phase === 'complete'
-            // Parse drive link from all messages including the new one
-            const driveMsg = localMessages.find(m => m.phase === 'drive' && m.detail?.includes('drive.google.com'))
-            onComplete({
-              success,
-              driveLink: driveMsg?.detail,
-            })
+            // The result is now included in the completion message
+            if (msg.result) {
+              onComplete({
+                success,
+                dwgUrl: msg.result.dwgUrl,
+                dwgFileId: msg.result.dwgFileId,
+                driveLink: msg.result.driveLink,
+              })
+            } else {
+              // Fallback: parse drive link from all messages
+              const driveMsg = localMessages.find(m => m.phase === 'drive' && m.detail?.includes('drive.google.com'))
+              onComplete({
+                success,
+                driveLink: driveMsg?.detail,
+              })
+            }
           }
         }
       } catch {
@@ -163,11 +180,11 @@ export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalL
           )}
         </div>
 
-        {/* Close button - only visible on hover when complete */}
+        {/* Close button - always visible when complete */}
         {isComplete && onClose && (
           <button
             onClick={onClose}
-            className="ml-2 p-1 rounded opacity-0 group-hover/terminal:opacity-100 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-opacity"
+            className="ml-2 p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
             title="Close terminal"
           >
             <X className="w-4 h-4" />
@@ -228,6 +245,7 @@ export function useTileGeneration() {
   const [result, setResult] = useState<{
     success: boolean
     dwgUrl?: string
+    dwgFileId?: string
     driveLink?: string
   } | null>(null)
 
@@ -256,7 +274,7 @@ export function useTileGeneration() {
     }
   }
 
-  const handleComplete = (res: { success: boolean; dwgUrl?: string; driveLink?: string }) => {
+  const handleComplete = (res: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string }) => {
     setIsGenerating(false)
     setResult(res)
   }

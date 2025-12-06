@@ -19,6 +19,7 @@ import { ProductImage } from './product-image'
 import { cn } from '@/lib/utils'
 import { TilePayload } from '@/lib/tiles/actions'
 import { TerminalLog, useTileGeneration } from './terminal-log'
+import { TileViewerModal } from './tile-viewer-modal'
 import { GoogleDriveIcon, WindowsExplorerIcon, AutoCADIcon } from '@/components/icons/brand-icons'
 
 interface SortableMemberProps {
@@ -207,6 +208,8 @@ export function TileGroupCard({ group, isOver }: TileGroupCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(group.name)
   const [driveFolderLink, setDriveFolderLink] = useState<string | null>(null)
+  const [dwgFileId, setDwgFileId] = useState<string | null>(null)
+  const [isViewerOpen, setIsViewerOpen] = useState(false)
 
   // Use streaming tile generation
   const { jobId, isGenerating, result, startGeneration, handleComplete, reset } = useTileGeneration()
@@ -230,14 +233,20 @@ export function TileGroupCard({ group, isOver }: TileGroupCardProps) {
   const handleGenerateTile = async () => {
     reset()
     setDriveFolderLink(null)
+    setDwgFileId(null)
     const payload = generateTilePayload(group)
     await startGeneration(payload)
   }
 
-  const onGenerationComplete = (res: { success: boolean; dwgUrl?: string; driveLink?: string }) => {
+  const onGenerationComplete = (res: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string }) => {
     handleComplete(res)
-    if (res.success && res.driveLink) {
-      setDriveFolderLink(res.driveLink)
+    if (res.success) {
+      if (res.driveLink) {
+        setDriveFolderLink(res.driveLink)
+      }
+      if (res.dwgFileId) {
+        setDwgFileId(res.dwgFileId)
+      }
     }
   }
 
@@ -405,22 +414,34 @@ export function TileGroupCard({ group, isOver }: TileGroupCardProps) {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      onClick={() => {
-                        alert('DWG viewer will be implemented in the next version.')
-                      }}
-                      className="p-1.5 rounded hover:bg-muted transition-colors"
+                      onClick={() => setIsViewerOpen(true)}
+                      disabled={!dwgFileId}
+                      className="p-1.5 rounded hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <AutoCADIcon className="w-5 h-5" />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>View DWG in browser (coming soon)</p>
+                    <p>View DWG in browser</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
           )}
         </div>
+      )}
+
+      {/* DWG Viewer Modal */}
+      {dwgFileId && (
+        <TileViewerModal
+          isOpen={isViewerOpen}
+          onClose={() => setIsViewerOpen(false)}
+          tileId={group.id}
+          tileName={group.name}
+          dwgFileId={dwgFileId}
+          driveLink={driveFolderLink || undefined}
+          onRegenerateTile={handleGenerateTile}
+        />
       )}
     </div>
   )

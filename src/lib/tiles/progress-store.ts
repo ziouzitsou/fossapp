@@ -11,6 +11,13 @@ export interface ProgressMessage {
   step?: string
   message: string
   detail?: string
+  result?: {
+    success: boolean
+    dwgUrl?: string
+    dwgFileId?: string
+    driveLink?: string
+    errors?: string[]
+  }
 }
 
 export interface JobProgress {
@@ -22,6 +29,7 @@ export interface JobProgress {
   result?: {
     success: boolean
     dwgUrl?: string
+    dwgFileId?: string
     driveLink?: string
     errors?: string[]
   }
@@ -98,7 +106,7 @@ export function addProgress(
 export function completeJob(
   jobId: string,
   success: boolean,
-  result?: { dwgUrl?: string; driveLink?: string; errors?: string[] }
+  result?: { dwgUrl?: string; dwgFileId?: string; driveLink?: string; errors?: string[] }
 ): void {
   const job = jobs.get(jobId)
   if (!job) return
@@ -108,12 +116,24 @@ export function completeJob(
 
   const elapsed = ((Date.now() - job.startTime) / 1000).toFixed(1)
 
-  addProgress(
-    jobId,
-    success ? 'complete' : 'error',
-    success ? 'TILE GENERATION COMPLETE' : 'TILE GENERATION FAILED',
-    `Total time: ${elapsed}s`
-  )
+  // Create completion message with result included
+  const progressMsg: ProgressMessage = {
+    timestamp: Date.now(),
+    elapsed: `${elapsed}s`,
+    phase: success ? 'complete' : 'error',
+    message: success ? 'TILE GENERATION COMPLETE' : 'TILE GENERATION FAILED',
+    detail: `Total time: ${elapsed}s`,
+    result: { success, ...result },
+  }
+
+  job.messages.push(progressMsg)
+  console.log(`[${elapsed}s] ${progressMsg.message} - ${progressMsg.detail}`)
+
+  // Notify all subscribers
+  const subs = subscribers.get(jobId)
+  if (subs) {
+    subs.forEach((callback) => callback(progressMsg))
+  }
 
   // Clean up after 5 minutes
   setTimeout(() => {

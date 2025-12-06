@@ -118,9 +118,14 @@ async function processInBackground(jobId: string, payload: TilePayload) {
         )
 
         if (driveResult.success) {
+          // Find the DWG file ID from uploaded files
+          const dwgFile = driveResult.files.find(f => f.name.endsWith('.dwg'))
+          const dwgFileId = dwgFile?.id
+
           addProgress(jobId, 'drive', 'Google Drive upload complete', driveResult.tileFolderLink, 'Step 4/4')
           completeJob(jobId, true, {
             dwgUrl: apsResult.dwgUrl,
+            dwgFileId,
             driveLink: driveResult.tileFolderLink,
           })
         } else {

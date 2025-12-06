@@ -549,24 +549,33 @@ export async function convertImages(
         dpi: item.dpi || 300,
       }
 
-      // Convert image if URL provided
+      // Convert image and drawing in parallel
+      const conversionTasks: Array<{ type: 'image' | 'drawing'; url: string }> = []
       if (item.imageUrl) {
-        try {
-          imageResult = await convertImage(item.imageUrl, options)
-        } catch (error) {
-          errors.push(
-            `Image conversion failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-          )
-        }
+        conversionTasks.push({ type: 'image', url: item.imageUrl })
+      }
+      if (item.drawingUrl) {
+        conversionTasks.push({ type: 'drawing', url: item.drawingUrl })
       }
 
-      // Convert drawing if URL provided
-      if (item.drawingUrl) {
-        try {
-          drawingResult = await convertImage(item.drawingUrl, options)
-        } catch (error) {
+      const conversionResults = await Promise.allSettled(
+        conversionTasks.map(async (task) => {
+          const result = await convertImage(task.url, options)
+          return { type: task.type, result }
+        })
+      )
+
+      for (const res of conversionResults) {
+        if (res.status === 'fulfilled') {
+          if (res.value.type === 'image') {
+            imageResult = res.value.result
+          } else {
+            drawingResult = res.value.result
+          }
+        } else {
+          const type = conversionTasks.find((_, i) => conversionResults[i] === res)?.type || 'unknown'
           errors.push(
-            `Drawing conversion failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+            `${type === 'image' ? 'Image' : 'Drawing'} conversion failed: ${res.reason instanceof Error ? res.reason.message : 'Unknown error'}`
           )
         }
       }

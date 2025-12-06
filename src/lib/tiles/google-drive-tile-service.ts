@@ -126,66 +126,63 @@ class GoogleDriveTileService {
       const tileFolderId = tileFolder.id!
       const tileFolderLink = `https://drive.google.com/drive/folders/${tileFolderId}`
 
-      // Upload DWG file
-      try {
-        const dwgFile = await this.uploadFile(
-          `${tileName}.dwg`,
-          dwgBuffer,
-          'application/acad',
-          tileFolderId
-        )
-        uploadedFiles.push({
-          id: dwgFile.id!,
-          name: dwgFile.name!,
-          webViewLink: dwgFile.webViewLink || `https://drive.google.com/file/d/${dwgFile.id}/view`
-        })
-        console.log(`Uploaded DWG: ${tileName}.dwg`)
-      } catch (err) {
-        const msg = `Failed to upload DWG: ${err instanceof Error ? err.message : 'Unknown error'}`
-        errors.push(msg)
-        console.error(msg)
-      }
+      // Prepare all upload tasks for parallel execution
+      const uploadTasks: Array<{
+        name: string
+        buffer: Buffer
+        mimeType: string
+        type: 'dwg' | 'image' | 'report'
+      }> = []
 
-      // Upload images
+      // Add DWG
+      uploadTasks.push({
+        name: `${tileName}.dwg`,
+        buffer: dwgBuffer,
+        mimeType: 'application/acad',
+        type: 'dwg'
+      })
+
+      // Add images
       for (const img of images) {
-        try {
-          const imgFile = await this.uploadFile(
-            img.name,
-            img.buffer,
-            'image/png',
-            tileFolderId
-          )
-          uploadedFiles.push({
-            id: imgFile.id!,
-            name: imgFile.name!,
-            webViewLink: imgFile.webViewLink || `https://drive.google.com/file/d/${imgFile.id}/view`
-          })
-          console.log(`Uploaded image: ${img.name}`)
-        } catch (err) {
-          const msg = `Failed to upload ${img.name}: ${err instanceof Error ? err.message : 'Unknown error'}`
-          errors.push(msg)
-          console.error(msg)
-        }
+        uploadTasks.push({
+          name: img.name,
+          buffer: img.buffer,
+          mimeType: 'image/png',
+          type: 'image'
+        })
       }
 
-      // Upload report (if provided)
+      // Add report if provided
       if (report) {
-        try {
-          const reportBuffer = Buffer.from(report, 'utf-8')
-          const reportFile = await this.uploadFile(
-            `${tileName}-report.txt`,
-            reportBuffer,
-            'text/plain',
-            tileFolderId
-          )
+        uploadTasks.push({
+          name: `${tileName}-report.txt`,
+          buffer: Buffer.from(report, 'utf-8'),
+          mimeType: 'text/plain',
+          type: 'report'
+        })
+      }
+
+      // Upload all files in parallel
+      console.log(`Uploading ${uploadTasks.length} files in parallel...`)
+      const uploadResults = await Promise.allSettled(
+        uploadTasks.map(async (task) => {
+          const file = await this.uploadFile(task.name, task.buffer, task.mimeType, tileFolderId)
+          return { ...task, file }
+        })
+      )
+
+      // Process results
+      for (const result of uploadResults) {
+        if (result.status === 'fulfilled') {
+          const { name, type, file } = result.value
           uploadedFiles.push({
-            id: reportFile.id!,
-            name: reportFile.name!,
-            webViewLink: reportFile.webViewLink || `https://drive.google.com/file/d/${reportFile.id}/view`
+            id: file.id!,
+            name: file.name!,
+            webViewLink: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`
           })
-          console.log(`Uploaded report: ${tileName}-report.txt`)
-        } catch (err) {
-          const msg = `Failed to upload report: ${err instanceof Error ? err.message : 'Unknown error'}`
+          console.log(`Uploaded ${type}: ${name}`)
+        } else {
+          const msg = `Upload failed: ${result.reason instanceof Error ? result.reason.message : 'Unknown error'}`
           errors.push(msg)
           console.error(msg)
         }
@@ -326,10 +323,105 @@ class GoogleDriveTileService {
     const files = response.data.files || []
     return files.length > 0 ? files[0] : null
   }
+
+  /**
+   * Download a file from Google Drive by its ID
+   */
+  async downloadFile(fileId: string): Promise<Buffer> {
+    const response = await this.drive.files.get({
+      fileId,
+      alt: 'media',
+      supportsAllDrives: true,
+    }, {
+      responseType: 'arraybuffer'
+    })
+
+    return Buffer.from(response.data as ArrayBuffer)
+  }
+
+  /**
+   * Get file metadata including parent folder
+   */
+  async getFileInfo(fileId: string): Promise<{ name: string; parentId: string } | null> {
+    try {
+      const response = await this.drive.files.get({
+        fileId,
+        fields: 'name, parents',
+        supportsAllDrives: true,
+      })
+
+      const parents = response.data.parents
+      if (!parents || parents.length === 0) {
+        return null
+      }
+
+      return {
+        name: response.data.name || '',
+        parentId: parents[0]
+      }
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * List all files in a folder
+   */
+  async listFilesInFolder(folderId: string): Promise<Array<{ id: string; name: string; mimeType: string }>> {
+    const response = await this.drive.files.list({
+      q: `'${folderId}' in parents and trashed=false`,
+      driveId: this.hubDriveId,
+      includeItemsFromAllDrives: true,
+      supportsAllDrives: true,
+      corpora: 'drive',
+      fields: 'files(id, name, mimeType)',
+    })
+
+    return (response.data.files || []).map(f => ({
+      id: f.id || '',
+      name: f.name || '',
+      mimeType: f.mimeType || ''
+    }))
+  }
+
+  /**
+   * Download all tile files (DWG + images) from a folder
+   * Returns the DWG and all PNG images
+   */
+  async downloadTileFiles(dwgFileId: string): Promise<{
+    dwg: { name: string; buffer: Buffer };
+    images: Array<{ name: string; buffer: Buffer }>;
+  }> {
+    // Get the parent folder from the DWG file
+    const fileInfo = await this.getFileInfo(dwgFileId)
+    if (!fileInfo) {
+      throw new Error('Could not get DWG file info')
+    }
+
+    // List all files in the folder
+    const files = await this.listFilesInFolder(fileInfo.parentId)
+
+    // Download DWG
+    const dwgBuffer = await this.downloadFile(dwgFileId)
+
+    // Download all PNG images
+    const images: Array<{ name: string; buffer: Buffer }> = []
+    for (const file of files) {
+      if (file.name.endsWith('.png') || file.name.endsWith('.PNG')) {
+        const buffer = await this.downloadFile(file.id)
+        images.push({ name: file.name, buffer })
+      }
+    }
+
+    return {
+      dwg: { name: fileInfo.name, buffer: dwgBuffer },
+      images
+    }
+  }
 }
 
 // Version to invalidate cached instances when code changes
-const SERVICE_VERSION = 3
+const SERVICE_VERSION = 6
 
 // Use globalThis to ensure singleton across all API routes in Next.js
 const globalForDrive = globalThis as unknown as {
