@@ -66,27 +66,31 @@ export function TileCanvas() {
 
       <CardContent className="flex-1 overflow-auto p-0">
         {hasContent ? (
-          <div className="p-4 grid grid-cols-2 gap-4 auto-rows-max">
+          <div className="p-4 flex flex-wrap gap-4">
             {/* Standalone canvas items */}
             {canvasItems.map((item) => (
-              <DraggableProduct
-                key={item.product.product_id}
-                item={item}
-                isOver={false}
-                onRemove={() => removeFromCanvas(item.product.product_id)}
-              />
+              <div key={item.product.product_id} className="w-[400px]">
+                <DraggableProduct
+                  item={item}
+                  isOver={false}
+                  onRemove={() => removeFromCanvas(item.product.product_id)}
+                />
+              </div>
             ))}
 
             {/* Tile groups */}
             {tileGroups.map((group) => (
-              <TileGroupCard
-                key={group.id}
-                group={group}
-              />
+              <div key={group.id} className="w-[400px]">
+                <TileGroupCard
+                  group={group}
+                />
+              </div>
             ))}
 
             {/* Drop zone for new tiles - always visible */}
-            <NewTileDropZone />
+            <div className="w-[400px]">
+              <NewTileDropZone />
+            </div>
           </div>
         ) : (
           <CanvasDropZone

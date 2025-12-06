@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { X, Loader2, AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import { X, Loader2, AlertTriangle, ExternalLink, RefreshCw, Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DWGViewer } from './dwg-viewer'
 import { Progress } from '@/components/ui/progress'
@@ -91,6 +92,11 @@ export function TileViewerModal({
   const [urn, setUrn] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const { resolvedTheme, setTheme } = useTheme()
+
+  const toggleTheme = () => {
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+  }
 
   // Google Drive TILES folder link
   const tilesFolderLink = 'https://drive.google.com/drive/folders/1h0Mc0K0e0e0e0e0e0e0e0e0e0e0e0e0' // Replace with actual folder ID
@@ -234,6 +240,19 @@ export function TileViewerModal({
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Theme toggle for viewer */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleTheme}
+              title={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {resolvedTheme === 'dark' ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </Button>
             {driveLink && (
               <Button
                 variant="outline"

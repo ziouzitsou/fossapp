@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useTheme } from 'next-themes'
 import { Loader2 } from 'lucide-react'
 
 // Declare Autodesk types for TypeScript
@@ -26,6 +27,10 @@ declare global {
         finish(): void
         setTheme(theme: string): void
         setLightPreset(preset: number): void
+        prefs: {
+          set(name: string, value: boolean | number | string): void
+          get(name: string): boolean | number | string
+        }
         loadDocumentNode(doc: Document, node: unknown): Promise<unknown>
         loadExtension(extensionId: string, options?: object): Promise<unknown>
       }
@@ -59,6 +64,15 @@ export function DWGViewer({ urn, className }: DWGViewerProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isScriptsLoaded, setIsScriptsLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { resolvedTheme } = useTheme()
+
+  // Apply theme to viewer
+  // Uses 'swapBlackAndWhite' preference for 2D sheet color (like AutoCAD's "2D Sheet Color" setting)
+  const applyViewerTheme = useCallback((viewer: Autodesk.Viewing.GuiViewer3D, isDark: boolean) => {
+    viewer.setTheme(isDark ? 'dark-theme' : 'light-theme')
+    // swapBlackAndWhite: true = dark background (inverts colors), false = light background
+    viewer.prefs.set('swapBlackAndWhite', isDark)
+  }, [])
 
   // Load Autodesk Viewer scripts
   useEffect(() => {
@@ -110,6 +124,8 @@ export function DWGViewer({ urn, className }: DWGViewerProps) {
   const initViewer = useCallback((): Promise<Autodesk.Viewing.GuiViewer3D> | undefined => {
     if (!containerRef.current || !window.Autodesk?.Viewing) return undefined
 
+    const isDark = resolvedTheme === 'dark'
+
     return new Promise<Autodesk.Viewing.GuiViewer3D>((resolve) => {
       window.Autodesk.Viewing.Initializer(
         {
@@ -123,14 +139,14 @@ export function DWGViewer({ urn, className }: DWGViewerProps) {
           }
           const viewer = new window.Autodesk.Viewing.GuiViewer3D(containerRef.current!, config)
           viewer.start()
-          viewer.setTheme('light-theme')
+          applyViewerTheme(viewer, isDark)
           viewerRef.current = viewer
 
           resolve(viewer)
         }
       )
     })
-  }, [getAccessToken])
+  }, [getAccessToken, resolvedTheme, applyViewerTheme])
 
   // Load model by URN
   const loadModel = useCallback(async (viewer: Autodesk.Viewing.GuiViewer3D, modelUrn: string) => {
@@ -196,6 +212,13 @@ export function DWGViewer({ urn, className }: DWGViewerProps) {
       }
     }
   }, [])
+
+  // Update viewer theme when user toggles theme
+  useEffect(() => {
+    if (viewerRef.current && resolvedTheme) {
+      applyViewerTheme(viewerRef.current, resolvedTheme === 'dark')
+    }
+  }, [resolvedTheme, applyViewerTheme])
 
   return (
     <div className={`relative ${className || ''}`}>

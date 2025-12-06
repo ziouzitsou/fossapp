@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
     const driveService = getGoogleDriveTileService()
     const buffer = await driveService.downloadFile(fileId)
 
-    return new NextResponse(buffer, {
+    // Convert Buffer to Uint8Array for NextResponse compatibility
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/octet-stream',
         'Content-Disposition': `attachment; filename="file.dwg"`,

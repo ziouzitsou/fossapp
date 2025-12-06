@@ -15,19 +15,19 @@ const VERSION_STORAGE_KEY = 'fossapp_last_seen_version'
 
 // Latest version content - update this when releasing new versions
 const LATEST_CHANGES = {
-  version: '1.8.0',
-  date: 'December 5, 2025',
-  title: 'Tile Management System',
-  description: 'Create AutoCAD DWG tile drawings directly from product images. Professional tile layouts with automatic Google Drive integration.',
+  version: '1.8.3',
+  date: 'December 6, 2025',
+  title: 'Tile Builder UX & DWG Viewer',
+  description: 'Major improvements to the tile creation experience with mobile-friendly layout and built-in DWG viewer.',
   features: [
-    'Drag-and-drop tile builder - organize products into groups visually',
-    'AutoCAD DWG generation - powered by Autodesk APS Design Automation',
-    'Google Drive integration - automatic upload to HUB/RESOURCES/TILES/',
-    'Product bucket - add products from detail pages with "Add to Bucket" button',
-    'Real-time progress - watch your DWG being generated with live updates',
-    'Professional output - 300dpi images, proper layering, technical specs included',
+    'Built-in DWG Viewer - view generated tiles directly in browser with Autodesk Viewer',
+    'Dark/Light mode toggle - switch viewer background to match your preference',
+    'Mobile-friendly layout - bucket now scrolls horizontally, tiles stack vertically',
+    'Improved drag-and-drop - easier to add products to existing tiles',
+    'Touch support - hold-to-drag works on mobile devices',
+    'Parallel processing - faster image conversion and Google Drive uploads',
   ],
-  tagline: 'Generate AutoCAD tiles from product images in seconds.',
+  tagline: 'Create and view AutoCAD tiles without leaving your browser.',
 }
 
 export function WhatsNewDialog() {
