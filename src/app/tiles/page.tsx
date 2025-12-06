@@ -24,9 +24,9 @@ export default function TilesPage() {
           </div>
 
           {/* Main Content Area */}
-          <div className="flex flex-1 overflow-hidden rounded-lg border bg-background">
+          <div className="flex flex-1 gap-4 overflow-hidden">
             {/* Left: Product Bucket */}
-            <div className="w-80 border-r overflow-hidden">
+            <div className="w-80 overflow-hidden">
               <ProductBucket />
             </div>
 
