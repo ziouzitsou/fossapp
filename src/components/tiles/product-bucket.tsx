@@ -23,7 +23,7 @@ function DraggableBucketItem({ item, onRemove }: { item: BucketItem; onRemove: (
       {...listeners}
       {...attributes}
       className={cn(
-        'group relative p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-grab active:cursor-grabbing',
+        'group relative p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-grab active:cursor-grabbing touch-none',
         isDragging && 'opacity-50'
       )}
     >

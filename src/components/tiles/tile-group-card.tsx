@@ -85,7 +85,7 @@ function SortableMember({ item, groupId, customText, onTextChange, onRemove }: S
       <div
         {...attributes}
         {...listeners}
-        className="absolute left-0 top-0 bottom-0 w-6 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+        className="absolute left-0 top-0 bottom-0 w-6 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
       >
         <GripVertical className="h-4 w-4" />
       </div>

@@ -7,6 +7,7 @@ import {
   useSensor,
   useSensors,
   PointerSensor,
+  TouchSensor,
   DragStartEvent,
   DragEndEvent,
   closestCenter,
@@ -40,6 +41,12 @@ export function DndProvider({ children }: DndProviderProps) {
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,        // Hold for 200ms before drag starts
+        tolerance: 5,      // Allow 5px movement during delay
       },
     })
   )
