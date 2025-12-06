@@ -101,9 +101,21 @@ export function DndProvider({ children }: DndProviderProps) {
       return
     }
 
-    // Dropping on a tile group
+    // Dropping on a tile group (by its droppable zone)
     if (overIdStr.startsWith('tile-group-')) {
       const groupId = overIdStr.replace('tile-group-', '')
+      if (isFromBucket) {
+        const item = getBucketItem(activeIdStr)
+        if (item) addToTileGroup(groupId, item)
+      } else if (isFromCanvas) {
+        addToTileGroupFromCanvas(groupId, activeIdStr)
+      }
+      return
+    }
+
+    // Dropping on a tile member (format: groupId:productId) - add to that group
+    if (overIdStr.includes(':') && !activeIdStr.includes(':')) {
+      const [groupId] = overIdStr.split(':')
       if (isFromBucket) {
         const item = getBucketItem(activeIdStr)
         if (item) addToTileGroup(groupId, item)

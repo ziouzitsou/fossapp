@@ -4,7 +4,6 @@ import { useDraggable } from '@dnd-kit/core'
 import { X, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { useBucket } from '@/components/tiles/bucket-context'
 import { BucketItem, getProductThumbnail } from '@/lib/tiles/types'
@@ -65,11 +64,11 @@ export function ProductBucket() {
   const { bucketItems, removeFromBucket, clearBucket } = useBucket()
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="flex-shrink-0 pb-3">
+    <Card className="flex flex-col">
+      <CardHeader className="flex-shrink-0 py-2 px-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Package className="h-5 w-5" />
+          <CardTitle className="text-base flex items-center gap-2">
+            <Package className="h-4 w-4" />
             Bucket
             {bucketItems.length > 0 && (
               <Badge variant="secondary" className="ml-1">
@@ -82,7 +81,7 @@ export function ProductBucket() {
               variant="ghost"
               size="sm"
               onClick={clearBucket}
-              className="text-muted-foreground hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive h-7 text-xs"
             >
               Clear all
             </Button>
@@ -90,28 +89,27 @@ export function ProductBucket() {
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 overflow-hidden p-0">
+      <CardContent className="p-2 pt-0">
         {bucketItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground px-4 py-8">
-            <Package className="h-12 w-12 mb-3 opacity-50" />
-            <p className="text-sm text-center">
-              No products yet.
-              <br />
-              Search and add products to your bucket.
+          <div className="flex items-center justify-center text-muted-foreground px-4 py-4">
+            <Package className="h-8 w-8 mr-3 opacity-50" />
+            <p className="text-sm">
+              Search and add products to your bucket
             </p>
           </div>
         ) : (
-          <ScrollArea className="h-full px-4 pb-4">
-            <div className="grid grid-cols-2 gap-2">
+          <div className="overflow-x-auto">
+            <div className="flex gap-2 pb-2">
               {bucketItems.map((item) => (
-                <DraggableBucketItem
-                  key={item.product.product_id}
-                  item={item}
-                  onRemove={() => removeFromBucket(item.product.product_id)}
-                />
+                <div key={item.product.product_id} className="flex-shrink-0 w-28">
+                  <DraggableBucketItem
+                    item={item}
+                    onRemove={() => removeFromBucket(item.product.product_id)}
+                  />
+                </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </CardContent>
     </Card>

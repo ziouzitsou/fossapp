@@ -82,7 +82,6 @@ export function TileCanvas() {
               <TileGroupCard
                 key={group.id}
                 group={group}
-                isOver={false}
               />
             ))}
 
@@ -92,7 +91,6 @@ export function TileCanvas() {
         ) : (
           <CanvasDropZone
             id="canvas-drop-zone"
-            isOver={false}
             isEmpty={true}
           />
         )}

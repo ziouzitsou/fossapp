@@ -23,15 +23,15 @@ export default function TilesPage() {
             <ProductSearch />
           </div>
 
-          {/* Main Content Area */}
-          <div className="flex flex-1 gap-4 overflow-hidden">
-            {/* Left: Product Bucket */}
-            <div className="w-80 overflow-hidden">
+          {/* Main Content Area - Stacked layout for mobile */}
+          <div className="flex flex-col flex-1 gap-4 overflow-hidden">
+            {/* Top: Product Bucket (horizontal scroll) */}
+            <div className="flex-shrink-0">
               <ProductBucket />
             </div>
 
-            {/* Right: Tile Canvas */}
-            <div className="flex-1 overflow-hidden">
+            {/* Bottom: Tile Canvas */}
+            <div className="flex-1 overflow-hidden min-h-0">
               <TileCanvas />
             </div>
           </div>

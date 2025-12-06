@@ -6,13 +6,12 @@ import { cn } from '@/lib/utils'
 
 interface CanvasDropZoneProps {
   id: string
-  isOver: boolean
   isEmpty: boolean
   children?: React.ReactNode
 }
 
-export function CanvasDropZone({ id, isOver, isEmpty, children }: CanvasDropZoneProps) {
-  const { setNodeRef } = useDroppable({ id })
+export function CanvasDropZone({ id, isEmpty, children }: CanvasDropZoneProps) {
+  const { setNodeRef, isOver } = useDroppable({ id })
 
   return (
     <div

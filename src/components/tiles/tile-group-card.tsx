@@ -173,7 +173,6 @@ function SortableMember({ item, groupId, customText, onTextChange, onRemove }: S
 
 interface TileGroupCardProps {
   group: TileGroup
-  isOver: boolean
 }
 
 // Generate payload for tile processing
@@ -203,7 +202,7 @@ function generateTilePayload(group: TileGroup): TilePayload {
   }
 }
 
-export function TileGroupCard({ group, isOver }: TileGroupCardProps) {
+export function TileGroupCard({ group }: TileGroupCardProps) {
   const { deleteTileGroup, renameTileGroup, removeFromTileGroup, updateMemberText } = useBucket()
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(group.name)
@@ -214,7 +213,7 @@ export function TileGroupCard({ group, isOver }: TileGroupCardProps) {
   // Use streaming tile generation
   const { jobId, isGenerating, result, startGeneration, handleComplete, reset } = useTileGeneration()
 
-  const { setNodeRef } = useDroppable({
+  const { setNodeRef, isOver } = useDroppable({
     id: `tile-group-${group.id}`,
   })
 
@@ -357,12 +356,15 @@ export function TileGroupCard({ group, isOver }: TileGroupCardProps) {
         </div>
       </SortableContext>
 
-      {/* Drop indicator */}
-      {isOver && (
-        <div className="mt-2 text-center text-xs text-primary font-medium">
-          Drop to add to this tile
-        </div>
-      )}
+      {/* Drop zone indicator - always visible as a hint */}
+      <div className={cn(
+        'mt-3 border-2 border-dashed rounded-md py-2 text-center text-xs transition-colors',
+        isOver
+          ? 'border-primary bg-primary/10 text-primary font-medium'
+          : 'border-muted-foreground/20 text-muted-foreground/50'
+      )}>
+        {isOver ? 'Release to add here' : 'Drop products here'}
+      </div>
 
       {/* Terminal Log - shows during and after generation */}
       {(jobId || result) && (
