@@ -278,16 +278,37 @@ async function isDarkThemeImage(imageBuffer: Buffer): Promise<{ isDarkTheme: boo
 
 /**
  * Invert a dark theme image (white on transparent) to light theme (black on white)
- * Uses the alpha channel to create black lines on white background
+ * For Meyer-style images where alpha channel defines the drawing:
+ * - Extract alpha channel as grayscale (alpha IS the drawing)
+ * - Invert so high alpha (lines) becomes black, low alpha (background) becomes white
  */
 async function invertDarkThemeImage(imageBuffer: Buffer): Promise<Buffer> {
-  // Strategy: Use alpha channel as the drawing, make it black on white
-  // 1. Negate the image (white → black)
-  // 2. Flatten onto white background
+  // Strategy for alpha-based drawings (like Meyer):
+  // The alpha channel IS the drawing - extract it, invert it
+  // High alpha (visible lines) → black (0)
+  // Low alpha (transparent background) → white (255)
 
-  return sharp(imageBuffer)
-    .negate({ alpha: false }) // Invert colors but not alpha
-    .flatten({ background: { r: 255, g: 255, b: 255 } }) // White background
+  // First ensure we have RGBA format
+  const rgba = await sharp(imageBuffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+
+  const { data, info } = rgba
+  const { width, height, channels } = info
+
+  // Create new buffer: use inverted alpha as grayscale
+  const outputPixels = Buffer.alloc(width * height)
+
+  for (let i = 0; i < width * height; i++) {
+    const alpha = data[i * channels + (channels - 1)] // Last channel is alpha
+    outputPixels[i] = 255 - alpha // Invert: high alpha → black (0), low → white (255)
+  }
+
+  // Create grayscale PNG from the inverted alpha
+  return sharp(outputPixels, {
+    raw: { width, height, channels: 1 }
+  })
     .png()
     .toBuffer()
 }
