@@ -53,7 +53,26 @@ else
   echo -e "${GREEN}✓ PASSED${NC} (no .env.production file)"
 fi
 
-# Check 1: TypeScript type checking
+# Check 1: Security audit for critical vulnerabilities
+echo -n "⚙️  Security: npm audit (critical vulnerabilities)... "
+AUDIT_OUTPUT=$(npm audit --audit-level=critical 2>&1) || true
+if echo "$AUDIT_OUTPUT" | grep -q "found 0 vulnerabilities"; then
+  echo -e "${GREEN}✓ PASSED${NC}"
+elif echo "$AUDIT_OUTPUT" | grep -q "critical"; then
+  echo -e "${RED}✗ FAILED${NC}"
+  echo ""
+  echo "CRITICAL SECURITY VULNERABILITIES FOUND:"
+  echo "$AUDIT_OUTPUT" | grep -A5 "Severity: critical" || echo "$AUDIT_OUTPUT"
+  echo ""
+  echo "Run 'npm audit fix' to resolve, or 'npm audit' for details."
+  echo ""
+  FAILED=1
+else
+  # No critical vulnerabilities (may have high/moderate)
+  echo -e "${GREEN}✓ PASSED${NC} (no critical vulnerabilities)"
+fi
+
+# Check 2: TypeScript type checking
 run_check "Type checking" "npm run type-check"
 
 # Check 2: Production build (includes ESLint in strict mode)
