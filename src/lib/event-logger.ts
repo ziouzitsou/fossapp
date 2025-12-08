@@ -26,6 +26,7 @@ import { supabaseServer } from './supabase-server'
 export type EventType =
   // Authentication
   | 'login'
+  | 'login_blocked'  // Disabled user attempted login
   | 'logout'
 
   // Search & Discovery (Phase 1)

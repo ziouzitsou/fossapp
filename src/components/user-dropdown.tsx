@@ -91,7 +91,7 @@ export function UserDropdown({ user }: UserDropdownProps) {
 
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => signOut()}
+          onClick={() => signOut({ callbackUrl: '/' })}
           className="cursor-pointer text-destructive focus:text-destructive"
         >
           <FaSignOutAlt className="mr-2 h-4 w-4" />
