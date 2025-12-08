@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
 import { createJob, addProgress, completeJob, generateJobId } from '@/lib/tiles/progress-store'
 import { processTileImages, generateScript, TilePayload } from '@/lib/tiles/actions'
 import { apsService } from '@/lib/tiles/aps-service'
@@ -23,6 +24,15 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // ✅ Rate limiting (strict for expensive tile generation)
+    const rateLimit = checkRateLimit(session.user.email, 'tiles-generate')
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Max 5 tile generations per minute.' },
+        { status: 429, headers: rateLimitHeaders(rateLimit) }
+      )
     }
 
     const payload: TilePayload = await request.json()

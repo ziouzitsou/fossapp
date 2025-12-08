@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { logEvent, type EventType, type EventData } from '@/lib/event-logger'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
 
 /**
  * POST /api/analytics/log-event
@@ -18,6 +19,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      )
+    }
+
+    // ✅ Rate limiting
+    const rateLimit = checkRateLimit(session.user.email, 'analytics-log')
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded' },
+        { status: 429, headers: rateLimitHeaders(rateLimit) }
       )
     }
 

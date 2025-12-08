@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { supabaseServer } from '@/lib/supabase-server'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
 
 /**
  * Validates and sanitizes facet request body
@@ -43,6 +44,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'Unauthorized - Authentication required' },
       { status: 401 }
+    )
+  }
+
+  // ✅ Rate limiting
+  const rateLimit = checkRateLimit(session.user.email, 'filters-facets')
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please slow down.' },
+      { status: 429, headers: rateLimitHeaders(rateLimit) }
     )
   }
 

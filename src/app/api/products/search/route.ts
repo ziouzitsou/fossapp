@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { searchProductsBasicAction } from '@/lib/actions'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
 
 export async function GET(request: NextRequest) {
   // ✅ Require authentication
@@ -10,6 +11,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { error: 'Unauthorized - Authentication required' },
       { status: 401 }
+    )
+  }
+
+  // ✅ Rate limiting
+  const rateLimit = checkRateLimit(session.user.email, 'products-search')
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please slow down.' },
+      { status: 429, headers: rateLimitHeaders(rateLimit) }
     )
   }
 
