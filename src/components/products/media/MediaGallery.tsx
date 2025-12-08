@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { logEventClient } from '@/lib/event-logger';
+import { logEventClient } from '@/lib/event-logger-client';
 import { Multimedia } from '@/types/product';
 import { MIME_CODES } from '@/types/product';
 import Image from 'next/image';

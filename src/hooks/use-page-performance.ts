@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { logEventClient } from '@/lib/event-logger'
+import { logEventClient } from '@/lib/event-logger-client'
 
 /**
  * Hook to track page load performance

@@ -3,7 +3,7 @@
 import { signOut } from 'next-auth/react'
 import { useTheme } from 'next-themes'
 import { useEffect, useState, useCallback } from 'react'
-import { logEventClient } from '@/lib/event-logger'
+import { logEventClient } from '@/lib/event-logger-client'
 import Image from 'next/image'
 import { FaSignOutAlt, FaSun, FaMoon, FaDesktop, FaCheck } from 'react-icons/fa'
 import {
