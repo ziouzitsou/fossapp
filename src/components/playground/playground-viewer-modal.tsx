@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Loader2, AlertTriangle, RefreshCw, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
@@ -136,10 +137,11 @@ export function PlaygroundViewerModal({
     return () => window.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
 
-  if (!isOpen) return null
+  // Don't render on server or when closed
+  if (!isOpen || typeof document === 'undefined') return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+  const modalContent = (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -147,9 +149,12 @@ export function PlaygroundViewerModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-6xl h-[85vh] mx-4 bg-background rounded-lg shadow-xl flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+      <div
+        className="relative w-full max-w-6xl h-[85vh] mx-4 bg-background rounded-lg shadow-xl flex flex-col overflow-hidden z-[101]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header - must be above viewer which creates high z-index elements */}
+        <div className="flex items-center justify-between px-4 py-3 border-b relative z-[1000] bg-background">
           <div className="flex items-center gap-3">
             <h2 className="font-semibold">Playground.dwg</h2>
             {viewerState === 'ready' && (
@@ -163,7 +168,10 @@ export function PlaygroundViewerModal({
             <Button
               variant="outline"
               size="sm"
-              onClick={toggleTheme}
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleTheme()
+              }}
               title={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {resolvedTheme === 'dark' ? (
@@ -175,15 +183,19 @@ export function PlaygroundViewerModal({
             <Button
               variant="ghost"
               size="icon"
-              onClick={onClose}
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                onClose()
+              }}
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 relative">
+        {/* Content - viewer container with contained stacking context */}
+        <div className="flex-1 relative z-0 isolate">
           {/* Loading states */}
           {(viewerState === 'uploading' || viewerState === 'translating') && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted">
@@ -220,8 +232,8 @@ export function PlaygroundViewerModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-4 py-2 border-t bg-muted/50">
+        {/* Footer - above viewer */}
+        <div className="px-4 py-2 border-t bg-muted/50 relative z-[1000]">
           <p className="text-xs text-muted-foreground text-center">
             View-only mode • Download the DWG to edit in AutoCAD
           </p>
@@ -229,4 +241,7 @@ export function PlaygroundViewerModal({
       </div>
     </div>
   )
+
+  // Use portal to render at body level (avoids z-index/overflow issues)
+  return createPortal(modalContent, document.body)
 }

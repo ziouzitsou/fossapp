@@ -221,10 +221,11 @@ export function DWGViewer({ urn, className }: DWGViewerProps) {
   }, [resolvedTheme, applyViewerTheme])
 
   return (
-    <div className={`relative ${className || ''}`}>
+    <div className={`relative overflow-hidden ${className || ''}`}>
       <div
         ref={containerRef}
         className="w-full h-full min-h-[500px] bg-muted rounded-lg overflow-hidden"
+        style={{ isolation: 'isolate' }}
       />
 
       {/* Loading overlay */}

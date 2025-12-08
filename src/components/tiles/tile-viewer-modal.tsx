@@ -228,9 +228,12 @@ export function TileViewerModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-6xl h-[85vh] mx-4 bg-background rounded-lg shadow-xl flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+      <div
+        className="relative w-full max-w-6xl h-[85vh] mx-4 bg-background rounded-lg shadow-xl flex flex-col overflow-hidden z-[51]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header - must be above viewer which creates high z-index elements */}
+        <div className="flex items-center justify-between px-4 py-3 border-b relative z-[1000] bg-background">
           <div className="flex items-center gap-3">
             <h2 className="font-semibold">{tileName}.dwg</h2>
             {viewerState === 'ready' && (
@@ -244,7 +247,10 @@ export function TileViewerModal({
             <Button
               variant="outline"
               size="sm"
-              onClick={toggleTheme}
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleTheme()
+              }}
               title={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {resolvedTheme === 'dark' ? (
@@ -268,15 +274,19 @@ export function TileViewerModal({
             <Button
               variant="ghost"
               size="icon"
-              onClick={onClose}
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                onClose()
+              }}
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 relative">
+        {/* Content - viewer container with contained stacking context */}
+        <div className="flex-1 relative z-0 isolate">
           {/* Loading states */}
           {(viewerState === 'checking' || viewerState === 'uploading' || viewerState === 'translating') && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted">
@@ -352,8 +362,8 @@ export function TileViewerModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-4 py-2 border-t bg-muted/50">
+        {/* Footer - above viewer */}
+        <div className="px-4 py-2 border-t bg-muted/50 relative z-[1000]">
           <p className="text-xs text-muted-foreground text-center">
             View-only mode • To edit, open the DWG file from Google Drive with AutoCAD
           </p>
