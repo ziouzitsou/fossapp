@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react'
 import { useMemo } from 'react'
-import { GROUP_PERMISSIONS, type Permission, type GroupName } from '@/lib/user-service'
+import { GROUP_PERMISSIONS, type Permission, type GroupName } from '@/lib/permissions'
 
 /**
  * Hook to access user group and check permissions
