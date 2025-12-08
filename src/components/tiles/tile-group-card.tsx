@@ -19,8 +19,7 @@ import { ProductImage } from './product-image'
 import { cn } from '@/lib/utils'
 import { TilePayload } from '@/lib/tiles/actions'
 import { TerminalLog, useTileGeneration } from './terminal-log'
-import { TileViewerModal } from './tile-viewer-modal'
-import { GoogleDriveIcon, WindowsExplorerIcon, AutoCADIcon } from '@/components/icons/brand-icons'
+import { GoogleDriveIcon, WindowsExplorerIcon } from '@/components/icons/brand-icons'
 
 interface SortableMemberProps {
   item: BucketItem
@@ -208,7 +207,6 @@ export function TileGroupCard({ group }: TileGroupCardProps) {
   const [editName, setEditName] = useState(group.name)
   const [driveFolderLink, setDriveFolderLink] = useState<string | null>(null)
   const [dwgFileId, setDwgFileId] = useState<string | null>(null)
-  const [isViewerOpen, setIsViewerOpen] = useState(false)
 
   // Use streaming tile generation
   const { jobId, isGenerating, result, startGeneration, handleComplete, reset } = useTileGeneration()
@@ -412,38 +410,9 @@ export function TileGroupCard({ group }: TileGroupCardProps) {
                 </Tooltip>
               </TooltipProvider>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setIsViewerOpen(true)}
-                      disabled={!dwgFileId}
-                      className="p-1.5 rounded hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <AutoCADIcon className="w-5 h-5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>View DWG in browser</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             </div>
           )}
         </div>
-      )}
-
-      {/* DWG Viewer Modal */}
-      {dwgFileId && (
-        <TileViewerModal
-          isOpen={isViewerOpen}
-          onClose={() => setIsViewerOpen(false)}
-          tileId={group.id}
-          tileName={group.name}
-          dwgFileId={dwgFileId}
-          driveLink={driveFolderLink || undefined}
-          onRegenerateTile={handleGenerateTile}
-        />
       )}
     </div>
   )
