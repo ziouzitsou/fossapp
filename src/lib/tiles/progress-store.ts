@@ -7,7 +7,7 @@
 export interface ProgressMessage {
   timestamp: number
   elapsed: string
-  phase: 'images' | 'script' | 'aps' | 'drive' | 'complete' | 'error'
+  phase: 'images' | 'script' | 'aps' | 'drive' | 'complete' | 'error' | 'llm'
   step?: string
   message: string
   detail?: string
@@ -17,6 +17,11 @@ export interface ProgressMessage {
     dwgFileId?: string
     driveLink?: string
     errors?: string[]
+    hasDwgBuffer?: boolean // Indicates DWG can be downloaded via /api/playground/download/[jobId]
+    costEur?: number // LLM cost in EUR for playground
+    llmModel?: string // Model used (e.g., "anthropic/claude-sonnet-4")
+    tokensIn?: number // Input tokens used
+    tokensOut?: number // Output tokens used
   }
 }
 
@@ -32,7 +37,13 @@ export interface JobProgress {
     dwgFileId?: string
     driveLink?: string
     errors?: string[]
+    hasDwgBuffer?: boolean
+    costEur?: number
+    llmModel?: string
+    tokensIn?: number
+    tokensOut?: number
   }
+  dwgBuffer?: Buffer // Temporary storage for playground downloads
 }
 
 // Use globalThis to ensure singleton across all API routes in Next.js
@@ -106,24 +117,34 @@ export function addProgress(
 export function completeJob(
   jobId: string,
   success: boolean,
-  result?: { dwgUrl?: string; dwgFileId?: string; driveLink?: string; errors?: string[] }
+  result?: { dwgUrl?: string; dwgFileId?: string; driveLink?: string; errors?: string[]; dwgBuffer?: Buffer; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number },
+  customDetail?: string
 ): void {
   const job = jobs.get(jobId)
   if (!job) return
 
   job.status = success ? 'complete' : 'error'
-  job.result = { success, ...result }
+
+  // Store dwgBuffer separately (not in result to avoid JSON serialization)
+  if (result?.dwgBuffer) {
+    job.dwgBuffer = result.dwgBuffer
+  }
+
+  // Build result without buffer (for JSON serialization)
+  const { dwgBuffer, ...resultWithoutBuffer } = result || {}
+  const hasDwgBuffer = !!dwgBuffer
+  job.result = { success, ...resultWithoutBuffer, hasDwgBuffer }
 
   const elapsed = ((Date.now() - job.startTime) / 1000).toFixed(1)
 
-  // Create completion message with result included
+  // Create completion message with result included (no buffer)
   const progressMsg: ProgressMessage = {
     timestamp: Date.now(),
     elapsed: `${elapsed}s`,
     phase: success ? 'complete' : 'error',
-    message: success ? 'TILE GENERATION COMPLETE' : 'TILE GENERATION FAILED',
-    detail: `Total time: ${elapsed}s`,
-    result: { success, ...result },
+    message: success ? 'Generation complete!' : 'Generation failed',
+    detail: customDetail || `Total time: ${elapsed}s`,
+    result: { success, ...resultWithoutBuffer, hasDwgBuffer },
   }
 
   job.messages.push(progressMsg)

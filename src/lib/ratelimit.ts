@@ -46,6 +46,7 @@ export const RATE_LIMITS = {
   'filters-facets': { limit: 30, windowMs: 60_000 },    // 30 req/min
   'analytics-log': { limit: 100, windowMs: 60_000 },    // 100 req/min
   'tiles-generate': { limit: 5, windowMs: 60_000 },     // 5 req/min (expensive operation)
+  'playground-generate': { limit: 10, windowMs: 60_000 }, // 10 req/min (LLM + APS)
 } as const
 
 export type RateLimitEndpoint = keyof typeof RATE_LIMITS

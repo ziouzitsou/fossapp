@@ -5,7 +5,7 @@
  * Update this file to add/remove/modify navigation items.
  */
 
-import { MdDashboard, MdWork, MdLayers } from 'react-icons/md'
+import { MdDashboard, MdWork, MdLayers, MdCode } from 'react-icons/md'
 import { FaUsers, FaFolderOpen } from 'react-icons/fa'
 import type { IconType } from 'react-icons'
 
@@ -28,6 +28,7 @@ export function getNavigation(currentPath: string): NavigationItem[] {
     { name: 'Customers', icon: FaUsers, href: '/customers' },
     { name: 'Products', icon: MdWork, href: '/products' },
     { name: 'Tiles', icon: MdLayers, href: '/tiles' },
+    { name: 'Playground', icon: MdCode, href: '/playground' },
   ]
 
   return allItems.map(item => ({
@@ -46,4 +47,5 @@ export const navigationItems = [
   { name: 'Customers', icon: FaUsers, href: '/customers' },
   { name: 'Products', icon: MdWork, href: '/products' },
   { name: 'Tiles', icon: MdLayers, href: '/tiles' },
+  { name: 'Playground', icon: MdCode, href: '/playground' },
 ] as const

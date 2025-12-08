@@ -7,7 +7,7 @@ import { CheckCircle2, Circle, Loader2, XCircle, Terminal as TerminalIcon, X } f
 export interface LogMessage {
   timestamp: number
   elapsed: string
-  phase: 'images' | 'script' | 'aps' | 'drive' | 'complete' | 'error'
+  phase: 'images' | 'script' | 'aps' | 'drive' | 'complete' | 'error' | 'llm'
   step?: string
   message: string
   detail?: string
@@ -17,12 +17,17 @@ export interface LogMessage {
     dwgFileId?: string
     driveLink?: string
     errors?: string[]
+    hasDwgBuffer?: boolean
+    costEur?: number
+    llmModel?: string
+    tokensIn?: number
+    tokensOut?: number
   }
 }
 
 interface TerminalLogProps {
   jobId: string | null
-  onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string }) => void
+  onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; hasDwgBuffer?: boolean; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number }) => void
   onClose?: () => void
   className?: string
 }
@@ -34,6 +39,7 @@ const PHASE_ICONS = {
   drive: '☁️',
   complete: '✅',
   error: '❌',
+  llm: '🤖',
 }
 
 const PHASE_COLORS = {
@@ -43,6 +49,7 @@ const PHASE_COLORS = {
   drive: 'text-green-400',
   complete: 'text-emerald-400',
   error: 'text-red-400',
+  llm: 'text-violet-400',
 }
 
 export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalLogProps) {
@@ -101,6 +108,11 @@ export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalL
                 dwgUrl: msg.result.dwgUrl,
                 dwgFileId: msg.result.dwgFileId,
                 driveLink: msg.result.driveLink,
+                hasDwgBuffer: msg.result.hasDwgBuffer,
+                costEur: msg.result.costEur,
+                llmModel: msg.result.llmModel,
+                tokensIn: msg.result.tokensIn,
+                tokensOut: msg.result.tokensOut,
               })
             } else {
               // Fallback: parse drive link from all messages
