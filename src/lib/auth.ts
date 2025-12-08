@@ -1,7 +1,7 @@
 import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { logEvent } from './event-logger'
-import { upsertUserOnLogin } from './user-service'
+import { upsertUserOnLogin, getUserByEmail } from './user-service'
 
 // Validate required environment variables at module load time
 const googleClientId = process.env.GOOGLE_CLIENT_ID
@@ -79,9 +79,9 @@ export const authOptions: NextAuthOptions = {
       if (account) {
         token.accessToken = account.access_token
       }
-      // On initial sign in, fetch user group from database
+      // On initial sign in, fetch user group from database (read-only, no increment)
       if (user?.email) {
-        const userRecord = await upsertUserOnLogin(user.email, user.name, user.image)
+        const userRecord = await getUserByEmail(user.email)
         if (userRecord) {
           token.group = userRecord.group_name
           token.groupId = userRecord.group_id
