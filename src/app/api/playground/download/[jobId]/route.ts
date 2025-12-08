@@ -34,8 +34,8 @@ export async function GET(
       return NextResponse.json({ error: 'DWG file not available' }, { status: 404 })
     }
 
-    // Return DWG file
-    return new NextResponse(job.dwgBuffer, {
+    // Return DWG file (convert Buffer to Uint8Array for NextResponse)
+    return new NextResponse(new Uint8Array(job.dwgBuffer), {
       headers: {
         'Content-Type': 'application/octet-stream',
         'Content-Disposition': 'attachment; filename="Playground.dwg"',
