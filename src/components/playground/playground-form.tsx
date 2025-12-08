@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { TerminalLog } from '@/components/tiles/terminal-log'
-import { DraftingCompass, Loader2, Download, Sparkles } from 'lucide-react'
+import { DraftingCompass, Loader2, Download, Sparkles, Eye } from 'lucide-react'
+import { PlaygroundViewerModal } from './playground-viewer-modal'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface PlaygroundResult {
@@ -25,6 +26,7 @@ export function PlaygroundForm() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [result, setResult] = useState<PlaygroundResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showViewer, setShowViewer] = useState(false)
 
   const handleGenerate = async () => {
     if (!description.trim()) {
@@ -179,7 +181,15 @@ export function PlaygroundForm() {
                 className="gap-2"
               >
                 <Download className="h-4 w-4" />
-                Download DWG
+                Download
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowViewer(true)}
+                className="gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                View DWG
               </Button>
               {result.costEur !== undefined && (
                 <TooltipProvider>
@@ -221,6 +231,15 @@ export function PlaygroundForm() {
           />
         )}
       </CardContent>
+
+      {/* Viewer Modal */}
+      {jobId && (
+        <PlaygroundViewerModal
+          isOpen={showViewer}
+          onClose={() => setShowViewer(false)}
+          jobId={jobId}
+        />
+      )}
     </Card>
   )
 }
