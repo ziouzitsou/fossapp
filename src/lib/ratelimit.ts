@@ -47,6 +47,8 @@ export const RATE_LIMITS = {
   'analytics-log': { limit: 100, windowMs: 60_000 },    // 100 req/min
   'tiles-generate': { limit: 5, windowMs: 60_000 },     // 5 req/min (expensive operation)
   'playground-generate': { limit: 10, windowMs: 60_000 }, // 10 req/min (LLM + APS)
+  'viewer-upload': { limit: 20, windowMs: 60_000 },     // 20 req/min (APS upload + translation)
+  'viewer-status': { limit: 120, windowMs: 60_000 },    // 120 req/min (polling during translation)
 } as const
 
 export type RateLimitEndpoint = keyof typeof RATE_LIMITS

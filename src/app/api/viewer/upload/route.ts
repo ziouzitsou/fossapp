@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prepareForViewing } from '@/lib/tiles/aps-viewer'
 import { getGoogleDriveTileService } from '@/lib/tiles/google-drive-tile-service'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
 
 /**
  * POST /api/viewer/upload
  * Upload DWG file (and associated images) for viewing
+ * Requires authentication to prevent service abuse
  *
  * Body: FormData with either:
  *   - 'file' field (File upload - DWG only, no images)
@@ -12,6 +16,24 @@ import { getGoogleDriveTileService } from '@/lib/tiles/google-drive-tile-service
  * Returns: { urn: string, expiresAt: number }
  */
 export async function POST(request: NextRequest) {
+  // Security: Require authentication
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.email) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401 }
+    )
+  }
+
+  // Rate limiting
+  const rateLimit = checkRateLimit(session.user.email, 'viewer-upload')
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Max 20 uploads per minute.' },
+      { status: 429, headers: rateLimitHeaders(rateLimit) }
+    )
+  }
+
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
@@ -45,9 +67,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Sanitize filename: remove path traversal and special characters
+    const sanitizedFileName = finalFileName
+      .replace(/\.\./g, '')           // Remove path traversal
+      .replace(/[<>:"/\\|?*]/g, '_')  // Replace invalid chars
+      .replace(/^\.+/, '')            // Remove leading dots
+
     // Validate file extension
     const validExtensions = ['.dwg', '.dxf']
-    const hasValidExtension = validExtensions.some(ext => finalFileName.endsWith(ext))
+    const hasValidExtension = validExtensions.some(ext => sanitizedFileName.endsWith(ext))
 
     if (!hasValidExtension) {
       return NextResponse.json(
@@ -57,7 +85,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload and start translation (with images if available)
-    const result = await prepareForViewing(finalFileName, buffer, images)
+    const result = await prepareForViewing(sanitizedFileName, buffer, images)
 
     return NextResponse.json(result)
   } catch (error) {
