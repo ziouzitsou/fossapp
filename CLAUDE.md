@@ -95,6 +95,7 @@ src/
 | Products | `/products` | [features/product-search.md](./docs/features/product-search.md) |
 | Filters | `/products` | [features/filters.md](./docs/features/filters.md) |
 | Tiles | `/tiles` | [features/tiles.md](./docs/features/tiles.md) |
+| Playground | `/playground` | [features/playground.md](./docs/features/playground.md) |
 | Dashboard | `/dashboard` | - |
 
 ---
@@ -131,7 +132,7 @@ See [docs/README.md](./docs/README.md) for complete index.
 | **Architecture** | [overview](./docs/architecture/overview.md), [components](./docs/architecture/components.md), [api-patterns](./docs/architecture/api-patterns.md) |
 | **Database** | [schema](./docs/database/schema.md), [advanced-search](./docs/database/advanced-search.md) |
 | **Deployment** | [checklist](./docs/deployment/checklist.md), [docker](./docs/deployment/docker.md), [vps](./docs/deployment/vps.md) |
-| **Features** | [tiles](./docs/features/tiles.md), [filters](./docs/features/filters.md), [pwa](./docs/features/pwa.md) |
+| **Features** | [tiles](./docs/features/tiles.md), [playground](./docs/features/playground.md), [filters](./docs/features/filters.md), [pwa](./docs/features/pwa.md) |
 | **Security** | [auditing](./docs/security/auditing.md), [gemini-auditor](./docs/security/gemini-auditor.md) |
 
 ---

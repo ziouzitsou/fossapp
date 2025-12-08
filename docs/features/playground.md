@@ -157,15 +157,22 @@ Full prompt: ~230 lines with examples and reference tables.
 src/
 ├── app/
 │   ├── playground/
-│   │   └── page.tsx              # Playground page
+│   │   └── page.tsx                    # Playground page
 │   └── api/playground/
-│       ├── generate/route.ts     # Generation endpoint
-│       └── download/[jobId]/route.ts  # Download endpoint
-├── components/playground/
-│   └── playground-form.tsx       # Form with terminal
-└── lib/playground/
-    ├── llm-service.ts            # OpenRouter API integration
-    └── prompts.ts                # System prompt
+│       ├── generate/route.ts           # Generation endpoint
+│       └── download/[jobId]/route.ts   # Download endpoint
+├── components/
+│   ├── playground/
+│   │   ├── playground-form.tsx         # Form with terminal
+│   │   └── playground-viewer-modal.tsx # DWG viewer modal
+│   └── tiles/
+│       └── dwg-viewer.tsx              # Shared DWG viewer component
+└── lib/
+    ├── playground/
+    │   ├── llm-service.ts              # OpenRouter API integration
+    │   └── prompts.ts                  # System prompt
+    └── tiles/
+        └── aps-viewer.ts               # Viewer token & translation service
 ```
 
 ---
@@ -187,8 +194,40 @@ OPENROUTER_API_KEY=sk-or-v1-...   # Required for LLM calls
 
 ---
 
+## DWG Viewer
+
+**Added**: December 2025
+
+View generated DWGs directly in the browser using Autodesk Platform Services Viewer:
+
+1. After generation completes, click **View** button
+2. DWG is uploaded to transient bucket (24h retention)
+3. SVF2 translation starts automatically
+4. Full-featured Autodesk viewer loads in modal
+
+### Viewer Features
+
+- Pan, zoom, orbit controls
+- 2D/3D view switching
+- Layer visibility toggle
+- Measurement tools
+- Settings: 2D Sheet Color (dark/light theme)
+
+### Technical Flow
+
+```
+DWG Buffer → Upload to OSS → Start SVF2 Translation → Poll Status → Load Viewer
+```
+
+- Uses EMEA region endpoints for Model Derivative API
+- Viewer URN passed through job progress for instant viewing
+- Falls back to download if viewer fails
+
+---
+
 ## Dependencies
 
 - OpenRouter API (Claude models via proxy)
 - APS Design Automation (reuses tiles infrastructure)
+- APS Model Derivative (SVF2 translation for viewer)
 - SSE streaming (reuses tiles progress store)

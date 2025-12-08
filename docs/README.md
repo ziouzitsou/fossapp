@@ -49,6 +49,7 @@ Feature-specific documentation.
 | Document | Description |
 |----------|-------------|
 | [tiles.md](./features/tiles.md) | Tile Management System (DWG generation) |
+| [playground.md](./features/playground.md) | DWG from natural language (LLM + APS) |
 | [filters.md](./features/filters.md) | Dynamic filters implementation |
 | [pwa.md](./features/pwa.md) | Progressive Web App setup |
 | [product-search.md](./features/product-search.md) | Product search interface |
