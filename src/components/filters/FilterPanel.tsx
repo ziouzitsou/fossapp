@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { logEventClient } from '@/lib/event-logger'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
@@ -133,12 +134,17 @@ export function FilterPanel({
     })
   }
 
-  const handleFilterChange = (filterKey: string, value: any) => {
+  const handleFilterChange = useCallback((filterKey: string, value: any) => {
     onChange({
       ...values,
       [filterKey]: value
     })
-  }
+    logEventClient('search_filter_applied', {
+      filter_key: filterKey,
+      filter_value: value,
+      taxonomy_code: taxonomyCode,
+    })
+  }, [onChange, values, taxonomyCode])
 
   const clearFilter = (filterKey: string) => {
     const newValues = { ...values }

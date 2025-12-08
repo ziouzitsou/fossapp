@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { logEventClient } from '@/lib/event-logger';
 import { Multimedia } from '@/types/product';
 import { MIME_CODES } from '@/types/product';
 import Image from 'next/image';
@@ -51,13 +52,36 @@ export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
   const hasCarousel = carouselSlides.length > 0;
   const currentMedia = carouselSlides[currentSlide];
 
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % carouselSlides.length);
-  };
+  const logImageView = useCallback((slideIndex: number, action: string) => {
+    const slide = carouselSlides[slideIndex];
+    if (slide) {
+      logEventClient('product_image_viewed', {
+        product_name: productName,
+        media_type: slide.type,
+        media_label: slide.label,
+        slide_index: slideIndex,
+        total_slides: carouselSlides.length,
+        action,
+      });
+    }
+  }, [carouselSlides, productName]);
 
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + carouselSlides.length) % carouselSlides.length);
-  };
+  const nextSlide = useCallback(() => {
+    const newIndex = (currentSlide + 1) % carouselSlides.length;
+    setCurrentSlide(newIndex);
+    logImageView(newIndex, 'next');
+  }, [currentSlide, carouselSlides.length, logImageView]);
+
+  const prevSlide = useCallback(() => {
+    const newIndex = (currentSlide - 1 + carouselSlides.length) % carouselSlides.length;
+    setCurrentSlide(newIndex);
+    logImageView(newIndex, 'prev');
+  }, [currentSlide, carouselSlides.length, logImageView]);
+
+  const handleThumbnailClick = useCallback((idx: number) => {
+    setCurrentSlide(idx);
+    logImageView(idx, 'thumbnail');
+  }, [logImageView]);
 
   const getMediaIcon = (type: 'photo' | 'drawing' | 'photometric') => {
     switch (type) {
@@ -153,7 +177,7 @@ export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
                 {carouselSlides.map((slide, idx) => (
                   <button
                     key={idx}
-                    onClick={() => setCurrentSlide(idx)}
+                    onClick={() => handleThumbnailClick(idx)}
                     className={`flex-shrink-0 w-20 h-20 border-2 rounded overflow-hidden transition-all ${
                       currentSlide === idx
                         ? 'border-primary ring-2 ring-primary/20'

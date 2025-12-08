@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { logEventClient } from '@/lib/event-logger';
 import { Feature } from '@/types/product';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +35,17 @@ export function FeatureGroup({
 }: FeatureGroupProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
+  const handleToggle = useCallback(() => {
+    const newState = !isExpanded;
+    setIsExpanded(newState);
+    logEventClient('product_details_expanded', {
+      group_id: groupId,
+      group_name: groupName,
+      is_expanded: newState,
+      feature_count: features.length,
+    });
+  }, [isExpanded, groupId, groupName, features.length]);
+
   // Filter features with displayable values
   const displayableFeatures = features.filter(hasDisplayableValue);
 
@@ -52,7 +64,7 @@ export function FeatureGroup({
     <Card className="overflow-hidden">
       <CardHeader
         className={collapsible ? 'cursor-pointer' : ''}
-        onClick={() => collapsible && setIsExpanded(!isExpanded)}
+        onClick={() => collapsible && handleToggle()}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -107,7 +119,7 @@ export function FeatureGroup({
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                setIsExpanded(true);
+                handleToggle();
               }}
             >
               Show all {displayableFeatures.length} features

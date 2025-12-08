@@ -2,7 +2,8 @@
 
 import { signOut } from 'next-auth/react'
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { logEventClient } from '@/lib/event-logger'
 import Image from 'next/image'
 import { FaSignOutAlt, FaSun, FaMoon, FaDesktop, FaCheck } from 'react-icons/fa'
 import {
@@ -30,6 +31,15 @@ export function UserDropdown({ user }: UserDropdownProps) {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const handleThemeChange = useCallback((newTheme: string) => {
+    const previousTheme = theme
+    setTheme(newTheme)
+    logEventClient('theme_toggled', {
+      previous_theme: previousTheme,
+      new_theme: newTheme,
+    })
+  }, [theme, setTheme])
 
   const themes = [
     { name: 'Light', value: 'light', icon: FaSun },
@@ -77,7 +87,7 @@ export function UserDropdown({ user }: UserDropdownProps) {
               return (
                 <DropdownMenuItem
                   key={themeOption.value}
-                  onClick={() => setTheme(themeOption.value)}
+                  onClick={() => handleThemeChange(themeOption.value)}
                   className="cursor-pointer"
                 >
                   <Icon className="mr-2 h-4 w-4" />
