@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { supabase } from '@/lib/supabase'
 import { ProductInfo, getProductImage, getProductDeeplink } from '@/lib/tiles/types'
 import { ProductImage } from './product-image'
 import { useBucket } from '@/components/tiles/bucket-context'
@@ -86,21 +85,25 @@ export function ProductSearch() {
     setShowHistory(false)
 
     try {
-      // Use FOSSAPP supabase client with items schema
-      const { data, error: searchError } = await supabase
-        .schema('items')
-        .from('product_info')
-        .select('*')
-        .ilike('foss_pid', `%${term.trim()}%`)
-        .limit(10)
+      // Use tiles search API endpoint (rate limited, authenticated)
+      const response = await fetch(`/api/tiles/search?q=${encodeURIComponent(term.trim())}`)
 
-      if (searchError) throw searchError
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Please sign in to search products')
+        }
+        if (response.status === 429) {
+          throw new Error('Too many requests. Please slow down.')
+        }
+        throw new Error('Search failed')
+      }
 
+      const { data } = await response.json()
       setResults(data || [])
       addToHistory(term)
     } catch (err) {
       console.error('Search error:', err)
-      setError('Failed to search products. Please try again.')
+      setError(err instanceof Error ? err.message : 'Failed to search products. Please try again.')
       setResults([])
     } finally {
       setIsLoading(false)
