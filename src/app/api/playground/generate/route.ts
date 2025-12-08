@@ -189,6 +189,7 @@ async function processInBackground(
         completeJob(jobId, true, {
           dwgUrl: apsResult.dwgUrl,
           dwgBuffer: apsResult.dwgBuffer,
+          viewerUrn: apsResult.viewerUrn,
           costEur: eurCost,
           llmModel: llmResult.model,
           tokensIn: llmResult.tokensIn,

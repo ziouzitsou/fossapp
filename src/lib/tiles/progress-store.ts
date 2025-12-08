@@ -16,6 +16,7 @@ export interface ProgressMessage {
     dwgUrl?: string
     dwgFileId?: string
     driveLink?: string
+    viewerUrn?: string // URN for Autodesk Viewer (SVF translation started automatically)
     errors?: string[]
     hasDwgBuffer?: boolean // Indicates DWG can be downloaded via /api/playground/download/[jobId]
     costEur?: number // LLM cost in EUR for playground
@@ -36,6 +37,7 @@ export interface JobProgress {
     dwgUrl?: string
     dwgFileId?: string
     driveLink?: string
+    viewerUrn?: string
     errors?: string[]
     hasDwgBuffer?: boolean
     costEur?: number
@@ -117,7 +119,7 @@ export function addProgress(
 export function completeJob(
   jobId: string,
   success: boolean,
-  result?: { dwgUrl?: string; dwgFileId?: string; driveLink?: string; errors?: string[]; dwgBuffer?: Buffer; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number },
+  result?: { dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; errors?: string[]; dwgBuffer?: Buffer; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number },
   customDetail?: string
 ): void {
   const job = jobs.get(jobId)

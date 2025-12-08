@@ -8,7 +8,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Layers, Trash2, SquarePen, Check, X, GripVertical, DraftingCompass, Loader2 } from 'lucide-react'
+import { Layers, Trash2, SquarePen, Check, X, GripVertical, DraftingCompass, Loader2, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { TilePayload } from '@/lib/tiles/actions'
 import { TerminalLog, useTileGeneration } from './terminal-log'
 import { GoogleDriveIcon, WindowsExplorerIcon } from '@/components/icons/brand-icons'
+import { TileViewerModal } from './tile-viewer-modal'
 
 interface SortableMemberProps {
   item: BucketItem
@@ -207,6 +208,8 @@ export function TileGroupCard({ group }: TileGroupCardProps) {
   const [editName, setEditName] = useState(group.name)
   const [driveFolderLink, setDriveFolderLink] = useState<string | null>(null)
   const [dwgFileId, setDwgFileId] = useState<string | null>(null)
+  const [viewerUrn, setViewerUrn] = useState<string | null>(null)
+  const [viewerOpen, setViewerOpen] = useState(false)
 
   // Use streaming tile generation
   const { jobId, isGenerating, result, startGeneration, handleComplete, reset } = useTileGeneration()
@@ -235,7 +238,7 @@ export function TileGroupCard({ group }: TileGroupCardProps) {
     await startGeneration(payload)
   }
 
-  const onGenerationComplete = (res: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string }) => {
+  const onGenerationComplete = (res: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string }) => {
     handleComplete(res)
     if (res.success) {
       if (res.driveLink) {
@@ -243,6 +246,9 @@ export function TileGroupCard({ group }: TileGroupCardProps) {
       }
       if (res.dwgFileId) {
         setDwgFileId(res.dwgFileId)
+      }
+      if (res.viewerUrn) {
+        setViewerUrn(res.viewerUrn)
       }
     }
   }
@@ -376,6 +382,24 @@ export function TileGroupCard({ group }: TileGroupCardProps) {
           {/* Success action buttons */}
           {result?.success && driveFolderLink && (
             <div className="mt-2 flex items-center gap-2">
+              {(viewerUrn || dwgFileId) && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setViewerOpen(true)}
+                        className="p-1.5 rounded hover:bg-muted transition-colors"
+                      >
+                        <Eye className="w-5 h-5 text-primary" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>View DWG</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -411,6 +435,18 @@ export function TileGroupCard({ group }: TileGroupCardProps) {
               </TooltipProvider>
 
             </div>
+          )}
+
+          {/* DWG Viewer Modal */}
+          {(viewerUrn || dwgFileId) && (
+            <TileViewerModal
+              open={viewerOpen}
+              onOpenChange={setViewerOpen}
+              viewerUrn={viewerUrn ?? undefined}
+              driveFileId={dwgFileId ?? undefined}
+              fileName={`${group.name}.dwg`}
+              tileName={group.name}
+            />
           )}
         </div>
       )}

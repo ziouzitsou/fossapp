@@ -16,6 +16,7 @@ export interface LogMessage {
     dwgUrl?: string
     dwgFileId?: string
     driveLink?: string
+    viewerUrn?: string
     errors?: string[]
     hasDwgBuffer?: boolean
     costEur?: number
@@ -27,7 +28,7 @@ export interface LogMessage {
 
 interface TerminalLogProps {
   jobId: string | null
-  onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; hasDwgBuffer?: boolean; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number }) => void
+  onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; hasDwgBuffer?: boolean; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number }) => void
   onClose?: () => void
   className?: string
 }
@@ -108,6 +109,7 @@ export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalL
                 dwgUrl: msg.result.dwgUrl,
                 dwgFileId: msg.result.dwgFileId,
                 driveLink: msg.result.driveLink,
+                viewerUrn: msg.result.viewerUrn,
                 hasDwgBuffer: msg.result.hasDwgBuffer,
                 costEur: msg.result.costEur,
                 llmModel: msg.result.llmModel,
@@ -259,6 +261,7 @@ export function useTileGeneration() {
     dwgUrl?: string
     dwgFileId?: string
     driveLink?: string
+    viewerUrn?: string
   } | null>(null)
 
   const startGeneration = async (payload: unknown) => {
@@ -286,7 +289,7 @@ export function useTileGeneration() {
     }
   }
 
-  const handleComplete = (res: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string }) => {
+  const handleComplete = (res: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string }) => {
     setIsGenerating(false)
     setResult(res)
   }

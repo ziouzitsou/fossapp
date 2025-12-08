@@ -92,6 +92,8 @@ export interface TileProcessingResult {
   workItemId: string
   dwgUrl: string
   dwgBuffer?: Buffer
+  /** URN for Autodesk Viewer (SVF translation started automatically) */
+  viewerUrn?: string
   processingLogs: ProcessingLog[]
   workItemReport?: string
   message: string
@@ -344,6 +346,7 @@ class OSSService {
 
   /**
    * Delete temporary bucket and all its contents
+   * NOTE: Currently not used - transient buckets auto-delete after 24h
    */
   async deleteTempBucket(bucketName: string): Promise<void> {
     try {
@@ -366,6 +369,93 @@ class OSSService {
       await this.bucketsApi.deleteBucket(accessToken, bucketName)
     } catch {
       // Non-blocking cleanup - don't throw
+    }
+  }
+
+  /**
+   * Create URN from bucket and object key
+   */
+  createUrn(bucketKey: string, objectKey: string): string {
+    const objectId = `urn:adsk.objects:os.object:${bucketKey}/${objectKey}`
+    return Buffer.from(objectId).toString('base64').replace(/=/g, '')
+  }
+
+  /**
+   * Start SVF2 translation for viewer
+   * Translation runs in background, viewer will poll for status
+   * Uses EMEA endpoint since our buckets are in EMEA region
+   */
+  async startSvfTranslation(urn: string): Promise<void> {
+    const accessToken = await this.authService.getAccessToken()
+
+    // Use EMEA endpoint since bucket is in EMEA region
+    // US: https://developer.api.autodesk.com/modelderivative/v2/designdata/job
+    // EMEA: https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/job
+    const response = await fetch(
+      'https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/job',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'x-ads-force': 'true', // Force re-translation if exists
+        },
+        body: JSON.stringify({
+          input: { urn },
+          output: {
+            formats: [{
+              type: 'svf2',
+              views: ['2d', '3d']
+            }]
+          }
+        }),
+      }
+    )
+
+    if (!response.ok && response.status !== 409) {
+      // 409 = already translating, that's fine
+      const errorText = await response.text()
+      console.warn(`SVF translation warning: ${response.status} - ${errorText}`)
+    }
+  }
+
+  /**
+   * Start SVF2 translation for a ZIP bundle with rootFilename
+   * Used when DWG has external references (images) bundled in a ZIP
+   * Uses EMEA endpoint since our buckets are in EMEA region
+   */
+  async startSvfTranslationWithRoot(urn: string, rootFilename: string): Promise<void> {
+    const accessToken = await this.authService.getAccessToken()
+
+    const response = await fetch(
+      'https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/job',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'x-ads-force': 'true', // Force re-translation if exists
+        },
+        body: JSON.stringify({
+          input: {
+            urn,
+            compressedUrn: true,
+            rootFilename
+          },
+          output: {
+            formats: [{
+              type: 'svf2',
+              views: ['2d', '3d']
+            }]
+          }
+        }),
+      }
+    )
+
+    if (!response.ok && response.status !== 409) {
+      // 409 = already translating, that's fine
+      const errorText = await response.text()
+      console.warn(`SVF translation warning: ${response.status} - ${errorText}`)
     }
   }
 }
@@ -994,6 +1084,33 @@ export class APSDesignAutomationService {
       this.addLog('dwg_download', 'completed', { size: dwgBuffer.length })
       logStep('DWG downloaded', `${(dwgBuffer.length / 1024).toFixed(0)} KB`)
 
+      // Step 8: Prepare for viewer using dedicated viewer bucket
+      // Use aps-viewer service which has proper bucket setup for Model Derivative
+      logStep('Preparing for viewer...', `${imageBuffers.length} images`)
+      this.addLog('viewer_prep', 'started')
+
+      let viewerUrn: string | undefined
+      try {
+        const { prepareForViewing } = await import('./aps-viewer')
+
+        // Convert image buffers to the format expected by prepareForViewing
+        const images = imageBuffers.map(img => ({
+          name: img.filename,
+          buffer: img.buffer
+        }))
+
+        const dwgFilename = `${tileName}.dwg`
+        const result = await prepareForViewing(dwgFilename, dwgBuffer, images)
+        viewerUrn = result.urn
+
+        this.addLog('viewer_prep', 'completed', { urn: viewerUrn })
+        logStep('Viewer preparation complete', 'translation started')
+      } catch (e) {
+        // Non-fatal - viewer button will fall back to Google Drive download
+        console.warn('Viewer preparation warning:', e)
+        this.addLog('viewer_prep', 'error', { error: String(e) })
+      }
+
       this.addLog('tile_processing', 'completed', { tileName })
       logStep('APS processing complete')
 
@@ -1003,6 +1120,7 @@ export class APSDesignAutomationService {
         workItemId: workItemResult.workItemId,
         dwgUrl: workItemResult.outputUrl,
         dwgBuffer,
+        viewerUrn,
         processingLogs: this.processingLogs,
         workItemReport: dwgResult.report,
         message: 'DWG generated and downloaded successfully',
@@ -1024,28 +1142,14 @@ export class APSDesignAutomationService {
         errors,
       }
     } finally {
-      // Always cleanup: delete bucket and activity
-      logStep('Cleaning up APS resources...')
-      this.addLog('cleanup', 'started')
-
-      if (bucketName) {
-        try {
-          await this.ossService.deleteTempBucket(bucketName)
-          this.addLog('bucket_cleanup', 'completed', { bucketName })
-        } catch (e) {
-          console.warn('Bucket cleanup warning:', e)
-        }
-      }
-
+      // Cleanup activity (bucket stays for viewer - transient = 24h auto-delete)
       try {
         await this.deleteActivity()
         this.addLog('activity_cleanup', 'completed')
+        logStep('Activity cleanup complete')
       } catch (e) {
         console.warn('Activity cleanup warning:', e)
       }
-
-      this.addLog('cleanup', 'completed')
-      logStep('Cleanup complete')
     }
   }
 

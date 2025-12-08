@@ -5,13 +5,15 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { TerminalLog } from '@/components/tiles/terminal-log'
-import { DraftingCompass, Loader2, Download, Sparkles } from 'lucide-react'
+import { DraftingCompass, Loader2, Download, Sparkles, Eye } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { PlaygroundViewerModal } from './playground-viewer-modal'
 
 interface PlaygroundResult {
   success: boolean
   dwgUrl?: string
   hasDwgBuffer?: boolean
+  viewerUrn?: string
   errors?: string[]
   costEur?: number
   llmModel?: string
@@ -25,6 +27,7 @@ export function PlaygroundForm() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [result, setResult] = useState<PlaygroundResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [viewerOpen, setViewerOpen] = useState(false)
 
   const handleGenerate = async () => {
     if (!description.trim()) {
@@ -61,12 +64,13 @@ export function PlaygroundForm() {
     }
   }
 
-  const handleComplete = (res: { success: boolean; dwgUrl?: string; hasDwgBuffer?: boolean; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number }) => {
+  const handleComplete = (res: { success: boolean; dwgUrl?: string; hasDwgBuffer?: boolean; viewerUrn?: string; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number }) => {
     setIsGenerating(false)
     setResult({
       success: res.success,
       dwgUrl: res.dwgUrl,
       hasDwgBuffer: res.hasDwgBuffer,
+      viewerUrn: res.viewerUrn,
       costEur: res.costEur,
       llmModel: res.llmModel,
       tokensIn: res.tokensIn,
@@ -173,6 +177,23 @@ export function PlaygroundForm() {
 
           {result?.success && jobId && (
             <>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={() => setViewerOpen(true)}
+                      className="gap-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>View DWG in browser</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <Button
                 variant="outline"
                 onClick={handleDownload}
@@ -218,6 +239,17 @@ export function PlaygroundForm() {
             onComplete={handleComplete}
             onClose={handleClose}
             className="mt-4"
+          />
+        )}
+
+        {/* DWG Viewer Modal */}
+        {(result?.viewerUrn || jobId) && (
+          <PlaygroundViewerModal
+            open={viewerOpen}
+            onOpenChange={setViewerOpen}
+            viewerUrn={result?.viewerUrn}
+            jobId={jobId ?? undefined}
+            fileName="Playground.dwg"
           />
         )}
       </CardContent>

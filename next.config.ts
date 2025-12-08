@@ -73,16 +73,17 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://developer.api.autodesk.com", // Next.js + APS Viewer
-              "style-src 'self' 'unsafe-inline'", // Tailwind requires unsafe-inline
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: https://*.autodesk.com", // Next.js + APS Viewer
+              "style-src 'self' 'unsafe-inline' https://*.autodesk.com", // Tailwind + APS Viewer
               "img-src 'self' data: https: blob:",
-              "font-src 'self' data:",
+              "font-src 'self' data: https://*.autodesk.com", // APS Viewer fonts
               "connect-src 'self' https://hyppizgiozyyyelwdius.supabase.co https://*.google.com https://*.googleapis.com https://*.autodesk.com wss://*.supabase.co",
               "frame-src 'self' https://*.autodesk.com", // APS Viewer iframe
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
-              "worker-src 'self' blob:", // Service worker + APS Viewer web workers
+              "child-src 'self' blob: data: https://*.autodesk.com", // Safari/IE fallback for workers
+              "worker-src 'self' blob: data: https://*.autodesk.com", // Service worker + APS Viewer web workers
             ].join('; '),
           },
         ],

@@ -137,6 +137,7 @@ async function processInBackground(jobId: string, payload: TilePayload) {
             dwgUrl: apsResult.dwgUrl,
             dwgFileId,
             driveLink: driveResult.tileFolderLink,
+            viewerUrn: apsResult.viewerUrn,
           })
         } else {
           addProgress(jobId, 'error', 'Google Drive upload failed', driveResult.errors.join(', '))

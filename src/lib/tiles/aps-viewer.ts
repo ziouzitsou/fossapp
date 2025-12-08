@@ -12,7 +12,6 @@
 import { SdkManagerBuilder } from '@aps_sdk/autodesk-sdkmanager'
 import { AuthenticationClient, Scopes } from '@aps_sdk/authentication'
 import { OssClient, Region, PolicyKey } from '@aps_sdk/oss'
-import { ModelDerivativeClient, View } from '@aps_sdk/model-derivative'
 
 // Configuration
 const APS_CLIENT_ID = process.env.APS_CLIENT_ID!
@@ -25,7 +24,6 @@ const sdkManager = SdkManagerBuilder.create().build()
 // Client singletons
 const authClient = new AuthenticationClient({ sdkManager })
 const ossClient = new OssClient({ sdkManager })
-const modelDerivativeClient = new ModelDerivativeClient({ sdkManager })
 
 // Token caches
 let fullTokenCache: { accessToken: string; expiresAt: number } | null = null
@@ -149,29 +147,44 @@ export async function uploadForViewing(
 
 /**
  * Start model translation to SVF2
+ * Uses EMEA endpoint since our buckets are in EMEA region
  * @param urn - Base64-encoded object ID
  * @param rootFilename - For ZIP files, specifies the root design file inside the archive
  */
 export async function translateToSVF2(urn: string, rootFilename?: string): Promise<{ urn: string; status: string }> {
   const { access_token } = await getAccessToken()
 
-  const jobPayload = {
-    input: {
-      urn,
-      ...(rootFilename && { compressedUrn: true, rootFilename })
-    },
-    output: {
-      formats: [{
-        type: 'svf2' as const,
-        views: [View._2d, View._3d]
-      }]
+  // Use EMEA endpoint since bucket is in EMEA region
+  const response = await fetch(
+    'https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/job',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'Content-Type': 'application/json',
+        'x-ads-force': 'true',
+      },
+      body: JSON.stringify({
+        input: {
+          urn,
+          ...(rootFilename && { compressedUrn: true, rootFilename })
+        },
+        output: {
+          formats: [{
+            type: 'svf2',
+            views: ['2d', '3d']
+          }]
+        }
+      }),
     }
+  )
+
+  if (!response.ok && response.status !== 409) {
+    const errorText = await response.text()
+    throw new Error(`Translation job failed: ${response.status} - ${errorText}`)
   }
 
-  const result = await modelDerivativeClient.startJob(
-    jobPayload,
-    { accessToken: access_token }
-  )
+  const result = await response.json() as { result?: string }
 
   return {
     urn,
@@ -181,6 +194,7 @@ export async function translateToSVF2(urn: string, rootFilename?: string): Promi
 
 /**
  * Get translation status
+ * Uses EMEA endpoint since our buckets are in EMEA region
  */
 export async function getTranslationStatus(urn: string): Promise<{
   status: string
@@ -190,7 +204,34 @@ export async function getTranslationStatus(urn: string): Promise<{
   const { access_token } = await getAccessToken()
 
   try {
-    const manifest = await modelDerivativeClient.getManifest(urn, { accessToken: access_token })
+    // Use EMEA endpoint since bucket is in EMEA region
+    const response = await fetch(
+      `https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/${urn}/manifest`,
+      {
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return {
+          status: 'pending',
+          progress: '0%'
+        }
+      }
+      const errorText = await response.text()
+      throw new Error(`Failed to get manifest: ${response.status} - ${errorText}`)
+    }
+
+    const manifest = await response.json() as {
+      status: string
+      progress?: string
+      derivatives?: Array<{
+        messages?: Array<{ message?: string } | string>
+      }>
+    }
 
     const messages: string[] = []
     if (manifest.derivatives) {
@@ -198,7 +239,7 @@ export async function getTranslationStatus(urn: string): Promise<{
         if (derivative.messages) {
           for (const msg of derivative.messages) {
             if (typeof msg === 'object' && msg !== null && 'message' in msg) {
-              messages.push((msg as { message: string }).message)
+              messages.push(msg.message as string)
             }
           }
         }
@@ -211,14 +252,11 @@ export async function getTranslationStatus(urn: string): Promise<{
       messages: messages.length > 0 ? messages : undefined
     }
   } catch (err: unknown) {
-    const error = err as { axiosError?: { response?: { status?: number } } }
-    if (error.axiosError?.response?.status === 404) {
-      return {
-        status: 'pending',
-        progress: '0%'
-      }
+    // Re-throw with proper error handling
+    if (err instanceof Error) {
+      throw err
     }
-    throw err
+    throw new Error('Unknown error getting translation status')
   }
 }
 
