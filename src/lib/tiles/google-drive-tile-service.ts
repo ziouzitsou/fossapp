@@ -80,14 +80,15 @@ class GoogleDriveTileService {
   }
 
   /**
-   * Upload tile files (DWG, images, and optional report) to Google Drive
+   * Upload tile files (DWG, images, script, and optional report) to Google Drive
    * Creates folder: TILES/{tileName}/
    */
   async uploadTileFiles(
     tileName: string,
     dwgBuffer: Buffer,
     images: Array<{ name: string; buffer: Buffer }>,
-    report?: string
+    report?: string,
+    script?: string
   ): Promise<TileUploadResult> {
     const errors: string[] = []
     const uploadedFiles: UploadedFile[] = []
@@ -159,6 +160,16 @@ class GoogleDriveTileService {
           buffer: Buffer.from(report, 'utf-8'),
           mimeType: 'text/plain',
           type: 'report'
+        })
+      }
+
+      // Add script (.scr) if provided - for local testing with accoreconsole.exe
+      if (script) {
+        uploadTasks.push({
+          name: `${tileName}.scr`,
+          buffer: Buffer.from(script, 'utf-8'),
+          mimeType: 'text/plain',
+          type: 'report' // reuse 'report' type since it's also a text file
         })
       }
 

@@ -299,6 +299,14 @@ export class TileScriptGenerator {
   }
 
   /**
+   * Quit AutoCAD (required for APS model derivative)
+   * Uses plain QUIT command (not AutoLISP wrapper)
+   */
+  private quitAutoCAD() {
+    this.commands.push('QUIT')
+  }
+
+  /**
    * Add completion message
    */
   private addCompletionMessage() {
@@ -397,9 +405,11 @@ export class TileScriptGenerator {
     const outputFilename = settings.outputFilename || `${tileData.tile}.dwg`
     this.saveDrawing(outputFilename)
 
-    // 11. Restore system variables and complete
+    // 11. Restore system variables
     this.restoreSystemVariables()
-    this.addCompletionMessage()
+
+    // 12. Quit AutoCAD cleanly for APS
+    this.quitAutoCAD()
 
     return this.commands.join('\n')
   }

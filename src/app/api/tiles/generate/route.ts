@@ -124,7 +124,8 @@ async function processInBackground(jobId: string, payload: TilePayload) {
           payload.tile,
           apsResult.dwgBuffer,
           imagesToUpload,
-          apsResult.workItemReport
+          apsResult.workItemReport,
+          scriptResult.script // Include .scr for local testing with accoreconsole.exe
         )
 
         if (driveResult.success) {

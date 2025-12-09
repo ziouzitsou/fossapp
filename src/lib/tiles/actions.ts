@@ -328,13 +328,14 @@ export async function generateDwg(payload: TilePayload) {
           buffer: base64ToBuffer(img.base64),
         }))
 
-        // Upload to Google Drive (including report for debugging)
+        // Upload to Google Drive (including report and script for debugging)
         const driveService = getGoogleDriveTileService()
         driveUploadResult = await driveService.uploadTileFiles(
           payload.tile,
           apsResult.dwgBuffer,
           imagesToUpload,
-          apsResult.workItemReport // Include report for debugging .scr issues
+          apsResult.workItemReport, // Include report for debugging
+          scriptResult.script // Include .scr for local testing with accoreconsole.exe
         )
 
         if (driveUploadResult.success) {
