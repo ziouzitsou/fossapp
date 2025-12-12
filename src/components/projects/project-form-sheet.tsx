@@ -54,7 +54,7 @@ const PROJECT_PRIORITIES = [
   { value: 'urgent', label: 'Urgent' },
 ]
 
-// Project type options
+// Project type options (synced with database CHECK constraint)
 const PROJECT_TYPES = [
   { value: 'residential', label: 'Residential' },
   { value: 'commercial', label: 'Commercial' },
@@ -62,6 +62,7 @@ const PROJECT_TYPES = [
   { value: 'retail', label: 'Retail' },
   { value: 'office', label: 'Office' },
   { value: 'industrial', label: 'Industrial' },
+  { value: 'public', label: 'Public' },
   { value: 'healthcare', label: 'Healthcare' },
   { value: 'education', label: 'Education' },
   { value: 'cultural', label: 'Cultural' },
@@ -87,6 +88,9 @@ export function ProjectFormSheet({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Helper to get today's date in YYYY-MM-DD format
+  const getTodayDate = () => new Date().toISOString().split('T')[0]
+
   // Form state
   const [formData, setFormData] = useState<CreateProjectInput>({
     project_code: '',
@@ -105,7 +109,7 @@ export function ProjectFormSheet({
     currency: 'EUR',
     status: 'draft',
     priority: 'medium',
-    start_date: '',
+    start_date: getTodayDate(),
     expected_completion_date: '',
     project_manager: '',
     architect_firm: '',
@@ -147,7 +151,7 @@ export function ProjectFormSheet({
           tags: project.tags || [],
         })
       } else {
-        // Creating - reset to defaults
+        // Creating - reset to defaults with today's date
         setFormData({
           project_code: '',
           name: '',
@@ -165,7 +169,7 @@ export function ProjectFormSheet({
           currency: 'EUR',
           status: 'draft',
           priority: 'medium',
-          start_date: '',
+          start_date: getTodayDate(),
           expected_completion_date: '',
           project_manager: '',
           architect_firm: '',
