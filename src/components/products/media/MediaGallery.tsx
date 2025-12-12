@@ -15,35 +15,85 @@ interface MediaGalleryProps {
   productName: string;
 }
 
+interface MediaWithFallback {
+  primary: Multimedia;
+  fallback?: Multimedia;
+}
+
 /**
  * Displays all available media for a product as a carousel
  * Combines photos, technical drawings, and photometric data into one slideshow
  */
 export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set());
 
-  // Group multimedia by type
-  const productPhotos = multimedia.filter(m => m.mime_code === 'MD01');
-  const technicalDrawing = multimedia.find(m => m.mime_code === 'MD12');
-  const photometric = multimedia.find(m => m.mime_code === 'MD16');
+  // Helper to get media with fallback, considering failed URLs
+  const getMediaWithFallback = (
+    primaryCode: string,
+    fallbackCode: string
+  ): MediaWithFallback | null => {
+    const primary = multimedia.find(m => m.mime_code === primaryCode);
+    const fallback = multimedia.find(m => m.mime_code === fallbackCode);
+
+    // If primary exists and hasn't failed, use it
+    if (primary && !failedUrls.has(primary.mime_source)) {
+      return { primary, fallback };
+    }
+    // If primary failed or doesn't exist, use fallback as primary
+    if (fallback) {
+      return { primary: fallback };
+    }
+    return null;
+  };
+
+  // Group multimedia by type with fallback support
+  // Photos: MD02 (Supabase) -> MD01 (Supplier)
+  const md02Photos = multimedia.filter(m => m.mime_code === 'MD02' && !failedUrls.has(m.mime_source));
+  const md01Photos = multimedia.filter(m => m.mime_code === 'MD01');
+  const productPhotos = md02Photos.length > 0 ? md02Photos : md01Photos;
+
+  // Drawing: MD64 (Supabase) -> MD12 (Supplier)
+  const drawingWithFallback = getMediaWithFallback('MD64', 'MD12');
+
+  // Photometric: MD19 (Supabase) -> MD16 (Supplier)
+  const photometricWithFallback = getMediaWithFallback('MD19', 'MD16');
+
   const productLink = multimedia.find(m => m.mime_code === 'MD04');
   const manual = multimedia.find(m => m.mime_code === 'MD14');
   const specsheet = multimedia.find(m => m.mime_code === 'MD22');
 
-  // Build carousel slides: photos + technical drawing + photometric
-  const carouselSlides: Array<{ media: Multimedia; label: string; type: 'photo' | 'drawing' | 'photometric' }> = [
+  // Handle image load error - mark URL as failed and trigger re-render
+  const handleImageError = useCallback((url: string) => {
+    setFailedUrls(prev => {
+      const newSet = new Set(prev);
+      newSet.add(url);
+      return newSet;
+    });
+  }, []);
+
+  // Build carousel slides with fallback info
+  const carouselSlides: Array<{
+    media: Multimedia;
+    fallback?: Multimedia;
+    label: string;
+    type: 'photo' | 'drawing' | 'photometric'
+  }> = [
     ...productPhotos.map((photo, idx) => ({
       media: photo,
+      fallback: photo.mime_code === 'MD02' ? md01Photos[idx] || md01Photos[0] : undefined,
       label: productPhotos.length > 1 ? `Photo ${idx + 1}` : 'Product Photo',
       type: 'photo' as const
     })),
-    ...(technicalDrawing ? [{
-      media: technicalDrawing,
+    ...(drawingWithFallback ? [{
+      media: drawingWithFallback.primary,
+      fallback: drawingWithFallback.fallback,
       label: 'Technical Drawing',
       type: 'drawing' as const
     }] : []),
-    ...(photometric ? [{
-      media: photometric,
+    ...(photometricWithFallback ? [{
+      media: photometricWithFallback.primary,
+      fallback: photometricWithFallback.fallback,
       label: 'Photometric Data',
       type: 'photometric' as const
     }] : [])
@@ -91,14 +141,6 @@ export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
     }
   };
 
-  const getMediaBadgeVariant = (type: 'photo' | 'drawing' | 'photometric') => {
-    switch (type) {
-      case 'photo': return 'default';
-      case 'drawing': return 'secondary';
-      case 'photometric': return 'outline';
-    }
-  };
-
   const renderDocumentButton = (media: Multimedia, label: string, icon: any) => {
     return (
       <Button
@@ -130,11 +172,12 @@ export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
                   className="object-contain"
                   sizes="(max-width: 768px) 100vw, 60vw"
                   priority={currentSlide === 0}
+                  onError={() => handleImageError(currentMedia.media.mime_source)}
                 />
 
                 {/* Media Type Badge */}
                 <div className="absolute top-3 left-3">
-                  <Badge variant={getMediaBadgeVariant(currentMedia.type)} className="flex items-center gap-1.5">
+                  <Badge className="flex items-center gap-1.5 !bg-background/90 !text-foreground !border !border-border/50 backdrop-blur-sm shadow-sm">
                     {React.createElement(getMediaIcon(currentMedia.type), { className: 'h-3 w-3' })}
                     {currentMedia.label}
                   </Badge>
@@ -192,6 +235,7 @@ export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
                         fill
                         className="object-cover"
                         sizes="80px"
+                        onError={() => handleImageError(slide.media.mime_source)}
                       />
                       {/* Small icon indicator for non-photo slides */}
                       {slide.type !== 'photo' && (
