@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <title>Foss Icon Dark</title>
+  <rect width="32" height="32" rx="6" fill="#fff"/>
+  <g fill="#1b1918">
+    <!-- F letter -->
+    <path d="M8 8v16h4v-6h8v-3h-8v-4h10V8z"/>
+    <!-- Small circle (o) -->
+    <circle cx="22" cy="20" r="4"/>
+  </g>
+  <circle cx="22" cy="20" r="1.5" fill="#fff"/>
+</svg>

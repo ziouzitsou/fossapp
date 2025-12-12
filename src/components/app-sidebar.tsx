@@ -22,16 +22,17 @@ export function AppSidebar() {
   const navigation = getNavigation(pathname)
 
   return (
-    <Sidebar collapsible="offcanvas">
+    <Sidebar collapsible="icon">
       {/* Logo Header */}
       <SidebarHeader className="border-b">
-        <div className="flex items-center justify-center px-4 py-4">
+        <div className="flex items-center justify-center px-4 py-4 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-2">
+          {/* Full logo - hidden when collapsed */}
           <Image
             src="/logo.svg"
             alt="Company Logo"
             width={180}
             height={60}
-            className="w-full h-auto max-h-12 object-contain dark:hidden"
+            className="w-full h-auto max-h-12 object-contain dark:hidden group-data-[collapsible=icon]:hidden"
             priority
           />
           <Image
@@ -39,7 +40,24 @@ export function AppSidebar() {
             alt="Company Logo"
             width={180}
             height={60}
-            className="w-full h-auto max-h-12 object-contain hidden dark:block"
+            className="w-full h-auto max-h-12 object-contain hidden dark:block group-data-[collapsible=icon]:!hidden"
+            priority
+          />
+          {/* Icon logo - shown when collapsed */}
+          <Image
+            src="/logo-icon.svg"
+            alt="Company Logo"
+            width={32}
+            height={32}
+            className="h-8 w-8 object-contain hidden group-data-[collapsible=icon]:block dark:!hidden"
+            priority
+          />
+          <Image
+            src="/logo-icon-dark.svg"
+            alt="Company Logo"
+            width={32}
+            height={32}
+            className="h-8 w-8 object-contain !hidden dark:group-data-[collapsible=icon]:!block"
             priority
           />
         </div>
@@ -70,14 +88,16 @@ export function AppSidebar() {
 
       {/* Footer with Theme Toggle and Version */}
       <SidebarFooter className="border-t">
-        <div className="flex flex-col gap-2 p-2">
+        <div className="flex flex-col gap-2 p-2 group-data-[collapsible=icon]:p-1">
           {/* Theme Toggle */}
           <div className="flex items-center justify-center">
             <ThemeToggle />
           </div>
 
-          {/* Version Display */}
-          <VersionDisplay />
+          {/* Version Display - hidden when collapsed */}
+          <div className="group-data-[collapsible=icon]:hidden">
+            <VersionDisplay />
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>

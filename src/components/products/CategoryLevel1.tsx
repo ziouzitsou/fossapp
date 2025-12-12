@@ -20,7 +20,7 @@ export function CategoryLevel1({
 }: CategoryLevel1Props) {
   return (
     <div className="border-b bg-muted/50">
-      <div className="px-6 py-4">
+      <div className="mx-auto max-w-[1800px] 3xl:max-w-[2200px] 4xl:max-w-[2560px] px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center">
             Product Categories

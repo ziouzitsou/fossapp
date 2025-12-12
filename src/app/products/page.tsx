@@ -370,7 +370,7 @@ function ProductsPageContent() {
       {/* Level 2: Horizontal Tabs */}
       {level1 && level2Categories.length > 0 && (
         <div className="border-b bg-muted/30">
-          <div className="px-4 sm:px-6 lg:px-8 py-4">
+          <div className="mx-auto max-w-[1800px] 3xl:max-w-[2200px] 4xl:max-w-[2560px] px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-base font-semibold flex items-center">
                 Subcategories
@@ -409,7 +409,7 @@ function ProductsPageContent() {
       {/* Level 3: Horizontal Tabs */}
       {level2 && level3Categories.length > 0 && (
         <div className="border-b bg-muted/20">
-          <div className="px-4 sm:px-6 lg:px-8 py-4">
+          <div className="mx-auto max-w-[1800px] 3xl:max-w-[2200px] 4xl:max-w-[2560px] px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-medium flex items-center">
                 Product Types
