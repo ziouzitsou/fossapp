@@ -67,13 +67,19 @@ export interface Multimedia {
 }
 
 // MIME Code Reference
+// Supplier-provided media (external URLs)
 export const MIME_CODES = {
   MD01: 'Product photographs',
+  MD04: 'Manufacturer product page',
   MD12: 'Technical drawings (SVG/CAD)',
   MD14: 'Installation manuals (PDF)',
   MD16: 'Light distribution curves (IES/LDT)',
   MD22: 'Specification sheets',
-  MD04: 'Manufacturer product page'
+  // Generated media (Supabase Storage - bmecat-media bucket)
+  MD02: 'Print-ready image',      // From MD01, 591×591px @300dpi
+  MD19: 'LDC diagram (PNG)',      // From MD16, optimized for display
+  MD47: 'Thumbnail',              // From MD01, for product lists
+  MD64: 'Line drawing',           // From MD12, 591×591px @300dpi, black on white
 } as const;
 
 // ETIM Feature structure

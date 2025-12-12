@@ -24,6 +24,7 @@ Database schema, search system, and Supabase integration.
 |----------|-------------|
 | [schema.md](./database/schema.md) | PostgreSQL schema overview (items, etim) |
 | [advanced-search.md](./database/advanced-search.md) | Faceted search architecture (8,500 words) |
+| [multimedia-codes.md](./database/multimedia-codes.md) | BMECat MD codes, Supabase storage, fallbacks |
 | [supabase-github.md](./database/supabase-github.md) | Supabase GitHub integration, preview DBs |
 
 ---
@@ -50,6 +51,7 @@ Feature-specific documentation.
 |----------|-------------|
 | [tiles.md](./features/tiles.md) | Tile Management System (DWG generation) |
 | [playground.md](./features/playground.md) | DWG from natural language (LLM + APS) |
+| [symbol-generator.md](./features/symbol-generator.md) | AutoCAD symbol specs via Vision LLM (experimental) |
 | [filters.md](./features/filters.md) | Dynamic filters implementation |
 | [pwa.md](./features/pwa.md) | Progressive Web App setup |
 | [product-search.md](./features/product-search.md) | Product search interface |
@@ -96,4 +98,4 @@ Historical and completed migration docs.
 
 ---
 
-**Last Updated**: 2025-12-08
+**Last Updated**: 2025-12-10

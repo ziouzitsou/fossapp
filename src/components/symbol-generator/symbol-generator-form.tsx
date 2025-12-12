@@ -1,0 +1,504 @@
+'use client'
+
+import { useState, useCallback, useEffect } from 'react'
+import {
+  Search,
+  Loader2,
+  Sparkles,
+  Copy,
+  Check,
+  ImageIcon,
+  FileImage,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { ProductInfo } from '@/types/product'
+import {
+  extractDimensions,
+  formatDimensionsForDisplay,
+} from '@/lib/symbol-generator/dimension-utils'
+import { VisionAnalysisResult, LuminaireDimensions } from '@/lib/symbol-generator/types'
+
+// Search history management
+const SEARCH_HISTORY_KEY = 'symbol-generator-search-history'
+const MAX_HISTORY_ITEMS = 10
+
+function loadSearchHistory(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored = localStorage.getItem(SEARCH_HISTORY_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+function saveSearchHistory(history: string[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(
+      SEARCH_HISTORY_KEY,
+      JSON.stringify(history.slice(0, MAX_HISTORY_ITEMS))
+    )
+  } catch (e) {
+    console.error('Failed to save search history:', e)
+  }
+}
+
+export function SymbolGeneratorForm() {
+  // Search state
+  const [query, setQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<ProductInfo[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [searchHistory, setSearchHistory] = useState<string[]>([])
+
+  // Selected product state
+  const [selectedProduct, setSelectedProduct] = useState<ProductInfo | null>(null)
+  const [dimensions, setDimensions] = useState<LuminaireDimensions | null>(null)
+
+  // Analysis state
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState<VisionAnalysisResult | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  // Load search history on mount
+  useEffect(() => {
+    setSearchHistory(loadSearchHistory())
+  }, [])
+
+  // Handle search
+  const handleSearch = useCallback(async () => {
+    if (!query.trim()) return
+
+    setIsSearching(true)
+    setSearchError(null)
+    setSearchResults([])
+
+    try {
+      const response = await fetch(
+        `/api/tiles/search?q=${encodeURIComponent(query.trim())}`
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) throw new Error('Please sign in to search')
+        if (response.status === 429) throw new Error('Rate limit exceeded')
+        throw new Error('Search failed')
+      }
+
+      const { data } = await response.json()
+      setSearchResults(data || [])
+
+      // Save to history
+      const trimmed = query.trim()
+      setSearchHistory((prev) => {
+        const filtered = prev.filter(
+          (h) => h.toLowerCase() !== trimmed.toLowerCase()
+        )
+        const updated = [trimmed, ...filtered].slice(0, MAX_HISTORY_ITEMS)
+        saveSearchHistory(updated)
+        return updated
+      })
+    } catch (error) {
+      setSearchError(error instanceof Error ? error.message : 'Search failed')
+    } finally {
+      setIsSearching(false)
+    }
+  }, [query])
+
+  // Handle product selection
+  const handleSelectProduct = useCallback((product: ProductInfo) => {
+    setSelectedProduct(product)
+    setDimensions(extractDimensions(product))
+    setSearchResults([])
+    setAnalysisResult(null)
+  }, [])
+
+  // Handle analysis
+  const handleAnalyze = useCallback(async () => {
+    if (!selectedProduct) return
+
+    setIsAnalyzing(true)
+    setAnalysisResult(null)
+
+    try {
+      const response = await fetch('/api/symbol-generator/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: selectedProduct }),
+      })
+
+      const result: VisionAnalysisResult = await response.json()
+      setAnalysisResult(result)
+    } catch (error) {
+      setAnalysisResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Analysis failed',
+        model: '',
+        tokensIn: 0,
+        tokensOut: 0,
+        costUsd: 0,
+        processingTimeMs: 0,
+        hadImage: false,
+        hadDrawing: false,
+        dimensionsProvided: [],
+      })
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }, [selectedProduct])
+
+  // Copy to clipboard
+  const handleCopy = useCallback(async () => {
+    if (!analysisResult?.description) return
+
+    try {
+      await navigator.clipboard.writeText(analysisResult.description)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      console.error('Failed to copy')
+    }
+  }, [analysisResult])
+
+  // Clear selection
+  const handleClear = useCallback(() => {
+    setSelectedProduct(null)
+    setDimensions(null)
+    setAnalysisResult(null)
+    setSearchResults([])
+    setQuery('')
+  }, [])
+
+  // Get image URLs - prioritize generated Supabase Storage URLs over supplier URLs
+  const imageUrl = selectedProduct?.multimedia?.find(
+    (m) => m.mime_code === 'MD02'
+  )?.mime_source || selectedProduct?.multimedia?.find(
+    (m) => m.mime_code === 'MD01'
+  )?.mime_source
+  const drawingUrl = selectedProduct?.multimedia?.find(
+    (m) => m.mime_code === 'MD64'
+  )?.mime_source || selectedProduct?.multimedia?.find(
+    (m) => m.mime_code === 'MD12'
+  )?.mime_source
+
+  const dimensionDisplay = dimensions
+    ? formatDimensionsForDisplay(dimensions)
+    : null
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Search Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Product Search</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Enter FOSS PID or product name..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="flex-1"
+            />
+            <Button onClick={handleSearch} disabled={isSearching || !query.trim()}>
+              {isSearching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+              <span className="ml-2">Search</span>
+            </Button>
+          </div>
+
+          {searchError && (
+            <p className="mt-2 text-sm text-destructive">{searchError}</p>
+          )}
+
+          {/* Search Results */}
+          {searchResults.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {searchResults.length} result(s)
+              </p>
+              {searchResults.map((product) => (
+                <div
+                  key={product.product_id}
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                  onClick={() => handleSelectProduct(product)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">
+                      {product.description_short}
+                    </p>
+                    <div className="flex gap-2 mt-1">
+                      <Badge variant="outline" className="text-xs">
+                        {product.foss_pid}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {product.class_name}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Search History */}
+          {!searchResults.length && searchHistory.length > 0 && !selectedProduct && (
+            <div className="mt-4">
+              <p className="text-xs text-muted-foreground mb-2">Recent searches:</p>
+              <div className="flex flex-wrap gap-2">
+                {searchHistory.slice(0, 5).map((term) => (
+                  <Badge
+                    key={term}
+                    variant="outline"
+                    className="cursor-pointer hover:bg-muted"
+                    onClick={() => {
+                      setQuery(term)
+                      handleSearch()
+                    }}
+                  >
+                    {term}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Selected Product Preview */}
+      {selectedProduct && (
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Product Info & Images */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <CardTitle className="text-lg">Product Preview</CardTitle>
+                <Button variant="ghost" size="sm" onClick={handleClear}>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Clear
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Product Info */}
+              <div className="mb-4">
+                <h3 className="font-semibold">{selectedProduct.description_short}</h3>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <Badge>{selectedProduct.foss_pid}</Badge>
+                  <Badge variant="secondary">{selectedProduct.class_name}</Badge>
+                  <Badge variant="outline">{selectedProduct.supplier_name}</Badge>
+                </div>
+              </div>
+
+              {/* Images */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <ImageIcon className="h-3 w-3" /> Photo
+                  </p>
+                  {imageUrl ? (
+                    <div className="aspect-square border rounded-lg overflow-hidden bg-muted">
+                      <img
+                        src={`/api/image?url=${encodeURIComponent(imageUrl)}&w=256`}
+                        alt="Product"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-square border rounded-lg bg-muted flex items-center justify-center">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <FileImage className="h-3 w-3" /> Drawing
+                  </p>
+                  {drawingUrl ? (
+                    <div className="aspect-square border rounded-lg overflow-hidden bg-muted">
+                      <img
+                        src={`/api/image?url=${encodeURIComponent(drawingUrl)}&w=256`}
+                        alt="Drawing"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-square border rounded-lg bg-muted flex items-center justify-center">
+                      <FileImage className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Dimensions */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">ETIM Dimensions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {dimensionDisplay ? (
+                <div className="space-y-4">
+                  {/* Outer Dimensions */}
+                  {dimensionDisplay.outer.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-2">
+                        Outer Dimensions
+                      </p>
+                      <div className="space-y-1">
+                        {dimensionDisplay.outer.map((d, i) => (
+                          <div key={i} className="flex justify-between text-sm">
+                            <span>{d.label}</span>
+                            <span className="font-mono">{d.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cutout Dimensions */}
+                  {dimensionDisplay.cutout.length > 0 && (
+                    <div>
+                      <Separator className="my-3" />
+                      <p className="text-sm font-medium text-muted-foreground mb-2">
+                        Cutout/Recess
+                      </p>
+                      <div className="space-y-1">
+                        {dimensionDisplay.cutout.map((d, i) => (
+                          <div key={i} className="flex justify-between text-sm">
+                            <span>{d.label}</span>
+                            <span className="font-mono">{d.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Characteristics */}
+                  {dimensionDisplay.characteristics.length > 0 && (
+                    <div>
+                      <Separator className="my-3" />
+                      <p className="text-sm font-medium text-muted-foreground mb-2">
+                        Characteristics
+                      </p>
+                      <div className="space-y-1">
+                        {dimensionDisplay.characteristics.map((d, i) => (
+                          <div key={i} className="flex justify-between text-sm">
+                            <span>{d.label}</span>
+                            <span>{d.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No dimension data available from ETIM features.
+                </p>
+              )}
+
+              {/* Analyze Button */}
+              <div className="mt-6">
+                <Button
+                  onClick={handleAnalyze}
+                  disabled={isAnalyzing}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isAnalyzing ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 mr-2" />
+                  )}
+                  {isAnalyzing ? 'Analyzing...' : 'Analyze Symbol'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Analysis Result */}
+      {analysisResult && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                Symbol Description
+                {analysisResult.success ? (
+                  <Badge variant="default" className="bg-green-600">Success</Badge>
+                ) : (
+                  <Badge variant="destructive">Error</Badge>
+                )}
+              </CardTitle>
+              {analysisResult.success && analysisResult.description && (
+                <Button variant="outline" size="sm" onClick={handleCopy}>
+                  {copied ? (
+                    <Check className="h-4 w-4 mr-1" />
+                  ) : (
+                    <Copy className="h-4 w-4 mr-1" />
+                  )}
+                  {copied ? 'Copied!' : 'Copy'}
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {analysisResult.error ? (
+              <div className="flex items-start gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                <p>{analysisResult.error}</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Metadata */}
+                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  <span>Model: {analysisResult.model}</span>
+                  <span>
+                    Tokens: {analysisResult.tokensIn} / {analysisResult.tokensOut}
+                  </span>
+                  <span>Cost: ${analysisResult.costUsd.toFixed(4)}</span>
+                  <span>Time: {(analysisResult.processingTimeMs / 1000).toFixed(1)}s</span>
+                  <span>
+                    Images: {analysisResult.hadImage ? 'Photo' : ''}{' '}
+                    {analysisResult.hadImage && analysisResult.hadDrawing ? '+' : ''}{' '}
+                    {analysisResult.hadDrawing ? 'Drawing' : ''}
+                    {!analysisResult.hadImage && !analysisResult.hadDrawing ? 'None' : ''}
+                  </span>
+                </div>
+
+                <Separator />
+
+                {/* Description Output */}
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg overflow-auto max-h-[500px]">
+                    {analysisResult.description}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}

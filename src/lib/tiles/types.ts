@@ -30,7 +30,7 @@ export interface ProductPrice {
 }
 
 export interface MultimediaItem {
-  mime_code: string // MD01 = image, MD12 = drawing, MD04 = deeplink, MD16 = LDC
+  mime_code: string // MD01/MD02 = image, MD12/MD64 = drawing, MD04 = deeplink, MD16/MD19 = LDC, MD47 = thumbnail
   mime_source: string
 }
 
@@ -78,17 +78,32 @@ export interface TileGroup {
 }
 
 // Helper to extract multimedia URLs
+// Prioritizes generated Supabase Storage URLs (MD02, MD64, MD47) over supplier URLs (MD01, MD12)
+
 export function getProductImage(product: ProductInfo): string | undefined {
-  return product.multimedia?.find(m => m.mime_code === 'MD01')?.mime_source
+  // MD02 (print-ready) preferred, fallback to MD01 (supplier photo)
+  return product.multimedia?.find(m => m.mime_code === 'MD02')?.mime_source
+    || product.multimedia?.find(m => m.mime_code === 'MD01')?.mime_source
 }
 
 export function getProductDrawing(product: ProductInfo): string | undefined {
-  return product.multimedia?.find(m => m.mime_code === 'MD12')?.mime_source
+  // MD64 (line drawing) preferred, fallback to MD12 (supplier drawing)
+  return product.multimedia?.find(m => m.mime_code === 'MD64')?.mime_source
+    || product.multimedia?.find(m => m.mime_code === 'MD12')?.mime_source
 }
 
-// Get image with drawing as fallback (for thumbnails)
+// Get thumbnail for product lists/grids
 export function getProductThumbnail(product: ProductInfo): string | undefined {
-  return getProductImage(product) || getProductDrawing(product)
+  // MD47 (thumbnail) preferred, fallback to MD02/MD01
+  return product.multimedia?.find(m => m.mime_code === 'MD47')?.mime_source
+    || getProductImage(product)
+}
+
+// Get LDC diagram
+export function getProductLDC(product: ProductInfo): string | undefined {
+  // MD19 (generated PNG) preferred, fallback to MD16 (supplier SVG)
+  return product.multimedia?.find(m => m.mime_code === 'MD19')?.mime_source
+    || product.multimedia?.find(m => m.mime_code === 'MD16')?.mime_source
 }
 
 export function getProductDeeplink(product: ProductInfo): string | undefined {
