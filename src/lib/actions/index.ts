@@ -137,3 +137,16 @@ export {
   validateTaxonomyCode,
   validateSupplierId,
 } from './validation'
+
+// ============================================================================
+// USER SETTINGS
+// ============================================================================
+
+export {
+  getUserSettingsAction,
+  updateUserSettingsAction,
+  addToSearchHistoryAction,
+  clearSearchHistoryAction,
+  type UserSettings,
+  type UpdateSettingsInput,
+} from './user-settings'

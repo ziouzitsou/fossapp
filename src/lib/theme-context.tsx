@@ -1,63 +1,32 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+/**
+ * Theme Context - Backward Compatibility Layer
+ *
+ * This module now delegates to UserSettingsProvider for cross-device sync.
+ * Existing imports continue to work unchanged.
+ *
+ * @deprecated Use useUserSettings() from '@/lib/user-settings-context' directly
+ */
 
-type Theme = 'default' | 'supabase' | 'graphite'
+import { useUserSettings } from './user-settings-context'
 
-interface ThemeContextType {
-  theme: Theme
-  setTheme: (theme: Theme) => void
-}
+export type Theme = 'default' | 'supabase' | 'graphite'
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
-
-export function MultiThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('default')
-  const [mounted, setMounted] = useState(false)
-
-  // Load theme from localStorage on mount
-  useEffect(() => {
-    setMounted(true)
-    const savedTheme = localStorage.getItem('app-theme') as Theme | null
-    if (savedTheme && ['default', 'supabase', 'graphite'].includes(savedTheme)) {
-      setThemeState(savedTheme)
-    }
-  }, [])
-
-  // Apply theme class to document root
-  useEffect(() => {
-    if (!mounted) return
-
-    const root = document.documentElement
-
-    // Remove all theme classes
-    root.classList.remove('theme-supabase', 'theme-graphite')
-
-    // Add new theme class (default has no class, uses :root)
-    if (theme === 'supabase') {
-      root.classList.add('theme-supabase')
-    } else if (theme === 'graphite') {
-      root.classList.add('theme-graphite')
-    }
-  }, [theme, mounted])
-
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme)
-    localStorage.setItem('app-theme', newTheme)
-  }
-
-  // Always provide the context, even before mounting to avoid hydration issues
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  )
-}
-
+/**
+ * @deprecated Use useUserSettings() or useTheme() from '@/lib/user-settings-context'
+ */
 export function useMultiTheme() {
-  const context = useContext(ThemeContext)
-  if (context === undefined) {
-    throw new Error('useMultiTheme must be used within MultiThemeProvider')
-  }
-  return context
+  const { theme, setTheme } = useUserSettings()
+  return { theme, setTheme }
+}
+
+/**
+ * @deprecated MultiThemeProvider is no longer needed.
+ * UserSettingsProvider in providers.tsx handles theme management.
+ * This component is kept for backward compatibility but does nothing.
+ */
+export function MultiThemeProvider({ children }: { children: React.ReactNode }) {
+  // No-op - UserSettingsProvider handles theme now
+  return <>{children}</>
 }

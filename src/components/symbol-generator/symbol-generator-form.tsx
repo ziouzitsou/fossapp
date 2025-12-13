@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import {
   Search,
   Loader2,
@@ -23,32 +23,7 @@ import {
   formatDimensionsForDisplay,
 } from '@/lib/symbol-generator/dimension-utils'
 import { VisionAnalysisResult, LuminaireDimensions } from '@/lib/symbol-generator/types'
-
-// Search history management
-const SEARCH_HISTORY_KEY = 'symbol-generator-search-history'
-const MAX_HISTORY_ITEMS = 10
-
-function loadSearchHistory(): string[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const stored = localStorage.getItem(SEARCH_HISTORY_KEY)
-    return stored ? JSON.parse(stored) : []
-  } catch {
-    return []
-  }
-}
-
-function saveSearchHistory(history: string[]): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(
-      SEARCH_HISTORY_KEY,
-      JSON.stringify(history.slice(0, MAX_HISTORY_ITEMS))
-    )
-  } catch (e) {
-    console.error('Failed to save search history:', e)
-  }
-}
+import { useSearchHistory } from '@/lib/user-settings-context'
 
 export function SymbolGeneratorForm() {
   // Search state
@@ -56,7 +31,9 @@ export function SymbolGeneratorForm() {
   const [searchResults, setSearchResults] = useState<ProductInfo[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [searchHistory, setSearchHistory] = useState<string[]>([])
+
+  // Use synced search history (syncs to DB for authenticated users)
+  const { history: searchHistory, addToHistory } = useSearchHistory('symbols')
 
   // Selected product state
   const [selectedProduct, setSelectedProduct] = useState<ProductInfo | null>(null)
@@ -66,11 +43,6 @@ export function SymbolGeneratorForm() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<VisionAnalysisResult | null>(null)
   const [copied, setCopied] = useState(false)
-
-  // Load search history on mount
-  useEffect(() => {
-    setSearchHistory(loadSearchHistory())
-  }, [])
 
   // Handle search
   const handleSearch = useCallback(async () => {
@@ -94,22 +66,14 @@ export function SymbolGeneratorForm() {
       const { data } = await response.json()
       setSearchResults(data || [])
 
-      // Save to history
-      const trimmed = query.trim()
-      setSearchHistory((prev) => {
-        const filtered = prev.filter(
-          (h) => h.toLowerCase() !== trimmed.toLowerCase()
-        )
-        const updated = [trimmed, ...filtered].slice(0, MAX_HISTORY_ITEMS)
-        saveSearchHistory(updated)
-        return updated
-      })
+      // Save to synced history
+      addToHistory(query.trim())
     } catch (error) {
       setSearchError(error instanceof Error ? error.message : 'Search failed')
     } finally {
       setIsSearching(false)
     }
-  }, [query])
+  }, [query, addToHistory])
 
   // Handle product selection
   const handleSelectProduct = useCallback((product: ProductInfo) => {

@@ -2,8 +2,7 @@
 
 import { SessionProvider } from 'next-auth/react'
 import { ThemeProvider } from './theme-provider'
-import { MultiThemeProvider } from '@/lib/theme-context'
-import { ActiveProjectProvider } from '@/lib/active-project-context'
+import { UserSettingsProvider } from '@/lib/user-settings-context'
 import { BucketProvider } from '@/components/tiles/bucket-context'
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -14,13 +13,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
       enableSystem
       disableTransitionOnChange
     >
-      <MultiThemeProvider>
-        <ActiveProjectProvider>
+      <SessionProvider>
+        <UserSettingsProvider>
           <BucketProvider>
-            <SessionProvider>{children}</SessionProvider>
+            {children}
           </BucketProvider>
-        </ActiveProjectProvider>
-      </MultiThemeProvider>
+        </UserSettingsProvider>
+      </SessionProvider>
     </ThemeProvider>
   )
 }

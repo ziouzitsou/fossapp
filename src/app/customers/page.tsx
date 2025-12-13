@@ -24,6 +24,7 @@ import {
   type CustomerSearchResult,
   type CustomerListResult
 } from '@/lib/actions'
+import { useSearchHistory } from '@/lib/user-settings-context'
 
 export default function CustomersPage() {
   const { data: session, status } = useDevSession()
@@ -32,22 +33,16 @@ export default function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<CustomerSearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [searchHistory, setSearchHistory] = useState<string[]>([])
   const [customerList, setCustomerList] = useState<CustomerListResult | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [showAllCustomers, setShowAllCustomers] = useState(false)
 
-  // Load search history from localStorage on mount
-  useEffect(() => {
-    const history = localStorage.getItem('customerSearchHistory')
-    if (history) {
-      try {
-        setSearchHistory(JSON.parse(history))
-      } catch (error) {
-        console.error('Error loading search history:', error)
-      }
-    }
-  }, [])
+  // Use synced search history (syncs to DB for authenticated users)
+  const {
+    history: searchHistory,
+    addToHistory,
+    clearHistory: clearSearchHistory
+  } = useSearchHistory('customers')
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -95,25 +90,14 @@ export default function CustomersPage() {
       const results = await searchCustomersAction(searchTerm)
       setSearchResults(results)
 
-      // Update search history
-      const updatedHistory = [
-        searchTerm,
-        ...searchHistory.filter(item => item !== searchTerm)
-      ].slice(0, 10)
-
-      setSearchHistory(updatedHistory)
-      localStorage.setItem('customerSearchHistory', JSON.stringify(updatedHistory))
+      // Save to synced history
+      addToHistory(searchTerm)
     } catch (error) {
       console.error('Search error:', error)
       setSearchResults([])
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const clearSearchHistory = () => {
-    setSearchHistory([])
-    localStorage.removeItem('customerSearchHistory')
   }
 
   // Handle command palette search

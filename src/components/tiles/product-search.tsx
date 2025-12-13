@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState } from 'react'
 import { Search, Plus, Check, Loader2, ExternalLink, History, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -9,28 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { ProductInfo, getProductImage, getProductDeeplink } from '@/lib/tiles/types'
 import { ProductImage } from './product-image'
 import { useBucket } from '@/components/tiles/bucket-context'
-
-const SEARCH_HISTORY_KEY = 'tiles-search-history'
-const MAX_HISTORY_ITEMS = 10
-
-function loadSearchHistory(): string[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const stored = localStorage.getItem(SEARCH_HISTORY_KEY)
-    return stored ? JSON.parse(stored) : []
-  } catch {
-    return []
-  }
-}
-
-function saveSearchHistory(history: string[]): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY_ITEMS)))
-  } catch (e) {
-    console.error('Failed to save search history:', e)
-  }
-}
+import { useSearchHistory } from '@/lib/user-settings-context'
 
 export function ProductSearch() {
   const [query, setQuery] = useState('')
@@ -38,43 +17,14 @@ export function ProductSearch() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
-  const [searchHistory, setSearchHistory] = useState<string[]>([])
   const [showHistory, setShowHistory] = useState(false)
 
   const { addToBucket, isInBucket } = useBucket()
 
-  // Load search history on mount
-  useEffect(() => {
-    setSearchHistory(loadSearchHistory())
-  }, [])
+  // Use synced search history (syncs to DB for authenticated users)
+  const { history: searchHistory, addToHistory, removeFromHistory, clearHistory } = useSearchHistory('tiles')
 
-  const addToHistory = useCallback((term: string) => {
-    const trimmed = term.trim()
-    if (!trimmed) return
-
-    setSearchHistory(prev => {
-      // Remove if already exists, then add to front
-      const filtered = prev.filter(h => h.toLowerCase() !== trimmed.toLowerCase())
-      const updated = [trimmed, ...filtered].slice(0, MAX_HISTORY_ITEMS)
-      saveSearchHistory(updated)
-      return updated
-    })
-  }, [])
-
-  const removeFromHistory = useCallback((term: string) => {
-    setSearchHistory(prev => {
-      const updated = prev.filter(h => h !== term)
-      saveSearchHistory(updated)
-      return updated
-    })
-  }, [])
-
-  const clearHistory = useCallback(() => {
-    setSearchHistory([])
-    saveSearchHistory([])
-  }, [])
-
-  const handleSearch = useCallback(async (searchTerm?: string) => {
+  const handleSearch = async (searchTerm?: string) => {
     const term = searchTerm ?? query
     if (!term.trim()) return
 
@@ -108,7 +58,7 @@ export function ProductSearch() {
     } finally {
       setIsLoading(false)
     }
-  }, [query, addToHistory])
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {

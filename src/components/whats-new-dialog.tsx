@@ -10,8 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Sparkles, Zap, Check } from 'lucide-react'
-
-const VERSION_STORAGE_KEY = 'fossapp_last_seen_version'
+import { useUserSettings } from '@/lib/user-settings-context'
 
 // Latest version content - update this when releasing new versions
 const LATEST_CHANGES = {
@@ -32,11 +31,13 @@ const LATEST_CHANGES = {
 
 export function WhatsNewDialog() {
   const [open, setOpen] = useState(false)
+  const { lastSeenVersion, setLastSeenVersion, isLoading } = useUserSettings()
 
   useEffect(() => {
-    // Check if user has seen this version
-    const lastSeenVersion = localStorage.getItem(VERSION_STORAGE_KEY)
+    // Wait for settings to load before checking version
+    if (isLoading) return
 
+    // Check if user has seen this version
     if (lastSeenVersion !== LATEST_CHANGES.version) {
       // Show dialog after a short delay for better UX
       const timer = setTimeout(() => {
@@ -45,12 +46,12 @@ export function WhatsNewDialog() {
 
       return () => clearTimeout(timer)
     }
-  }, [])
+  }, [lastSeenVersion, isLoading])
 
   const handleClose = (isOpen: boolean) => {
     if (!isOpen) {
-      // Mark current version as seen
-      localStorage.setItem(VERSION_STORAGE_KEY, LATEST_CHANGES.version)
+      // Mark current version as seen (syncs to DB for authenticated users)
+      setLastSeenVersion(LATEST_CHANGES.version)
       setOpen(false)
     }
   }
