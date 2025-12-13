@@ -30,7 +30,8 @@ import {
 } from '@/components/ui/pagination'
 import { ChevronRight } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, getThumbnailUrl } from '@/lib/utils'
+import Image from 'next/image'
 
 function ProductsPageContent() {
   const { data: session, status } = useDevSession()
@@ -202,7 +203,9 @@ function ProductsPageContent() {
             description_short: p.description_short,
             description_long: p.description_long || '',
             supplier_name: p.supplier_name,
-            prices: p.price_eur ? [{ date: '', disc1: 0, start_price: p.price_eur }] : []
+            prices: p.price_eur ? [{ date: '', disc1: 0, start_price: p.price_eur }] : [],
+            // Convert image_url to multimedia format for consistent handling
+            multimedia: p.image_url ? [{ mime_code: 'MD47', mime_source: p.image_url }] : undefined
           }))
 
           setProductResult({
@@ -509,32 +512,55 @@ function ProductsPageContent() {
                   Showing {productResult.products.length} of {productResult.total} product{productResult.total !== 1 ? 's' : ''} (Page {currentPage} of {productResult.totalPages})
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {productResult.products.map((product) => (
-                    <Card
-                      key={product.product_id}
-                      className="hover:shadow-lg transition-shadow cursor-pointer"
-                      onClick={() => router.push(`/products/${product.product_id}`)}
-                    >
-                      <CardHeader>
-                        <CardTitle className="text-base line-clamp-2">
-                          {product.description_short}
-                        </CardTitle>
-                        <CardDescription className="line-clamp-1">
-                          {product.supplier_name}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between">
-                          <Badge variant="secondary">{product.foss_pid}</Badge>
-                          {product.prices && product.prices.length > 0 && (
-                            <span className="text-sm font-semibold">
-                              €{product.prices[0].start_price.toFixed(2)}
-                            </span>
-                          )}
+                  {productResult.products.map((product) => {
+                    const thumbnailUrl = getThumbnailUrl(product.multimedia)
+                    return (
+                      <Card
+                        key={product.product_id}
+                        className="hover:shadow-lg transition-shadow cursor-pointer overflow-hidden"
+                        onClick={() => router.push(`/products/${product.product_id}`)}
+                      >
+                        <div className="flex">
+                          {/* Thumbnail */}
+                          <div className="w-24 h-24 flex-shrink-0 bg-muted/30 flex items-center justify-center">
+                            {thumbnailUrl ? (
+                              <Image
+                                src={thumbnailUrl}
+                                alt={product.description_short}
+                                width={96}
+                                height={96}
+                                className="w-full h-full object-contain p-1"
+                                unoptimized
+                              />
+                            ) : (
+                              <LucideIcons.ImageOff className="w-8 h-8 text-muted-foreground/40" />
+                            )}
+                          </div>
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm line-clamp-2">
+                                {product.description_short}
+                              </CardTitle>
+                              <CardDescription className="text-xs line-clamp-1">
+                                {product.supplier_name}
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                              <div className="flex items-center justify-between">
+                                <Badge variant="secondary" className="text-xs">{product.foss_pid}</Badge>
+                                {product.prices && product.prices.length > 0 && (
+                                  <span className="text-sm font-semibold">
+                                    €{product.prices[0].start_price.toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
+                            </CardContent>
+                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      </Card>
+                    )
+                  })}
                 </div>
 
                 {/* Pagination */}
