@@ -595,7 +595,9 @@ function ProductsPageContent() {
             ) : (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <div className="text-6xl mb-4">🔍</div>
+                  <div className="mb-4 flex justify-center">
+                    <LucideIcons.SearchX className="w-16 h-16 text-muted-foreground/40" />
+                  </div>
                   <h3 className="text-lg font-semibold mb-2">No products found</h3>
                   <p className="text-muted-foreground mb-4">
                     {Object.keys(filterValues).length > 0

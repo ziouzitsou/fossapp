@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { MultiSelectFilterProps } from './types'
-import { X, Search } from 'lucide-react'
+import { X, Search, Droplets, Droplet, CloudRain, Umbrella, Home } from 'lucide-react'
 
 /**
  * MultiSelectFilter - For A (Alphanumeric) type filters
@@ -66,11 +66,12 @@ export default function MultiSelectFilter({
 
   const getIPIcon = (ipRating: string) => {
     // Simple IP rating icons
-    if (ipRating.startsWith('IP6')) return '💧💧' // High protection
-    if (ipRating.startsWith('IP5')) return '💧' // Medium protection
-    if (ipRating.startsWith('IP4')) return '💦' // Splash protection
-    if (ipRating.startsWith('IP2')) return '☂️' // Basic protection
-    return '🏠' // Indoor
+    const iconClass = "w-3.5 h-3.5"
+    if (ipRating.startsWith('IP6')) return <Droplets className={iconClass} /> // High protection
+    if (ipRating.startsWith('IP5')) return <Droplet className={iconClass} /> // Medium protection
+    if (ipRating.startsWith('IP4')) return <CloudRain className={iconClass} /> // Splash protection
+    if (ipRating.startsWith('IP2')) return <Umbrella className={iconClass} /> // Basic protection
+    return <Home className={iconClass} /> // Indoor
   }
 
   return (

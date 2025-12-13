@@ -1,5 +1,6 @@
 import React from 'react';
 import { TemplateType } from '@/types/product';
+import { Lightbulb, Wrench, Link2, Package, LucideIcon } from 'lucide-react';
 
 interface ProductTypeBadgeProps {
   templateType: TemplateType;
@@ -8,7 +9,7 @@ interface ProductTypeBadgeProps {
 }
 
 interface BadgeConfig {
-  icon: string;
+  Icon: LucideIcon;
   label: string;
   description: string;
   bgColor: string;
@@ -19,7 +20,7 @@ interface BadgeConfig {
 export function ProductTypeBadge({ templateType, classId, className = '' }: ProductTypeBadgeProps) {
   const badges: Record<TemplateType, BadgeConfig> = {
     luminaire: {
-      icon: '💡',
+      Icon: Lightbulb,
       label: 'COMPLETE LUMINAIRE',
       description: 'Ready to install lighting fixture',
       bgColor: 'bg-blue-50 dark:bg-blue-950',
@@ -27,7 +28,7 @@ export function ProductTypeBadge({ templateType, classId, className = '' }: Prod
       borderColor: 'border-blue-200 dark:border-blue-800',
     },
     accessory: {
-      icon: '🔧',
+      Icon: Wrench,
       label: 'COMPONENT / ACCESSORY',
       description: 'Requires installation by qualified electrician',
       bgColor: 'bg-orange-50 dark:bg-orange-950',
@@ -35,7 +36,7 @@ export function ProductTypeBadge({ templateType, classId, className = '' }: Prod
       borderColor: 'border-orange-200 dark:border-orange-800',
     },
     lightline: {
-      icon: '🔗',
+      Icon: Link2,
       label: 'SYSTEM COMPONENT',
       description: 'Part of light-line system - requires compatible track',
       bgColor: 'bg-purple-50 dark:bg-purple-950',
@@ -43,7 +44,7 @@ export function ProductTypeBadge({ templateType, classId, className = '' }: Prod
       borderColor: 'border-purple-200 dark:border-purple-800',
     },
     generic: {
-      icon: '📦',
+      Icon: Package,
       label: 'PRODUCT',
       description: '',
       bgColor: 'bg-gray-50 dark:bg-gray-950',
@@ -53,6 +54,7 @@ export function ProductTypeBadge({ templateType, classId, className = '' }: Prod
   };
 
   const badge = badges[templateType];
+  const { Icon } = badge;
 
   return (
     <div
@@ -62,9 +64,7 @@ export function ProductTypeBadge({ templateType, classId, className = '' }: Prod
         ${className}
       `}
     >
-      <span className="text-lg" role="img" aria-label={badge.label}>
-        {badge.icon}
-      </span>
+      <Icon className="w-5 h-5" aria-label={badge.label} />
       <div>
         <div className="font-semibold text-sm">{badge.label}</div>
         {badge.description && (

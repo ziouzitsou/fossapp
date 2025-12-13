@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { CheckCircle2, Circle, Loader2, XCircle, Terminal as TerminalIcon, X } from 'lucide-react'
+import { CheckCircle2, Circle, Loader2, XCircle, Terminal as TerminalIcon, X, Camera, FileText, Settings, Cloud, Bot } from 'lucide-react'
 
 export interface LogMessage {
   timestamp: number
@@ -33,14 +33,18 @@ interface TerminalLogProps {
   className?: string
 }
 
-const PHASE_ICONS = {
-  images: '📷',
-  script: '📝',
-  aps: '⚙️',
-  drive: '☁️',
-  complete: '✅',
-  error: '❌',
-  llm: '🤖',
+const PhaseIcon = ({ phase }: { phase: keyof typeof PHASE_COLORS }) => {
+  const iconClass = "w-3.5 h-3.5"
+  switch (phase) {
+    case 'images': return <Camera className={iconClass} />
+    case 'script': return <FileText className={iconClass} />
+    case 'aps': return <Settings className={iconClass} />
+    case 'drive': return <Cloud className={iconClass} />
+    case 'complete': return <CheckCircle2 className={iconClass} />
+    case 'error': return <XCircle className={iconClass} />
+    case 'llm': return <Bot className={iconClass} />
+    default: return <Circle className={iconClass} />
+  }
 }
 
 const PHASE_COLORS = {
@@ -217,7 +221,7 @@ export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalL
             <span className="text-zinc-500 shrink-0">[{msg.elapsed}]</span>
 
             {/* Phase icon */}
-            <span className="shrink-0">{PHASE_ICONS[msg.phase]}</span>
+            <span className={cn("shrink-0", PHASE_COLORS[msg.phase])}><PhaseIcon phase={msg.phase} /></span>
 
             {/* Step indicator */}
             {msg.step && (

@@ -1,7 +1,7 @@
 'use client'
 
 import { FilterCategoryProps } from './types'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Factory, Zap, Palette, Lightbulb, MapPin, Settings, ClipboardList } from 'lucide-react'
 
 /**
  * FilterCategory - Collapsible container for filter groups
@@ -14,15 +14,16 @@ export default function FilterCategory({
   children
 }: FilterCategoryProps) {
   // Category icons
-  const getCategoryIcon = (label: string) => {
-    const lower = label.toLowerCase()
-    if (lower.includes('source')) return '🏭'
-    if (lower.includes('electrical')) return '⚡'
-    if (lower.includes('design')) return '🎨'
-    if (lower.includes('light')) return '💡'
-    if (lower.includes('location')) return '📍'
-    if (lower.includes('option')) return '⚙️'
-    return '📋'
+  const getCategoryIcon = (categoryLabel: string) => {
+    const lower = categoryLabel.toLowerCase()
+    const iconClass = "w-4 h-4"
+    if (lower.includes('source')) return <Factory className={iconClass} />
+    if (lower.includes('electrical')) return <Zap className={iconClass} />
+    if (lower.includes('design')) return <Palette className={iconClass} />
+    if (lower.includes('light')) return <Lightbulb className={iconClass} />
+    if (lower.includes('location')) return <MapPin className={iconClass} />
+    if (lower.includes('option')) return <Settings className={iconClass} />
+    return <ClipboardList className={iconClass} />
   }
 
   return (
@@ -42,7 +43,7 @@ export default function FilterCategory({
         aria-expanded={isExpanded}
       >
         <div className="flex items-center gap-2">
-          <span className="text-lg">{getCategoryIcon(label)}</span>
+          {getCategoryIcon(label)}
           <span className="font-bold">{label}</span>
         </div>
         <div className={`
