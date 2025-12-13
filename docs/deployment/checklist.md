@@ -1,7 +1,7 @@
 # Production Deployment Checklist
 
-**Last Updated**: 2025-11-29
-**Current Version**: v1.5.0
+**Last Updated**: 2025-12-13
+**Current Version**: v1.9.7
 
 This checklist was created after the v1.1.4 deployment to prevent common issues.
 **Updated v1.4.1**: Added automated pre-deployment script with smoke tests.
@@ -233,9 +233,9 @@ Before running `npm version patch`:
 - [ ] Changes committed and pushed to main
 - [ ] Dev server tested (npm run dev)
 - [ ] All features tested manually
-- [ ] **What's New dialog updated** (if user-facing changes)
-  - Update `src/components/whats-new-dialog.tsx` with new version
-  - Update `WHATS_NEW.md` with user-friendly release notes
+- [ ] **What's New updated** (if user-facing changes)
+  - Add new release to **top** of `src/data/releases.json`
+  - See [docs/features/whats-new.md](../features/whats-new.md) for format
 
 Before deploying to production:
 

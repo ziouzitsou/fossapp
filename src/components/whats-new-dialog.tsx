@@ -11,23 +11,20 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Sparkles, Zap, Check } from 'lucide-react'
 import { useUserSettings } from '@/lib/user-settings-context'
+import releases from '@/data/releases.json'
 
-// Latest version content - update this when releasing new versions
-const LATEST_CHANGES = {
-  version: '1.8.3',
-  date: 'December 6, 2025',
-  title: 'Tile Builder UX & DWG Viewer',
-  description: 'Major improvements to the tile creation experience with mobile-friendly layout and built-in DWG viewer.',
-  features: [
-    'Built-in DWG Viewer - view generated tiles directly in browser with Autodesk Viewer',
-    'Dark/Light mode toggle - switch viewer background to match your preference',
-    'Mobile-friendly layout - bucket now scrolls horizontally, tiles stack vertically',
-    'Improved drag-and-drop - easier to add products to existing tiles',
-    'Touch support - hold-to-drag works on mobile devices',
-    'Parallel processing - faster image conversion and Google Drive uploads',
-  ],
-  tagline: 'Create and view AutoCAD tiles without leaving your browser.',
+// Type for release entries
+interface Release {
+  version: string
+  date: string
+  title: string
+  description: string
+  features: string[]
+  tagline: string
 }
+
+// Get the latest release from the JSON file (first entry)
+const LATEST_RELEASE: Release = releases.releases[0]
 
 export function WhatsNewDialog() {
   const [open, setOpen] = useState(false)
@@ -38,7 +35,7 @@ export function WhatsNewDialog() {
     if (isLoading) return
 
     // Check if user has seen this version
-    if (lastSeenVersion !== LATEST_CHANGES.version) {
+    if (lastSeenVersion !== LATEST_RELEASE.version) {
       // Show dialog after a short delay for better UX
       const timer = setTimeout(() => {
         setOpen(true)
@@ -51,7 +48,7 @@ export function WhatsNewDialog() {
   const handleClose = (isOpen: boolean) => {
     if (!isOpen) {
       // Mark current version as seen (syncs to DB for authenticated users)
-      setLastSeenVersion(LATEST_CHANGES.version)
+      setLastSeenVersion(LATEST_RELEASE.version)
       setOpen(false)
     }
   }
@@ -64,11 +61,11 @@ export function WhatsNewDialog() {
             <Sparkles className="h-6 w-6 text-primary" />
             <span>What&apos;s New in FOSSAPP</span>
             <Badge variant="outline" className="text-sm">
-              v{LATEST_CHANGES.version}
+              v{LATEST_RELEASE.version}
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            Released {LATEST_CHANGES.date}
+            Released {LATEST_RELEASE.date}
           </DialogDescription>
         </DialogHeader>
 
@@ -76,13 +73,13 @@ export function WhatsNewDialog() {
           <div className="space-y-3">
             <h3 className="font-semibold text-xl flex items-center gap-2">
               <Zap className="h-5 w-5 text-primary" />
-              {LATEST_CHANGES.title}
+              {LATEST_RELEASE.title}
             </h3>
             <p className="text-muted-foreground">
-              {LATEST_CHANGES.description}
+              {LATEST_RELEASE.description}
             </p>
             <ul className="space-y-2 mt-4">
-              {LATEST_CHANGES.features.map((feature, idx) => (
+              {LATEST_RELEASE.features.map((feature, idx) => (
                 <li key={idx} className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                   <span className="text-sm">{feature}</span>
@@ -90,7 +87,7 @@ export function WhatsNewDialog() {
               ))}
             </ul>
             <p className="text-sm text-muted-foreground italic mt-4 pl-4 border-l-2 border-muted">
-              {LATEST_CHANGES.tagline}
+              {LATEST_RELEASE.tagline}
             </p>
           </div>
         </div>
@@ -104,3 +101,6 @@ export function WhatsNewDialog() {
     </Dialog>
   )
 }
+
+// Export for use in changelog page or other components
+export { releases, type Release }

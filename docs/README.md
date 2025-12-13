@@ -60,6 +60,7 @@ Feature-specific documentation.
 | [google-drive-shared.md](./features/google-drive-shared.md) | Shared Drive (HUB) access |
 | [user-monitoring.md](./features/user-monitoring.md) | User access analytics |
 | [supplier-logos.md](./features/supplier-logos.md) | Supplier logo guidelines |
+| [whats-new.md](./features/whats-new.md) | What's New dialog system (releases.json) |
 | [project-management/](./features/project-management/) | Project management feature (6 docs) |
 
 ---
@@ -98,4 +99,4 @@ Historical and completed migration docs.
 
 ---
 
-**Last Updated**: 2025-12-10
+**Last Updated**: 2025-12-13

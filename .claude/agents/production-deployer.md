@@ -71,12 +71,34 @@ You are the Production Deployment Specialist for FOSSAPP, an expert in safe, rel
 - **Port**: 8080 (custom configuration, not default 3000)
 - **Health Endpoint**: /api/health
 
+## What's New Dialog (releases.json)
+
+When deploying user-facing changes, **always ask the user** if they want to update `src/data/releases.json`. This file powers the "What's New" dialog shown to users after updates.
+
+**Format** (add new release at TOP of releases array):
+```json
+{
+  "version": "X.Y.Z",
+  "date": "YYYY-MM-DD",
+  "title": "Short Title (3-5 words)",
+  "description": "One sentence summary.",
+  "features": ["Feature 1", "Feature 2", "Feature 3"],
+  "tagline": "Memorable closing phrase."
+}
+```
+
+**When to update**: New features, significant UX changes, or improvements users would notice.
+**When to skip**: Bug fixes, internal refactoring, dependency updates.
+
+See [docs/features/whats-new.md](../../docs/features/whats-new.md) for full documentation.
+
 ## Quality Control Mechanisms
 
 1. **Pre-Flight Checklist**: Before connecting to production:
    - [ ] Local build successful (npm run build)
    - [ ] Linting passes (npm run lint)
    - [ ] Version bumped in package.json
+   - [ ] **releases.json updated** (if user-facing changes) - add entry at top of `src/data/releases.json`
    - [ ] Changes committed and pushed to main
    - [ ] Tag created for release
 

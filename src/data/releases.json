@@ -1,0 +1,272 @@
+{
+  "$schema": "./releases.schema.json",
+  "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
+  "releases": [
+    {
+      "version": "1.9.7",
+      "date": "2025-12-13",
+      "title": "Settings Sync & Filter UX",
+      "description": "Your preferences now sync across devices and filter categories are more compact.",
+      "features": [
+        "Cross-device settings sync - theme, sidebar state, and search history follow you",
+        "Filter categories start collapsed for a cleaner interface",
+        "More compact collapsed filter categories",
+        "Fixed infinite render loop in settings"
+      ],
+      "tagline": "Your preferences, everywhere you work."
+    },
+    {
+      "version": "1.9.6",
+      "date": "2025-12-12",
+      "title": "Cleaner Icons",
+      "description": "Replaced emojis with professional Lucide icons throughout the app.",
+      "features": [
+        "Professional Lucide icons replace emojis across the interface",
+        "Consistent visual language throughout the app",
+        "Better accessibility with scalable icons"
+      ],
+      "tagline": "A more polished, professional look."
+    },
+    {
+      "version": "1.9.5",
+      "date": "2025-12-11",
+      "title": "AI Symbol Generator",
+      "description": "Generate lighting symbols using AI and manage public projects more easily.",
+      "features": [
+        "AI-powered symbol generation - describe what you need, get a symbol",
+        "New 'Public' project type for shared projects",
+        "Project start date defaults to today",
+        "Auto-collapse sidebar on tablet screens (768-1024px)",
+        "Better error messages for AI service failures"
+      ],
+      "tagline": "Let AI help you create lighting symbols."
+    },
+    {
+      "version": "1.9.4",
+      "date": "2025-12-10",
+      "title": "Enhanced Analytics",
+      "description": "Better tracking of how you use the app to help us improve.",
+      "features": [
+        "Track theme changes, filter usage, and image views",
+        "Improved event logging for better insights",
+        "Fixed client-safe event logger"
+      ],
+      "tagline": "Helping us understand how to improve FOSSAPP."
+    },
+    {
+      "version": "1.9.0",
+      "date": "2025-12-09",
+      "title": "User Management",
+      "description": "New system for managing users, groups, and permissions.",
+      "features": [
+        "User management system with groups and permissions",
+        "Role-based access control",
+        "User groups for team organization",
+        "Permission management interface"
+      ],
+      "tagline": "Control who can do what in FOSSAPP."
+    },
+    {
+      "version": "1.8.8",
+      "date": "2025-12-08",
+      "title": "Viewer Security",
+      "description": "Enhanced security for the DWG viewer with authentication and rate limiting.",
+      "features": [
+        "Authentication required for viewer access",
+        "Rate limiting to prevent abuse",
+        "Path sanitization for secure file access"
+      ],
+      "tagline": "Your DWG files, protected."
+    },
+    {
+      "version": "1.8.3",
+      "date": "2025-12-06",
+      "title": "Tile Builder UX & DWG Viewer",
+      "description": "Major improvements to the tile creation experience with mobile-friendly layout and built-in DWG viewer.",
+      "features": [
+        "Built-in DWG Viewer - view generated tiles directly in browser with Autodesk Viewer",
+        "Dark/Light mode toggle - switch viewer background to match your preference",
+        "Mobile-friendly layout - bucket now scrolls horizontally, tiles stack vertically",
+        "Improved drag-and-drop - easier to add products to existing tiles",
+        "Touch support - hold-to-drag works on mobile devices",
+        "Parallel processing - faster image conversion and Google Drive uploads"
+      ],
+      "tagline": "Create and view AutoCAD tiles without leaving your browser."
+    },
+    {
+      "version": "1.8.0",
+      "date": "2025-12-05",
+      "title": "Tile Management System",
+      "description": "Create AutoCAD DWG tile drawings from product images with professional layouts.",
+      "features": [
+        "Tile Builder at /tiles - drag products into groups, arrange tiles visually",
+        "AutoCAD DWG generation - powered by Autodesk APS Design Automation",
+        "Google Drive integration - automatic upload to HUB/RESOURCES/TILES/",
+        "Add to Bucket button on product pages - build your tile collection as you browse",
+        "Real-time progress - watch your DWG being generated with live terminal updates",
+        "Professional output - 300dpi images, proper AutoCAD layers, technical specifications"
+      ],
+      "tagline": "Generate professional AutoCAD tile drawings in seconds, not hours!"
+    },
+    {
+      "version": "1.7.0",
+      "date": "2025-12-02",
+      "title": "Google Drive Integration",
+      "description": "Projects now integrate with Google Drive for automatic folder organization.",
+      "features": [
+        "Auto-generated project codes (YYMM-NNN format)",
+        "Automatic Google Drive folder creation with standard structure",
+        "Project version management - create snapshots of your project files",
+        "Customer selector - link projects to your customers",
+        "Files & Versions tab to manage project documents"
+      ],
+      "tagline": "Your project files, organized automatically."
+    },
+    {
+      "version": "1.6.0",
+      "date": "2025-12-01",
+      "title": "Full Project Management",
+      "description": "Create, edit, and manage your lighting projects with full control.",
+      "features": [
+        "Create new projects with a convenient slide-out form",
+        "Edit anything - budget, dates, team members, location",
+        "Delete projects safely with confirmation and automatic cleanup",
+        "Quick actions menu on the project list for faster workflows",
+        "Clickable customer names - jump to customer details with one click"
+      ],
+      "tagline": "Manage your lighting projects from start to finish."
+    },
+    {
+      "version": "1.5.0",
+      "date": "2025-11-24",
+      "title": "Dynamic Filter System",
+      "description": "18 filters across 6 groups for advanced product search.",
+      "features": [
+        "18 filters: Supplier, Voltage, Light Source, IP Rating, CCT, and more",
+        "Real-time facet counts showing how many products match",
+        "Context-aware filtering prevents zero-result dead-ends",
+        "Active filter badges with individual clear buttons",
+        "URL state persistence for shareable filter links"
+      ],
+      "tagline": "Find exactly what you're looking for."
+    },
+    {
+      "version": "1.4.4",
+      "date": "2025-11-12",
+      "title": "Dashboard Fixes",
+      "description": "Fixed Active Catalogs and Most Active Users showing incorrect data.",
+      "features": [
+        "Active Catalogs now shows the real product counts",
+        "Most Active Users actually displays who's been working hard"
+      ],
+      "tagline": "Small fixes, big difference when you're trying to understand your data."
+    },
+    {
+      "version": "1.4.3",
+      "date": "2025-11-11",
+      "title": "Security Improvements",
+      "description": "Automated security checks to keep your data protected.",
+      "features": [
+        "Security scans run before every update",
+        "Fixed a potential data vulnerability"
+      ],
+      "tagline": "You won't notice anything different, but you're more secure."
+    },
+    {
+      "version": "1.4.2",
+      "date": "2025-11-11",
+      "title": "Authentication Security",
+      "description": "Important security update for authorized access only.",
+      "features": [
+        "Only logged-in users from your company can access the API",
+        "Better protection for your account",
+        "More secure login process"
+      ],
+      "tagline": "If you're from FOSS, you're all set."
+    },
+    {
+      "version": "1.4.0",
+      "date": "2025-11-11",
+      "title": "Activity Dashboard",
+      "description": "See who's using FOSSAPP and what pages they're visiting.",
+      "features": [
+        "Activity dashboard shows the most active users this week",
+        "See what pages people are visiting"
+      ],
+      "tagline": "Great for managers keeping track of team engagement."
+    },
+    {
+      "version": "1.3.8",
+      "date": "2025-11-11",
+      "title": "Color Themes",
+      "description": "Choose your preferred color theme for a personalized experience.",
+      "features": [
+        "Multiple color themes - Default, Supabase, and Graphite",
+        "Switch between themes instantly",
+        "Works with both light and dark mode"
+      ],
+      "tagline": "Try them all and find your favorite!"
+    },
+    {
+      "version": "1.3.7",
+      "date": "2025-11-10",
+      "title": "Animated Logo",
+      "description": "A little extra sparkle with lighting effects on the logo.",
+      "features": [
+        "Animated logo with lighting effects (glow, shimmer, neon)",
+        "Cleaner landing page layout",
+        "Better product images"
+      ],
+      "tagline": "We're a lighting database, so we added some... light."
+    },
+    {
+      "version": "1.3.5",
+      "date": "2025-11-09",
+      "title": "Faster Deployments",
+      "description": "Behind the scenes improvements for faster updates.",
+      "features": [
+        "Updates now deploy automatically (less downtime)",
+        "Better image galleries for products",
+        "Improved product descriptions"
+      ],
+      "tagline": "More time building features, less time deploying them."
+    },
+    {
+      "version": "1.1.4",
+      "date": "2025-10-27",
+      "title": "Dark Mode Logos",
+      "description": "Supplier logos now look great in dark mode.",
+      "features": [
+        "Logos work perfectly in both light and dark themes",
+        "No more invisible black logos on black backgrounds"
+      ],
+      "tagline": "Your eyes will thank you during late-night project sessions."
+    },
+    {
+      "version": "1.1.1",
+      "date": "2025-07-01",
+      "title": "PWA Support",
+      "description": "Install FOSSAPP like a native app on any device.",
+      "features": [
+        "Install on your desktop, phone, or tablet",
+        "Works offline (interface loads without internet)",
+        "Automatic updates in the background",
+        "Faster loading after first visit"
+      ],
+      "tagline": "Use it like a native app - no more browser tabs!"
+    },
+    {
+      "version": "1.0.0",
+      "date": "2025-06-30",
+      "title": "The Beginning",
+      "description": "The foundation of FOSSAPP - your lighting products database.",
+      "features": [
+        "Search through 56,456+ lighting products",
+        "Sign in with your Google account (FOSS users only)",
+        "Works great on desktop, tablet, and mobile",
+        "Professional database built for lighting designers"
+      ],
+      "tagline": "Where it all started!"
+    }
+  ]
+}
