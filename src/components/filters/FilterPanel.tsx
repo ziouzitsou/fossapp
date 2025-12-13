@@ -38,7 +38,7 @@ export function FilterPanel({
   const [filterGroups, setFilterGroups] = useState<FilterGroup[]>([])
   const [filterFacets, setFilterFacets] = useState<FilterFacet[]>([])
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(['Source', 'Electricals', 'Design', 'Light', 'Location', 'Options'])
+    new Set() // Start collapsed
   )
   const [loading, setLoading] = useState(false)
 
