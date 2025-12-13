@@ -297,10 +297,23 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
     setIsLoading(false)
   }, [loadFromLocalStorage])
 
-  // When authenticated, load from DB or migrate localStorage to DB
+  // Track if we've already synced this session to prevent infinite loops
+  const hasSyncedRef = useRef(false)
+
+  // When authenticated, load from DB or migrate localStorage to DB (runs once per auth)
   useEffect(() => {
-    if (mounted && isAuthenticated && session?.user?.email) {
+    if (mounted && isAuthenticated && session?.user?.email && !hasSyncedRef.current) {
+      hasSyncedRef.current = true
+
       const migrateLocalSettingsToDb = async () => {
+        // Get current local values at time of migration
+        const currentTheme = localStorage.getItem(STORAGE_KEYS.theme) as Theme | null || 'default'
+        const currentProject = localStorage.getItem(STORAGE_KEYS.activeProject)
+        const currentVersion = localStorage.getItem(STORAGE_KEYS.lastSeenVersion)
+        const currentTiles = localStorage.getItem(STORAGE_KEYS.searchTiles)
+        const currentSymbols = localStorage.getItem(STORAGE_KEYS.searchSymbols)
+        const currentCustomers = localStorage.getItem(STORAGE_KEYS.searchCustomers)
+
         // First, get current DB settings
         const result = await getUserSettingsAction(session.user!.email!)
 
@@ -318,26 +331,27 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
 
           // Check if localStorage has any non-default values
           const localHasValues =
-            theme !== 'default' ||
-            activeProject !== null ||
-            lastSeenVersion !== null ||
-            searchHistoryTiles.length > 0 ||
-            searchHistorySymbols.length > 0 ||
-            searchHistoryCustomers.length > 0
+            (currentTheme && currentTheme !== 'default') ||
+            currentProject !== null ||
+            currentVersion !== null ||
+            (currentTiles && JSON.parse(currentTiles).length > 0) ||
+            (currentSymbols && JSON.parse(currentSymbols).length > 0) ||
+            (currentCustomers && JSON.parse(currentCustomers).length > 0)
 
           if (dbIsDefault && localHasValues) {
             // Migrate localStorage → DB (one-time)
             console.log('[UserSettings] Migrating local settings to database')
+            const parsedProject = currentProject ? JSON.parse(currentProject) : null
             await updateUserSettingsAction(session.user!.email!, {
-              theme,
+              theme: currentTheme,
               sidebar_expanded: sidebarExpanded,
-              active_project_id: activeProject?.id || null,
-              active_project_code: activeProject?.project_code || null,
-              active_project_name: activeProject?.name || null,
-              last_seen_version: lastSeenVersion,
-              search_history_tiles: searchHistoryTiles,
-              search_history_symbols: searchHistorySymbols,
-              search_history_customers: searchHistoryCustomers,
+              active_project_id: parsedProject?.id || null,
+              active_project_code: parsedProject?.project_code || null,
+              active_project_name: parsedProject?.name || null,
+              last_seen_version: currentVersion,
+              search_history_tiles: currentTiles ? JSON.parse(currentTiles) : [],
+              search_history_symbols: currentSymbols ? JSON.parse(currentSymbols) : [],
+              search_history_customers: currentCustomers ? JSON.parse(currentCustomers) : [],
             })
           } else if (!dbIsDefault) {
             // DB has values, apply them (DB wins)
@@ -351,7 +365,7 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
 
       migrateLocalSettingsToDb()
     }
-  }, [mounted, isAuthenticated, session?.user?.email, loadFromDatabase, theme, activeProject, sidebarExpanded, lastSeenVersion, searchHistoryTiles, searchHistorySymbols, searchHistoryCustomers])
+  }, [mounted, isAuthenticated, session?.user?.email, loadFromDatabase, sidebarExpanded])
 
   // ============================================================================
   // APPLY THEME CLASS
