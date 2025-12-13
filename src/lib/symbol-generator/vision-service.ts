@@ -267,7 +267,30 @@ async function callVisionLLM(
   if (!response.ok) {
     const errorText = await response.text()
     console.error(`[vision] OpenRouter API error (${response.status}):`, errorText)
-    throw new Error(`OpenRouter API error (${response.status}): ${errorText}`)
+
+    // Create user-friendly error messages instead of raw API responses
+    let userMessage: string
+    const isHtmlResponse = errorText.trim().startsWith('<!DOCTYPE') || errorText.trim().startsWith('<html')
+
+    if (response.status === 503 || response.status === 502) {
+      userMessage = 'AI service temporarily unavailable. Please try again in a few minutes.'
+    } else if (response.status === 429) {
+      userMessage = 'AI service rate limit exceeded. Please wait a moment and try again.'
+    } else if (response.status === 401 || response.status === 403) {
+      userMessage = 'AI service authentication error. Please contact support.'
+    } else if (isHtmlResponse) {
+      userMessage = `AI service error (${response.status}). Please try again later.`
+    } else {
+      // Try to extract JSON error message if available
+      try {
+        const errorJson = JSON.parse(errorText)
+        userMessage = errorJson.error?.message || errorJson.message || `AI service error (${response.status})`
+      } catch {
+        userMessage = `AI service error (${response.status}). Please try again.`
+      }
+    }
+
+    throw new Error(userMessage)
   }
 
   const result = (await response.json()) as OpenRouterVisionResponse
