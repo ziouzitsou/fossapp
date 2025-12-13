@@ -43,21 +43,13 @@ export function AppSidebar() {
             className="w-full h-auto max-h-12 object-contain hidden dark:block group-data-[collapsible=icon]:!hidden"
             priority
           />
-          {/* Icon logo - shown when collapsed */}
+          {/* Icon logo - shown when collapsed, inverts in dark mode */}
           <Image
             src="/logo-icon.svg"
             alt="Company Logo"
             width={32}
             height={32}
-            className="h-8 w-8 object-contain hidden group-data-[collapsible=icon]:block dark:!hidden"
-            priority
-          />
-          <Image
-            src="/logo-icon-dark.svg"
-            alt="Company Logo"
-            width={32}
-            height={32}
-            className="h-8 w-8 object-contain !hidden dark:group-data-[collapsible=icon]:!block"
+            className="h-8 w-8 object-contain hidden group-data-[collapsible=icon]:block sidebar-icon-adaptive"
             priority
           />
         </div>

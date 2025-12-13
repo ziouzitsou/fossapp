@@ -338,6 +338,16 @@
   .logo-container:hover .logo-neon {
     animation-duration: 1.5s;
   }
+
+  /* Sidebar icon - invert in dark mode
+     Note: Custom CSS needed because Tailwind's dark:invert doesn't generate
+     CSS when combined with group-data-[collapsible=icon] selectors */
+  .sidebar-icon-adaptive {
+    filter: none;
+  }
+  .dark .sidebar-icon-adaptive {
+    filter: invert(1);
+  }
 }
 
 @layer base {
