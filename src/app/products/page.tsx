@@ -530,7 +530,7 @@ function ProductsPageContent() {
                                 width={96}
                                 height={96}
                                 className="w-full h-full object-contain p-1"
-                                unoptimized
+                                loading="lazy"
                               />
                             ) : (
                               <LucideIcons.ImageOff className="w-8 h-8 text-muted-foreground/40" />
