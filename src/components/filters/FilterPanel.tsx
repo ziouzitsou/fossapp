@@ -265,12 +265,10 @@ export function FilterPanel({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
-        {filterGroups.map((group, groupIndex) => (
-          <div key={group.name}>
-            {groupIndex > 0 && <Separator className="my-6" />}
-
-            <FilterCategory
+      <CardContent className="p-0">
+        {filterGroups.map((group) => (
+          <FilterCategory
+            key={group.name}
               label={group.name}
               isExpanded={expandedGroups.has(group.name)}
               onToggle={() => toggleGroup(group.name)}
@@ -365,7 +363,6 @@ export function FilterPanel({
                 })}
               </div>
             </FilterCategory>
-          </div>
         ))}
       </CardContent>
     </Card>

@@ -32,12 +32,12 @@ export default function FilterCategory({
       <button
         onClick={onToggle}
         className={`
-          w-full flex items-center justify-between px-6 py-4
+          w-full flex items-center justify-between px-4
           font-semibold text-sm uppercase tracking-wide
           transition-all duration-200
           ${isExpanded
-            ? 'bg-accent text-accent-foreground'
-            : 'text-muted-foreground hover:bg-accent/50'
+            ? 'py-3 bg-accent text-accent-foreground'
+            : 'py-2 text-muted-foreground hover:bg-accent/50'
           }
         `}
         aria-expanded={isExpanded}
@@ -59,7 +59,7 @@ export default function FilterCategory({
 
       {/* Category Content */}
       {isExpanded && (
-        <div className="px-6 py-4 space-y-6 bg-card">
+        <div className="px-4 py-3 space-y-4 bg-card">
           {children}
         </div>
       )}
