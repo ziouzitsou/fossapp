@@ -19,6 +19,7 @@ export interface LogMessage {
     viewerUrn?: string
     errors?: string[]
     hasDwgBuffer?: boolean
+    hasPngBuffer?: boolean
     costEur?: number
     llmModel?: string
     tokensIn?: number
@@ -28,7 +29,7 @@ export interface LogMessage {
 
 interface TerminalLogProps {
   jobId: string | null
-  onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; hasDwgBuffer?: boolean; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number }) => void
+  onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; hasDwgBuffer?: boolean; hasPngBuffer?: boolean; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number }) => void
   onClose?: () => void
   className?: string
 }
@@ -115,6 +116,7 @@ export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalL
                 driveLink: msg.result.driveLink,
                 viewerUrn: msg.result.viewerUrn,
                 hasDwgBuffer: msg.result.hasDwgBuffer,
+                hasPngBuffer: msg.result.hasPngBuffer,
                 costEur: msg.result.costEur,
                 llmModel: msg.result.llmModel,
                 tokensIn: msg.result.tokensIn,

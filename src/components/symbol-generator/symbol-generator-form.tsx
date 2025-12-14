@@ -11,6 +11,9 @@ import {
   FileImage,
   AlertCircle,
   RefreshCw,
+  FileBox,
+  Download,
+  Eye,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -24,6 +27,20 @@ import {
 } from '@/lib/symbol-generator/dimension-utils'
 import { VisionAnalysisResult, LuminaireDimensions } from '@/lib/symbol-generator/types'
 import { useSearchHistory } from '@/lib/user-settings-context'
+import { TerminalLog } from '@/components/tiles/terminal-log'
+import { SymbolViewerModal } from './symbol-viewer-modal'
+
+// DWG generation result type
+interface DwgGenerationResult {
+  success: boolean
+  viewerUrn?: string
+  hasDwgBuffer?: boolean
+  hasPngBuffer?: boolean
+  costEur?: number
+  llmModel?: string
+  tokensIn?: number
+  tokensOut?: number
+}
 
 export function SymbolGeneratorForm() {
   // Search state
@@ -43,6 +60,12 @@ export function SymbolGeneratorForm() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<VisionAnalysisResult | null>(null)
   const [copied, setCopied] = useState(false)
+
+  // DWG generation state
+  const [dwgJobId, setDwgJobId] = useState<string | null>(null)
+  const [isGeneratingDwg, setIsGeneratingDwg] = useState(false)
+  const [dwgResult, setDwgResult] = useState<DwgGenerationResult | null>(null)
+  const [viewerOpen, setViewerOpen] = useState(false)
 
   // Handle search
   const handleSearch = useCallback(async () => {
@@ -81,6 +104,10 @@ export function SymbolGeneratorForm() {
     setDimensions(extractDimensions(product))
     setSearchResults([])
     setAnalysisResult(null)
+    // Clear DWG state
+    setDwgJobId(null)
+    setIsGeneratingDwg(false)
+    setDwgResult(null)
   }, [])
 
   // Handle analysis
@@ -130,6 +157,80 @@ export function SymbolGeneratorForm() {
     }
   }, [analysisResult])
 
+  // Handle DWG generation
+  const handleGenerateDwg = useCallback(async () => {
+    if (!selectedProduct || !analysisResult?.description || !dimensions) return
+
+    setIsGeneratingDwg(true)
+    setDwgResult(null)
+    setDwgJobId(null)
+
+    try {
+      const response = await fetch('/api/symbol-generator/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product: selectedProduct,
+          spec: analysisResult.description,
+          dimensions,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.jobId) {
+        setDwgJobId(data.jobId)
+      } else {
+        setIsGeneratingDwg(false)
+        setDwgResult({ success: false })
+      }
+    } catch {
+      setIsGeneratingDwg(false)
+      setDwgResult({ success: false })
+    }
+  }, [selectedProduct, analysisResult, dimensions])
+
+  // Handle DWG generation completion
+  const handleDwgComplete = useCallback((result: {
+    success: boolean
+    viewerUrn?: string
+    hasDwgBuffer?: boolean
+    hasPngBuffer?: boolean
+    costEur?: number
+    llmModel?: string
+    tokensIn?: number
+    tokensOut?: number
+  }) => {
+    setIsGeneratingDwg(false)
+    setDwgResult({
+      ...result,
+      // PNG is currently not generated (PNGOUT doesn't work in headless mode)
+      hasPngBuffer: result.hasPngBuffer ?? false,
+    })
+  }, [])
+
+  // Handle DWG/PNG download
+  const handleDownload = useCallback(async (type: 'dwg' | 'png') => {
+    if (!dwgJobId) return
+
+    try {
+      const response = await fetch(`/api/symbol-generator/download/${dwgJobId}?type=${type}`)
+      if (!response.ok) throw new Error('Download failed')
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${selectedProduct?.foss_pid || 'Symbol'}_Symbol.${type}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error(`Failed to download ${type}:`, error)
+    }
+  }, [dwgJobId, selectedProduct])
+
   // Clear selection
   const handleClear = useCallback(() => {
     setSelectedProduct(null)
@@ -137,6 +238,10 @@ export function SymbolGeneratorForm() {
     setAnalysisResult(null)
     setSearchResults([])
     setQuery('')
+    // Clear DWG state
+    setDwgJobId(null)
+    setIsGeneratingDwg(false)
+    setDwgResult(null)
   }, [])
 
   // Get image URLs - prioritize generated Supabase Storage URLs over supplier URLs
@@ -458,11 +563,145 @@ export function SymbolGeneratorForm() {
                     {analysisResult.description}
                   </pre>
                 </div>
+
+                {/* Generate DWG Button */}
+                {!dwgJobId && !dwgResult && (
+                  <div className="pt-4 border-t">
+                    <Button
+                      onClick={handleGenerateDwg}
+                      disabled={isGeneratingDwg}
+                      size="lg"
+                      className="w-full"
+                    >
+                      {isGeneratingDwg ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <FileBox className="h-4 w-4 mr-2" />
+                      )}
+                      {isGeneratingDwg ? 'Generating...' : 'Generate DWG Symbol'}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
       )}
+
+      {/* DWG Generation Progress */}
+      {dwgJobId && (
+        <TerminalLog
+          jobId={dwgJobId}
+          onComplete={handleDwgComplete}
+          onClose={() => setDwgJobId(null)}
+        />
+      )}
+
+      {/* DWG Generation Result */}
+      {dwgResult && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileBox className="h-5 w-5" />
+                Generated Symbol
+                {dwgResult.success ? (
+                  <Badge variant="default" className="bg-green-600">Success</Badge>
+                ) : (
+                  <Badge variant="destructive">Failed</Badge>
+                )}
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {dwgResult.success ? (
+              <div className="space-y-4">
+                {/* Generation metadata */}
+                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  {dwgResult.llmModel && <span>Model: {dwgResult.llmModel}</span>}
+                  {dwgResult.tokensIn && dwgResult.tokensOut && (
+                    <span>Tokens: {dwgResult.tokensIn} / {dwgResult.tokensOut}</span>
+                  )}
+                  {dwgResult.costEur !== undefined && (
+                    <span>Cost: €{dwgResult.costEur.toFixed(4)}</span>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Action buttons */}
+                <div className="flex flex-wrap gap-3">
+                  {/* View button */}
+                  {(dwgResult.viewerUrn || dwgResult.hasDwgBuffer) && (
+                    <Button onClick={() => setViewerOpen(true)}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Symbol
+                    </Button>
+                  )}
+
+                  {/* Download DWG */}
+                  {dwgResult.hasDwgBuffer && (
+                    <Button variant="outline" onClick={() => handleDownload('dwg')}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download DWG
+                    </Button>
+                  )}
+
+                  {/* Download PNG */}
+                  {dwgResult.hasPngBuffer && (
+                    <Button variant="outline" onClick={() => handleDownload('png')}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PNG
+                    </Button>
+                  )}
+                </div>
+
+                {/* Regenerate option */}
+                <div className="pt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setDwgResult(null)
+                      setDwgJobId(null)
+                    }}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Generate again
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-start gap-2 text-destructive">
+                  <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                  <p>Symbol generation failed. Please try again or adjust the description.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDwgResult(null)
+                    setDwgJobId(null)
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try Again
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Symbol Viewer Modal */}
+      <SymbolViewerModal
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        viewerUrn={dwgResult?.viewerUrn}
+        jobId={dwgJobId || undefined}
+        fossPid={selectedProduct?.foss_pid}
+        hasPng={dwgResult?.hasPngBuffer}
+      />
     </div>
   )
 }

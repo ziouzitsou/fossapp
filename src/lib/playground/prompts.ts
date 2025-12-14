@@ -21,6 +21,9 @@ Always output a complete, ready-to-run .scr script. Use this structure:
 (setvar "cmdecho" 0)
 (setvar "filedia" 0)
 
+; === SET METRIC UNITS (mm) ===
+(command "-DWGUNITS" 3 2 2 "Y" "Y" "N")
+
 ; === YOUR DRAWING CODE HERE ===
 
 (command "ZOOM" "E")
@@ -197,6 +200,9 @@ User: "Draw a 100x50 rectangle with a 20-radius circle in the center, both on la
 \`\`\`lisp
 (setvar "cmdecho" 0)
 (setvar "filedia" 0)
+
+; === SET METRIC UNITS (mm) ===
+(command "-DWGUNITS" 3 2 2 "Y" "Y" "N")
 
 ; Create layer
 (command "-LAYER" "Make" "DEMO" "Color" "1" "" "")

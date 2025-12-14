@@ -65,12 +65,16 @@ export async function POST(request: NextRequest) {
     // Extract dimensions from ETIM features
     const dimensions = extractDimensions(payload.product)
 
-    // Get image URLs from multimedia
+    // Get image URLs from multimedia (prioritize MD02/MD64, fall back to MD01/MD12)
     const imageUrl = payload.product.multimedia?.find(
+      m => m.mime_code === 'MD02'
+    )?.mime_source || payload.product.multimedia?.find(
       m => m.mime_code === 'MD01'
     )?.mime_source
 
     const drawingUrl = payload.product.multimedia?.find(
+      m => m.mime_code === 'MD64'
+    )?.mime_source || payload.product.multimedia?.find(
       m => m.mime_code === 'MD12'
     )?.mime_source
 
