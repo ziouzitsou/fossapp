@@ -19,6 +19,7 @@ export interface ProgressMessage {
     viewerUrn?: string // URN for Autodesk Viewer (SVF translation started automatically)
     errors?: string[]
     hasDwgBuffer?: boolean // Indicates DWG can be downloaded via /api/playground/download/[jobId]
+    hasPngBuffer?: boolean // Indicates PNG can be downloaded (symbol generator)
     costEur?: number // LLM cost in EUR for playground
     llmModel?: string // Model used (e.g., "anthropic/claude-sonnet-4")
     tokensIn?: number // Input tokens used
@@ -40,12 +41,14 @@ export interface JobProgress {
     viewerUrn?: string
     errors?: string[]
     hasDwgBuffer?: boolean
+    hasPngBuffer?: boolean
     costEur?: number
     llmModel?: string
     tokensIn?: number
     tokensOut?: number
   }
   dwgBuffer?: Buffer // Temporary storage for playground downloads
+  pngBuffer?: Buffer // Temporary storage for symbol PNG downloads
 }
 
 // Use globalThis to ensure singleton across all API routes in Next.js
@@ -119,7 +122,7 @@ export function addProgress(
 export function completeJob(
   jobId: string,
   success: boolean,
-  result?: { dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; errors?: string[]; dwgBuffer?: Buffer; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number },
+  result?: { dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; errors?: string[]; dwgBuffer?: Buffer; pngBuffer?: Buffer; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number },
   customDetail?: string
 ): void {
   const job = jobs.get(jobId)
@@ -127,26 +130,30 @@ export function completeJob(
 
   job.status = success ? 'complete' : 'error'
 
-  // Store dwgBuffer separately (not in result to avoid JSON serialization)
+  // Store buffers separately (not in result to avoid JSON serialization)
   if (result?.dwgBuffer) {
     job.dwgBuffer = result.dwgBuffer
   }
+  if (result?.pngBuffer) {
+    job.pngBuffer = result.pngBuffer
+  }
 
-  // Build result without buffer (for JSON serialization)
-  const { dwgBuffer, ...resultWithoutBuffer } = result || {}
+  // Build result without buffers (for JSON serialization)
+  const { dwgBuffer, pngBuffer, ...resultWithoutBuffers } = result || {}
   const hasDwgBuffer = !!dwgBuffer
-  job.result = { success, ...resultWithoutBuffer, hasDwgBuffer }
+  const hasPngBuffer = !!pngBuffer
+  job.result = { success, ...resultWithoutBuffers, hasDwgBuffer, hasPngBuffer }
 
   const elapsed = ((Date.now() - job.startTime) / 1000).toFixed(1)
 
-  // Create completion message with result included (no buffer)
+  // Create completion message with result included (no buffers)
   const progressMsg: ProgressMessage = {
     timestamp: Date.now(),
     elapsed: `${elapsed}s`,
     phase: success ? 'complete' : 'error',
     message: success ? 'Generation complete!' : 'Generation failed',
     detail: customDetail || `Total time: ${elapsed}s`,
-    result: { success, ...resultWithoutBuffer, hasDwgBuffer },
+    result: { success, ...resultWithoutBuffers, hasDwgBuffer, hasPngBuffer },
   }
 
   job.messages.push(progressMsg)

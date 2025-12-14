@@ -24,7 +24,7 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const IMAGE_FETCH_TIMEOUT = 15000 // 15 seconds
 const MAX_IMAGE_SIZE = 512 // Max dimension for vision API
 
-// Allowed domains for image fetching (same as image proxy)
+// Allowed domains for image fetching (same as image proxy + Supabase storage)
 const ALLOWED_DOMAINS = [
   'deltalight.com',
   'www.deltalight.com',
@@ -32,6 +32,8 @@ const ALLOWED_DOMAINS = [
   'www.meyer-lighting.com',
   'dga.it',
   'www.dga.it',
+  'hyppizgiozyyyelwdius.supabase.co', // Supabase storage
+  'supabase.co', // Allow all Supabase subdomains
 ]
 
 // Valid media types for Claude Vision API
@@ -294,6 +296,13 @@ async function callVisionLLM(
   }
 
   const result = (await response.json()) as OpenRouterVisionResponse
+
+  // Validate response structure
+  if (!result.choices || !Array.isArray(result.choices) || result.choices.length === 0) {
+    console.error('[vision] Unexpected API response structure:', JSON.stringify(result).substring(0, 500))
+    throw new Error('AI service returned an invalid response. Please try again.')
+  }
+
   const content = result.choices[0]?.message?.content || ''
 
   // Calculate cost

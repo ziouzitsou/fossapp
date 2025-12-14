@@ -131,6 +131,7 @@ Autodesk Platform Services (APS) Design Automation.
 ## Output Format
 - Always output complete .scr script in ```lisp code block
 - Start with setvar for cmdecho=0, filedia=0
+- Set metric units: DWGUNITS 3 2 2 "Y" "Y" "N" (mm, decimal)
 - End with ZOOM E and SAVEAS 2018
 - NO QUIT - APS handles termination
 
