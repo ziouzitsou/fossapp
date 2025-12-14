@@ -3,6 +3,20 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.10.0",
+      "date": "2025-12-14",
+      "title": "Symbol DWG Generation",
+      "description": "Generate professional AutoCAD DWG symbols directly from product data using AI.",
+      "features": [
+        "AI-powered DWG generation - converts symbol specs to AutoCAD drawings",
+        "Built-in DWG viewer - preview generated symbols in your browser",
+        "Metric units by default - all drawings set to millimeters automatically",
+        "Smart retry with model escalation - Sonnet first, Opus for corrections",
+        "Download DWG and PNG files instantly"
+      ],
+      "tagline": "From product data to AutoCAD symbols in seconds."
+    },
+    {
       "version": "1.9.7",
       "date": "2025-12-13",
       "title": "Settings Sync & Filter UX",
