@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { FaArrowLeft, FaHeart, FaRegHeart, FaPlus, FaFolder, FaCheck } from 'react-icons/fa'
+import { FaArrowLeft, FaHeart, FaRegHeart, FaPlus, FaFolder, FaCheck, FaCopy } from 'react-icons/fa'
 import { MdLayers } from 'react-icons/md'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -37,6 +37,17 @@ export default function ProductDetailPage() {
   const [isAddingToProject, setIsAddingToProject] = useState(false)
   const [addedMessage, setAddedMessage] = useState<string | null>(null)
   const [bucketMessage, setBucketMessage] = useState<string | null>(null)
+  const [copiedField, setCopiedField] = useState<'fpn' | 'mpn' | null>(null)
+
+  const handleCopyToClipboard = async (text: string, field: 'fpn' | 'mpn') => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(null), 1500)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
 
   const handleFavoriteClick = () => {
     setIsFavorite(!isFavorite)
@@ -170,11 +181,35 @@ export default function ProductDetailPage() {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>{product.supplier_name}</span>
                   <span>•</span>
-                  <span>Model: {product.foss_pid}</span>
+                  <button
+                    onClick={() => handleCopyToClipboard(product.foss_pid, 'fpn')}
+                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer group"
+                    title="Click to copy FPN"
+                  >
+                    <span>FPN:</span>
+                    <span className="font-mono">{product.foss_pid}</span>
+                    {copiedField === 'fpn' ? (
+                      <FaCheck className="h-3 w-3 text-green-500 animate-in fade-in zoom-in duration-200" />
+                    ) : (
+                      <FaCopy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                    )}
+                  </button>
                   {product.manufacturer_pid && (
                     <>
                       <span>•</span>
-                      <span>MFR: {product.manufacturer_pid}</span>
+                      <button
+                        onClick={() => handleCopyToClipboard(product.manufacturer_pid, 'mpn')}
+                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer group"
+                        title="Click to copy MPN"
+                      >
+                        <span>MPN:</span>
+                        <span className="font-mono">{product.manufacturer_pid}</span>
+                        {copiedField === 'mpn' ? (
+                          <FaCheck className="h-3 w-3 text-green-500 animate-in fade-in zoom-in duration-200" />
+                        ) : (
+                          <FaCopy className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                        )}
+                      </button>
                     </>
                   )}
                 </div>
