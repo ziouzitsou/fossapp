@@ -2,6 +2,7 @@
 
 import { supabaseServer } from '../supabase-server'
 import { validateProjectId } from './validation'
+import { getGoogleDriveProjectService } from '../google-drive-project-service'
 
 // ============================================================================
 // INTERFACES
@@ -491,7 +492,33 @@ export async function deleteProjectAction(
   try {
     const sanitizedProjectId = validateProjectId(projectId)
 
-    // Delete related records first (due to foreign key constraints)
+    // 1. Get the project's Google Drive folder ID before deleting
+    const { data: project } = await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .select('google_drive_folder_id')
+      .eq('id', sanitizedProjectId)
+      .single()
+
+    // 2. Delete Google Drive folder if it exists
+    if (project?.google_drive_folder_id) {
+      try {
+        const driveService = getGoogleDriveProjectService()
+        await driveService.deleteProject(project.google_drive_folder_id)
+      } catch (driveError) {
+        console.error('Delete Google Drive folder error:', driveError)
+        // Continue with database deletion even if Drive deletion fails
+      }
+    }
+
+    // 3. Delete related records (due to foreign key constraints)
+    // Delete project versions
+    await supabaseServer
+      .schema('projects')
+      .from('project_versions')
+      .delete()
+      .eq('project_id', sanitizedProjectId)
+
     // Delete project products
     await supabaseServer
       .schema('projects')
@@ -520,7 +547,7 @@ export async function deleteProjectAction(
       .delete()
       .eq('project_id', sanitizedProjectId)
 
-    // Delete the project
+    // 4. Delete the project
     const { error } = await supabaseServer
       .schema('projects')
       .from('projects')

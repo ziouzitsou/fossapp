@@ -5,6 +5,7 @@
  * - Create project folder structure
  * - Create new versions (copy folder)
  * - Archive projects
+ * - Delete projects
  * - Delete versions
  * - List files
  *
@@ -218,6 +219,18 @@ class GoogleDriveProjectService {
   async deleteVersion(versionFolderId: string): Promise<void> {
     await this.drive.files.delete({
       fileId: versionFolderId,
+      supportsAllDrives: true,
+    })
+  }
+
+  /**
+   * Delete a project folder and all its contents
+   *
+   * @param projectFolderId - Project folder ID to delete
+   */
+  async deleteProject(projectFolderId: string): Promise<void> {
+    await this.drive.files.delete({
+      fileId: projectFolderId,
       supportsAllDrives: true,
     })
   }

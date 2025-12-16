@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
 import { deleteProjectAction } from '@/lib/actions'
 
@@ -32,8 +34,21 @@ export function DeleteProjectDialog({
 }: DeleteProjectDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmationInput, setConfirmationInput] = useState('')
+
+  // Reset confirmation input when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      setConfirmationInput('')
+      setError(null)
+    }
+  }, [open])
+
+  const isConfirmed = confirmationInput === projectCode
 
   const handleDelete = async () => {
+    if (!isConfirmed) return
+
     setIsDeleting(true)
     setError(null)
 
@@ -58,26 +73,44 @@ export function DeleteProjectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete Project</DialogTitle>
+          <DialogTitle className="text-destructive">Delete Project</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete this project? This action cannot be undone.
+            This action is permanent and cannot be undone.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="py-4 space-y-4">
           <div className="p-4 bg-muted rounded-md">
             <p className="font-medium">{projectName}</p>
-            <p className="text-sm text-muted-foreground">{projectCode}</p>
+            <p className="text-sm text-muted-foreground font-mono">{projectCode}</p>
           </div>
-          <p className="mt-4 text-sm text-muted-foreground">
-            This will permanently delete the project and all associated data including:
-          </p>
-          <ul className="mt-2 text-sm text-muted-foreground list-disc list-inside">
-            <li>Project products</li>
-            <li>Project contacts</li>
-            <li>Project documents</li>
-            <li>Project phases</li>
-          </ul>
+
+          <div className="text-sm text-muted-foreground">
+            <p className="mb-2">This will permanently delete:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Project versions</li>
+              <li>Project products</li>
+              <li>Project contacts</li>
+              <li>Project documents</li>
+              <li>Project phases</li>
+              <li className="text-destructive font-medium">Google Drive folder and all files</li>
+            </ul>
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <Label htmlFor="confirm-delete" className="text-sm">
+              Type <span className="font-mono font-bold text-foreground">{projectCode}</span> to confirm deletion
+            </Label>
+            <Input
+              id="confirm-delete"
+              value={confirmationInput}
+              onChange={(e) => setConfirmationInput(e.target.value)}
+              placeholder={projectCode}
+              className="font-mono"
+              disabled={isDeleting}
+              autoComplete="off"
+            />
+          </div>
         </div>
 
         {error && (
@@ -99,7 +132,7 @@ export function DeleteProjectDialog({
             type="button"
             variant="destructive"
             onClick={handleDelete}
-            disabled={isDeleting}
+            disabled={isDeleting || !isConfirmed}
           >
             {isDeleting ? (
               <>
