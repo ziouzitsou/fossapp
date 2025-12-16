@@ -3,6 +3,18 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.10.2",
+      "date": "2025-12-16",
+      "title": "Rotating Hint Bar",
+      "description": "Dashboard now shows rotating tips to help you discover features you might have missed.",
+      "features": [
+        "Rotating hint bar displays feature discovery tips on the dashboard",
+        "Smart rotation keeps hints fresh and relevant",
+        "Helpful tips for navigating FOSSAPP's powerful features"
+      ],
+      "tagline": "Discover features you didn't know existed."
+    },
+    {
       "version": "1.10.0",
       "date": "2025-12-14",
       "title": "Symbol DWG Generation",
