@@ -23,6 +23,7 @@ import {
   type ActiveUser
 } from '@/lib/actions'
 import { MostActiveUsersCard } from '@/components/most-active-users-card'
+import { HintBar } from '@/components/hint-bar'
 
 export default function Dashboard() {
   const { data: session, status } = useDevSession()
@@ -89,10 +90,13 @@ export default function Dashboard() {
       ) : (
         <div className="p-6">
         <div className="max-w-7xl mx-auto">
-            <div className="mb-8">
+            <div className="mb-6">
               <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
               <p className="text-muted-foreground mt-2">Overview of your lighting product database</p>
             </div>
+
+            {/* Hint Bar */}
+            <HintBar />
 
             {/* Main Stats Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">

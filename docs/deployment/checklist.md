@@ -236,6 +236,9 @@ Before running `npm version patch`:
 - [ ] **What's New updated** (if user-facing changes)
   - Add new release to **top** of `src/data/releases.json`
   - See [docs/features/whats-new.md](../features/whats-new.md) for format
+- [ ] **Dashboard hints reviewed** (if new features added)
+  - Review `src/data/hints.ts` for new feature hints
+  - Update/remove hints for deprecated features
 
 Before deploying to production:
 
