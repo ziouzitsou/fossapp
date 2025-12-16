@@ -1,7 +1,7 @@
 'use client'
 
 import { useDroppable } from '@dnd-kit/core'
-import { Layers } from 'lucide-react'
+import { Grid2X2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface CanvasDropZoneProps {
@@ -28,7 +28,7 @@ export function CanvasDropZone({ id, isEmpty, children }: CanvasDropZoneProps) {
     >
       {isEmpty ? (
         <div className="text-center text-muted-foreground">
-          <Layers className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <Grid2X2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
           <p className="text-sm font-medium">Tile Canvas</p>
           <p className="text-xs mt-1">
             Drag products here to create tiles

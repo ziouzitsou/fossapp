@@ -8,7 +8,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Layers, Trash2, SquarePen, Check, X, GripVertical, DraftingCompass, Loader2, Eye } from 'lucide-react'
+import { Grid2X2, Trash2, SquarePen, Check, X, GripVertical, DraftingCompass, Loader2, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -266,7 +266,7 @@ export function TileGroupCard({ group }: TileGroupCardProps) {
     >
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <Layers className="h-4 w-4 text-primary" />
+        <Grid2X2 className="h-4 w-4 text-primary" />
 
         {isEditing ? (
           <div className="flex-1 flex items-center gap-1">

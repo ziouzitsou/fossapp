@@ -1,6 +1,6 @@
 'use client'
 
-import { Layers, Plus } from 'lucide-react'
+import { Grid2X2, Plus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -43,7 +43,7 @@ export function TileCanvas() {
       <CardHeader className="flex-shrink-0 pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Layers className="h-5 w-5" />
+            <Grid2X2 className="h-5 w-5" />
             Tiles
             {totalItems > 0 && (
               <Badge variant="secondary" className="ml-1">

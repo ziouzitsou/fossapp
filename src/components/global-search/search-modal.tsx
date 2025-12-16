@@ -10,7 +10,7 @@ import {
   Check,
   Package,
   Eye,
-  Grid3X3,
+  Grid2X2,
   Sparkles,
   ChevronRight,
   FolderPlus,
@@ -306,7 +306,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                             disabled={inBucket}
                             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Grid3X3 className="h-3.5 w-3.5" />
+                            <Grid2X2 className="h-3.5 w-3.5" />
                             {inBucket ? 'In Tiles' : 'Add to Tiles'}
                           </button>
 

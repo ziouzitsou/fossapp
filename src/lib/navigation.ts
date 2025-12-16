@@ -5,7 +5,7 @@
  * Update this file to add/remove/modify navigation items.
  */
 
-import { MdDashboard, MdWork, MdLayers, MdCode, MdAutoAwesome } from 'react-icons/md'
+import { MdDashboard, MdWork, MdGridView, MdCode, MdAutoAwesome } from 'react-icons/md'
 import { FaUsers, FaFolderOpen } from 'react-icons/fa'
 import type { IconType } from 'react-icons'
 
@@ -27,7 +27,7 @@ export function getNavigation(currentPath: string): NavigationItem[] {
     { name: 'Projects', icon: FaFolderOpen, href: '/projects' },
     { name: 'Customers', icon: FaUsers, href: '/customers' },
     { name: 'Products', icon: MdWork, href: '/products' },
-    { name: 'Tiles', icon: MdLayers, href: '/tiles' },
+    { name: 'Tiles', icon: MdGridView, href: '/tiles' },
     { name: 'Symbols', icon: MdAutoAwesome, href: '/symbol-generator' },
     { name: 'Playground', icon: MdCode, href: '/playground' },
   ]
@@ -47,7 +47,7 @@ export const navigationItems = [
   { name: 'Projects', icon: FaFolderOpen, href: '/projects' },
   { name: 'Customers', icon: FaUsers, href: '/customers' },
   { name: 'Products', icon: MdWork, href: '/products' },
-  { name: 'Tiles', icon: MdLayers, href: '/tiles' },
+  { name: 'Tiles', icon: MdGridView, href: '/tiles' },
   { name: 'Symbols', icon: MdAutoAwesome, href: '/symbol-generator' },
   { name: 'Playground', icon: MdCode, href: '/playground' },
 ] as const

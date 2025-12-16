@@ -5,7 +5,7 @@ import { useDevSession } from '@/lib/use-dev-session'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { FaArrowLeft, FaHeart, FaRegHeart, FaPlus, FaFolder, FaCheck, FaCopy } from 'react-icons/fa'
-import { MdLayers } from 'react-icons/md'
+import { MdGridView } from 'react-icons/md'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -314,7 +314,7 @@ export default function ProductDetailPage() {
                 ) : (
                   <>
                     <FaPlus className="h-3 w-3" />
-                    <MdLayers className="h-4 w-4" />
+                    <MdGridView className="h-4 w-4" />
                   </>
                 )}
                 <span>{product && isInBucket(product.product_id) ? 'In Bucket' : 'Add to Bucket'}</span>
