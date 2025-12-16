@@ -38,6 +38,9 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   output: 'standalone',
   turbopack: {}, // Silence Turbopack warning
+  devIndicators: {
+    position: 'bottom-right',
+  },
 
   // Security headers
   async headers() {

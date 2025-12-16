@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useDevSession } from '@/lib/use-dev-session'
+import { useTheme } from 'next-themes'
 import Image from 'next/image'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,12 +27,18 @@ import { MostActiveUsersCard } from '@/components/most-active-users-card'
 export default function Dashboard() {
   const { data: session, status } = useDevSession()
   const router = useRouter()
+  const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({ totalProducts: 0, totalSuppliers: 0, totalFamilies: 0 })
   const [suppliers, setSuppliers] = useState<SupplierStats[]>([])
   const [catalogs, setCatalogs] = useState<CatalogInfo[]>([])
   const [topFamilies, setTopFamilies] = useState<FamilyStats[]>([])
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([])
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -144,26 +151,22 @@ export default function Dashboard() {
                     >
                       <div className="flex items-start gap-4">
                         {/* Supplier Logo */}
-                        {catalog.supplier_logo && (
-                          <div className="relative w-16 h-16 flex-shrink-0">
-                            <Image
-                              src={catalog.supplier_logo}
-                              alt={catalog.supplier_name}
-                              fill
-                              sizes="64px"
-                              className="object-contain dark:hidden"
-                            />
-                            {catalog.supplier_logo_dark && (
+                        {catalog.supplier_logo && mounted && (() => {
+                          const logoUrl = resolvedTheme === 'dark' && catalog.supplier_logo_dark
+                            ? catalog.supplier_logo_dark
+                            : catalog.supplier_logo
+                          return (
+                            <div className="relative w-16 h-16 flex-shrink-0">
                               <Image
-                                src={catalog.supplier_logo_dark}
+                                src={logoUrl}
                                 alt={catalog.supplier_name}
                                 fill
                                 sizes="64px"
-                                className="object-contain hidden dark:block"
+                                className="object-contain"
                               />
-                            )}
-                          </div>
-                        )}
+                            </div>
+                          )
+                        })()}
 
                         <div className="flex-1 min-w-0">
                           {/* Catalog Name & Supplier */}
