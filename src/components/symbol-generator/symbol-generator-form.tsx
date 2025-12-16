@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   Loader2,
   Sparkles,
@@ -41,9 +41,15 @@ interface DwgGenerationResult {
   tokensOut?: number
 }
 
-export function SymbolGeneratorForm() {
+interface SymbolGeneratorFormProps {
+  /** Initial product ID to auto-load (from URL param) */
+  initialProductId?: string
+}
+
+export function SymbolGeneratorForm({ initialProductId }: SymbolGeneratorFormProps) {
   // Track if search should be shown
-  const [showSearch, setShowSearch] = useState(true)
+  const [showSearch, setShowSearch] = useState(!initialProductId)
+  const [isLoadingInitial, setIsLoadingInitial] = useState(!!initialProductId)
 
   // Selected product state
   const [selectedProduct, setSelectedProduct] = useState<ProductInfo | null>(null)
@@ -71,6 +77,29 @@ export function SymbolGeneratorForm() {
     setIsGeneratingDwg(false)
     setDwgResult(null)
   }, [])
+
+  // Auto-load product from initialProductId
+  useEffect(() => {
+    if (!initialProductId) return
+
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`/api/products/${initialProductId}`)
+        if (response.ok) {
+          const { data } = await response.json()
+          if (data) {
+            handleSelectProduct(data)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch initial product:', error)
+      } finally {
+        setIsLoadingInitial(false)
+      }
+    }
+
+    fetchProduct()
+  }, [initialProductId, handleSelectProduct])
 
   // Handle analysis
   const handleAnalyze = useCallback(async () => {
@@ -220,6 +249,20 @@ export function SymbolGeneratorForm() {
   const dimensionDisplay = dimensions
     ? formatDimensionsForDisplay(dimensions)
     : null
+
+  // Show loading state while fetching initial product
+  if (isLoadingInitial) {
+    return (
+      <div className="flex flex-col gap-6">
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="ml-3 text-muted-foreground">Loading product...</span>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">

@@ -4,6 +4,7 @@ import { SessionProvider } from 'next-auth/react'
 import { ThemeProvider } from './theme-provider'
 import { UserSettingsProvider } from '@/lib/user-settings-context'
 import { BucketProvider } from '@/components/tiles/bucket-context'
+import { GlobalSearchProvider } from '@/components/global-search'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -16,7 +17,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <SessionProvider>
         <UserSettingsProvider>
           <BucketProvider>
-            {children}
+            <GlobalSearchProvider>
+              {children}
+            </GlobalSearchProvider>
           </BucketProvider>
         </UserSettingsProvider>
       </SessionProvider>
