@@ -1,6 +1,6 @@
 # Production Deployment Checklist
 
-**Last Updated**: 2025-12-13
+**Last Updated**: 2025-12-16
 **Current Version**: v1.9.7
 
 This checklist was created after the v1.1.4 deployment to prevent common issues.
@@ -301,6 +301,47 @@ npm run build
 
 # 5. Only then commit
 ```
+
+---
+
+## 🔐 Environment Variables Sync
+
+Environment files (`.env.production`) contain secrets and are **never committed to git**.
+
+### Sync Script
+
+Use the sync helper to keep production in sync:
+
+```bash
+# Sync local .env.production to server
+./scripts/sync-env.sh
+
+# Compare local vs production (shows key differences only)
+./scripts/sync-env.sh --diff
+
+# Pull production env to local (for backup or review)
+./scripts/sync-env.sh --pull
+```
+
+### When to Sync
+
+- After changing API keys (APS, Google, Supabase)
+- After adding new environment variables
+- Before major deployments with config changes
+
+### Important Notes
+
+- Always restart the container after syncing: `docker compose restart fossapp`
+- The script creates automatic backups on the server before overwriting
+- Never commit `.env*` files to git (even private repos)
+
+### Future Improvement: git-crypt
+
+**TODO**: Consider implementing [git-crypt](https://github.com/AGWA/git-crypt) for encrypted secrets in the repository. This would allow:
+- Secrets stored encrypted in git history
+- Automatic decryption for authorized developers
+- Easier onboarding and secret rotation
+- Audit trail for secret changes
 
 ---
 
