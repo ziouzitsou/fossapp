@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
-  Search,
   Loader2,
   Sparkles,
   Copy,
@@ -14,8 +13,8 @@ import {
   FileBox,
   Download,
   Eye,
+  MousePointerClick,
 } from 'lucide-react'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -26,9 +25,9 @@ import {
   formatDimensionsForDisplay,
 } from '@/lib/symbol-generator/dimension-utils'
 import { VisionAnalysisResult, LuminaireDimensions } from '@/lib/symbol-generator/types'
-import { useSearchHistory } from '@/lib/user-settings-context'
 import { TerminalLog } from '@/components/tiles/terminal-log'
 import { SymbolViewerModal } from './symbol-viewer-modal'
+import { ProductSearch } from '@/components/shared/product-search'
 
 // DWG generation result type
 interface DwgGenerationResult {
@@ -43,14 +42,8 @@ interface DwgGenerationResult {
 }
 
 export function SymbolGeneratorForm() {
-  // Search state
-  const [query, setQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<ProductInfo[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [searchError, setSearchError] = useState<string | null>(null)
-
-  // Use synced search history (syncs to DB for authenticated users)
-  const { history: searchHistory, addToHistory } = useSearchHistory('symbols')
+  // Track if search should be shown
+  const [showSearch, setShowSearch] = useState(true)
 
   // Selected product state
   const [selectedProduct, setSelectedProduct] = useState<ProductInfo | null>(null)
@@ -67,42 +60,11 @@ export function SymbolGeneratorForm() {
   const [dwgResult, setDwgResult] = useState<DwgGenerationResult | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
 
-  // Handle search
-  const handleSearch = useCallback(async () => {
-    if (!query.trim()) return
-
-    setIsSearching(true)
-    setSearchError(null)
-    setSearchResults([])
-
-    try {
-      const response = await fetch(
-        `/api/tiles/search?q=${encodeURIComponent(query.trim())}`
-      )
-
-      if (!response.ok) {
-        if (response.status === 401) throw new Error('Please sign in to search')
-        if (response.status === 429) throw new Error('Rate limit exceeded')
-        throw new Error('Search failed')
-      }
-
-      const { data } = await response.json()
-      setSearchResults(data || [])
-
-      // Save to synced history
-      addToHistory(query.trim())
-    } catch (error) {
-      setSearchError(error instanceof Error ? error.message : 'Search failed')
-    } finally {
-      setIsSearching(false)
-    }
-  }, [query, addToHistory])
-
   // Handle product selection
   const handleSelectProduct = useCallback((product: ProductInfo) => {
     setSelectedProduct(product)
     setDimensions(extractDimensions(product))
-    setSearchResults([])
+    setShowSearch(false) // Hide search after selection
     setAnalysisResult(null)
     // Clear DWG state
     setDwgJobId(null)
@@ -236,8 +198,7 @@ export function SymbolGeneratorForm() {
     setSelectedProduct(null)
     setDimensions(null)
     setAnalysisResult(null)
-    setSearchResults([])
-    setQuery('')
+    setShowSearch(true) // Show search again
     // Clear DWG state
     setDwgJobId(null)
     setIsGeneratingDwg(false)
@@ -263,86 +224,24 @@ export function SymbolGeneratorForm() {
   return (
     <div className="flex flex-col gap-6">
       {/* Search Section */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Product Search</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <Input
+      {showSearch && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Product Search</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProductSearch
+              onProductAction={handleSelectProduct}
+              actionLabel="Select"
+              actionIcon={<MousePointerClick className="h-4 w-4 mr-1" />}
+              historyKey="symbols"
               placeholder="Enter FOSS PID or product name..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="flex-1"
+              showImages={false}
+              showDeeplinks={false}
             />
-            <Button onClick={handleSearch} disabled={isSearching || !query.trim()}>
-              {isSearching ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-              <span className="ml-2">Search</span>
-            </Button>
-          </div>
-
-          {searchError && (
-            <p className="mt-2 text-sm text-destructive">{searchError}</p>
-          )}
-
-          {/* Search Results */}
-          {searchResults.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <p className="text-sm text-muted-foreground">
-                {searchResults.length} result(s)
-              </p>
-              {searchResults.map((product) => (
-                <div
-                  key={product.product_id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                  onClick={() => handleSelectProduct(product)}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      {product.description_short}
-                    </p>
-                    <div className="flex gap-2 mt-1">
-                      <Badge variant="outline" className="text-xs">
-                        {product.foss_pid}
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs">
-                        {product.class_name}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Search History */}
-          {!searchResults.length && searchHistory.length > 0 && !selectedProduct && (
-            <div className="mt-4">
-              <p className="text-xs text-muted-foreground mb-2">Recent searches:</p>
-              <div className="flex flex-wrap gap-2">
-                {searchHistory.slice(0, 5).map((term) => (
-                  <Badge
-                    key={term}
-                    variant="outline"
-                    className="cursor-pointer hover:bg-muted"
-                    onClick={() => {
-                      setQuery(term)
-                      handleSearch()
-                    }}
-                  >
-                    {term}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Selected Product Preview */}
       {selectedProduct && (

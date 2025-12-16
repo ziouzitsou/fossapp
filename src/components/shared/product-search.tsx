@@ -1,17 +1,69 @@
 'use client'
 
-import { useState } from 'react'
-import { Search, Plus, Check, Loader2, ExternalLink, History, X } from 'lucide-react'
+import { useState, ReactNode } from 'react'
+import { Search, Loader2, ExternalLink, History, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ProductInfo, getProductImage, getProductDeeplink } from '@/lib/tiles/types'
-import { ProductImage } from './product-image'
-import { useBucket } from '@/components/tiles/bucket-context'
+import { ProductInfo } from '@/types/product'
+import { ProductImage } from '@/components/tiles/product-image'
 import { useSearchHistory } from '@/lib/user-settings-context'
 
-export function ProductSearch() {
+// Helper functions for multimedia URLs
+function getProductImage(product: ProductInfo): string | undefined {
+  return product.multimedia?.find(m => m.mime_code === 'MD02')?.mime_source
+    || product.multimedia?.find(m => m.mime_code === 'MD01')?.mime_source
+}
+
+function getProductDeeplink(product: ProductInfo): string | undefined {
+  return product.multimedia?.find(m => m.mime_code === 'MD04')?.mime_source
+}
+
+/** Supported search history keys - must match useSearchHistory types */
+export type SearchHistoryKey = 'tiles' | 'symbols' | 'customers'
+
+export interface ProductSearchProps {
+  /** Callback when user performs action on a product */
+  onProductAction: (product: ProductInfo) => void
+  /** Label for the action button (default: "Select") */
+  actionLabel?: string
+  /** Icon to show before action label */
+  actionIcon?: ReactNode
+  /** Check if action should be disabled for a product */
+  isActionDisabled?: (product: ProductInfo) => boolean
+  /** Label to show when action is disabled/completed */
+  actionCompletedLabel?: string
+  /** Icon to show when action is completed */
+  actionCompletedIcon?: ReactNode
+  /** Key for search history storage */
+  historyKey: SearchHistoryKey
+  /** Whether to show product images in results (default: true) */
+  showImages?: boolean
+  /** Whether to show deeplinks in results (default: true) */
+  showDeeplinks?: boolean
+  /** Placeholder text for search input */
+  placeholder?: string
+  /** Called after search completes with results */
+  onSearchComplete?: (results: ProductInfo[]) => void
+  /** Clear results after action is performed (default: false) */
+  clearOnAction?: boolean
+}
+
+export function ProductSearch({
+  onProductAction,
+  actionLabel = 'Select',
+  actionIcon,
+  isActionDisabled,
+  actionCompletedLabel,
+  actionCompletedIcon,
+  historyKey,
+  showImages = true,
+  showDeeplinks = true,
+  placeholder = 'Search by foss_pid or product name...',
+  onSearchComplete,
+  clearOnAction = false,
+}: ProductSearchProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ProductInfo[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -19,10 +71,8 @@ export function ProductSearch() {
   const [hasSearched, setHasSearched] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
 
-  const { addToBucket, isInBucket } = useBucket()
-
-  // Use synced search history (syncs to DB for authenticated users)
-  const { history: searchHistory, addToHistory, removeFromHistory, clearHistory } = useSearchHistory('tiles')
+  // Use synced search history
+  const { history: searchHistory, addToHistory, removeFromHistory, clearHistory } = useSearchHistory(historyKey)
 
   const handleSearch = async (searchTerm?: string) => {
     const term = searchTerm ?? query
@@ -35,7 +85,6 @@ export function ProductSearch() {
     setShowHistory(false)
 
     try {
-      // Use tiles search API endpoint (rate limited, authenticated)
       const response = await fetch(`/api/tiles/search?q=${encodeURIComponent(term.trim())}`)
 
       if (!response.ok) {
@@ -49,8 +98,10 @@ export function ProductSearch() {
       }
 
       const { data } = await response.json()
-      setResults(data || [])
+      const searchResults = data || []
+      setResults(searchResults)
       addToHistory(term)
+      onSearchComplete?.(searchResults)
     } catch (err) {
       console.error('Search error:', err)
       setError(err instanceof Error ? err.message : 'Failed to search products. Please try again.')
@@ -66,6 +117,14 @@ export function ProductSearch() {
     }
   }
 
+  const handleAction = (product: ProductInfo) => {
+    onProductAction(product)
+    if (clearOnAction) {
+      setResults([])
+      setHasSearched(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Search Input */}
@@ -74,7 +133,7 @@ export function ProductSearch() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search by foss_pid (e.g., MY8204045139)"
+            placeholder={placeholder}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -139,16 +198,17 @@ export function ProductSearch() {
         </div>
       )}
 
-      {/* Results */}
+      {/* No Results */}
       {hasSearched && !isLoading && results.length === 0 && !error && (
         <div className="text-sm text-muted-foreground text-center py-8">
-          No products found for "{query}"
+          No products found for &quot;{query}&quot;
         </div>
       )}
 
+      {/* Results */}
       <div className="space-y-3">
         {results.map((product) => {
-          const inBucket = isInBucket(product.product_id)
+          const disabled = isActionDisabled?.(product) ?? false
           const imageUrl = getProductImage(product)
           const deeplink = getProductDeeplink(product)
 
@@ -157,12 +217,14 @@ export function ProductSearch() {
               <CardContent className="p-4">
                 <div className="flex gap-4">
                   {/* Product Image */}
-                  <ProductImage
-                    src={imageUrl}
-                    alt={product.description_short}
-                    size="md"
-                    className="flex-shrink-0"
-                  />
+                  {showImages && (
+                    <ProductImage
+                      src={imageUrl}
+                      alt={product.description_short}
+                      size="md"
+                      className="flex-shrink-0"
+                    />
+                  )}
 
                   {/* Product Info */}
                   <div className="flex-1 min-w-0">
@@ -176,23 +238,23 @@ export function ProductSearch() {
                         </p>
                       </div>
 
-                      {/* Add to Bucket Button */}
+                      {/* Action Button */}
                       <Button
                         size="sm"
-                        variant={inBucket ? 'secondary' : 'default'}
-                        onClick={() => addToBucket(product)}
-                        disabled={inBucket}
+                        variant={disabled ? 'secondary' : 'default'}
+                        onClick={() => handleAction(product)}
+                        disabled={disabled}
                         className="flex-shrink-0"
                       >
-                        {inBucket ? (
+                        {disabled ? (
                           <>
-                            <Check className="h-4 w-4 mr-1" />
-                            In Bucket
+                            {actionCompletedIcon}
+                            {actionCompletedLabel || actionLabel}
                           </>
                         ) : (
                           <>
-                            <Plus className="h-4 w-4 mr-1" />
-                            Add to Bucket
+                            {actionIcon}
+                            {actionLabel}
                           </>
                         )}
                       </Button>
@@ -214,7 +276,7 @@ export function ProductSearch() {
                     </div>
 
                     {/* Deeplink */}
-                    {deeplink && (
+                    {showDeeplinks && deeplink && (
                       <a
                         href={deeplink}
                         target="_blank"
@@ -234,4 +296,10 @@ export function ProductSearch() {
       </div>
     </div>
   )
+}
+
+/** Clear search results programmatically - export for external control */
+export type ProductSearchRef = {
+  clearResults: () => void
+  setQuery: (query: string) => void
 }
