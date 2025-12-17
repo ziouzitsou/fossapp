@@ -34,6 +34,7 @@ import {
   type CreateProjectWithDriveInput,
 } from '@/lib/actions/project-drive'
 import { CustomerCombobox } from '@/components/customer-combobox'
+import { useDevSession } from '@/lib/use-dev-session'
 
 // Project status options
 const PROJECT_STATUSES = [
@@ -87,6 +88,7 @@ export function ProjectFormSheet({
   const isEditing = !!project
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { data: session } = useDevSession()
 
   // Helper to get today's date in YYYY-MM-DD format
   const getTodayDate = () => new Date().toISOString().split('T')[0]
@@ -256,6 +258,7 @@ export function ProjectFormSheet({
           lighting_designer: formData.lighting_designer,
           notes: formData.notes,
           tags: formData.tags,
+          created_by: session?.user?.name || undefined,
         }
 
         const result = await createProjectWithDriveAction(createInput)

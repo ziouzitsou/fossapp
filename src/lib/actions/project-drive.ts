@@ -18,6 +18,7 @@ import type { ActionResult, CreateProjectInput, ProjectVersion } from './project
 
 export interface CreateProjectWithDriveInput extends Omit<CreateProjectInput, 'project_code'> {
   // project_code will be auto-generated
+  created_by?: string  // User name who creates the project
 }
 
 export interface CreateProjectWithDriveResult {
@@ -130,6 +131,7 @@ export async function createProjectWithDriveAction(
         version_number: 1,
         google_drive_folder_id: driveResult.versionFolderId,
         notes: 'Initial version',
+        created_by: input.created_by || null,
       })
 
     if (versionError) {
@@ -190,7 +192,8 @@ export interface CreateVersionResult {
  */
 export async function createProjectVersionWithDriveAction(
   projectId: string,
-  notes?: string
+  notes?: string,
+  createdBy?: string
 ): Promise<ActionResult<CreateVersionResult>> {
   try {
     const sanitizedProjectId = validateProjectId(projectId)
@@ -245,6 +248,7 @@ export async function createProjectVersionWithDriveAction(
         version_number: newVersionNumber,
         google_drive_folder_id: driveResult.versionFolderId,
         notes: notes?.trim() || `Version ${newVersionNumber}`,
+        created_by: createdBy || null,
       })
       .select('id')
       .single()

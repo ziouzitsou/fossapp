@@ -32,6 +32,7 @@ import {
   deleteProjectVersionWithDriveAction,
   archiveProjectWithDriveAction,
 } from '@/lib/actions/project-drive'
+import { useDevSession } from '@/lib/use-dev-session'
 
 interface ProjectVersionsCardProps {
   projectId: string
@@ -52,6 +53,7 @@ export function ProjectVersionsCard({
   isArchived,
   onVersionChange,
 }: ProjectVersionsCardProps) {
+  const { data: session } = useDevSession()
   const [isCreating, setIsCreating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
@@ -81,7 +83,11 @@ export function ProjectVersionsCard({
     setError(null)
 
     try {
-      const result = await createProjectVersionWithDriveAction(projectId, newVersionNotes)
+      const result = await createProjectVersionWithDriveAction(
+        projectId,
+        newVersionNotes,
+        session?.user?.name || undefined
+      )
       if (result.success) {
         setShowCreateDialog(false)
         setNewVersionNotes('')
@@ -232,7 +238,7 @@ export function ProjectVersionsCard({
                       : 'bg-muted/30'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-medium">v{version.version_number}</span>
                       {version.version_number === currentVersion && (
@@ -241,12 +247,13 @@ export function ProjectVersionsCard({
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {formatDate(version.created_at)}
+                      {version.notes && (
+                        <span className="italic"> - {version.notes}</span>
+                      )}
+                      {version.created_by && (
+                        <span className="font-medium"> - by {version.created_by}</span>
+                      )}
                     </div>
-                    {version.notes && (
-                      <div className="text-sm text-muted-foreground italic">
-                        - {version.notes}
-                      </div>
-                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {version.google_drive_folder_id && (

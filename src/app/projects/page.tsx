@@ -102,6 +102,10 @@ export default function ProjectsPage() {
   }
 
   const handleDeleteSuccess = () => {
+    // Clear active project if the deleted one was active
+    if (selectedProject && isActive(selectedProject.id)) {
+      setActiveProject(null)
+    }
     loadProjects()
   }
 
