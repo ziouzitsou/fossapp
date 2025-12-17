@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Loader2, AlertCircle, Maximize, Home, CheckCircle2, Ruler, Trash2 } from 'lucide-react'
+import { Loader2, AlertCircle, Maximize, Home, CheckCircle2, Ruler, Trash2, Square } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -122,7 +122,7 @@ export function PlannerViewer({
   const [error, setError] = useState<string | null>(null)
   const [urn, setUrn] = useState<string | undefined>(initialUrn)
   const [isCacheHit, setIsCacheHit] = useState(false)
-  const [isMeasuring, setIsMeasuring] = useState(false)
+  const [measureMode, setMeasureMode] = useState<'none' | 'distance' | 'area'>('none')
   const [hasMeasurement, setHasMeasurement] = useState(false)
 
   // Get viewer token from API
@@ -420,7 +420,7 @@ export function PlannerViewer({
     viewerRef.current?.fitToView()
   }, [])
 
-  const handleToggleMeasure = useCallback(() => {
+  const handleToggleMeasure = useCallback((mode: 'distance' | 'area') => {
     const viewer = viewerRef.current
     if (!viewer) return
 
@@ -428,14 +428,16 @@ export function PlannerViewer({
     const measureExt = viewer.getExtension('Autodesk.Measure') as any
     if (!measureExt) return
 
-    if (isMeasuring) {
+    if (measureMode === mode) {
+      // Same mode clicked - deactivate
       measureExt.deactivate()
-      setIsMeasuring(false)
+      setMeasureMode('none')
     } else {
-      measureExt.activate('distance')
-      setIsMeasuring(true)
+      // Different mode or none - activate new mode
+      measureExt.activate(mode)
+      setMeasureMode(mode)
     }
-  }, [isMeasuring])
+  }, [measureMode])
 
   const handleClearMeasurements = useCallback(() => {
     const viewer = viewerRef.current
@@ -452,7 +454,7 @@ export function PlannerViewer({
 
   // Poll for measurements while in measure mode
   useEffect(() => {
-    if (!isMeasuring) {
+    if (measureMode === 'none') {
       return
     }
 
@@ -477,7 +479,7 @@ export function PlannerViewer({
     const interval = setInterval(checkForMeasurements, 500)
 
     return () => clearInterval(interval)
-  }, [isMeasuring])
+  }, [measureMode])
 
   const getLoadingMessage = () => {
     switch (loadingStage) {
@@ -561,14 +563,27 @@ export function PlannerViewer({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant={isMeasuring ? 'default' : 'ghost'}
+                  variant={measureMode === 'distance' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={handleToggleMeasure}
+                  onClick={() => handleToggleMeasure('distance')}
                 >
                   <Ruler className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Measure Distance</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={measureMode === 'area' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => handleToggleMeasure('area')}
+                >
+                  <Square className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Measure Area</TooltipContent>
             </Tooltip>
 
             {hasMeasurement && (
