@@ -492,11 +492,11 @@ export async function deleteProjectAction(
   try {
     const sanitizedProjectId = validateProjectId(projectId)
 
-    // 1. Get the project's Google Drive folder ID before deleting
+    // 1. Get the project's Google Drive folder ID and OSS bucket before deleting
     const { data: project } = await supabaseServer
       .schema('projects')
       .from('projects')
-      .select('google_drive_folder_id')
+      .select('google_drive_folder_id, oss_bucket')
       .eq('id', sanitizedProjectId)
       .single()
 
@@ -511,7 +511,18 @@ export async function deleteProjectAction(
       }
     }
 
-    // 3. Delete related records (due to foreign key constraints)
+    // 3. Delete APS OSS bucket if it exists (for planner floor plans)
+    if (project?.oss_bucket) {
+      try {
+        const { deleteProjectBucket } = await import('../planner/aps-planner-service')
+        await deleteProjectBucket(sanitizedProjectId)
+      } catch (ossError) {
+        console.error('Delete OSS bucket error:', ossError)
+        // Continue with database deletion even if OSS deletion fails
+      }
+    }
+
+    // 4. Delete related records (due to foreign key constraints)
     // Delete project versions
     await supabaseServer
       .schema('projects')
@@ -547,7 +558,7 @@ export async function deleteProjectAction(
       .delete()
       .eq('project_id', sanitizedProjectId)
 
-    // 4. Delete the project
+    // 5. Delete the project
     const { error } = await supabaseServer
       .schema('projects')
       .from('projects')

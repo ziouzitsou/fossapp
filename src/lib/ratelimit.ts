@@ -49,6 +49,8 @@ export const RATE_LIMITS = {
   'playground-generate': { limit: 10, windowMs: 60_000 }, // 10 req/min (LLM + APS)
   'viewer-upload': { limit: 20, windowMs: 60_000 },     // 20 req/min (APS upload + translation)
   'viewer-status': { limit: 120, windowMs: 60_000 },    // 120 req/min (polling during translation)
+  'planner-upload': { limit: 20, windowMs: 60_000 },    // 20 req/min (APS persistent upload)
+  'planner-status': { limit: 120, windowMs: 60_000 },   // 120 req/min (polling during translation)
   'symbol-generator': { limit: 20, windowMs: 60_000 },  // 20 req/min (vision LLM analysis)
   'symbol-generator-dwg': { limit: 10, windowMs: 60_000 }, // 10 req/min (LLM + APS generation)
 } as const

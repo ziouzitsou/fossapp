@@ -51,6 +51,7 @@ Feature-specific documentation.
 |----------|-------------|
 | [tiles.md](./features/tiles.md) | Tile Management System (DWG generation) |
 | [playground.md](./features/playground.md) | DWG from natural language (LLM + APS) |
+| [planner.md](./features/planner.md) | Visual lighting layout planner (upload DWG + place products) |
 | [symbol-generator.md](./features/symbol-generator.md) | AutoCAD symbol specs via Vision LLM (experimental) |
 | [filters.md](./features/filters.md) | Dynamic filters implementation |
 | [pwa.md](./features/pwa.md) | Progressive Web App setup |

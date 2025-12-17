@@ -4,58 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
-
-// Autodesk Viewer types
-declare global {
-  interface Window {
-    Autodesk: {
-      Viewing: {
-        Initializer: (options: ViewerInitOptions, callback: () => void) => void
-        GuiViewer3D: new (container: HTMLElement, config?: ViewerConfig) => Viewer3D
-        Document: {
-          load: (
-            urn: string,
-            onSuccess: (doc: ViewerDocument) => void,
-            onError: (errorCode: number, errorMsg: string) => void
-          ) => void
-        }
-      }
-    }
-  }
-}
-
-interface ViewerInitOptions {
-  env: string
-  api: string
-  getAccessToken: (callback: (token: string, expires: number) => void) => void
-}
-
-interface ViewerConfig {
-  extensions?: string[]
-}
-
-interface Viewer3D {
-  start: () => void
-  finish: () => void
-  loadDocumentNode: (doc: ViewerDocument, viewable: Viewable) => Promise<void>
-  setTheme: (theme: 'light-theme' | 'dark-theme') => void
-  resize: () => void
-  container: HTMLElement
-}
-
-interface ViewerDocument {
-  getRoot: () => BubbleNode
-}
-
-interface BubbleNode {
-  getDefaultGeometry: () => Viewable
-}
-
-interface Viewable {
-  data?: {
-    guid: string
-  }
-}
+import type { GuiViewer3DInstance, ViewerInitOptions } from '@/types/autodesk-viewer'
 
 // Status polling types
 interface TranslationStatus {
@@ -137,7 +86,7 @@ export function DwgViewer({
   className,
 }: DwgViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const viewerRef = useRef<Viewer3D | null>(null)
+  const viewerRef = useRef<GuiViewer3DInstance | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadingStage, setLoadingStage] = useState<'scripts' | 'upload' | 'translation' | 'viewer'>('scripts')
   const [translationProgress, setTranslationProgress] = useState(0)
