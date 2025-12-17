@@ -84,6 +84,7 @@ interface Viewer3DInstance {
   worldToClient: (point: WorldCoordinates) => { x: number; y: number } | null
   addEventListener: (event: string, callback: (e: unknown) => void) => void
   removeEventListener: (event: string, callback: (e: unknown) => void) => void
+  getExtension: (extensionId: string) => unknown
 }
 
 declare global {

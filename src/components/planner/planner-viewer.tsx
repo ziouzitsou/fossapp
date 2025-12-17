@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Loader2, AlertCircle, Hand, ZoomIn, ZoomOut, Maximize, Home, MousePointer, CheckCircle2 } from 'lucide-react'
+import { Loader2, AlertCircle, Maximize, Home, CheckCircle2, Ruler, Trash2 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -121,8 +121,9 @@ export function PlannerViewer({
   const [isIndeterminate, setIsIndeterminate] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [urn, setUrn] = useState<string | undefined>(initialUrn)
-  const [activeTool, setActiveTool] = useState<ViewerTool>('pan')
   const [isCacheHit, setIsCacheHit] = useState(false)
+  const [isMeasuring, setIsMeasuring] = useState(false)
+  const [hasMeasurement, setHasMeasurement] = useState(false)
 
   // Get viewer token from API
   const getAccessToken = useCallback(async (): Promise<{ access_token: string; expires_in: number }> => {
@@ -269,7 +270,7 @@ export function PlannerViewer({
 
         // Use Viewer3D instead of GuiViewer3D - no built-in toolbar!
         const viewer = new window.Autodesk.Viewing.Viewer3D(containerRef.current, {
-          extensions: [],
+          extensions: ['Autodesk.Measure'],
         })
 
         viewer.start()
@@ -292,9 +293,8 @@ export function PlannerViewer({
 
             try {
               await viewer.loadDocumentNode(doc, viewable)
-              // Activate pan tool by default
+              // Activate pan tool by default (mouse wheel zooms, drag pans)
               viewer.toolController.activateTool('pan')
-              setActiveTool('pan')
               setIsLoading(false)
               onReady?.(viewer)
               resolve()
@@ -416,37 +416,68 @@ export function PlannerViewer({
   }, [])
 
   // Toolbar actions
-  const handleToolChange = useCallback((tool: ViewerTool) => {
-    const viewer = viewerRef.current
-    if (!viewer) return
-
-    // Deactivate current tool
-    viewer.toolController.deactivateTool(activeTool)
-
-    // Activate new tool
-    viewer.toolController.activateTool(tool)
-    setActiveTool(tool)
-  }, [activeTool])
-
   const handleFitToView = useCallback(() => {
     viewerRef.current?.fitToView()
   }, [])
 
-  const handleZoomIn = useCallback(() => {
+  const handleToggleMeasure = useCallback(() => {
     const viewer = viewerRef.current
     if (!viewer) return
-    // Programmatic zoom - activate zoom tool briefly
-    viewer.toolController.activateTool('dolly')
-    // The user will need to interact, or we can use navigation API
-    setActiveTool('zoom')
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const measureExt = viewer.getExtension('Autodesk.Measure') as any
+    if (!measureExt) return
+
+    if (isMeasuring) {
+      measureExt.deactivate()
+      setIsMeasuring(false)
+    } else {
+      measureExt.activate('distance')
+      setIsMeasuring(true)
+    }
+  }, [isMeasuring])
+
+  const handleClearMeasurements = useCallback(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const measureExt = viewer.getExtension('Autodesk.Measure') as any
+    if (!measureExt) return
+
+    // Clear all measurements
+    measureExt.deleteCurrentMeasurement()
+    setHasMeasurement(false)
   }, [])
 
-  const handleZoomOut = useCallback(() => {
+  // Poll for measurements while in measure mode
+  useEffect(() => {
+    if (!isMeasuring) {
+      return
+    }
+
     const viewer = viewerRef.current
     if (!viewer) return
-    viewer.toolController.activateTool('dolly')
-    setActiveTool('zoom')
-  }, [])
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const measureExt = viewer.getExtension('Autodesk.Measure') as any
+    if (!measureExt) return
+
+    const checkForMeasurements = () => {
+      const measureTool = measureExt.measureTool
+      if (measureTool) {
+        // Check if there's a current measurement
+        const hasMeasure = measureTool._currentMeasurement != null ||
+                          (measureTool._measurementsManager?.getMeasurementList?.()?.length > 0)
+        setHasMeasurement(hasMeasure)
+      }
+    }
+
+    // Check periodically while measuring
+    const interval = setInterval(checkForMeasurements, 500)
+
+    return () => clearInterval(interval)
+  }, [isMeasuring])
 
   const getLoadingMessage = () => {
     switch (loadingStage) {
@@ -530,56 +561,31 @@ export function PlannerViewer({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant={activeTool === 'pan' ? 'default' : 'ghost'}
+                  variant={isMeasuring ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => handleToolChange('pan')}
+                  onClick={handleToggleMeasure}
                 >
-                  <Hand className="h-4 w-4" />
+                  <Ruler className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Pan</TooltipContent>
+              <TooltipContent>Measure Distance</TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={activeTool === 'select' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => handleToolChange('select')}
-                >
-                  <MousePointer className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Select</TooltipContent>
-            </Tooltip>
-
-            <div className="w-px h-6 bg-border mx-1" />
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleZoomIn}
-                >
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Zoom In</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleZoomOut}
-                >
-                  <ZoomOut className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Zoom Out</TooltipContent>
-            </Tooltip>
+            {hasMeasurement && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearMeasurements}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clear Measurement</TooltipContent>
+              </Tooltip>
+            )}
 
             <div className="w-px h-6 bg-border mx-1" />
 
