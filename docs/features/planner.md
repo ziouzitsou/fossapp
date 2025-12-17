@@ -32,7 +32,8 @@ The Planner allows users to upload a customer's floor plan DWG and visually plac
 - [x] DWG file upload (drag & drop + file picker)
 - [x] Dedicated `PlannerViewer` component (separate from tiles)
 - [x] **Viewer3D** (no built-in GUI) with custom external toolbar
-- [x] Custom toolbar with Pan, Select, Zoom, Fit, Home buttons
+- [x] Custom toolbar with Measure (Distance/Area), Fit, Home
+- [x] Mouse-based navigation (pan drag, scroll zoom - AutoCAD style)
 - [ ] Basic testing with real floor plans
 
 **Files:**
@@ -159,7 +160,7 @@ const viewer = new window.Autodesk.Viewing.Viewer3D(container, {...})
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
 ├─────────────────────────────────────────────────────────────┤
-│ Custom Toolbar: [Pan] [Select] | [Zoom+] [Zoom-] | [Fit] [Home] │  ← React/Lucide
+│ Custom Toolbar: [Ruler] [Area] [Clear] | [Fit] [Home]           │  ← React/Lucide
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -177,7 +178,7 @@ const viewer = new window.Autodesk.Viewing.Viewer3D(container, {...})
 │                                      │ │ ...              │ │
 │                                      │ └──────────────────┘ │
 ├──────────────────────────────────────┴──────────────────────┤
-│ Custom Toolbar: [Pan] [Select] [Place] | [Zoom] | [Fit]     │
+│ Custom Toolbar: [Ruler] [Area] [Place] | [Fit] [Home]       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -212,10 +213,9 @@ export interface Viewer3DInstance { /* viewer methods */ }
 
 | Icon | Usage |
 |------|-------|
-| `Hand` | Pan tool |
-| `MousePointer` | Select tool |
-| `ZoomIn` | Zoom in |
-| `ZoomOut` | Zoom out |
+| `Ruler` | Measure distance tool |
+| `Square` | Measure area tool |
+| `Trash2` | Clear measurement |
 | `Maximize` | Fit to view |
 | `Home` | Reset view |
 | `Upload` | File drop zone |
@@ -224,6 +224,7 @@ export interface Viewer3DInstance { /* viewer methods */ }
 | `FolderOpen` | Project badge |
 | `Loader2` | Loading spinner |
 | `AlertCircle` | Error state |
+| `CheckCircle2` | Cache hit indicator |
 
 **Navigation Icon**: `MdEventNote` from react-icons/md (in sidebar)
 
@@ -257,6 +258,23 @@ viewer.navigation.setZoomTowardsPivot(true)  // Zoom behavior
 ```typescript
 viewer.clientToWorld(clientX, clientY)       // Screen → World
 viewer.worldToClient({x, y, z})              // World → Screen
+```
+
+**Measurement Extension:**
+```typescript
+// Load extension on viewer init
+const viewer = new Viewer3D(container, {
+  extensions: ['Autodesk.Measure']
+})
+
+// Activate measurement modes
+const measureExt = viewer.getExtension('Autodesk.Measure')
+measureExt.activate('distance')  // Two-point distance
+measureExt.activate('area')      // Polygon area
+measureExt.deactivate()          // Exit measure mode
+
+// Clear measurements
+measureExt.deleteCurrentMeasurement()
 ```
 
 ---
@@ -394,14 +412,69 @@ The viewer is a WebGL canvas, not standard DOM:
 
 ---
 
+## Future: Markup Tools (Pending Designer Input)
+
+**Status**: Under consideration - awaiting designer feedback
+
+The Autodesk Viewer provides a `MarkupsCore` extension that could allow users to annotate floor plans with drawings, text, and shapes.
+
+### Available Markup Tools
+
+| Tool | Description |
+|------|-------------|
+| Arrow | Point to specific areas |
+| Circle/Ellipse | Highlight circular regions |
+| Rectangle | Highlight rectangular areas |
+| Cloud | Revision cloud (common in CAD) |
+| Polyline/Freehand | Free drawing |
+| Text | Add labels and notes |
+| Highlight | Semi-transparent overlay |
+
+### Persistence Approach
+
+Markups can be saved and restored using the extension's built-in methods:
+
+```typescript
+// Save markups
+const markupExt = viewer.getExtension('Autodesk.Viewing.MarkupsCore')
+const svgData = markupExt.generateData()  // Returns SVG string
+
+// Restore markups
+markupExt.loadMarkups(svgData, 'layer1')
+```
+
+### Database Schema (if implemented)
+
+```sql
+CREATE TABLE planner_markups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID REFERENCES projects.projects(id) ON DELETE CASCADE,
+  floor_plan_urn TEXT NOT NULL,
+  markup_data TEXT NOT NULL,        -- SVG string from generateData()
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Use Cases
+
+- Annotate floor plans with installation notes
+- Mark product placement zones before actual placement
+- Add text labels for areas (e.g., "Reception", "Meeting Room")
+- Draw cable routing paths
+- Highlight problem areas or special requirements
+
+---
+
 ## Notes
 
 - Floor plan DWGs are typically 2D layouts (ironic use of Viewer**3D**)
 - Viewer3D gives us full UI control vs GuiViewer3D's built-in toolbar
 - Product symbols could come from the symbol-generator feature
-- Consider zoom-to-fit after loading
+- Mouse navigation: drag to pan, scroll to zoom (AutoCAD-style UX)
 - May need to handle different DWG units (mm, inches, etc.)
 
 ---
 
-**Last Updated**: 2025-12-17 (Added persistent storage + caching infrastructure)
+**Last Updated**: 2025-12-17 (Added measurement tools, documented markup feature)
