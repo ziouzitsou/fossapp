@@ -138,6 +138,73 @@ export class MarkupMarkers {
   }
 
   /**
+   * Convert world coordinates (DWG model space) to markup coordinates
+   *
+   * This is more accurate than screen conversion, especially with snapping.
+   * Uses viewer's worldToClient and then converts to markup space.
+   */
+  worldToMarkup(worldX: number, worldY: number, worldZ: number = 0): { x: number; y: number } | null {
+    if (!this.markupsExt?.svg) return null
+
+    try {
+      // Convert world to client (screen) coordinates
+      // THREE.js is loaded by the Autodesk viewer
+      const THREE = (window as any).THREE
+      const worldPoint = new THREE.Vector3(worldX, worldY, worldZ)
+      const clientPoint = this.viewer.worldToClient(worldPoint)
+
+      if (!clientPoint) {
+        console.warn('[MarkupMarkers] worldToClient returned null')
+        return null
+      }
+
+      // Now convert client to markup using the same logic as screenToMarkup
+      const container = this.viewer.container as HTMLElement
+      const rect = container.getBoundingClientRect()
+      const svg = this.markupsExt.svg as SVGSVGElement
+      const viewBox = svg.viewBox.baseVal
+
+      // clientPoint is already relative to the viewport, but we need relative to container
+      const localX = clientPoint.x
+      const localY = clientPoint.y
+
+      const scaleX = viewBox.width / rect.width
+      const scaleY = viewBox.height / rect.height
+
+      const markupX = viewBox.x + localX * scaleX
+      const rawY = viewBox.y + localY * scaleY
+      const centerY = viewBox.y + viewBox.height / 2
+      const markupY = 2 * centerY - rawY
+
+      return { x: markupX, y: markupY }
+    } catch (err) {
+      console.error('[MarkupMarkers] worldToMarkup failed:', err)
+      return null
+    }
+  }
+
+  /**
+   * Add a marker at world coordinates (DWG model space)
+   * More accurate than screen coordinates, especially with snapping.
+   */
+  addMarkerAtWorld(
+    worldX: number,
+    worldY: number,
+    worldZ: number,
+    data: Omit<MarkerData, 'id' | 'markupX' | 'markupY'>,
+    id?: string
+  ): MarkerData | null {
+    const markupCoords = this.worldToMarkup(worldX, worldY, worldZ)
+    if (!markupCoords) {
+      // Fallback: try screen coordinates if world conversion fails
+      console.warn('[MarkupMarkers] worldToMarkup failed, marker not placed')
+      return null
+    }
+
+    return this.addMarkerAtMarkup(markupCoords.x, markupCoords.y, data, id)
+  }
+
+  /**
    * Add a marker at screen coordinates
    * @param id - Optional external ID (if not provided, generates UUID)
    */

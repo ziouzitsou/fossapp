@@ -391,48 +391,73 @@ export function PlannerViewer({
                 console.warn('[PlannerViewer] MarkupMarkers failed to initialize')
               }
 
-              // Register the placement tool
-              const tool = new PlacementTool(viewer, (coords) => {
-                const mode = placementModeRef.current
-                if (mode && markupMarkersRef.current) {
-                  // Generate ID first so both MarkupMarkers and placements state use the same ID
-                  const placementId = crypto.randomUUID()
-
-                  // Add marker using screen coordinates (MarkupsCore handles zoom/pan)
-                  const markerData = markupMarkersRef.current.addMarkerAtScreen(
-                    coords.screenX,
-                    coords.screenY,
-                    {
+              // Register the placement tool with snapping support
+              const tool = new PlacementTool(
+                viewer,
+                (coords) => {
+                  const mode = placementModeRef.current
+                  if (mode && markupMarkersRef.current) {
+                    const placementId = crypto.randomUUID()
+                    const productData = {
                       productId: mode.productId,
                       projectProductId: mode.projectProductId,
                       productName: mode.fossPid || mode.description,
-                    },
-                    placementId  // Pass the same ID
-                  )
+                    }
 
-                  if (markerData) {
-                    // Also notify parent with world coordinates for data persistence
-                    console.log('[PlannerViewer] Calling onPlacementAdd:', {
-                      id: placementId,
-                      productId: mode.productId,
-                      projectProductId: mode.projectProductId,
-                      worldX: coords.worldX,
-                      worldY: coords.worldY,
-                    })
-                    onPlacementAddRef.current?.({
-                      id: placementId,  // Include the same ID
-                      productId: mode.productId,
-                      projectProductId: mode.projectProductId,
-                      productName: mode.fossPid || mode.description,
-                      worldX: coords.worldX,
-                      worldY: coords.worldY,
-                      rotation: 0,
-                    })
-                  } else {
-                    console.warn('[PlannerViewer] markerData is null - marker not added')
+                    let markerData
+                    if (coords.isSnapped) {
+                      // Use world coordinates when snapped for precision
+                      markerData = markupMarkersRef.current.addMarkerAtWorld(
+                        coords.worldX,
+                        coords.worldY,
+                        coords.worldZ,
+                        productData,
+                        placementId
+                      )
+                      // Fallback to screen coords if world conversion fails
+                      if (!markerData) {
+                        console.warn('[PlannerViewer] World coords failed, using screen coords')
+                        markerData = markupMarkersRef.current.addMarkerAtScreen(
+                          coords.screenX,
+                          coords.screenY,
+                          productData,
+                          placementId
+                        )
+                      }
+                    } else {
+                      // Use screen coordinates for non-snapped placements
+                      markerData = markupMarkersRef.current.addMarkerAtScreen(
+                        coords.screenX,
+                        coords.screenY,
+                        productData,
+                        placementId
+                      )
+                    }
+
+                    if (markerData) {
+                      console.log('[PlannerViewer] Placed marker:', {
+                        id: placementId,
+                        worldX: coords.worldX.toFixed(2),
+                        worldY: coords.worldY.toFixed(2),
+                        isSnapped: coords.isSnapped,
+                        snapType: coords.snapType,
+                      })
+                      // Store world coordinates for data persistence
+                      onPlacementAddRef.current?.({
+                        id: placementId,
+                        productId: mode.productId,
+                        projectProductId: mode.projectProductId,
+                        productName: mode.fossPid || mode.description,
+                        worldX: coords.worldX,
+                        worldY: coords.worldY,
+                        rotation: 0,
+                      })
+                    } else {
+                      console.warn('[PlannerViewer] markerData is null - marker not placed')
+                    }
                   }
                 }
-              })
+              )
               viewer.toolController.registerTool(tool)
               placementToolRef.current = tool
 
