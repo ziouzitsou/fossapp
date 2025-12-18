@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Loader2, AlertCircle, Maximize, Home, CheckCircle2, Ruler, Trash2, Square, MousePointer2 } from 'lucide-react'
+import { Loader2, AlertCircle, Maximize, CheckCircle2, Ruler, Trash2, Square, MousePointer2 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -686,7 +686,12 @@ export function PlannerViewer({
 
   // Toolbar actions
   const handleFitToView = useCallback(() => {
-    viewerRef.current?.fitToView()
+    const viewer = viewerRef.current
+    if (!viewer) return
+
+    // Simple fitToView - works for both 2D and 3D
+    // The viewer handles the camera transition smoothly
+    viewer.fitToView()
   }, [])
 
   const handleToggleMeasure = useCallback((mode: 'distance' | 'area') => {
@@ -917,19 +922,6 @@ export function PlannerViewer({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Fit to View</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleFitToView}
-                >
-                  <Home className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Home</TooltipContent>
             </Tooltip>
 
             {/* Coordinate Display */}
