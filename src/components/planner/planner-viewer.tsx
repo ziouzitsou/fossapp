@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils'
 import type { Viewer3DInstance, WorldCoordinates as WorldCoordsType, ViewerInitOptions } from '@/types/autodesk-viewer'
 import type { PlacementModeProduct, Placement } from './types'
 import { PlacementTool } from './placement-tool'
+import { MarkupMarkers } from './markup-markers'
 
 // Re-export the Viewer3DInstance type for consumers
 export type { Viewer3DInstance }
@@ -174,6 +175,9 @@ export function PlannerViewer({
 
   // Ref for the placement tool instance
   const placementToolRef = useRef<PlacementTool | null>(null)
+
+  // Ref for MarkupMarkers instance
+  const markupMarkersRef = useRef<MarkupMarkers | null>(null)
 
   const [isLoading, setIsLoading] = useState(true)
   const [loadingStage, setLoadingStage] = useState<'scripts' | 'upload' | 'translation' | 'viewer' | 'cache-hit'>('scripts')
@@ -333,9 +337,11 @@ export function PlannerViewer({
         // Use Viewer3D instead of GuiViewer3D - no built-in toolbar!
         // Extensions:
         // - Measure: for measurement tools (includes snapping)
+        // - MarkupsCore: for product placement markers (SVG layer with auto zoom/pan)
         const viewer = new window.Autodesk.Viewing.Viewer3D(containerRef.current, {
           extensions: [
             'Autodesk.Measure',
+            'Autodesk.Viewing.MarkupsCore',
           ],
         })
 
@@ -360,19 +366,42 @@ export function PlannerViewer({
             try {
               await viewer.loadDocumentNode(doc, viewable)
 
+              // Initialize MarkupMarkers for product placement
+              const markers = new MarkupMarkers(viewer)
+              const markersInitialized = await markers.initialize()
+              if (markersInitialized) {
+                markupMarkersRef.current = markers
+                console.log('[PlannerViewer] MarkupMarkers initialized')
+              } else {
+                console.warn('[PlannerViewer] MarkupMarkers failed to initialize')
+              }
+
               // Register the placement tool
               const tool = new PlacementTool(viewer, (coords) => {
                 const mode = placementModeRef.current
-                if (mode) {
-                  // Use ref to always get the latest callback
-                  onPlacementAddRef.current?.({
-                    productId: mode.productId,
-                    projectProductId: mode.projectProductId,
-                    productName: mode.fossPid || mode.description,
-                    worldX: coords.x,
-                    worldY: coords.y,
-                    rotation: 0,
-                  })
+                if (mode && markupMarkersRef.current) {
+                  // Add marker using screen coordinates (MarkupsCore handles zoom/pan)
+                  const markerData = markupMarkersRef.current.addMarkerAtScreen(
+                    coords.screenX,
+                    coords.screenY,
+                    {
+                      productId: mode.productId,
+                      projectProductId: mode.projectProductId,
+                      productName: mode.fossPid || mode.description,
+                    }
+                  )
+
+                  if (markerData) {
+                    // Also notify parent with world coordinates for data persistence
+                    onPlacementAddRef.current?.({
+                      productId: mode.productId,
+                      projectProductId: mode.projectProductId,
+                      productName: mode.fossPid || mode.description,
+                      worldX: coords.worldX,
+                      worldY: coords.worldY,
+                      rotation: 0,
+                    })
+                  }
                 }
               })
               viewer.toolController.registerTool(tool)

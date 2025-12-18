@@ -12,9 +12,13 @@
 type ViewerInstance = any
 
 export interface PlacementCoords {
-  x: number
-  y: number
-  z: number
+  // World coordinates (DWG model space)
+  worldX: number
+  worldY: number
+  worldZ: number
+  // Screen coordinates (for MarkupsCore)
+  screenX: number
+  screenY: number
 }
 
 export class PlacementTool {
@@ -50,6 +54,10 @@ export class PlacementTool {
   handleSingleClick(event: MouseEvent, button: number): boolean {
     if (button !== 0) return false // Only handle left clicks
 
+    // Screen coordinates (for MarkupsCore)
+    const screenX = event.clientX
+    const screenY = event.clientY
+
     // Try clientToWorld first (works for 3D)
     const clientToWorldResult = this.viewer.clientToWorld(event.clientX, event.clientY)
 
@@ -76,18 +84,24 @@ export class PlacementTool {
 
       const container = this.viewer.container
       const rect = container.getBoundingClientRect()
-      const screenX = event.clientX - rect.left
-      const screenY = event.clientY - rect.top
+      const localX = event.clientX - rect.left
+      const localY = event.clientY - rect.top
 
       const visWidth = visibleBounds.max.x - visibleBounds.min.x
       const visHeight = visibleBounds.max.y - visibleBounds.min.y
 
       // Convert screen coords to world coords
-      worldX = visibleBounds.min.x + (screenX / rect.width) * visWidth
-      worldY = visibleBounds.max.y - (screenY / rect.height) * visHeight
+      worldX = visibleBounds.min.x + (localX / rect.width) * visWidth
+      worldY = visibleBounds.max.y - (localY / rect.height) * visHeight
     }
 
-    this.onPlacement({ x: worldX, y: worldY, z: worldZ })
+    this.onPlacement({
+      worldX,
+      worldY,
+      worldZ,
+      screenX,
+      screenY
+    })
     return true // Consume the click event
   }
 
