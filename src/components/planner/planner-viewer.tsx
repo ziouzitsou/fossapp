@@ -15,15 +15,18 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Loader2, AlertCircle, Maximize, Home, CheckCircle2, Ruler, Trash2, Square } from 'lucide-react'
+import { Loader2, AlertCircle, Maximize, Home, CheckCircle2, Ruler, Trash2, Square, Circle, MousePointer2 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { Viewer3DInstance, WorldCoordinates as WorldCoordsType, ViewerInitOptions } from '@/types/autodesk-viewer'
+import type { MarkupsCoreExtension, PlacementModeProduct, Placement } from './types'
+import { PlacementTool } from './placement-tool'
 
 // Re-export the Viewer3DInstance type for consumers
 export type { Viewer3DInstance }
+export type { MarkupsCoreExtension }
 
 // Status polling types
 interface TranslationStatus {
@@ -47,8 +50,16 @@ export interface PlannerViewerProps {
   projectId?: string
   /** Initial theme */
   theme?: 'light' | 'dark'
+  /** Product being placed (click-to-place mode) */
+  placementMode?: PlacementModeProduct | null
+  /** Callback when a placement is added via click-to-place */
+  onPlacementAdd?: (placement: Omit<Placement, 'id' | 'dbId'>) => void
+  /** Callback to exit placement mode */
+  onExitPlacementMode?: () => void
   /** Callback when viewer is ready */
   onReady?: (viewer: Viewer3DInstance) => void
+  /** Callback when MarkupsCore extension is ready for product placements */
+  onMarkupReady?: (markupExt: MarkupsCoreExtension, containerRef: React.RefObject<HTMLDivElement | null>) => void
   /** Callback when error occurs */
   onError?: (error: string) => void
   /** Callback when user clicks on the viewer (for placing products) */
@@ -63,6 +74,34 @@ export interface PlannerViewerProps {
 let scriptsLoaded = false
 let scriptsLoading = false
 const loadCallbacks: Array<() => void> = []
+
+// Helper to convert screen coordinates to world coordinates using visible bounds
+function getWorldCoordsFromScreen(
+  viewer: Viewer3DInstance,
+  container: HTMLElement,
+  clientX: number,
+  clientY: number
+): { x: number; y: number } | null {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const impl = (viewer as any).impl
+  const visibleBounds = impl?.getVisibleBounds?.()
+  if (!visibleBounds) return null
+
+  const rect = container.getBoundingClientRect()
+  const screenX = clientX - rect.left
+  const screenY = clientY - rect.top
+
+  const visWidth = visibleBounds.max.x - visibleBounds.min.x
+  const visHeight = visibleBounds.max.y - visibleBounds.min.y
+
+  // Convert screen coords to world coords
+  // Screen X: 0 -> width maps to visMinX -> visMaxX
+  // Screen Y: 0 -> height maps to visMaxY -> visMinY (Y is flipped)
+  const worldX = visibleBounds.min.x + (screenX / rect.width) * visWidth
+  const worldY = visibleBounds.max.y - (screenY / rect.height) * visHeight
+
+  return { x: worldX, y: worldY }
+}
 
 function loadAutodeskScripts(): Promise<void> {
   return new Promise((resolve) => {
@@ -107,7 +146,11 @@ export function PlannerViewer({
   urn: initialUrn,
   projectId,
   theme: initialTheme = 'dark',
+  placementMode,
+  onPlacementAdd,
+  onExitPlacementMode,
   onReady,
+  onMarkupReady,
   onError,
   onViewerClick,
   onUploadComplete,
@@ -115,6 +158,27 @@ export function PlannerViewer({
 }: PlannerViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<Viewer3DInstance | null>(null)
+
+  // Use refs for callbacks to prevent re-initialization when parent re-renders
+  const onReadyRef = useRef(onReady)
+  const onErrorRef = useRef(onError)
+  const onUploadCompleteRef = useRef(onUploadComplete)
+  const onPlacementAddRef = useRef(onPlacementAdd)
+  onReadyRef.current = onReady
+  onErrorRef.current = onError
+  onUploadCompleteRef.current = onUploadComplete
+  onPlacementAddRef.current = onPlacementAdd
+
+  // Track if viewer has been initialized to prevent double init
+  const isInitializedRef = useRef(false)
+
+  // Ref for placementMode so the tool can access latest value without re-registering
+  const placementModeRef = useRef(placementMode)
+  placementModeRef.current = placementMode
+
+  // Ref for the placement tool instance
+  const placementToolRef = useRef<PlacementTool | null>(null)
+
   const [isLoading, setIsLoading] = useState(true)
   const [loadingStage, setLoadingStage] = useState<'scripts' | 'upload' | 'translation' | 'viewer' | 'cache-hit'>('scripts')
   const [translationProgress, setTranslationProgress] = useState(0)
@@ -124,6 +188,9 @@ export function PlannerViewer({
   const [isCacheHit, setIsCacheHit] = useState(false)
   const [measureMode, setMeasureMode] = useState<'none' | 'distance' | 'area'>('none')
   const [hasMeasurement, setHasMeasurement] = useState(false)
+  const [markMode, setMarkMode] = useState(false)
+  const [mouseWorldCoords, setMouseWorldCoords] = useState<{ x: number; y: number } | null>(null)
+  const [snapCoords, setSnapCoords] = useState<{ x: number; y: number; isSnapped: boolean } | null>(null)
 
   // Get viewer token from API
   const getAccessToken = useCallback(async (): Promise<{ access_token: string; expires_in: number }> => {
@@ -173,7 +240,7 @@ export function PlannerViewer({
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
 
-      onUploadComplete?.(data.urn, data.isNewUpload)
+      onUploadCompleteRef.current?.(data.urn, data.isNewUpload)
       return data.urn
     }
 
@@ -269,8 +336,14 @@ export function PlannerViewer({
         }
 
         // Use Viewer3D instead of GuiViewer3D - no built-in toolbar!
+        // Extensions:
+        // - Measure: for measurement tools (includes snapping)
+        // - MarkupsCore: for circle tool annotations
         const viewer = new window.Autodesk.Viewing.Viewer3D(containerRef.current, {
-          extensions: ['Autodesk.Measure'],
+          extensions: [
+            'Autodesk.Measure',
+            'Autodesk.Viewing.MarkupsCore',
+          ],
         })
 
         viewer.start()
@@ -293,10 +366,29 @@ export function PlannerViewer({
 
             try {
               await viewer.loadDocumentNode(doc, viewable)
+
+              // Register the placement tool
+              const tool = new PlacementTool(viewer, (coords) => {
+                const mode = placementModeRef.current
+                if (mode) {
+                  // Use ref to always get the latest callback
+                  onPlacementAddRef.current?.({
+                    productId: mode.productId,
+                    projectProductId: mode.projectProductId,
+                    productName: mode.fossPid || mode.description,
+                    worldX: coords.x,
+                    worldY: coords.y,
+                    rotation: 0,
+                  })
+                }
+              })
+              viewer.toolController.registerTool(tool)
+              placementToolRef.current = tool
+
               // Activate pan tool by default (mouse wheel zooms, drag pans)
               viewer.toolController.activateTool('pan')
               setIsLoading(false)
-              onReady?.(viewer)
+              onReadyRef.current?.(viewer)
               resolve()
             } catch (err) {
               reject(err)
@@ -308,15 +400,22 @@ export function PlannerViewer({
         )
       })
     })
-  }, [getAccessToken, initialTheme, onReady])
+  }, [getAccessToken, initialTheme])
 
-  // Main initialization effect
+  // Main initialization effect - runs once per file
   useEffect(() => {
+    // Prevent double initialization (React Strict Mode)
+    if (isInitializedRef.current) {
+      return
+    }
+
     let mounted = true
     let cleanup: (() => void) | undefined
 
     const initialize = async () => {
       try {
+        isInitializedRef.current = true
+
         setLoadingStage('scripts')
         await loadAutodeskScripts()
 
@@ -350,7 +449,7 @@ export function PlannerViewer({
         const errorMessage = err instanceof Error ? err.message : 'Unknown error'
         setError(errorMessage)
         setIsLoading(false)
-        onError?.(errorMessage)
+        onErrorRef.current?.(errorMessage)
       }
     }
 
@@ -358,9 +457,11 @@ export function PlannerViewer({
 
     return () => {
       mounted = false
+      isInitializedRef.current = false
       cleanup?.()
     }
-  }, [urn, file, uploadFile, pollTranslationStatus, initializeViewer, onError])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urn, file])
 
   // Handle click events for placing products
   useEffect(() => {
@@ -415,6 +516,98 @@ export function PlannerViewer({
     return () => container.removeEventListener('wheel', preventScroll)
   }, [])
 
+  // Track mouse position and convert to world coordinates
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || isLoading) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const viewer = viewerRef.current
+      if (!viewer) {
+        setMouseWorldCoords(null)
+        return
+      }
+
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const impl = (viewer as any).impl
+        if (impl?.intersectGround) {
+          const worldPos = impl.intersectGround(e.clientX, e.clientY)
+          if (worldPos) {
+            setMouseWorldCoords({ x: worldPos.x, y: worldPos.y })
+          } else {
+            setMouseWorldCoords(null)
+          }
+        }
+      } catch {
+        setMouseWorldCoords(null)
+      }
+    }
+
+    const handleMouseLeave = () => {
+      setMouseWorldCoords(null)
+    }
+
+    container.addEventListener('mousemove', handleMouseMove)
+    container.addEventListener('mouseleave', handleMouseLeave)
+
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove)
+      container.removeEventListener('mouseleave', handleMouseLeave)
+    }
+  }, [isLoading])
+
+  // ESC key to exit placement mode
+  useEffect(() => {
+    if (!placementMode) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onExitPlacementMode?.()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [placementMode, onExitPlacementMode])
+
+  // Activate/deactivate placement tool based on placementMode
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer || !placementToolRef.current) return
+
+    if (placementMode) {
+      viewer.toolController.activateTool('placement-tool')
+    } else {
+      viewer.toolController.deactivateTool('placement-tool')
+    }
+  }, [placementMode])
+
+  // Track mouse position for snap coordinates display
+  useEffect(() => {
+    if (!placementMode || isLoading) return
+
+    const container = containerRef.current
+    if (!container) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const viewer = (window as any).NOP_VIEWER as Viewer3DInstance
+      if (!viewer) return
+
+      const coords = getWorldCoordsFromScreen(viewer, container, e.clientX, e.clientY)
+      if (coords) {
+        setSnapCoords({ ...coords, isSnapped: false })
+      }
+    }
+
+    container.addEventListener('mousemove', handleMouseMove)
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove)
+      setSnapCoords(null)
+    }
+  }, [placementMode, isLoading])
+
   // Toolbar actions
   const handleFitToView = useCallback(() => {
     viewerRef.current?.fitToView()
@@ -436,8 +629,15 @@ export function PlannerViewer({
       // Different mode or none - activate new mode
       measureExt.activate(mode)
       setMeasureMode(mode)
+      // Deactivate mark mode if active
+      if (markMode) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const markupExt = viewer.getExtension('Autodesk.Viewing.MarkupsCore') as any
+        markupExt?.leaveEditMode()
+        setMarkMode(false)
+      }
     }
-  }, [measureMode])
+  }, [measureMode, markMode])
 
   const handleClearMeasurements = useCallback(() => {
     const viewer = viewerRef.current
@@ -451,6 +651,38 @@ export function PlannerViewer({
     measureExt.deleteCurrentMeasurement()
     setHasMeasurement(false)
   }, [])
+
+  const handleToggleMarkMode = useCallback(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const markupExt = viewer.getExtension('Autodesk.Viewing.MarkupsCore') as any
+    if (!markupExt) return
+
+    if (markMode) {
+      // Deactivate mark mode
+      markupExt.leaveEditMode()
+      setMarkMode(false)
+    } else {
+      // Activate mark mode with circle tool
+      markupExt.enterEditMode()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const EditModeCircle = (window as any).Autodesk.Viewing.Extensions.Markups.Core.EditModeCircle
+      if (EditModeCircle) {
+        const circleMode = new EditModeCircle(markupExt)
+        markupExt.changeEditMode(circleMode)
+      }
+      setMarkMode(true)
+      // Deactivate measure if active
+      if (measureMode !== 'none') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const measureExt = viewer.getExtension('Autodesk.Measure') as any
+        measureExt?.deactivate()
+        setMeasureMode('none')
+      }
+    }
+  }, [markMode, measureMode])
 
   // Poll for measurements while in measure mode
   useEffect(() => {
@@ -560,6 +792,19 @@ export function PlannerViewer({
       {showToolbar && (
         <div className="flex-none border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex items-center justify-center gap-1 p-2">
+            {/* Placement mode indicator */}
+            {placementMode && (
+              <>
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20">
+                  <MousePointer2 className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-medium text-primary">
+                    {placementMode.fossPid}
+                  </span>
+                </div>
+                <div className="w-px h-6 bg-border mx-1" />
+              </>
+            )}
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -584,6 +829,19 @@ export function PlannerViewer({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Measure Area</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={markMode ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={handleToggleMarkMode}
+                >
+                  <Circle className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Place Marker</TooltipContent>
             </Tooltip>
 
             {hasMeasurement && (
@@ -629,6 +887,27 @@ export function PlannerViewer({
               </TooltipTrigger>
               <TooltipContent>Home</TooltipContent>
             </Tooltip>
+
+            {/* Coordinate Display */}
+            <div className="w-px h-6 bg-border mx-1" />
+            <div className="text-xs font-mono text-muted-foreground min-w-[160px]">
+              {placementMode && snapCoords ? (
+                <span>
+                  X: <span className={snapCoords.isSnapped ? 'text-primary' : 'text-foreground'}>{snapCoords.x.toFixed(2)}</span>
+                  {' '}
+                  Y: <span className={snapCoords.isSnapped ? 'text-primary' : 'text-foreground'}>{snapCoords.y.toFixed(2)}</span>
+                  {snapCoords.isSnapped && <span className="text-primary ml-1">⊙</span>}
+                </span>
+              ) : mouseWorldCoords ? (
+                <span>
+                  X: <span className="text-foreground">{mouseWorldCoords.x.toFixed(2)}</span>
+                  {' '}
+                  Y: <span className="text-foreground">{mouseWorldCoords.y.toFixed(2)}</span>
+                </span>
+              ) : (
+                <span className="text-muted-foreground/50">X: --- Y: ---</span>
+              )}
+            </div>
           </div>
         </div>
       )}

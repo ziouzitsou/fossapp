@@ -23,9 +23,11 @@ interface ViewerNavigation {
 }
 
 interface ToolController {
+  registerTool: (tool: unknown) => void
   activateTool: (toolName: string) => boolean
   deactivateTool: (toolName: string) => boolean
   getActiveToolName: () => string
+  getTool?: (toolName: string) => unknown
 }
 
 interface ViewerDocument {
@@ -85,6 +87,16 @@ interface Viewer3DInstance {
   addEventListener: (event: string, callback: (e: unknown) => void) => void
   removeEventListener: (event: string, callback: (e: unknown) => void) => void
   getExtension: (extensionId: string) => unknown
+  /** Internal implementation with low-level APIs */
+  impl?: {
+    createOverlayScene: (name: string) => boolean
+    addOverlay: (sceneName: string, mesh: unknown) => void
+    removeOverlay: (sceneName: string, mesh: unknown) => void
+    clearOverlay: (sceneName: string) => void
+    invalidate: (needsClear?: boolean) => void
+    intersectGround: (clientX: number, clientY: number) => WorldCoordinates | null
+    camera?: unknown
+  }
 }
 
 declare global {
@@ -102,6 +114,7 @@ declare global {
           ) => void
         }
         TOOL_CHANGE_EVENT: string
+        CAMERA_CHANGE_EVENT: string
       }
     }
   }

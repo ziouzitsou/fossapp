@@ -412,11 +412,191 @@ The viewer is a WebGL canvas, not standard DOM:
 
 ---
 
-## Future: Markup Tools (Pending Designer Input)
+## MarkupsCore Extension - Programmatic Markers (CRITICAL)
 
-**Status**: Under consideration - awaiting designer feedback
+**Status**: Working - Key breakthrough for product placement
 
-The Autodesk Viewer provides a `MarkupsCore` extension that could allow users to annotate floor plans with drawings, text, and shapes.
+The Autodesk Viewer's `MarkupsCore` extension is the solution for placing markers that correctly follow pan/zoom in 2D views.
+
+### Why MarkupsCore?
+
+**The Problem**: In 2D mode, the viewer's pan operation doesn't update accessible camera/viewport properties. Methods like `worldToClient()`, `clientToWorld()`, and camera position return the same values during pan, making HTML overlays impossible to sync.
+
+**The Solution**: MarkupsCore creates an SVG layer with the correct `viewBox` and `transform: scale(1, -1)` that automatically follows pan/zoom. Elements added to this SVG inherit the correct positioning.
+
+### Critical Implementation Details
+
+#### 1. Load the Extension
+
+```typescript
+const viewer = new window.Autodesk.Viewing.Viewer3D(container, {
+  extensions: ['Autodesk.Measure', 'Autodesk.Viewing.MarkupsCore'],
+})
+```
+
+#### 2. Enter Edit Mode (Creates SVG Layer)
+
+```typescript
+const markupExt = viewer.getExtension('Autodesk.Viewing.MarkupsCore')
+markupExt.enterEditMode()
+```
+
+#### 3. CRITICAL: Set Z-Index on SVG
+
+**Without this, the SVG renders BEHIND the WebGL canvas and is invisible!**
+
+```typescript
+const svg = markupExt.svg
+svg.style.zIndex = '9999'
+```
+
+#### 4. Programmatic Circle Creation (Using Action Class)
+
+**WRONG** - Direct instantiation doesn't attach to DOM properly:
+```typescript
+// DON'T DO THIS - circle won't be visible
+const circle = new MarkupCircle(id, markupExt)
+circle.set(position, size)
+markupExt.addMarkup(circle)  // Added to data but NOT rendered!
+```
+
+**CORRECT** - Use the CreateCircle action class:
+```typescript
+const MarkupsCore = window.Autodesk.Viewing.Extensions.Markups.Core
+const CreateCircle = MarkupsCore.CreateCircle
+
+markupExt.beginActionGroup()
+
+const id = markupExt.getId()
+const position = { x: 105, y: 148 }  // Markup coordinates (NOT screen pixels!)
+const size = { x: 30, y: 30 }
+const rotation = 0
+const style = {
+  'stroke-width': 4,
+  'stroke-color': '#00ff00',
+  'stroke-opacity': 1,
+  'fill-color': '#00ff00',
+  'fill-opacity': 0.6
+}
+
+const createAction = new CreateCircle(markupExt, id, position, size, rotation, style)
+createAction.execute()
+
+markupExt.closeActionGroup()
+```
+
+#### 5. Custom SVG Elements (For Product Markers)
+
+For custom markers with labels, add SVG elements directly to the markup group:
+
+```typescript
+const svg = markupExt.svg
+const ns = 'http://www.w3.org/2000/svg'
+
+// Create marker group
+const g = document.createElementNS(ns, 'g')
+g.setAttribute('id', 'product-marker-1')
+g.setAttribute('transform', 'translate(150, 200)')  // Markup coordinates
+g.style.cursor = 'pointer'
+
+// Circle marker
+const circle = document.createElementNS(ns, 'circle')
+circle.setAttribute('r', '12')
+circle.setAttribute('fill', '#3b82f6')
+circle.setAttribute('stroke', '#ffffff')
+circle.setAttribute('stroke-width', '2')
+
+// Text label (flip Y due to scale(1,-1) on parent SVG)
+const text = document.createElementNS(ns, 'text')
+text.setAttribute('y', '-20')
+text.setAttribute('text-anchor', 'middle')
+text.setAttribute('fill', '#ffffff')
+text.setAttribute('font-size', '10')
+text.setAttribute('transform', 'scale(1, -1)')  // Flip text to be readable
+text.textContent = 'Product Name'
+
+g.appendChild(circle)
+g.appendChild(text)
+
+// Add to markup group (first <g> child of SVG)
+const markupGroup = svg.querySelector('g')
+markupGroup.appendChild(g)
+```
+
+### Coordinate System
+
+The MarkupsCore SVG uses a custom coordinate system defined by its `viewBox`:
+
+```
+viewBox: "-29.078 -0.225 268.607 297.0"
+         ↑        ↑      ↑        ↑
+      minX     minY   width   height
+```
+
+- **Markup coordinates** are NOT screen pixels
+- **Markup coordinates** roughly correspond to model/world units
+- Use `markupExt.clientToMarkups(screenX, screenY)` to convert screen → markup coords
+- Use `markupExt.markupsToClient(markupX, markupY)` to convert markup → screen coords
+
+### Product Drag-Drop Flow
+
+```
+1. User drags product from sidebar
+2. On drop over viewer canvas:
+   - Get screen coordinates from drop event (e.clientX, e.clientY)
+   - Convert to markup coords: markupExt.clientToMarkups(e.clientX, e.clientY)
+   - Create custom SVG group at those coordinates
+   - Store placement in database with markup coordinates
+3. On viewer load:
+   - Load placements from database
+   - Create SVG groups at stored coordinates
+   - They automatically follow pan/zoom!
+```
+
+### Available Action Classes
+
+| Class | Description |
+|-------|-------------|
+| `CreateCircle` | Create circle/ellipse markup |
+| `CreateRectangle` | Create rectangle markup |
+| `CreateArrow` | Create arrow markup |
+| `CreateText` | Create text markup |
+| `CreateCloud` | Create revision cloud |
+| `CreatePolyline` | Create polyline/freehand |
+| `DeleteCircle` | Delete circle markup |
+
+### Persistence
+
+Markups can be saved and restored:
+
+```typescript
+// Save markups
+const svgData = markupExt.generateData()  // Returns SVG string
+
+// Restore markups
+markupExt.loadMarkups(svgData, 'layer1')
+```
+
+### Database Schema (for product placements)
+
+```sql
+CREATE TABLE planner_placements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID REFERENCES projects.projects(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL,
+  markup_x NUMERIC NOT NULL,        -- Markup X coordinate (NOT world/screen!)
+  markup_y NUMERIC NOT NULL,        -- Markup Y coordinate
+  rotation NUMERIC DEFAULT 0,
+  label TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+---
+
+## Legacy: Markup Tools (Manual Drawing)
+
+The extension also supports manual drawing tools for user annotations:
 
 ### Available Markup Tools
 
@@ -430,31 +610,16 @@ The Autodesk Viewer provides a `MarkupsCore` extension that could allow users to
 | Text | Add labels and notes |
 | Highlight | Semi-transparent overlay |
 
-### Persistence Approach
-
-Markups can be saved and restored using the extension's built-in methods:
+### Manual Drawing Mode
 
 ```typescript
-// Save markups
-const markupExt = viewer.getExtension('Autodesk.Viewing.MarkupsCore')
-const svgData = markupExt.generateData()  // Returns SVG string
+// Enter circle drawing mode
+const EditModeCircle = window.Autodesk.Viewing.Extensions.Markups.Core.EditModeCircle
+const circleMode = new EditModeCircle(markupExt)
+markupExt.changeEditMode(circleMode)
 
-// Restore markups
-markupExt.loadMarkups(svgData, 'layer1')
-```
-
-### Database Schema (if implemented)
-
-```sql
-CREATE TABLE planner_markups (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID REFERENCES projects.projects(id) ON DELETE CASCADE,
-  floor_plan_urn TEXT NOT NULL,
-  markup_data TEXT NOT NULL,        -- SVG string from generateData()
-  created_by UUID REFERENCES auth.users(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+// User clicks and drags to draw circles
+// Circles automatically follow pan/zoom
 ```
 
 ### Use Cases
@@ -477,4 +642,4 @@ CREATE TABLE planner_markups (
 
 ---
 
-**Last Updated**: 2025-12-17 (Added measurement tools, documented markup feature)
+**Last Updated**: 2025-12-17 (Added MarkupsCore programmatic markers - CRITICAL z-index fix, action classes, custom SVG markers)

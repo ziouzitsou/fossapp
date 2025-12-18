@@ -129,6 +129,56 @@ export async function ensureProjectBucketExists(projectId: string): Promise<stri
 }
 
 /**
+ * Derive URN from bucket name and object key
+ * URN = base64(urn:adsk.objects:os.object:{bucketKey}/{objectKey}) without padding
+ */
+export function deriveUrn(bucketName: string, objectKey: string): string {
+  const objectId = `urn:adsk.objects:os.object:${bucketName}/${objectKey}`
+  return Buffer.from(objectId).toString('base64').replace(/=/g, '')
+}
+
+/**
+ * List DWG files in a project's OSS bucket
+ * Returns files with derived URNs for direct viewer loading
+ */
+export async function listBucketDWGs(projectId: string): Promise<Array<{
+  fileName: string
+  objectKey: string
+  size: number
+  uploadedAt: string
+  urn: string
+}>> {
+  const accessToken = await getAccessToken()
+  const bucketName = generateBucketName(projectId)
+
+  try {
+    const objects = await ossClient.getObjects(bucketName, { accessToken })
+
+    if (!objects.items || objects.items.length === 0) {
+      return []
+    }
+
+    // Filter to only DWG files and map to our format with derived URNs
+    return objects.items
+      .filter(obj => obj.objectKey?.toLowerCase().endsWith('.dwg'))
+      .map(obj => ({
+        fileName: obj.objectKey || '',
+        objectKey: obj.objectKey || '',
+        size: obj.size || 0,
+        uploadedAt: obj.location || new Date().toISOString(),
+        urn: deriveUrn(bucketName, obj.objectKey || '')
+      }))
+  } catch (err: unknown) {
+    const error = err as { axiosError?: { response?: { status?: number } } }
+    if (error.axiosError?.response?.status === 404) {
+      // Bucket doesn't exist yet
+      return []
+    }
+    throw err
+  }
+}
+
+/**
  * Delete project bucket and all its contents
  * Called when a project is deleted
  */
