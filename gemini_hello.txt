@@ -1,0 +1,2 @@
+Hello from Gemini!
+This file verifies that the author name is set correctly.
