@@ -31,11 +31,9 @@ FOSSAPP provides access to a comprehensive database of 56,456+ lighting products
 ### Prerequisites
 
 - Node.js 18+ installed
-- Google Cloud Console project set up
-- Google OAuth 2.0 credentials
-- Supabase account and project
+- Access to team credentials (via 1Password/Bitwarden shared vault)
 
-### Installation
+### Quick Start
 
 1. Clone the repository:
    ```bash
@@ -53,26 +51,46 @@ FOSSAPP provides access to a comprehensive database of 56,456+ lighting products
    cp .env.example .env.local
    ```
 
-4. Configure environment variables in `.env.local`:
-   ```
-   NEXTAUTH_URL=http://localhost:8080
-   NEXTAUTH_SECRET=your-secret-key-here
-   GOOGLE_CLIENT_ID=your-google-client-id
-   GOOGLE_CLIENT_SECRET=your-google-client-secret
-   NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+4. Get credentials from team vault and fill in `.env.local`:
+   - All required variables are documented in `.env.example`
+   - See sections below for details on each service
+
+5. (Optional) Set up Google Drive integration:
+   ```bash
+   mkdir -p credentials
+   # Copy google-service-account.json from team vault to credentials/
    ```
 
-### Google OAuth Setup
+6. Run the development server:
+   ```bash
+   npm run dev
+   ```
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the Google+ API
-4. Create OAuth 2.0 credentials:
-   - Application type: Web application
-   - Authorized redirect URIs: `http://localhost:8080/api/auth/callback/google`
-5. Copy the Client ID and Client Secret to your `.env.local` file
+7. Open [http://localhost:8080](http://localhost:8080)
+
+### Required Services & Credentials
+
+| Service | What you need | Where to get it |
+|---------|---------------|-----------------|
+| **Supabase** | Anon key, Service role key | Team vault or [Supabase Dashboard](https://supabase.com/dashboard) |
+| **Google OAuth** | Client ID, Client Secret | Team vault or [GCP Console](https://console.cloud.google.com/) |
+| **NextAuth** | Secret key | Generate: `openssl rand -base64 32` |
+
+### Optional Services (for specific features)
+
+| Service | Feature | What you need |
+|---------|---------|---------------|
+| **Google Drive** | Projects management | Service account JSON in `credentials/` |
+| **APS (Autodesk)** | Tile generation, DWG viewing | Client ID, Secret, Activity config |
+| **OpenRouter** | Playground LLM | API key |
+
+### Claude Code Setup (Optional)
+
+If using Claude Code for development:
+```bash
+cp .mcp.json.template .mcp.json
+# Fill in your API keys (or get from team vault)
+```
 
 ### Running the Application
 
@@ -81,6 +99,13 @@ npm run dev
 ```
 
 Open [http://localhost:8080](http://localhost:8080) to view the application.
+
+### Development without full credentials
+
+You can run the app with minimal setup:
+- Products, Tiles viewing, Symbols work with just Supabase credentials
+- Google Drive features require the service account
+- Tile generation requires APS credentials
 
 ## Project Structure
 
@@ -125,7 +150,7 @@ The application connects to a Supabase PostgreSQL database with the following ke
 
 ## Technologies Used
 
-- **Next.js 15.3.4** - React framework with App Router
+- **Next.js 16** - React framework with App Router + Turbopack
 - **NextAuth.js** - Authentication library with Google OAuth
 - **Supabase** - PostgreSQL database and backend services
 - **TypeScript** - Type safety and better development experience
@@ -176,25 +201,24 @@ The application uses Supabase with the following exposed schemas:
 - [x] Responsive design
 - [x] Database integration
 - [x] Docker containerization
-- [x] VPS deployment with blue-green strategy
-- [x] Version display with environment awareness
-- [x] Health monitoring and log rotation
+- [x] VPS deployment
+- [x] Health monitoring
 
-### Phase 2 - Enhanced Features (Planned)
-- [ ] Advanced product filtering
-- [ ] User favorites and wishlist
-- [ ] Project management tools
-- [ ] Product comparison
-- [ ] Export to AutoCAD formats
-- [ ] Advanced search with ETIM classification
-- [ ] User product history
+### Phase 2 - Enhanced Features ✅
+- [x] Advanced product filtering
+- [x] Tiles system (AutoCAD tile generation)
+- [x] Symbol generator
+- [x] Project management with Google Drive integration
+- [x] DWG viewer (APS Model Derivative)
+- [x] Playground (LLM-assisted queries)
+- [x] PWA support
 
-### Phase 3 - Professional Tools (Future)
-- [ ] Lighting calculation tools
+### Phase 3 - Professional Tools (In Progress)
+- [x] Floor plan viewer (Planner)
+- [ ] Product placement on floor plans
+- [ ] Lighting calculations
 - [ ] Project collaboration
-- [ ] Custom product catalogs
-- [ ] Integration with design software
-- [ ] Advanced reporting
+- [ ] Export to AutoCAD formats
 
 ## Contributing
 
