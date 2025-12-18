@@ -177,34 +177,9 @@ export function ProductsPanel({
         </p>
       </div>
 
-      {/* Placement mode indicator */}
-      {placementMode && (
-        <div className="flex-none mx-2 mt-2 p-2 rounded-md bg-primary/10 border border-primary/20">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <MousePointer2 className="h-4 w-4 text-primary flex-shrink-0" />
-              <span className="text-xs font-medium text-primary truncate">
-                Placing: {placementMode.fossPid}
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 hover:bg-primary/20"
-              onClick={onExitPlacementMode}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Click on floor plan to place • ESC to cancel
-          </p>
-        </div>
-      )}
-
       {/* Product list */}
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-2">
+        <div className="p-3 space-y-2">
           {groupedProducts.size === 1 && groupedProducts.has('Unassigned') ? (
             // No grouping needed - flat list
             products.map((product) => (
@@ -250,8 +225,33 @@ export function ProductsPanel({
         </div>
       </ScrollArea>
 
+      {/* Placement mode indicator - above footer */}
+      {placementMode && (
+        <div className="flex-none mx-3 mb-2 p-2 rounded-md bg-primary/10 border border-primary/20">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <MousePointer2 className="h-4 w-4 text-primary flex-shrink-0" />
+              <span className="text-xs font-medium text-primary truncate">
+                Placing: {placementMode.fossPid}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 hover:bg-primary/20"
+              onClick={onExitPlacementMode}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Click on floor plan to place • ESC to cancel
+          </p>
+        </div>
+      )}
+
       {/* Footer with placement summary */}
-      <div className="flex-none p-3 border-t bg-muted/50">
+      <div className="flex-none px-3 py-2 border-t bg-muted/50">
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>Placed</span>
           <span>{placements.length} markers</span>
