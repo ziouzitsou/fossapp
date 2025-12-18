@@ -39,6 +39,9 @@ export class MarkupMarkers {
     this.viewer = viewer
   }
 
+  // Bound keyboard handler for cleanup
+  private boundKeyHandler: ((e: KeyboardEvent) => void) | null = null
+
   /**
    * Initialize - must be called after viewer is ready
    */
@@ -58,11 +61,29 @@ export class MarkupMarkers {
       // Show the markup layer
       this.markupsExt.show()
 
+      // Add keyboard listener for Delete key
+      this.boundKeyHandler = this.handleKeyDown.bind(this)
+      window.addEventListener('keydown', this.boundKeyHandler)
+
       console.log('[MarkupMarkers] Initialized successfully')
       return true
     } catch (err) {
       console.error('[MarkupMarkers] Failed to initialize:', err)
       return false
+    }
+  }
+
+  /**
+   * Handle keyboard events
+   */
+  private handleKeyDown(e: KeyboardEvent) {
+    // Don't handle if user is typing in an input
+    const target = e.target as HTMLElement
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+
+    if (this.selectedId && (e.key === 'Delete' || e.key === 'Backspace')) {
+      e.preventDefault()
+      this.deleteSelected()
     }
   }
 
@@ -263,6 +284,11 @@ export class MarkupMarkers {
    * Cleanup
    */
   dispose() {
+    // Remove keyboard listener
+    if (this.boundKeyHandler) {
+      window.removeEventListener('keydown', this.boundKeyHandler)
+      this.boundKeyHandler = null
+    }
     this.clearAll()
     this.markupsExt = null
   }

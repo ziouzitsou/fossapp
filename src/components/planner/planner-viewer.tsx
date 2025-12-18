@@ -188,6 +188,7 @@ export function PlannerViewer({
   const [isCacheHit, setIsCacheHit] = useState(false)
   const [measureMode, setMeasureMode] = useState<'none' | 'distance' | 'area'>('none')
   const [hasMeasurement, setHasMeasurement] = useState(false)
+  const [hasSelectedMarker, setHasSelectedMarker] = useState(false)
   const [mouseWorldCoords, setMouseWorldCoords] = useState<{ x: number; y: number } | null>(null)
   const [snapCoords, setSnapCoords] = useState<{ x: number; y: number; isSnapped: boolean } | null>(null)
 
@@ -371,6 +372,11 @@ export function PlannerViewer({
               const markersInitialized = await markers.initialize()
               if (markersInitialized) {
                 markupMarkersRef.current = markers
+                // Set callbacks for marker selection/deletion
+                markers.setCallbacks(
+                  (id) => setHasSelectedMarker(id !== null),
+                  (id) => console.log('[PlannerViewer] Marker deleted:', id)
+                )
                 console.log('[PlannerViewer] MarkupMarkers initialized')
               } else {
                 console.warn('[PlannerViewer] MarkupMarkers failed to initialize')
@@ -667,6 +673,10 @@ export function PlannerViewer({
     setHasMeasurement(false)
   }, [])
 
+  const handleDeleteSelectedMarker = useCallback(() => {
+    markupMarkersRef.current?.deleteSelected()
+  }, [])
+
   // Poll for measurements while in measure mode
   useEffect(() => {
     if (measureMode === 'none') {
@@ -827,6 +837,22 @@ export function PlannerViewer({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Clear Measurement</TooltipContent>
+              </Tooltip>
+            )}
+
+            {hasSelectedMarker && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDeleteSelectedMarker}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete Marker (or press Delete key)</TooltipContent>
               </Tooltip>
             )}
 
