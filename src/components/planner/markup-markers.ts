@@ -115,35 +115,39 @@ export class MarkupMarkers {
 
   /**
    * Add a marker at screen coordinates
+   * @param id - Optional external ID (if not provided, generates UUID)
    */
   addMarkerAtScreen(
     screenX: number,
     screenY: number,
-    data: Omit<MarkerData, 'id' | 'markupX' | 'markupY'>
+    data: Omit<MarkerData, 'id' | 'markupX' | 'markupY'>,
+    id?: string
   ): MarkerData | null {
     const markupCoords = this.screenToMarkup(screenX, screenY)
     if (!markupCoords) return null
 
-    return this.addMarkerAtMarkup(markupCoords.x, markupCoords.y, data)
+    return this.addMarkerAtMarkup(markupCoords.x, markupCoords.y, data, id)
   }
 
   /**
    * Add a marker at markup coordinates
+   * @param id - Optional external ID (if not provided, generates UUID)
    */
   addMarkerAtMarkup(
     markupX: number,
     markupY: number,
-    data: Omit<MarkerData, 'id' | 'markupX' | 'markupY'>
+    data: Omit<MarkerData, 'id' | 'markupX' | 'markupY'>,
+    id?: string
   ): MarkerData | null {
     if (!this.markupsExt?.svg) {
       console.error('[MarkupMarkers] SVG layer not available')
       return null
     }
 
-    const id = crypto.randomUUID()
+    const markerId = id || crypto.randomUUID()
     const markerData: MarkerData = {
       ...data,
-      id,
+      id: markerId,
       markupX,
       markupY,
     }
@@ -154,7 +158,7 @@ export class MarkupMarkers {
 
     // Create a group for the marker (circle + optional label)
     const group = document.createElementNS(ns, 'g')
-    group.setAttribute('id', `marker-${id}`)
+    group.setAttribute('id', `marker-${markerId}`)
     group.setAttribute('transform', `translate(${markupX}, ${markupY})`)
     group.style.cursor = 'pointer'
 
@@ -186,16 +190,16 @@ export class MarkupMarkers {
     // Click handler for selection
     group.addEventListener('click', (e) => {
       e.stopPropagation()
-      this.selectMarker(id)
+      this.selectMarker(markerId)
     })
 
     svg.appendChild(group)
 
     // Store references
-    this.markers.set(id, group)
-    this.markerData.set(id, markerData)
+    this.markers.set(markerId, group)
+    this.markerData.set(markerId, markerData)
 
-    console.log('[MarkupMarkers] Added marker:', id, 'at markup coords:', markupX, markupY)
+    console.log('[MarkupMarkers] Added marker:', markerId, 'at markup coords:', markupX, markupY)
     return markerData
   }
 

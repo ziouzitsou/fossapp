@@ -13,8 +13,8 @@ export type {
   Viewer3DInstance,
 } from './planner-viewer'
 
-export { PlannerMarkups } from './planner-markups'
 export { ProductsPanel } from './products-panel'
+// Note: PlannerMarkups removed - using MarkupMarkers (SVG) instead of HTML overlay
 
 export type {
   Placement,

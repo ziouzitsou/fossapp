@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { useActiveProject } from '@/lib/active-project-context'
-import { PlannerViewer, PlannerMarkups, ProductsPanel } from '@/components/planner'
+import { PlannerViewer, ProductsPanel } from '@/components/planner'
 import type { Viewer3DInstance, Placement, PlacementModeProduct } from '@/components/planner'
 
 import { Upload, FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2 } from 'lucide-react'
@@ -167,13 +167,16 @@ export default function PlannerPage() {
   const dbIdCounterRef = useRef(1000) // Start at 1000 to avoid conflicts with model dbIds
 
   // Placement handlers
-  const handlePlacementAdd = useCallback((placement: Omit<Placement, 'id' | 'dbId'>) => {
+  const handlePlacementAdd = useCallback((placement: Omit<Placement, 'dbId'>) => {
+    console.log('[PlannerPage] handlePlacementAdd called:', placement)
     const newPlacement: Placement = {
       ...placement,
-      id: crypto.randomUUID(),
       dbId: dbIdCounterRef.current++,
     }
-    setPlacements(prev => [...prev, newPlacement])
+    setPlacements(prev => {
+      console.log('[PlannerPage] Updating placements:', prev.length, '->', prev.length + 1)
+      return [...prev, newPlacement]
+    })
     setSelectedPlacementId(newPlacement.id)
   }, [])
 
@@ -395,20 +398,13 @@ export default function PlannerPage() {
                     theme="dark"
                     placementMode={placementMode}
                     onPlacementAdd={handlePlacementAdd}
+                    onPlacementDelete={handlePlacementDelete}
                     onExitPlacementMode={handleExitPlacementMode}
                     onReady={handleViewerReady}
                     onError={(error) => console.error('Viewer error:', error)}
                     onUploadComplete={(urn, isNewUpload) => {
                       console.log('Upload complete:', { urn: urn.substring(0, 20) + '...', isNewUpload })
                     }}
-                  />
-                  {/* HTML overlay markers for placed products */}
-                  <PlannerMarkups
-                    placements={placements}
-                    selectedId={selectedPlacementId}
-                    onPlacementAdd={handlePlacementAdd}
-                    onPlacementSelect={handlePlacementSelect}
-                    onPlacementDelete={handlePlacementDelete}
                   />
                 </div>
               </div>

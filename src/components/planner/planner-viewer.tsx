@@ -52,8 +52,10 @@ export interface PlannerViewerProps {
   theme?: 'light' | 'dark'
   /** Product being placed (click-to-place mode) */
   placementMode?: PlacementModeProduct | null
-  /** Callback when a placement is added via click-to-place */
-  onPlacementAdd?: (placement: Omit<Placement, 'id' | 'dbId'>) => void
+  /** Callback when a placement is added via click-to-place (includes generated id) */
+  onPlacementAdd?: (placement: Omit<Placement, 'dbId'>) => void
+  /** Callback when a placement is deleted */
+  onPlacementDelete?: (id: string) => void
   /** Callback to exit placement mode */
   onExitPlacementMode?: () => void
   /** Callback when viewer is ready */
@@ -146,6 +148,7 @@ export function PlannerViewer({
   theme: initialTheme = 'dark',
   placementMode,
   onPlacementAdd,
+  onPlacementDelete,
   onExitPlacementMode,
   onReady,
   onError,
@@ -161,10 +164,12 @@ export function PlannerViewer({
   const onErrorRef = useRef(onError)
   const onUploadCompleteRef = useRef(onUploadComplete)
   const onPlacementAddRef = useRef(onPlacementAdd)
+  const onPlacementDeleteRef = useRef(onPlacementDelete)
   onReadyRef.current = onReady
   onErrorRef.current = onError
   onUploadCompleteRef.current = onUploadComplete
   onPlacementAddRef.current = onPlacementAdd
+  onPlacementDeleteRef.current = onPlacementDelete
 
   // Track if viewer has been initialized to prevent double init
   const isInitializedRef = useRef(false)
@@ -375,7 +380,11 @@ export function PlannerViewer({
                 // Set callbacks for marker selection/deletion
                 markers.setCallbacks(
                   (id) => setHasSelectedMarker(id !== null),
-                  (id) => console.log('[PlannerViewer] Marker deleted:', id)
+                  (id) => {
+                    console.log('[PlannerViewer] Marker deleted:', id)
+                    // Also remove from parent's placements state
+                    onPlacementDeleteRef.current?.(id)
+                  }
                 )
                 console.log('[PlannerViewer] MarkupMarkers initialized')
               } else {
@@ -386,6 +395,9 @@ export function PlannerViewer({
               const tool = new PlacementTool(viewer, (coords) => {
                 const mode = placementModeRef.current
                 if (mode && markupMarkersRef.current) {
+                  // Generate ID first so both MarkupMarkers and placements state use the same ID
+                  const placementId = crypto.randomUUID()
+
                   // Add marker using screen coordinates (MarkupsCore handles zoom/pan)
                   const markerData = markupMarkersRef.current.addMarkerAtScreen(
                     coords.screenX,
@@ -394,12 +406,21 @@ export function PlannerViewer({
                       productId: mode.productId,
                       projectProductId: mode.projectProductId,
                       productName: mode.fossPid || mode.description,
-                    }
+                    },
+                    placementId  // Pass the same ID
                   )
 
                   if (markerData) {
                     // Also notify parent with world coordinates for data persistence
+                    console.log('[PlannerViewer] Calling onPlacementAdd:', {
+                      id: placementId,
+                      productId: mode.productId,
+                      projectProductId: mode.projectProductId,
+                      worldX: coords.worldX,
+                      worldY: coords.worldY,
+                    })
                     onPlacementAddRef.current?.({
+                      id: placementId,  // Include the same ID
                       productId: mode.productId,
                       projectProductId: mode.projectProductId,
                       productName: mode.fossPid || mode.description,
@@ -407,6 +428,8 @@ export function PlannerViewer({
                       worldY: coords.worldY,
                       rotation: 0,
                     })
+                  } else {
+                    console.warn('[PlannerViewer] markerData is null - marker not added')
                   }
                 }
               })
