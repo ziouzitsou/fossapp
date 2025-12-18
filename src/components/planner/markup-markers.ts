@@ -100,13 +100,37 @@ export class MarkupMarkers {
 
   /**
    * Convert screen coordinates to markup coordinates
+   *
+   * The MarkupsCore SVG layer has transform: scale(1, -1) which flips Y axis.
+   * We manually calculate coordinates to match the click position.
    */
   screenToMarkup(screenX: number, screenY: number): { x: number; y: number } | null {
-    if (!this.markupsExt) return null
+    if (!this.markupsExt?.svg) return null
 
     try {
-      const markupCoords = this.markupsExt.clientToMarkups(screenX, screenY)
-      return { x: markupCoords.x, y: markupCoords.y }
+      const container = this.viewer.container as HTMLElement
+      const rect = container.getBoundingClientRect()
+
+      // Get SVG viewBox
+      const svg = this.markupsExt.svg as SVGSVGElement
+      const viewBox = svg.viewBox.baseVal
+
+      // Click position relative to container
+      const localX = screenX - rect.left
+      const localY = screenY - rect.top
+
+      // Convert to viewBox coordinates
+      // Note: SVG has scale(1, -1) transform, so Y is flipped around center
+      const scaleX = viewBox.width / rect.width
+      const scaleY = viewBox.height / rect.height
+
+      const markupX = viewBox.x + localX * scaleX
+      // For Y: convert to viewBox space, then flip around center
+      const rawY = viewBox.y + localY * scaleY
+      const centerY = viewBox.y + viewBox.height / 2
+      const markupY = 2 * centerY - rawY  // Flip around center
+
+      return { x: markupX, y: markupY }
     } catch (err) {
       console.error('[MarkupMarkers] screenToMarkup failed:', err)
       return null
