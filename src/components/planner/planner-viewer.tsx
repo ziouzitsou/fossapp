@@ -406,11 +406,11 @@ export function PlannerViewer({
 
                     let markerData
                     if (coords.isSnapped) {
-                      // Use world coordinates when snapped for precision
+                      // Use viewer coordinates for marker placement (snapped)
                       markerData = markupMarkersRef.current.addMarkerAtWorld(
-                        coords.worldX,
-                        coords.worldY,
-                        coords.worldZ,
+                        coords.viewerX,
+                        coords.viewerY,
+                        coords.viewerZ,
                         productData,
                         placementId
                       )
@@ -437,19 +437,19 @@ export function PlannerViewer({
                     if (markerData) {
                       console.log('[PlannerViewer] Placed marker:', {
                         id: placementId,
-                        worldX: coords.worldX.toFixed(2),
-                        worldY: coords.worldY.toFixed(2),
+                        dwgX: coords.dwgX.toFixed(2),
+                        dwgY: coords.dwgY.toFixed(2),
                         isSnapped: coords.isSnapped,
                         snapType: coords.snapType,
                       })
-                      // Store world coordinates for data persistence
+                      // Store DWG model space coordinates for data persistence / LISP export
                       onPlacementAddRef.current?.({
                         id: placementId,
                         productId: mode.productId,
                         projectProductId: mode.projectProductId,
                         productName: mode.fossPid || mode.description,
-                        worldX: coords.worldX,
-                        worldY: coords.worldY,
+                        worldX: coords.dwgX,  // DWG X coordinate
+                        worldY: coords.dwgY,  // DWG Y coordinate
                         rotation: 0,
                       })
                     } else {

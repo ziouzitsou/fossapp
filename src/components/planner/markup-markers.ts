@@ -101,36 +101,32 @@ export class MarkupMarkers {
   /**
    * Convert screen coordinates to markup coordinates
    *
-   * The MarkupsCore SVG layer has transform: scale(1, -1) which flips Y axis.
-   * We manually calculate coordinates to match the click position.
+   * Uses SVG's built-in getScreenCTM() for accurate coordinate transformation.
+   * This properly handles aspect ratio preservation and all SVG transforms.
    */
   screenToMarkup(screenX: number, screenY: number): { x: number; y: number } | null {
     if (!this.markupsExt?.svg) return null
 
     try {
-      const container = this.viewer.container as HTMLElement
-      const rect = container.getBoundingClientRect()
-
-      // Get SVG viewBox
       const svg = this.markupsExt.svg as SVGSVGElement
-      const viewBox = svg.viewBox.baseVal
 
-      // Click position relative to container
-      const localX = screenX - rect.left
-      const localY = screenY - rect.top
+      // Use SVG's built-in coordinate transformation
+      const svgPoint = svg.createSVGPoint()
+      svgPoint.x = screenX
+      svgPoint.y = screenY
 
-      // Convert to viewBox coordinates
-      // Note: SVG has scale(1, -1) transform, so Y is flipped around center
-      const scaleX = viewBox.width / rect.width
-      const scaleY = viewBox.height / rect.height
+      // Get the screen-to-SVG transformation matrix
+      const ctm = svg.getScreenCTM()
+      if (!ctm) {
+        console.warn('[MarkupMarkers] getScreenCTM returned null')
+        return null
+      }
 
-      const markupX = viewBox.x + localX * scaleX
-      // For Y: convert to viewBox space, then flip around center
-      const rawY = viewBox.y + localY * scaleY
-      const centerY = viewBox.y + viewBox.height / 2
-      const markupY = 2 * centerY - rawY  // Flip around center
+      // Apply inverse transformation to convert screen coords to SVG coords
+      const inverseCtm = ctm.inverse()
+      const transformedPoint = svgPoint.matrixTransform(inverseCtm)
 
-      return { x: markupX, y: markupY }
+      return { x: transformedPoint.x, y: transformedPoint.y }
     } catch (err) {
       console.error('[MarkupMarkers] screenToMarkup failed:', err)
       return null
@@ -138,16 +134,16 @@ export class MarkupMarkers {
   }
 
   /**
-   * Convert world coordinates (DWG model space) to markup coordinates
+   * Convert world coordinates (viewer space) to markup coordinates
    *
    * This is more accurate than screen conversion, especially with snapping.
-   * Uses viewer's worldToClient and then converts to markup space.
+   * Uses viewer's worldToClient then SVG's getScreenCTM for proper transformation.
    */
   worldToMarkup(worldX: number, worldY: number, worldZ: number = 0): { x: number; y: number } | null {
     if (!this.markupsExt?.svg) return null
 
     try {
-      // Convert world to client (screen) coordinates
+      // Convert world to client (viewport-relative) coordinates
       // THREE.js is loaded by the Autodesk viewer
       const THREE = (window as any).THREE
       const worldPoint = new THREE.Vector3(worldX, worldY, worldZ)
@@ -158,25 +154,16 @@ export class MarkupMarkers {
         return null
       }
 
-      // Now convert client to markup using the same logic as screenToMarkup
+      // worldToClient returns coordinates relative to the viewer canvas
+      // We need to convert to screen coordinates for SVG transformation
       const container = this.viewer.container as HTMLElement
       const rect = container.getBoundingClientRect()
-      const svg = this.markupsExt.svg as SVGSVGElement
-      const viewBox = svg.viewBox.baseVal
 
-      // clientPoint is already relative to the viewport, but we need relative to container
-      const localX = clientPoint.x
-      const localY = clientPoint.y
+      const screenX = rect.left + clientPoint.x
+      const screenY = rect.top + clientPoint.y
 
-      const scaleX = viewBox.width / rect.width
-      const scaleY = viewBox.height / rect.height
-
-      const markupX = viewBox.x + localX * scaleX
-      const rawY = viewBox.y + localY * scaleY
-      const centerY = viewBox.y + viewBox.height / 2
-      const markupY = 2 * centerY - rawY
-
-      return { x: markupX, y: markupY }
+      // Use the same SVG transformation as screenToMarkup
+      return this.screenToMarkup(screenX, screenY)
     } catch (err) {
       console.error('[MarkupMarkers] worldToMarkup failed:', err)
       return null

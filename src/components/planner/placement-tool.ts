@@ -6,7 +6,7 @@
  * Features:
  * - Snapping to geometry (vertices, midpoints, intersections, edges)
  * - Uses Autodesk.Snapping extension for proper snap detection
- * - World coordinate output for precise DWG-accurate placement
+ * - DWG model space coordinates (transformed from viewer coords)
  * - Screen coordinates for MarkupsCore SVG layer
  *
  * Based on: https://aps.autodesk.com/blog/snappy-viewer-tools
@@ -18,17 +18,66 @@ type ViewerInstance = any
 type Snapper = any
 
 export interface PlacementCoords {
-  // World coordinates (DWG model space)
-  worldX: number
-  worldY: number
-  worldZ: number
-  // Screen coordinates (for MarkupsCore)
+  // Viewer coordinates (from snapper/click - used for marker placement)
+  viewerX: number
+  viewerY: number
+  viewerZ: number
+  // DWG model space coordinates (transformed - for LISP/CAD export)
+  dwgX: number
+  dwgY: number
+  // Screen coordinates (for MarkupsCore SVG layer)
   screenX: number
   screenY: number
   // Whether coordinates are snapped to geometry
   isSnapped: boolean
   // Snap type if snapped
   snapType?: string
+}
+
+/**
+ * Page dimensions metadata from the Model Derivative
+ * Used to transform viewer coordinates to DWG model space
+ */
+interface PageDimensions {
+  page_width: number
+  page_height: number
+  logical_width: number
+  logical_height: number
+  source_to_logical_xform: number[]
+}
+
+/**
+ * Transform viewer coordinates to DWG model space coordinates.
+ * The Model Derivative creates a viewable with transformed coordinates.
+ * This function reverses that transformation to get original DWG coords.
+ *
+ * Formula:
+ * 1. Viewer to logical: logicalX = viewerX * (logicalWidth / pageWidth)
+ * 2. Logical to DWG: dwgX = (logicalX - translateX) / scaleX
+ */
+function viewerToDwgCoords(
+  viewerX: number,
+  viewerY: number,
+  pageDim: PageDimensions
+): { dwgX: number; dwgY: number } {
+  const { page_width, page_height, logical_width, logical_height, source_to_logical_xform } = pageDim
+
+  // Extract scale and translation from the 4x4 transform matrix (column-major)
+  // [sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, sz, 0, tx, ty, tz, 1]
+  const sx = source_to_logical_xform[0]
+  const sy = source_to_logical_xform[5]
+  const tx = source_to_logical_xform[12]
+  const ty = source_to_logical_xform[13]
+
+  // Step 1: Convert viewer coords to logical coords
+  const logicalX = viewerX * (logical_width / page_width)
+  const logicalY = viewerY * (logical_height / page_height)
+
+  // Step 2: Apply inverse of source_to_logical_xform
+  const dwgX = (logicalX - tx) / sx
+  const dwgY = (logicalY - ty) / sy
+
+  return { dwgX, dwgY }
 }
 
 export interface SnapState {
@@ -73,6 +122,7 @@ export class PlacementTool {
   private snapperRegistered: boolean = false
   private lastSnapState: SnapState | null = null
   private snappingEnabled: boolean = true
+  private pageDimensions: PageDimensions | null = null
 
   constructor(
     viewer: ViewerInstance,
@@ -82,6 +132,35 @@ export class PlacementTool {
     this.viewer = viewer
     this.onPlacement = onPlacement
     this.onSnapChange = onSnapChange
+
+    // Cache page dimensions for coordinate transformation
+    this.cachePageDimensions()
+  }
+
+  /**
+   * Cache the page dimensions metadata for viewer-to-DWG coordinate transformation
+   */
+  private cachePageDimensions() {
+    try {
+      const model = this.viewer.model
+      const data = model?.getData?.()
+      const pageDim = data?.metadata?.['page_dimensions']
+
+      if (pageDim?.source_to_logical_xform) {
+        this.pageDimensions = {
+          page_width: pageDim.page_width,
+          page_height: pageDim.page_height,
+          logical_width: pageDim.logical_width,
+          logical_height: pageDim.logical_height,
+          source_to_logical_xform: pageDim.source_to_logical_xform,
+        }
+        console.log('[PlacementTool] Page dimensions cached for DWG coord transformation')
+      } else {
+        console.warn('[PlacementTool] No page_dimensions metadata - DWG coords will equal viewer coords')
+      }
+    } catch (err) {
+      console.error('[PlacementTool] Failed to cache page dimensions:', err)
+    }
   }
 
   getNames() { return this.names }
@@ -261,6 +340,7 @@ export class PlacementTool {
   /**
    * handleSingleClick - place marker at clicked position
    * Uses snapped coordinates if available, otherwise falls back to manual calculation
+   * Returns both viewer coordinates (for marker placement) and DWG coordinates (for export)
    */
   handleSingleClick(event: MouseEvent, button: number): boolean {
     if (button !== 0) return false // Only handle left clicks
@@ -268,9 +348,9 @@ export class PlacementTool {
     const screenX = event.clientX
     const screenY = event.clientY
 
-    let worldX: number
-    let worldY: number
-    let worldZ = 0
+    let viewerX: number
+    let viewerY: number
+    let viewerZ = 0
     let isSnapped = false
     let snapType: string | undefined
 
@@ -279,32 +359,30 @@ export class PlacementTool {
       const result = this.snapper.getSnapResult()
 
       if (result?.geomVertex) {
-        worldX = result.geomVertex.x
-        worldY = result.geomVertex.y
-        worldZ = result.geomVertex.z || 0
+        viewerX = result.geomVertex.x
+        viewerY = result.geomVertex.y
+        viewerZ = result.geomVertex.z || 0
         isSnapped = true
         snapType = getSnapTypeName(result.geomType)
-        console.log('[PlacementTool] Placed with snap:', { worldX, worldY, snapType })
       } else if (result?.intersectPoint) {
-        worldX = result.intersectPoint.x
-        worldY = result.intersectPoint.y
-        worldZ = result.intersectPoint.z || 0
+        viewerX = result.intersectPoint.x
+        viewerY = result.intersectPoint.y
+        viewerZ = result.intersectPoint.z || 0
         isSnapped = true
         snapType = 'intersection'
-        console.log('[PlacementTool] Placed with intersection snap:', { worldX, worldY })
       }
     }
 
-    // If no snap, calculate world coordinates manually
+    // If no snap, calculate viewer coordinates manually
     if (!isSnapped) {
       // Try clientToWorld first (works for 3D)
       const clientToWorldResult = this.viewer.clientToWorld(event.clientX, event.clientY)
       const hasValidPoint = clientToWorldResult?.point?.x !== undefined
 
       if (hasValidPoint) {
-        worldX = clientToWorldResult.point.x
-        worldY = clientToWorldResult.point.y
-        worldZ = clientToWorldResult.point.z || 0
+        viewerX = clientToWorldResult.point.x
+        viewerY = clientToWorldResult.point.y
+        viewerZ = clientToWorldResult.point.z || 0
       } else {
         // Fallback: use visible bounds conversion for 2D
         const impl = this.viewer.impl
@@ -322,15 +400,34 @@ export class PlacementTool {
         const visWidth = visibleBounds.max.x - visibleBounds.min.x
         const visHeight = visibleBounds.max.y - visibleBounds.min.y
 
-        worldX = visibleBounds.min.x + (localX / rect.width) * visWidth
-        worldY = visibleBounds.max.y - (localY / rect.height) * visHeight
+        viewerX = visibleBounds.min.x + (localX / rect.width) * visWidth
+        viewerY = visibleBounds.max.y - (localY / rect.height) * visHeight
       }
     }
 
+    // Transform viewer coordinates to DWG model space coordinates
+    let dwgX = viewerX!
+    let dwgY = viewerY!
+
+    if (this.pageDimensions) {
+      const dwgCoords = viewerToDwgCoords(viewerX!, viewerY!, this.pageDimensions)
+      dwgX = dwgCoords.dwgX
+      dwgY = dwgCoords.dwgY
+    }
+
+    console.log('[PlacementTool] Placed:', {
+      viewer: { x: viewerX!.toFixed(2), y: viewerY!.toFixed(2) },
+      dwg: { x: dwgX.toFixed(2), y: dwgY.toFixed(2) },
+      isSnapped,
+      snapType,
+    })
+
     this.onPlacement({
-      worldX: worldX!,
-      worldY: worldY!,
-      worldZ,
+      viewerX: viewerX!,
+      viewerY: viewerY!,
+      viewerZ,
+      dwgX,
+      dwgY,
       screenX,
       screenY,
       isSnapped,
