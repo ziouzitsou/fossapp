@@ -15,18 +15,17 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Loader2, AlertCircle, Maximize, Home, CheckCircle2, Ruler, Trash2, Square, Circle, MousePointer2 } from 'lucide-react'
+import { Loader2, AlertCircle, Maximize, Home, CheckCircle2, Ruler, Trash2, Square, MousePointer2 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { Viewer3DInstance, WorldCoordinates as WorldCoordsType, ViewerInitOptions } from '@/types/autodesk-viewer'
-import type { MarkupsCoreExtension, PlacementModeProduct, Placement } from './types'
+import type { PlacementModeProduct, Placement } from './types'
 import { PlacementTool } from './placement-tool'
 
 // Re-export the Viewer3DInstance type for consumers
 export type { Viewer3DInstance }
-export type { MarkupsCoreExtension }
 
 // Status polling types
 interface TranslationStatus {
@@ -58,8 +57,6 @@ export interface PlannerViewerProps {
   onExitPlacementMode?: () => void
   /** Callback when viewer is ready */
   onReady?: (viewer: Viewer3DInstance) => void
-  /** Callback when MarkupsCore extension is ready for product placements */
-  onMarkupReady?: (markupExt: MarkupsCoreExtension, containerRef: React.RefObject<HTMLDivElement | null>) => void
   /** Callback when error occurs */
   onError?: (error: string) => void
   /** Callback when user clicks on the viewer (for placing products) */
@@ -150,7 +147,6 @@ export function PlannerViewer({
   onPlacementAdd,
   onExitPlacementMode,
   onReady,
-  onMarkupReady,
   onError,
   onViewerClick,
   onUploadComplete,
@@ -188,7 +184,6 @@ export function PlannerViewer({
   const [isCacheHit, setIsCacheHit] = useState(false)
   const [measureMode, setMeasureMode] = useState<'none' | 'distance' | 'area'>('none')
   const [hasMeasurement, setHasMeasurement] = useState(false)
-  const [markMode, setMarkMode] = useState(false)
   const [mouseWorldCoords, setMouseWorldCoords] = useState<{ x: number; y: number } | null>(null)
   const [snapCoords, setSnapCoords] = useState<{ x: number; y: number; isSnapped: boolean } | null>(null)
 
@@ -338,11 +333,9 @@ export function PlannerViewer({
         // Use Viewer3D instead of GuiViewer3D - no built-in toolbar!
         // Extensions:
         // - Measure: for measurement tools (includes snapping)
-        // - MarkupsCore: for circle tool annotations
         const viewer = new window.Autodesk.Viewing.Viewer3D(containerRef.current, {
           extensions: [
             'Autodesk.Measure',
-            'Autodesk.Viewing.MarkupsCore',
           ],
         })
 
@@ -629,15 +622,8 @@ export function PlannerViewer({
       // Different mode or none - activate new mode
       measureExt.activate(mode)
       setMeasureMode(mode)
-      // Deactivate mark mode if active
-      if (markMode) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const markupExt = viewer.getExtension('Autodesk.Viewing.MarkupsCore') as any
-        markupExt?.leaveEditMode()
-        setMarkMode(false)
-      }
     }
-  }, [measureMode, markMode])
+  }, [measureMode])
 
   const handleClearMeasurements = useCallback(() => {
     const viewer = viewerRef.current
@@ -651,38 +637,6 @@ export function PlannerViewer({
     measureExt.deleteCurrentMeasurement()
     setHasMeasurement(false)
   }, [])
-
-  const handleToggleMarkMode = useCallback(() => {
-    const viewer = viewerRef.current
-    if (!viewer) return
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const markupExt = viewer.getExtension('Autodesk.Viewing.MarkupsCore') as any
-    if (!markupExt) return
-
-    if (markMode) {
-      // Deactivate mark mode
-      markupExt.leaveEditMode()
-      setMarkMode(false)
-    } else {
-      // Activate mark mode with circle tool
-      markupExt.enterEditMode()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const EditModeCircle = (window as any).Autodesk.Viewing.Extensions.Markups.Core.EditModeCircle
-      if (EditModeCircle) {
-        const circleMode = new EditModeCircle(markupExt)
-        markupExt.changeEditMode(circleMode)
-      }
-      setMarkMode(true)
-      // Deactivate measure if active
-      if (measureMode !== 'none') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const measureExt = viewer.getExtension('Autodesk.Measure') as any
-        measureExt?.deactivate()
-        setMeasureMode('none')
-      }
-    }
-  }, [markMode, measureMode])
 
   // Poll for measurements while in measure mode
   useEffect(() => {
@@ -829,19 +783,6 @@ export function PlannerViewer({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Measure Area</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={markMode ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={handleToggleMarkMode}
-                >
-                  <Circle className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Place Marker</TooltipContent>
             </Tooltip>
 
             {hasMeasurement && (
