@@ -1,8 +1,92 @@
 # Supabase GitHub Integration
 
 **Last Updated**: 2025-12-19
-**Status**: Active
+**Status**: DISABLED (kept for future PITR upgrade)
 **CLI Version**: 2.67.1 (installed at `~/.local/bin/supabase`)
+
+---
+
+## Current Status: Disabled
+
+GitHub integration was disabled on 2025-12-19 because:
+- Preview branches have **no data** without PITR ($100/month)
+- Seeding data is complex due to FK dependencies
+- Overkill for solo/small team development
+
+**Files kept for future use** (when/if upgrading to PITR):
+- `supabase/config.toml` - CLI configuration
+- `supabase/migrations/00000000000000_baseline.sql` - Full schema baseline
+- `supabase/seed.sql` - Test data template
+
+**To re-enable**: Supabase Dashboard → Settings → Integrations → Connect GitHub
+
+---
+
+## Current Workflow (Without GitHub Integration)
+
+### Safe Migration Testing with BEGIN/ROLLBACK
+
+Test migrations directly on production without risk using transaction blocks:
+
+```sql
+-- In Supabase SQL Editor (Dashboard → SQL Editor)
+
+BEGIN;  -- Start transaction - nothing is committed yet
+
+-- Your migration SQL here
+CREATE TABLE test_table (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL
+);
+
+-- Check if it worked
+SELECT * FROM test_table;
+\d test_table  -- View structure
+
+-- If something is wrong:
+ROLLBACK;  -- Undo everything, database unchanged
+
+-- If everything looks good:
+-- COMMIT;  -- Make changes permanent (uncomment when ready)
+```
+
+**How it works**:
+- `BEGIN` starts a transaction - all changes are temporary
+- You can run SELECT queries to verify the changes
+- `ROLLBACK` undoes everything - database returns to original state
+- `COMMIT` makes changes permanent (only run when confident)
+
+**Important**: Don't leave transactions open too long - they can lock tables.
+
+### Applying Migrations
+
+When you're confident the migration works:
+
+```bash
+# Option 1: Via CLI (recommended)
+~/.local/bin/supabase db push
+
+# Option 2: Via SQL Editor
+# Run your SQL with COMMIT at the end
+
+# Option 3: Via Dashboard
+# Database → Migrations → Run migration
+```
+
+### Workflow Summary
+
+```
+1. Write migration SQL locally
+2. Test in SQL Editor with BEGIN/ROLLBACK
+3. When confident, apply via CLI: supabase db push
+4. Verify in production
+```
+
+---
+
+## Reference: GitHub Integration (For Future PITR)
+
+The sections below document GitHub integration for when you upgrade to PITR.
 
 ---
 
