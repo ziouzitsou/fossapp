@@ -99,6 +99,28 @@ export {
 } from './projects'
 
 // ============================================================================
+// PROJECT AREAS (Multi-area versioning)
+// ============================================================================
+
+export {
+  listProjectAreasAction,
+  getAreaByIdAction,
+  createAreaAction,
+  updateAreaAction,
+  deleteAreaAction,
+  createAreaVersionAction,
+  setAreaCurrentVersionAction,
+  getAreaVersionsAction,
+  deleteAreaVersionAction,
+  type ProjectArea,
+  type AreaVersion,
+  type AreaVersionSummary,
+  type CreateAreaInput,
+  type UpdateAreaInput,
+  type CreateVersionInput as CreateAreaVersionInput,
+} from './project-areas'
+
+// ============================================================================
 // SUPPLIERS
 // ============================================================================
 

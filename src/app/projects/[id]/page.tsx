@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ProjectFormSheet, DeleteProjectDialog, ProjectVersionsCard } from '@/components/projects'
+import { ProjectFormSheet, DeleteProjectDialog, ProjectVersionsCard, ProjectAreasCard } from '@/components/projects'
 import { ArrowLeft, Plus, Minus, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
@@ -247,6 +247,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="areas">Areas ({project.areas?.length || 0})</TabsTrigger>
             <TabsTrigger value="versions">
               Files & Versions
               {project.versions.length > 0 && ` (${project.versions.length})`}
@@ -411,6 +412,16 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Areas Tab */}
+          <TabsContent value="areas">
+            <ProjectAreasCard
+              projectId={project.id}
+              projectCode={project.project_code}
+              areas={project.areas || []}
+              onAreaChange={loadProject}
+            />
           </TabsContent>
 
           {/* Files & Versions Tab */}

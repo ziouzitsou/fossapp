@@ -53,6 +53,11 @@ export interface ProjectProduct {
   mounting_height?: number
   status: string
   notes?: string
+  // Area version information (for multi-area projects)
+  area_version_id?: string
+  area_code?: string
+  area_name?: string
+  area_version_number?: number
 }
 
 export interface ProjectContact {
@@ -142,7 +147,11 @@ export interface ProjectDetail {
   documents: ProjectDocument[]
   phases: ProjectPhase[]
   versions: ProjectVersion[]
+  areas: ProjectArea[]  // NEW: Multi-area support
 }
+
+// Import ProjectArea type (will be added)
+import type { ProjectArea } from './project-areas'
 
 export interface ProjectListParams {
   page?: number
@@ -706,6 +715,11 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
       console.error('Get project versions error:', versionsError)
     }
 
+    // Get project areas (using the listProjectAreasAction from project-areas.ts)
+    const { listProjectAreasAction } = await import('./project-areas')
+    const areasResult = await listProjectAreasAction(sanitizedProjectId, true)
+    const areas = areasResult.success ? areasResult.data || [] : []
+
     return {
       id: project.id,
       project_code: project.project_code,
@@ -754,6 +768,7 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
       documents: documents || [],
       phases: phases || [],
       versions: versions || [],
+      areas: areas,
     }
   } catch (error) {
     console.error('Get project by ID error:', error)
@@ -936,6 +951,7 @@ export async function archiveProjectAction(
 export interface AddProductToProjectInput {
   project_id: string
   product_id: string
+  area_version_id?: string  // NEW: Assign to specific area version
   quantity?: number
   room_location?: string
   notes?: string
@@ -986,14 +1002,21 @@ export async function addProductToProjectAction(
       discountPercent = priceEntry.disc1 || 0
     }
 
-    // Check if product already exists in project
-    const { data: existing, error: checkError } = await supabaseServer
+    // Check if product already exists in project (and same area version if specified)
+    let existingQuery = supabaseServer
       .schema('projects')
       .from('project_products')
       .select('id, quantity')
       .eq('project_id', input.project_id)
       .eq('product_id', input.product_id)
-      .single()
+
+    if (input.area_version_id) {
+      existingQuery = existingQuery.eq('area_version_id', input.area_version_id)
+    } else {
+      existingQuery = existingQuery.is('area_version_id', null)
+    }
+
+    const { data: existing, error: checkError } = await existingQuery.single()
 
     if (checkError && checkError.code !== 'PGRST116') {
       // PGRST116 = no rows returned, which is expected if product doesn't exist
@@ -1029,6 +1052,7 @@ export async function addProductToProjectAction(
       .insert({
         project_id: input.project_id,
         product_id: input.product_id,
+        area_version_id: input.area_version_id || null,  // NEW: Link to area version
         quantity: quantity,
         unit_price: unitPrice,
         discount_percent: discountPercent,
