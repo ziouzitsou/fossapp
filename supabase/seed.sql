@@ -106,3 +106,4 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 COMMIT;
+-- Trigger rebuild
