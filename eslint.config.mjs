@@ -7,6 +7,15 @@ const eslintConfig = [
   },
   ...nextCoreWebVitals,
   ...nextTypescript,
+  {
+    rules: {
+      // Disable overly strict react-hooks rules that flag legitimate patterns
+      // (hydration, localStorage init, state reset on prop change, dynamic icons)
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/static-components": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

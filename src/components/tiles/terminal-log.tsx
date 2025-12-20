@@ -71,7 +71,7 @@ export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalL
     }
   }, [messages])
 
-  // SSE connection
+  // SSE connection (state reset on prop change is intentional)
   useEffect(() => {
     if (!jobId) {
       setMessages([])
@@ -86,7 +86,7 @@ export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalL
     }
 
     const eventSource = new EventSource(`/api/tiles/stream/${jobId}`)
-    let localMessages: LogMessage[] = []
+    const localMessages: LogMessage[] = []
 
     eventSource.onopen = () => {
       setIsConnected(true)

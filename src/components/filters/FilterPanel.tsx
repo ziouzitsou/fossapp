@@ -19,9 +19,12 @@ import {
   type FilterGroup
 } from '@/lib/filters/actions'
 
+// Filter value types: range {min, max}, multi-select string[], or boolean
+export type FilterValue = { min: number; max: number } | string[] | boolean | number | null
+
 export interface FilterValues {
   supplier?: number | null
-  [key: string]: any // range: {min, max}, multi-select: string[], boolean: boolean
+  [key: string]: FilterValue | undefined
 }
 
 interface FilterPanelProps {
@@ -134,7 +137,7 @@ export function FilterPanel({
     })
   }
 
-  const handleFilterChange = useCallback((filterKey: string, value: any) => {
+  const handleFilterChange = useCallback((filterKey: string, value: FilterValue) => {
     onChange({
       ...values,
       [filterKey]: value

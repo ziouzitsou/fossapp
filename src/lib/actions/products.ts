@@ -196,7 +196,7 @@ export async function getProductsByTaxonomyAction(
     const sanitizedTaxonomyCode = validateTaxonomyCode(taxonomyCode)
     const sanitizedSupplierId = supplierId ? validateSupplierId(supplierId) : null
 
-    let query = supabaseServer
+    const query = supabaseServer
       .schema('search')
       .from('product_taxonomy_flags')
       .select('product_id')

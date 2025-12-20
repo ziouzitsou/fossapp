@@ -93,8 +93,9 @@ async function testProjectService() {
         supportsAllDrives: true,
       })
       console.log('   ✅ Test project deleted')
-    } catch (cleanupError: any) {
-      console.log('   ⚠️  Cleanup failed (manual cleanup may be needed):', cleanupError.message)
+    } catch (cleanupError: unknown) {
+      const err = cleanupError as Error
+      console.log('   ⚠️  Cleanup failed (manual cleanup may be needed):', err.message)
       console.log('   Project folder ID:', result.projectFolderId)
     }
     console.log('')
@@ -103,9 +104,10 @@ async function testProjectService() {
     console.log('✅ All service tests passed!')
     console.log('─'.repeat(50))
 
-  } catch (error: any) {
-    console.error('❌ Test failed:', error.message)
-    console.error(error)
+  } catch (error: unknown) {
+    const err = error as Error
+    console.error('❌ Test failed:', err.message)
+    console.error(err)
     process.exit(1)
   }
 }
