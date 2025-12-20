@@ -1,363 +1,347 @@
 # Supabase GitHub Integration
 
-**Configured**: 2025-11-22
-**Status**: ✅ Active
-**Purpose**: Automatic preview databases for pull requests + migration management
+**Last Updated**: 2025-12-19
+**Status**: DISABLED (kept for future PITR upgrade)
+**CLI Version**: 2.67.1 (installed at `~/.local/bin/supabase`)
+
+---
+
+## Current Status: Disabled
+
+GitHub integration was disabled on 2025-12-19 because:
+- Preview branches have **no data** without PITR ($100/month)
+- Seeding data is complex due to FK dependencies
+- Overkill for solo/small team development
+
+**Files kept for future use** (when/if upgrading to PITR):
+- `supabase/config.toml` - CLI configuration
+- `supabase/migrations/00000000000000_baseline.sql` - Full schema baseline
+- `supabase/seed.sql` - Test data template
+
+**To re-enable**: Supabase Dashboard → Settings → Integrations → Connect GitHub
+
+---
+
+## Current Workflow (Without GitHub Integration)
+
+### Safe Migration Testing with BEGIN/ROLLBACK
+
+Test migrations directly on production without risk using transaction blocks:
+
+```sql
+-- In Supabase SQL Editor (Dashboard → SQL Editor)
+
+BEGIN;  -- Start transaction - nothing is committed yet
+
+-- Your migration SQL here
+CREATE TABLE test_table (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL
+);
+
+-- Check if it worked
+SELECT * FROM test_table;
+\d test_table  -- View structure
+
+-- If something is wrong:
+ROLLBACK;  -- Undo everything, database unchanged
+
+-- If everything looks good:
+-- COMMIT;  -- Make changes permanent (uncomment when ready)
+```
+
+**How it works**:
+- `BEGIN` starts a transaction - all changes are temporary
+- You can run SELECT queries to verify the changes
+- `ROLLBACK` undoes everything - database returns to original state
+- `COMMIT` makes changes permanent (only run when confident)
+
+**Important**: Don't leave transactions open too long - they can lock tables.
+
+### Applying Migrations
+
+When you're confident the migration works:
+
+```bash
+# Option 1: Via CLI (recommended)
+~/.local/bin/supabase db push
+
+# Option 2: Via SQL Editor
+# Run your SQL with COMMIT at the end
+
+# Option 3: Via Dashboard
+# Database → Migrations → Run migration
+```
+
+### Workflow Summary
+
+```
+1. Write migration SQL locally
+2. Test in SQL Editor with BEGIN/ROLLBACK
+3. When confident, apply via CLI: supabase db push
+4. Verify in production
+```
+
+---
+
+## Reference: GitHub Integration (For Future PITR)
+
+The sections below document GitHub integration for when you upgrade to PITR.
 
 ---
 
 ## Overview
 
-FOSSAPP's Supabase project is connected to the GitHub repository for automatic database migration management and preview environment creation.
-
-**Benefits**:
-- Safe testing of database changes via preview databases
-- Automatic migration application on PR merge
+FOSSAPP uses Supabase GitHub integration for:
+- Automatic preview databases for pull requests
+- Migration management via git
 - Isolated test environments per feature branch
-- No risk to production database during development
+
+**Project Details**:
+| Item | Value |
+|------|-------|
+| Project ID | `hyppizgiozyyyelwdius` |
+| Production URL | https://hyppizgiozyyyelwdius.supabase.co |
+| Repository | `ziouzitsou/fossapp` |
+| Supabase Directory | `.` (root - looks for `supabase/` folder) |
 
 ---
 
-## Current Configuration
+## Branch Types
 
-### Connection Details
+### Preview Branches (Ephemeral)
+- Created automatically when PR has migration changes
+- **Auto-deleted**: After 24h inactivity OR when PR is merged/closed
+- Paused first, then deleted
+- Good for: Short-lived feature PRs
 
-- **Supabase Project**: `hyppizgiozyyyelwdius`
-- **Production URL**: https://hyppizgiozyyyelwdius.supabase.co
-- **GitHub Repository**: `ziouzitsou/fossapp`
-- **Monitored Branch**: `main`
-- **Watched Folder**: `supabase/migrations/`
+### Persistent Branches
+- Never auto-deleted
+- Stay until manually deleted
+- Good for: Long-running features, staging environments
 
-### Integration Status
-
-**Active Features**:
-- ✅ Preview database creation for PRs
-- ✅ Automatic migration application
-- ✅ GitHub status checks
-- ✅ Automatic cleanup on PR merge/close
-
----
-
-## How It Works
-
-### 1. Regular Development (No Database Changes)
-
-```
-Code changes only → Push to GitHub → No Supabase action
-```
-
-### 2. Database Migration Development
-
-```
-1. Create feature branch: git checkout -b feature/add-reviews
-2. Add migration file: supabase/migrations/20250122_add_reviews.sql
-3. Write SQL in the file
-4. Commit: git add . && git commit -m "Add reviews table"
-5. Push: git push origin feature/add-reviews
-6. Create PR on GitHub
-   ↓
-7. Supabase automatically:
-   - Creates preview database
-   - Applies all migrations (including new one)
-   - Runs status checks
-   - Posts preview credentials
-   ↓
-8. Test your app against preview database
-9. If tests pass → Merge PR
-   ↓
-10. Supabase automatically:
-    - Applies migration to production
-    - Deletes preview database
+**Convert to persistent**:
+```bash
+source .env.local  # Has SUPABASE_ACCESS_TOKEN
+~/.local/bin/supabase branches update <branch-id> --persistent
 ```
 
 ---
 
-## Migration Workflow
+## Migration File Format
+
+**CRITICAL**: Filename must use `YYYYMMDDHHMMSS` format (14 digits, no separators).
+
+```
+supabase/migrations/
+├── 00000000000000_baseline.sql      # Full schema baseline
+└── 20251219150000_my_feature.sql    # New migration
+```
+
+**Correct**: `20251219150000_add_reviews.sql`
+**Wrong**: `20251219_add_reviews.sql` (missing HHMMSS)
 
 ### Creating Migrations
 
-**Manual Creation** (current approach - Supabase CLI not installed):
-
 ```bash
-# Create file with timestamp format
-cd supabase/migrations
-touch YYYYMMDD_HHMMSS_description.sql
+# Manual (recommended for simple changes)
+touch supabase/migrations/$(date +%Y%m%d%H%M%S)_description.sql
 
-# Example
-touch 20250122_143000_add_product_reviews.sql
+# With CLI
+~/.local/bin/supabase migration new description
 ```
 
-**File Naming Convention**:
-- Format: `YYYYMMDD_HHMMSS_description.sql`
-- Date: Current date (YYYYMMDD)
-- Time: Current time in 24h format (HHMMSS)
-- Description: Snake_case description of change
+---
 
-**Example Migration File**:
+## Baseline Migration
+
+Preview branches build from scratch using migrations in the repo. If your production database has migrations not in the repo, preview branches will fail.
+
+**Our setup**: `00000000000000_baseline.sql` (8793 lines) captures the full production schema.
+
+### Creating/Updating Baseline
+
+```bash
+# 1. Login
+~/.local/bin/supabase login
+
+# 2. Link project
+~/.local/bin/supabase link --project-ref hyppizgiozyyyelwdius
+
+# 3. Dump schema
+~/.local/bin/supabase db dump -f supabase/migrations/00000000000000_baseline.sql
+
+# 4. Mark as applied in production (so it doesn't re-run)
+# Run in Supabase SQL Editor:
+INSERT INTO supabase_migrations.schema_migrations (version, name, statements_applied)
+VALUES ('00000000000000', 'baseline', 0)
+ON CONFLICT (version) DO NOTHING;
+```
+
+---
+
+## Seed Data
+
+Preview branches have schema only, no production data. Use `supabase/seed.sql` for test data.
+
+**Location**: `supabase/seed.sql`
+**Config**: `supabase/config.toml` → `sql_paths = ["./seed.sql"]`
+
+**Current seed includes**:
+- 2 customers
+- 2 projects
+- 2 project versions
+
+**Not seeded** (complex FK dependencies):
+- Products (requires `catalog_id`, `supplier_id` FKs)
+- Project products (requires product IDs)
+
+### Seed Best Practices
+
 ```sql
--- Migration: Add product reviews table
--- Created: 2025-01-22
--- Author: Dimitri
-
 BEGIN;
 
-CREATE TABLE IF NOT EXISTS items.product_reviews (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    product_id INTEGER REFERENCES items.product_info(id),
-    user_id TEXT NOT NULL,
-    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
-    comment TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_reviews_product_id ON items.product_reviews(product_id);
-CREATE INDEX idx_reviews_user_id ON items.product_reviews(user_id);
+INSERT INTO table (id, ...)
+VALUES (...)
+ON CONFLICT (id) DO NOTHING;  -- Idempotent
 
 COMMIT;
-
--- Rollback (keep for reference):
--- DROP TABLE IF EXISTS items.product_reviews;
 ```
 
-### Current Migrations
-
-**In Repository** (2 files):
-1. `20251111_create_user_events_table.sql` - Analytics tracking
-2. `20251115_reorganize_functions_to_domain_schemas.sql` - Function reorganization
-
-**In Production Database**: 55 total migrations
-- View all: Supabase Dashboard → Database → Migrations
-- Many were applied before GitHub integration was set up
+- Use `ON CONFLICT DO NOTHING` for idempotency
+- Use explicit UUIDs (not `gen_random_uuid()`) for reproducibility
+- Don't insert into generated columns
+- Comment complex FK dependencies you're skipping
 
 ---
 
-## Preview Databases
+## Workflow
 
-### What Are They?
-
-Temporary Supabase databases created automatically for each pull request that modifies `supabase/migrations/`.
-
-### Lifecycle
-
-```
-PR Created → Preview Database Created
-    ↓
-All migrations applied (including new ones)
-    ↓
-Preview credentials available in PR checks
-    ↓
-You test your app against preview
-    ↓
-PR Merged/Closed → Preview Database Deleted
-```
-
-### Using Preview Databases
-
-**Credentials Location**:
-- GitHub PR → Checks tab → "Supabase Preview" check
-- Shows preview URL and API keys
-
-**Testing Against Preview**:
-```bash
-# Option 1: Temporary environment variables
-NEXT_PUBLIC_SUPABASE_URL=<preview-url> npm run dev
-
-# Option 2: Create .env.preview
-cp .env.local .env.preview
-# Edit .env.preview with preview credentials
-```
-
-**Important**:
-- ⚠️ Preview databases have NO production data (empty)
-- ⚠️ If you need data for testing, add seed data to migration
-- ✅ Preview is deleted automatically - don't worry about cleanup
-
----
-
-## Supabase CLI
-
-### Installation Status
-
-**Currently**: ❌ Not installed
-
-**Why It's Optional**:
-- ✅ Migrations created manually (works fine)
-- ✅ GitHub integration doesn't require it
-- ✅ Testing can be done on preview databases
-- ✅ Production updates via Supabase dashboard/GitHub
-
-### If You Want to Install
+### New Feature with Database Changes
 
 ```bash
-# Install globally
-npm install -g supabase
-
-# Initialize in project (if needed)
-cd /home/sysadmin/nextjs/fossapp
-supabase init
-```
-
-**Benefits of Installing**:
-- Auto-generate migration filenames with timestamps
-- Local development database for testing
-- Direct CLI access to remote project
-- Better migration tooling
-
-**Current Workflow Without CLI**:
-- ✅ Create `.sql` files manually
-- ✅ Test on preview databases (via PRs)
-- ✅ Production updates via GitHub integration
-- ✅ Simple and works well
-
----
-
-## Quick Reference
-
-### Create Migration
-
-```bash
-# Manual (current approach)
-cd supabase/migrations
-touch 20250122_143000_my_change.sql
-# Write SQL in the file
-
-# With CLI (if installed)
-supabase migration new my_change
-```
-
-### Standard PR Workflow
-
-```bash
-# 1. Create feature branch
+# 1. Create branch
 git checkout -b feature/my-change
 
 # 2. Create migration
-cd supabase/migrations
-touch 20250122_143000_my_change.sql
-# Edit file with SQL
+touch supabase/migrations/$(date +%Y%m%d%H%M%S)_my_change.sql
+# Write SQL
 
-# 3. Commit and push
-git add .
-git commit -m "Add migration: my change"
-git push origin feature/my-change
+# 3. Push and create PR
+git add . && git commit -m "feat: add my_change migration"
+git push -u origin feature/my-change
+gh pr create
 
-# 4. Create PR on GitHub
-# → Supabase creates preview automatically
+# 4. Supabase creates preview branch automatically
+#    - Applies baseline + all migrations
+#    - Runs seed.sql
+#    - Posts preview URL in PR
 
-# 5. Test, then merge
-# → Supabase applies to production automatically
+# 5. Test against preview database
+NEXT_PUBLIC_SUPABASE_URL=https://<preview-ref>.supabase.co npm run dev
+
+# 6. Merge PR
+#    - Migration applied to production
+#    - Preview branch deleted (unless persistent)
 ```
 
-### View Migrations
+### Destructive Changes (DROP, ALTER)
 
-**In Code**:
+**Important**: Supabase applies migrations forward-only. There's no automatic rollback.
+
+For destructive changes:
+1. Test thoroughly on preview branch
+2. Have a rollback migration ready (don't apply, just have it)
+3. Consider backup before merge
+
+```sql
+-- Migration: 20251220120000_drop_old_table.sql
+DROP TABLE IF EXISTS old_table;
+
+-- Rollback (keep as comment):
+-- CREATE TABLE old_table (...);  -- Restore from backup
+```
+
+---
+
+## CLI Commands
+
 ```bash
-ls -la /home/sysadmin/nextjs/fossapp/supabase/migrations/
+# Authentication
+~/.local/bin/supabase login
+~/.local/bin/supabase link --project-ref hyppizgiozyyyelwdius
+
+# Branches
+~/.local/bin/supabase branches list
+~/.local/bin/supabase branches update <id> --persistent
+
+# Schema dump
+~/.local/bin/supabase db dump -f output.sql
+
+# Push migrations to production (alternative to GitHub)
+~/.local/bin/supabase db push
 ```
 
-**In Supabase Dashboard**:
-1. Go to https://supabase.com/dashboard
-2. Select project: hyppizgiozyyyelwdius
-3. Database → Migrations
-
-**Via Git**:
-```bash
-git log -- supabase/migrations/
-```
+**Note**: CLI respects `SUPABASE_ACCESS_TOKEN` env var (stored in `.env.local`).
 
 ---
 
 ## Troubleshooting
 
-### Preview Database Not Created
+### Preview Branch Shows MIGRATIONS_FAILED
 
-**Check**:
-1. Does PR modify files in `supabase/migrations/`?
-2. Is GitHub integration still active? (Supabase Dashboard → Settings → Integrations)
-3. Check PR "Checks" tab for Supabase status
+**Common causes**:
+1. Migration filename wrong format (needs `YYYYMMDDHHMMSS`)
+2. Missing baseline migration
+3. SQL syntax error
 
-### Migration Failed on Preview
+**Fix**: Check Supabase Dashboard → Branches → View logs
 
-**Common Issues**:
-- SQL syntax error → Check migration file
-- Missing dependencies → Ensure migrations run in order
-- Conflicting changes → Check if migration references non-existent objects
+### Main Branch Shows MIGRATIONS_FAILED
 
-**How to Fix**:
-1. Fix the migration file locally
-2. Commit and push
-3. Preview database automatically recreated with fix
+This is normal if production has migrations not in repo. Preview branches use their own baseline.
 
-### Production Migration Failed
+### Seed Errors
 
-**If migration fails on merge**:
-1. Supabase will show error in dashboard
-2. Fix the migration file
-3. Create new PR with fix
-4. DO NOT directly edit production database
+**"column X does not exist"**: Wrong column name - check actual schema
+**"violates foreign key constraint"**: Missing parent record - seed parents first
+**"cannot insert into generated column"**: Remove that column from INSERT
+
+### Branch Not Created for PR
+
+1. Check PR modifies `supabase/migrations/`
+2. Verify GitHub integration active: Supabase Dashboard → Settings → Integrations
+3. Check "Supabase directory" setting (should be `.`)
 
 ---
 
-## Best Practices
+## Files Reference
 
-### Migration File Best Practices
-
-✅ **DO**:
-- Use transactions (`BEGIN; ... COMMIT;`)
-- Include rollback SQL in comments
-- Add descriptive comments
-- Check for existence (`IF NOT EXISTS`)
-- Create indexes for foreign keys
-
-❌ **DON'T**:
-- Hardcode values that might change
-- Drop tables without backup plan
-- Skip `ROLLBACK` reference
-- Make irreversible changes without testing
-
-### Example Good Migration
-
-```sql
--- Migration: Add email notifications table
--- Created: 2025-01-22
--- Purpose: Track email notification status for user events
-
-BEGIN;
-
--- Create table
-CREATE TABLE IF NOT EXISTS analytics.email_notifications (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id TEXT NOT NULL,
-    event_type TEXT NOT NULL,
-    sent_at TIMESTAMPTZ DEFAULT NOW(),
-    status TEXT CHECK (status IN ('sent', 'failed', 'pending')),
-    error_message TEXT
-);
-
--- Indexes for common queries
-CREATE INDEX IF NOT EXISTS idx_email_notifications_user_id
-    ON analytics.email_notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_email_notifications_sent_at
-    ON analytics.email_notifications(sent_at DESC);
-
--- Enable RLS (if needed)
-ALTER TABLE analytics.email_notifications ENABLE ROW LEVEL SECURITY;
-
-COMMIT;
-
--- Rollback (keep for reference):
--- DROP TABLE IF EXISTS analytics.email_notifications;
+```
+supabase/
+├── config.toml                    # Supabase config (created by init)
+├── seed.sql                       # Test data for preview branches
+├── .gitignore                     # Ignores .branches, .temp
+└── migrations/
+    ├── 00000000000000_baseline.sql    # Full schema (8793 lines)
+    └── 20251219150000_*.sql           # Feature migrations
 ```
 
 ---
 
-## Related Documentation
+## Environment Variables
 
-- **Database Schema**: [ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md](../ADVANCED_SEARCH_DATABASE_ARCHITECTURE.md)
-- **Deployment**: [PRODUCTION_DEPLOYMENT_CHECKLIST.md](../PRODUCTION_DEPLOYMENT_CHECKLIST.md)
-- **Supabase Tools**: `/home/sysadmin/tools/supabase/CLAUDE.md`
+In `.env.local`:
+```bash
+SUPABASE_ACCESS_TOKEN=sbp_xxx...     # CLI authentication
+NEXT_PUBLIC_SUPABASE_URL=https://hyppizgiozyyyelwdius.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...     # Server-side only!
+```
 
 ---
 
-**Last Updated**: 2025-11-22
-**Maintained By**: Claude Code + Dimitri
+## Related Docs
+
+- [Database Schema](./schema.md)
+- [Deployment Checklist](../deployment/checklist.md)
