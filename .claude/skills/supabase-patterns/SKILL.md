@@ -394,7 +394,7 @@ const { data } = await supabaseServer
 - `description_short`, `description_long` (text)
 - `supplier_name` (text)
 - `manufacturer_pid` (text)
-- `class_id` (text) - ETIM class
+- `class` (text) - ETIM class code (e.g., EC001744)
 - `family`, `subfamily` (text)
 - `prices` (jsonb array)
 - `multimedia` (jsonb array)
