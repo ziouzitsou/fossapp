@@ -18,7 +18,7 @@ interface FeatureValueRendererProps {
 export function FeatureValueRenderer({
   feature,
   variant = 'default',
-  showUnit = true
+  showUnit: _showUnit = true
 }: FeatureValueRendererProps) {
   const value = getFeatureDisplayValue(feature);
 

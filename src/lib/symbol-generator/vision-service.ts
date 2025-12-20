@@ -37,6 +37,7 @@ const ALLOWED_DOMAINS = [
 ]
 
 // Valid media types for Claude Vision API
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const VALID_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
 type ValidMediaType = typeof VALID_MEDIA_TYPES[number]
 

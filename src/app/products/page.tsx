@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/pagination'
 import { ChevronRight } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
-import { cn, getThumbnailUrl } from '@/lib/utils'
+import { getThumbnailUrl } from '@/lib/utils'
 import Image from 'next/image'
 
 function ProductsPageContent() {

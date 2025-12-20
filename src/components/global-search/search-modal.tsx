@@ -191,7 +191,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
           description: result.error
         })
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to add product')
     } finally {
       setAddingToProject(null)

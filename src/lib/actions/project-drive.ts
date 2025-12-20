@@ -104,7 +104,8 @@ export async function createProjectWithDriveAction(
     const driveService = getGoogleDriveProjectService()
     const driveResult = await driveService.createProjectFolder(projectCode)
 
-    driveFolderId = driveResult.projectFolderId
+    // Store folder ID for potential rollback (currently unused but kept for future use)
+    driveFolderId = driveResult.projectFolderId // eslint-disable-line @typescript-eslint/no-unused-vars
 
     // 4. Update project with Drive folder ID
     const { error: updateError } = await supabaseServer

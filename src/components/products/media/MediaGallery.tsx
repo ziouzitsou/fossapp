@@ -3,12 +3,11 @@
 import React, { useState, useCallback } from 'react';
 import { logEventClient } from '@/lib/event-logger-client';
 import { Multimedia } from '@/types/product';
-import { MIME_CODES } from '@/types/product';
 import Image from 'next/image';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FaImage, FaFileAlt, FaFilePdf, FaChartArea, FaExternalLinkAlt, FaDownload, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaImage, FaFileAlt, FaFilePdf, FaChartArea, FaExternalLinkAlt, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import type { IconType } from 'react-icons';
 
 interface MediaGalleryProps {

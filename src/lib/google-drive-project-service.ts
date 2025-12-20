@@ -28,7 +28,8 @@ function getEnvVar(name: string): string {
 // Skeleton folder structure
 const SKELETON_FOLDERS = ['01_Input', '02_Working', '03_Output', '04_Specs']
 
-// README content for each folder
+// README content for each folder (reserved for future use)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const README_CONTENT: Record<string, string> = {
   '01_Input': `# Input Files
 

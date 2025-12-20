@@ -11,8 +11,6 @@ import { APP_CONFIG, PWA_CONFIG } from '@/lib/config'
  * even if it changes in future releases.
  */
 export async function GET() {
-  const baseUrl = APP_CONFIG.getBaseUrl()
-
   const manifest = {
     name: APP_CONFIG.APP_NAME,
     short_name: APP_CONFIG.APP_SHORT_NAME,

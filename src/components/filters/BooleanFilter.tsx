@@ -10,9 +10,9 @@ import { Check, X, CircleDashed } from 'lucide-react'
  * Example: Indoor (All | Yes 5,234 | No 8,242)
  */
 export default function BooleanFilter({
-  filterKey,
+  filterKey: _filterKey,
   label,
-  etimFeatureType,
+  etimFeatureType: _etimFeatureType,
   value,
   onChange,
   facets,

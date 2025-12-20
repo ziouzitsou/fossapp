@@ -215,7 +215,7 @@ async function isDarkThemeImage(imageBuffer: Buffer): Promise<{ isDarkTheme: boo
 
     // Analyze pixels
     let whitePixelCount = 0
-    let coloredPixelCount = 0
+    let _coloredPixelCount = 0 // Tracked but not used in final calculation
     let transparentPixelCount = 0
     let opaquePixelCount = 0
 
@@ -234,21 +234,21 @@ async function isDarkThemeImage(imageBuffer: Buffer): Promise<{ isDarkTheme: boo
         // Grayscale + alpha
         const gray = data[i]
         if (gray >= 250) whitePixelCount++
-        else coloredPixelCount++
+        else _coloredPixelCount++
       } else if (channels === 4) {
         // RGBA
         const r = data[i], g = data[i + 1], b = data[i + 2]
         if (r >= 250 && g >= 250 && b >= 250) whitePixelCount++
-        else coloredPixelCount++
+        else _coloredPixelCount++
       } else if (channels === 3) {
         // RGB (no alpha, but we check anyway)
         const r = data[i], g = data[i + 1], b = data[i + 2]
         if (r >= 250 && g >= 250 && b >= 250) whitePixelCount++
-        else coloredPixelCount++
+        else _coloredPixelCount++
       } else if (channels === 1) {
         // Grayscale only
         if (data[i] >= 250) whitePixelCount++
-        else coloredPixelCount++
+        else _coloredPixelCount++
       }
     }
 

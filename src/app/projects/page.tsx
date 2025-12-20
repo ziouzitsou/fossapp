@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
 import { listProjectsAction, ProjectListItem, ProjectListResult } from '@/lib/actions'
@@ -33,7 +32,7 @@ import { FaCheck } from 'react-icons/fa'
 export default function ProjectsPage() {
   const router = useRouter()
   const { data: session, status } = useDevSession()
-  const { activeProject, setActiveProject, isActive } = useActiveProject()
+  const { setActiveProject, isActive } = useActiveProject()
   const [projectList, setProjectList] = useState<ProjectListResult | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)

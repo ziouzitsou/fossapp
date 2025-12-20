@@ -44,12 +44,14 @@ const APS_CONFIG = {
 }
 
 // Get OSS region enum - must match the SDK's expected values
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getOSSRegion(): Region {
   // The SDK uses lowercase region strings
   return APS_CONFIG.region === 'EMEA' ? Region.Emea : Region.Us
 }
 
 // Direct region string for API calls that don't use the enum
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getOSSRegionString(): string {
   return APS_CONFIG.region === 'EMEA' ? 'EMEA' : 'US'
 }
