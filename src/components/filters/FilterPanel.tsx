@@ -19,12 +19,37 @@ import {
   type FilterGroup
 } from '@/lib/filters/actions'
 
-// Filter value types: range {min, max}, multi-select string[], or boolean
-export type FilterValue = { min: number; max: number } | string[] | boolean | number | null
+// Range filter type (min/max both optional during editing)
+export type RangeValue = { min?: number; max?: number }
+
+// Filter value types: range, multi-select string[], single string, or boolean
+export type FilterValue = RangeValue | string[] | string | boolean | number | null
 
 export interface FilterValues {
   supplier?: number | null
-  [key: string]: FilterValue | undefined
+  // Boolean filters (known properties with explicit types)
+  indoor?: boolean
+  outdoor?: boolean
+  submersible?: boolean
+  trimless?: boolean
+  cut_shape_round?: boolean
+  cut_shape_rectangular?: boolean
+  // Range filters
+  cct?: RangeValue
+  cri?: RangeValue
+  lumens_output?: RangeValue
+  voltage?: RangeValue
+  beam_angle?: RangeValue
+  // Multi-select filters
+  ip?: string[]
+  finishing_colour?: string[]
+  light_source?: string[]
+  light_distribution?: string[]
+  beam_angle_type?: string[]
+  dimmable?: string[]
+  class?: string[]
+  // Allow other dynamic filters
+  [key: string]: FilterValue | RangeValue | undefined
 }
 
 interface FilterPanelProps {
@@ -144,7 +169,7 @@ export function FilterPanel({
     })
     logEventClient('search_filter_applied', {
       filter_key: filterKey,
-      filter_value: value,
+      filter_value: JSON.stringify(value),
       taxonomy_code: taxonomyCode,
     })
   }, [onChange, values, taxonomyCode])
@@ -301,7 +326,7 @@ export function FilterPanel({
                         filterKey={filter.filter_key}
                         label={filter.label}
                         etimFeatureType={filter.etim_feature_id}
-                        value={values[filter.filter_key] ?? null}
+                        value={(values[filter.filter_key] as boolean | undefined) ?? null}
                         onChange={(value) => handleFilterChange(filter.filter_key, value)}
                         facets={facets}
                         showCount={true}
@@ -318,7 +343,7 @@ export function FilterPanel({
                         filterKey={filter.filter_key}
                         label={filter.label}
                         etimFeatureType={filter.etim_feature_id}
-                        values={values[filter.filter_key] || []}
+                        values={(values[filter.filter_key] as string[] | undefined) || []}
                         onChange={(vals) => handleFilterChange(filter.filter_key, vals)}
                         facets={facets}
                         options={{
@@ -349,7 +374,7 @@ export function FilterPanel({
                         filterKey={filter.filter_key}
                         label={filter.label}
                         etimFeatureType={filter.etim_feature_id}
-                        value={values[filter.filter_key] || {}}
+                        value={(values[filter.filter_key] as RangeValue | undefined) || {}}
                         onChange={(value) => handleFilterChange(filter.filter_key, value)}
                         unit={filter.ui_config?.unit}
                         minBound={filter.ui_config?.min}
