@@ -59,7 +59,7 @@ export function ProjectAreasCard({
         area_id: areaId,
         copy_from_version: copyFrom,
         notes: `Version created from v${copyFrom || 'scratch'}`,
-        created_by: session?.user?.email
+        created_by: session?.user?.email || undefined
       })
 
       if (result.success) {

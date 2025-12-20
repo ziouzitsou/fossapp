@@ -100,6 +100,12 @@ export interface ActionResult<T = void> {
   error?: string
 }
 
+// Type for the RPC function return
+type VersionSummary = {
+  product_count: number
+  total_cost: number
+}
+
 // ============================================================================
 // LIST AREAS FOR PROJECT
 // ============================================================================
@@ -151,9 +157,10 @@ export async function listProjectAreasAction(
             .rpc('get_area_version_summary', { p_area_version_id: currentVersion.id })
             .single()
 
-          if (summary) {
-            productCount = summary.product_count || 0
-            totalCost = summary.total_cost || 0
+          const typedSummary = summary as VersionSummary | null
+          if (typedSummary) {
+            productCount = typedSummary.product_count || 0
+            totalCost = typedSummary.total_cost || 0
           }
         }
 
@@ -188,10 +195,11 @@ export async function listProjectAreasAction(
                   .rpc('get_area_version_summary', { p_area_version_id: v.id })
                   .single()
 
+                const typedSummary = versionSummary as VersionSummary | null
                 return {
                   ...v,
-                  product_count: versionSummary?.product_count || 0,
-                  total_cost: versionSummary?.total_cost || 0
+                  product_count: typedSummary?.product_count || 0,
+                  total_cost: typedSummary?.total_cost || 0
                 }
               })
             )
@@ -245,9 +253,10 @@ export async function getAreaByIdAction(areaId: string): Promise<ActionResult<Pr
         .rpc('get_area_version_summary', { p_area_version_id: currentVersion.id })
         .single()
 
-      if (summary) {
-        productCount = summary.product_count || 0
-        totalCost = summary.total_cost || 0
+      const typedSummary = summary as VersionSummary | null
+      if (typedSummary) {
+        productCount = typedSummary.product_count || 0
+        totalCost = typedSummary.total_cost || 0
       }
     }
 
@@ -599,10 +608,11 @@ export async function getAreaVersionsAction(
           .rpc('get_area_version_summary', { p_area_version_id: v.id })
           .single()
 
+        const typedSummary = summary as VersionSummary | null
         return {
           ...v,
-          product_count: summary?.product_count || 0,
-          total_cost: summary?.total_cost || 0
+          product_count: typedSummary?.product_count || 0,
+          total_cost: typedSummary?.total_cost || 0
         }
       })
     )
@@ -661,6 +671,76 @@ export async function deleteAreaVersionAction(
     return { success: true }
   } catch (error) {
     console.error('Delete version error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// ============================================================================
+// GET AREAS FOR DROPDOWN (lightweight)
+// ============================================================================
+
+export interface AreaDropdownItem {
+  area_id: string
+  area_code: string
+  area_name: string
+  floor_level: number | null
+  current_version_id: string
+  version_number: number
+}
+
+/**
+ * Get areas for a project - lightweight version for dropdowns
+ * Returns only essential fields needed for area selection
+ */
+export async function getProjectAreasForDropdownAction(
+  projectId: string
+): Promise<ActionResult<AreaDropdownItem[]>> {
+  try {
+    const sanitizedProjectId = validateProjectId(projectId)
+
+    const { data: areas, error } = await supabaseServer
+      .schema('projects')
+      .from('project_areas')
+      .select(`
+        id,
+        area_code,
+        area_name,
+        floor_level,
+        current_version,
+        project_area_versions!inner (id, version_number)
+      `)
+      .eq('project_id', sanitizedProjectId)
+      .eq('is_active', true)
+      .order('display_order')
+      .order('floor_level', { ascending: true, nullsFirst: false })
+
+    if (error) {
+      console.error('Get areas for dropdown error:', error)
+      return { success: false, error: 'Failed to fetch areas' }
+    }
+
+    if (!areas || areas.length === 0) {
+      return { success: true, data: [] }
+    }
+
+    // Map to dropdown items, finding the current version ID
+    const dropdownItems: AreaDropdownItem[] = areas.map(area => {
+      const versions = area.project_area_versions as Array<{ id: string; version_number: number }>
+      const currentVersion = versions.find(v => v.version_number === area.current_version)
+
+      return {
+        area_id: area.id,
+        area_code: area.area_code,
+        area_name: area.area_name,
+        floor_level: area.floor_level,
+        current_version_id: currentVersion?.id || '',
+        version_number: area.current_version
+      }
+    })
+
+    return { success: true, data: dropdownItems }
+  } catch (error) {
+    console.error('Get areas for dropdown error:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }

@@ -154,7 +154,7 @@ export function AreaFormDialog({
           ceiling_height_m: formData.ceiling_height_m ? parseFloat(formData.ceiling_height_m) : undefined,
           description: formData.description || undefined,
           notes: formData.notes || undefined,
-          created_by: session?.user?.email,
+          created_by: session?.user?.email || undefined,
         }
 
         const result = await createAreaAction(createInput)

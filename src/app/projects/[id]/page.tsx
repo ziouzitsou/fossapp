@@ -18,8 +18,9 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ProjectFormSheet, DeleteProjectDialog, ProjectVersionsCard, ProjectAreasCard } from '@/components/projects'
-import { ArrowLeft, Plus, Minus, Trash2 } from 'lucide-react'
+import { ProjectFormSheet, DeleteProjectDialog, ProjectAreasCard } from '@/components/projects'
+import { ArrowLeft, Plus, Minus, Trash2, ChevronDown, ChevronRight, Layers } from 'lucide-react'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 
 interface ProjectPageProps {
@@ -39,6 +40,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   // Product quantity update state
   const [updatingProducts, setUpdatingProducts] = useState<Set<string>>(new Set())
+
+  // Expanded areas state for collapsible sections
+  const [expandedAreas, setExpandedAreas] = useState<Set<string>>(new Set(['all']))
 
   const handleQuantityChange = async (productId: string, newQuantity: number) => {
     if (newQuantity < 1) return
@@ -206,6 +210,59 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     }
   }, { quantity: 0, subtotal: 0, discountTotal: 0, grandTotal: 0 })
 
+  // Group products by area
+  const productsByArea = project.products.reduce((acc, product) => {
+    const areaKey = product.area_code || 'unassigned'
+    if (!acc[areaKey]) {
+      acc[areaKey] = {
+        area_code: product.area_code || 'unassigned',
+        area_name: product.area_name || 'Unassigned',
+        products: [],
+        totals: { quantity: 0, subtotal: 0, discountTotal: 0, grandTotal: 0 }
+      }
+    }
+    acc[areaKey].products.push(product)
+    const lineTotal = (product.unit_price || 0) * product.quantity
+    const discountAmount = lineTotal * ((product.discount_percent || 0) / 100)
+    acc[areaKey].totals.quantity += product.quantity
+    acc[areaKey].totals.subtotal += lineTotal
+    acc[areaKey].totals.discountTotal += discountAmount
+    acc[areaKey].totals.grandTotal += (product.total_price || lineTotal - discountAmount)
+    return acc
+  }, {} as Record<string, {
+    area_code: string
+    area_name: string
+    products: typeof project.products
+    totals: { quantity: number; subtotal: number; discountTotal: number; grandTotal: number }
+  }>)
+
+  const areaGroups = Object.values(productsByArea).sort((a, b) => {
+    // Sort by area_code, with 'unassigned' last
+    if (a.area_code === 'unassigned') return 1
+    if (b.area_code === 'unassigned') return -1
+    return a.area_code.localeCompare(b.area_code)
+  })
+
+  const toggleAreaExpanded = (areaCode: string) => {
+    setExpandedAreas(prev => {
+      const next = new Set(prev)
+      if (next.has(areaCode)) {
+        next.delete(areaCode)
+      } else {
+        next.add(areaCode)
+      }
+      return next
+    })
+  }
+
+  const expandAllAreas = () => {
+    setExpandedAreas(new Set(areaGroups.map(g => g.area_code)))
+  }
+
+  const collapseAllAreas = () => {
+    setExpandedAreas(new Set())
+  }
+
   return (
     <DashboardLayout>
       <div className="p-6">
@@ -248,10 +305,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="areas">Areas ({project.areas?.length || 0})</TabsTrigger>
-            <TabsTrigger value="versions">
-              Files & Versions
-              {project.versions.length > 0 && ` (${project.versions.length})`}
-            </TabsTrigger>
             <TabsTrigger value="products">Products ({project.products.length})</TabsTrigger>
             <TabsTrigger value="contacts">Contacts ({project.contacts.length})</TabsTrigger>
             <TabsTrigger value="documents">Documents ({project.documents.length})</TabsTrigger>
@@ -424,127 +477,192 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             />
           </TabsContent>
 
-          {/* Files & Versions Tab */}
-          <TabsContent value="versions">
-            <ProjectVersionsCard
-              projectId={project.id}
-              projectCode={project.project_code}
-              currentVersion={project.current_version}
-              versions={project.versions}
-              googleDriveFolderId={project.google_drive_folder_id}
-              isArchived={project.is_archived}
-              onVersionChange={loadProject}
-            />
-          </TabsContent>
-
           {/* Products Tab */}
           <TabsContent value="products">
             <Card>
               <CardHeader>
-                <CardTitle>Project Products</CardTitle>
-                <CardDescription>All products specified for this project</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Layers className="h-5 w-5" />
+                      Project Products
+                    </CardTitle>
+                    <CardDescription>
+                      {project.products.length} products across {areaGroups.length} area{areaGroups.length !== 1 ? 's' : ''}
+                    </CardDescription>
+                  </div>
+                  {areaGroups.length > 1 && (
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={expandAllAreas}>
+                        Expand All
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={collapseAllAreas}>
+                        Collapse All
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {project.products.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">No products added yet</p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead className="text-center">Qty</TableHead>
-                        <TableHead className="text-right">Unit Price</TableHead>
-                        <TableHead className="text-right">Discount</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {project.products.map((product) => {
-                        const isUpdating = updatingProducts.has(product.id)
-                        return (
-                          <TableRow key={product.id} className={isUpdating ? 'opacity-50' : ''}>
-                            <TableCell>
-                              <Link
-                                href={`/products/${product.product_id}`}
-                                className="hover:underline"
-                              >
-                                <div className="font-medium">{product.foss_pid}</div>
-                                <div className="text-sm text-muted-foreground">{product.description_short}</div>
-                              </Link>
-                            </TableCell>
-                            <TableCell>{product.room_location || '-'}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center justify-center gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 w-7 p-0"
-                                  disabled={isUpdating || product.quantity <= 1}
-                                  onClick={() => handleQuantityChange(product.id, product.quantity - 1)}
-                                >
-                                  <Minus className="h-3 w-3" />
-                                </Button>
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  value={product.quantity}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value, 10)
-                                    if (!isNaN(val) && val >= 1) {
-                                      handleQuantityChange(product.id, val)
-                                    }
-                                  }}
-                                  className="w-14 h-7 text-center px-1"
-                                  disabled={isUpdating}
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 w-7 p-0"
-                                  disabled={isUpdating}
-                                  onClick={() => handleQuantityChange(product.id, product.quantity + 1)}
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
+                  <div className="space-y-4">
+                    {areaGroups.map((group) => (
+                      <Collapsible
+                        key={group.area_code}
+                        open={expandedAreas.has(group.area_code)}
+                        onOpenChange={() => toggleAreaExpanded(group.area_code)}
+                      >
+                        <div className="border rounded-lg">
+                          <CollapsibleTrigger asChild>
+                            <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50">
+                              <div className="flex items-center gap-3">
+                                {expandedAreas.has(group.area_code) ? (
+                                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                )}
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="font-mono">
+                                      {group.area_code}
+                                    </Badge>
+                                    <span className="font-medium">{group.area_name}</span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    {group.products.length} product{group.products.length !== 1 ? 's' : ''} • {group.totals.quantity} units
+                                  </p>
+                                </div>
                               </div>
-                            </TableCell>
-                            <TableCell className="text-right">{formatCurrency(product.unit_price, project.currency)}</TableCell>
-                            <TableCell className="text-right">{product.discount_percent || 0}%</TableCell>
-                            <TableCell className="text-right font-medium">{formatCurrency(product.total_price, project.currency)}</TableCell>
-                            <TableCell>{getStatusBadge(product.status)}</TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                                disabled={isUpdating}
-                                onClick={() => handleRemoveProduct(product.id)}
-                                title="Remove from project"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                      {/* Summary Row */}
-                      <TableRow className="bg-muted/50 font-medium border-t-2">
-                        <TableCell colSpan={2} className="text-right">
-                          Totals ({project.products.length} products)
-                        </TableCell>
-                        <TableCell className="text-center">{productsTotals.quantity}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(productsTotals.subtotal, project.currency)}</TableCell>
-                        <TableCell className="text-right text-destructive">
-                          -{formatCurrency(productsTotals.discountTotal, project.currency)}
-                        </TableCell>
-                        <TableCell className="text-right text-lg">{formatCurrency(productsTotals.grandTotal, project.currency)}</TableCell>
-                        <TableCell colSpan={2}></TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                              <div className="text-right">
+                                <div className="font-medium text-lg">
+                                  {formatCurrency(group.totals.grandTotal, project.currency)}
+                                </div>
+                                {group.totals.discountTotal > 0 && (
+                                  <p className="text-sm text-destructive">
+                                    -{formatCurrency(group.totals.discountTotal, project.currency)} discount
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="border-t">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Product</TableHead>
+                                    <TableHead>Location</TableHead>
+                                    <TableHead className="text-center">Qty</TableHead>
+                                    <TableHead className="text-right">Unit Price</TableHead>
+                                    <TableHead className="text-right">Discount</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {group.products.map((product) => {
+                                    const isUpdating = updatingProducts.has(product.id)
+                                    return (
+                                      <TableRow key={product.id} className={isUpdating ? 'opacity-50' : ''}>
+                                        <TableCell>
+                                          <Link
+                                            href={`/products/${product.product_id}`}
+                                            className="hover:underline"
+                                          >
+                                            <div className="font-medium">{product.foss_pid}</div>
+                                            <div className="text-sm text-muted-foreground">{product.description_short}</div>
+                                          </Link>
+                                        </TableCell>
+                                        <TableCell>{product.room_location || '-'}</TableCell>
+                                        <TableCell>
+                                          <div className="flex items-center justify-center gap-1">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="h-7 w-7 p-0"
+                                              disabled={isUpdating || product.quantity <= 1}
+                                              onClick={() => handleQuantityChange(product.id, product.quantity - 1)}
+                                            >
+                                              <Minus className="h-3 w-3" />
+                                            </Button>
+                                            <Input
+                                              type="number"
+                                              min={1}
+                                              value={product.quantity}
+                                              onChange={(e) => {
+                                                const val = parseInt(e.target.value, 10)
+                                                if (!isNaN(val) && val >= 1) {
+                                                  handleQuantityChange(product.id, val)
+                                                }
+                                              }}
+                                              className="w-14 h-7 text-center px-1"
+                                              disabled={isUpdating}
+                                            />
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="h-7 w-7 p-0"
+                                              disabled={isUpdating}
+                                              onClick={() => handleQuantityChange(product.id, product.quantity + 1)}
+                                            >
+                                              <Plus className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="text-right">{formatCurrency(product.unit_price, project.currency)}</TableCell>
+                                        <TableCell className="text-right">{product.discount_percent || 0}%</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(product.total_price, project.currency)}</TableCell>
+                                        <TableCell>{getStatusBadge(product.status)}</TableCell>
+                                        <TableCell>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                            disabled={isUpdating}
+                                            onClick={() => handleRemoveProduct(product.id)}
+                                            title="Remove from project"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </TableCell>
+                                      </TableRow>
+                                    )
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </CollapsibleContent>
+                        </div>
+                      </Collapsible>
+                    ))}
+
+                    {/* Grand Total Summary */}
+                    <Card className="bg-muted/30">
+                      <CardContent className="pt-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Grand Total</p>
+                            <p className="text-sm text-muted-foreground">
+                              {project.products.length} products • {productsTotals.quantity} units
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold">
+                              {formatCurrency(productsTotals.grandTotal, project.currency)}
+                            </p>
+                            {productsTotals.discountTotal > 0 && (
+                              <p className="text-sm text-destructive">
+                                -{formatCurrency(productsTotals.discountTotal, project.currency)} total discount
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 )}
               </CardContent>
             </Card>

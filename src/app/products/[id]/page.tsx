@@ -19,8 +19,9 @@ import { getTemplateType } from '@/lib/utils/product-classification'
 import { ProductTypeBadge } from '@/components/products/header/ProductTypeBadge'
 import { ProductLayout } from '@/components/products/layouts/ProductLayout'
 import { useActiveProject } from '@/lib/active-project-context'
-import { addProductToProjectAction } from '@/lib/actions'
+import { addProductToProjectAction, getProjectAreasForDropdownAction, type AreaDropdownItem } from '@/lib/actions'
 import { useBucket } from '@/components/tiles/bucket-context'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 export default function ProductDetailPage() {
   const { data: session, status } = useDevSession()
@@ -38,6 +39,8 @@ export default function ProductDetailPage() {
   const [addedMessage, setAddedMessage] = useState<string | null>(null)
   const [bucketMessage, setBucketMessage] = useState<string | null>(null)
   const [copiedField, setCopiedField] = useState<'fpn' | 'mpn' | null>(null)
+  const [projectAreas, setProjectAreas] = useState<AreaDropdownItem[]>([])
+  const [areasPopoverOpen, setAreasPopoverOpen] = useState(false)
 
   const handleCopyToClipboard = async (text: string, field: 'fpn' | 'mpn') => {
     try {
@@ -68,9 +71,10 @@ export default function ProductDetailPage() {
     setTimeout(() => setBucketMessage(null), 2000)
   }
 
-  const handleAddToProject = async () => {
+  const handleAddToArea = async (area: AreaDropdownItem) => {
     if (!activeProject || !product) return
 
+    setAreasPopoverOpen(false)
     setIsAddingToProject(true)
     setAddedMessage(null)
 
@@ -78,10 +82,11 @@ export default function ProductDetailPage() {
       const result = await addProductToProjectAction({
         project_id: activeProject.id,
         product_id: product.product_id,
+        area_version_id: area.current_version_id,
       })
 
       if (result.success) {
-        setAddedMessage(`Added to ${activeProject.project_code}`)
+        setAddedMessage(`Added to ${area.area_code}`)
         setTimeout(() => setAddedMessage(null), 3000)
       } else {
         setAddedMessage(result.error || 'Failed to add')
@@ -93,6 +98,17 @@ export default function ProductDetailPage() {
       setTimeout(() => setAddedMessage(null), 3000)
     } finally {
       setIsAddingToProject(false)
+    }
+  }
+
+  // Fetch areas when popover opens
+  const handleAreasPopoverOpen = async (open: boolean) => {
+    setAreasPopoverOpen(open)
+    if (open && activeProject && projectAreas.length === 0) {
+      const result = await getProjectAreasForDropdownAction(activeProject.id)
+      if (result.success && result.data) {
+        setProjectAreas(result.data)
+      }
     }
   }
 
@@ -111,6 +127,11 @@ export default function ProductDetailPage() {
       loadProduct(params.id as string)
     }
   }, [params?.id])
+
+  // Clear areas cache when active project changes
+  useEffect(() => {
+    setProjectAreas([])
+  }, [activeProject?.id])
 
   const loadProduct = async (productId: string) => {
     setIsLoading(true)
@@ -277,29 +298,60 @@ export default function ProductDetailPage() {
                 {isFavorite ? 'Favorited' : 'Favorite'}
               </Button>
 
-              {/* Add to Project Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAddToProject}
-                disabled={!activeProject || isAddingToProject}
-                className="flex items-center gap-2"
-                title={activeProject ? `Add to ${activeProject.name}` : 'No active project - activate one from Projects page'}
-              >
-                {isAddingToProject ? (
-                  <Spinner size="sm" />
-                ) : (
-                  <>
-                    <FaPlus className="h-3 w-3" />
-                    <FaFolder className="h-4 w-4" />
-                  </>
-                )}
-                {activeProject ? (
-                  <span>Add to {activeProject.project_code}</span>
-                ) : (
-                  <span className="text-muted-foreground">No active project</span>
-                )}
-              </Button>
+              {/* Add to Project Button with Area Selection */}
+              <Popover open={areasPopoverOpen} onOpenChange={handleAreasPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!activeProject || isAddingToProject}
+                    className="flex items-center gap-2"
+                    title={activeProject ? `Add to ${activeProject.name}` : 'No active project - activate one from Projects page'}
+                  >
+                    {isAddingToProject ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <>
+                        <FaPlus className="h-3 w-3" />
+                        <FaFolder className="h-4 w-4" />
+                      </>
+                    )}
+                    {activeProject ? (
+                      <span>Add to {activeProject.project_code}</span>
+                    ) : (
+                      <span className="text-muted-foreground">No active project</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2" align="start">
+                  <div className="text-sm font-medium text-muted-foreground mb-2 px-2">
+                    Select area:
+                  </div>
+                  {projectAreas.length === 0 ? (
+                    <div className="text-sm text-muted-foreground px-2 py-4 text-center">
+                      No areas found. Create an area first.
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {projectAreas.map((area) => (
+                        <button
+                          key={area.area_id}
+                          onClick={() => handleAddToArea(area)}
+                          className="w-full text-left px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
+                        >
+                          <span className="font-medium">{area.area_code}</span>
+                          <span className="text-muted-foreground ml-2">
+                            {area.area_name}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-1">
+                            (v{area.version_number})
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
 
               {/* Add to Bucket Button (Tiles) */}
               <Button

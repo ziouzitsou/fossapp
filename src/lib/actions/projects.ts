@@ -26,18 +26,7 @@ export interface ProjectListItem {
   created_at: string
   // Google Drive integration fields
   google_drive_folder_id?: string
-  current_version: number
   is_archived: boolean
-}
-
-export interface ProjectVersion {
-  id: string
-  project_id: string
-  version_number: number
-  google_drive_folder_id?: string
-  created_at: string
-  created_by?: string
-  notes?: string
 }
 
 export interface ProjectProduct {
@@ -139,15 +128,13 @@ export interface ProjectDetail {
   created_by?: string
   // Google Drive integration fields
   google_drive_folder_id?: string
-  current_version: number
   is_archived: boolean
   // Related data
   products: ProjectProduct[]
   contacts: ProjectContact[]
   documents: ProjectDocument[]
   phases: ProjectPhase[]
-  versions: ProjectVersion[]
-  areas: ProjectArea[]  // NEW: Multi-area support
+  areas: ProjectArea[]  // Multi-area support with per-area versioning
 }
 
 // Import ProjectArea type (will be added)
@@ -222,7 +209,6 @@ export async function listProjectsAction(params: ProjectListParams = {}): Promis
         created_at,
         customer_id,
         google_drive_folder_id,
-        current_version,
         is_archived
       `)
       .order(sortBy, { ascending: sortOrder === 'asc' })
@@ -282,7 +268,6 @@ export async function listProjectsAction(params: ProjectListParams = {}): Promis
         expected_completion_date: project.expected_completion_date,
         created_at: project.created_at,
         google_drive_folder_id: project.google_drive_folder_id,
-        current_version: project.current_version ?? 1,
         is_archived: project.is_archived ?? false
       }
     })
@@ -521,10 +506,10 @@ export async function deleteProjectAction(
     }
 
     // 3. Delete related records (due to foreign key constraints)
-    // Delete project versions
+    // Delete project areas (cascade deletes area_versions and linked products)
     await supabaseServer
       .schema('projects')
-      .from('project_versions')
+      .from('project_areas')
       .delete()
       .eq('project_id', sanitizedProjectId)
 
@@ -613,7 +598,7 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
       }
     }
 
-    // Get project products
+    // Get project products with area info
     const { data: projectProducts, error: productsError } = await supabaseServer
       .schema('projects')
       .from('project_products')
@@ -627,7 +612,19 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
         room_location,
         mounting_height,
         status,
-        notes
+        notes,
+        area_version_id,
+        project_area_versions!inner (
+          id,
+          version_number,
+          project_areas!inner (
+            id,
+            area_code,
+            area_name,
+            floor_level,
+            display_order
+          )
+        )
       `)
       .eq('project_id', sanitizedProjectId)
       .order('room_location')
@@ -656,13 +653,39 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
         (productDetails || []).map(p => [p.product_id, p])
       )
 
-      // Combine project products with product details
+      // Combine project products with product details and area info
       for (const pp of projectProducts) {
         const productDetail = productMap.get(pp.product_id)
+        // Extract area info from joined data (it's a single object due to !inner join on FK)
+        const areaVersionData = pp.project_area_versions as unknown as {
+          id: string
+          version_number: number
+          project_areas: {
+            id: string
+            area_code: string
+            area_name: string
+            floor_level: number | null
+            display_order: number
+          }
+        } | null
+
         products.push({
-          ...pp,
+          id: pp.id,
+          product_id: pp.product_id,
+          quantity: pp.quantity,
+          unit_price: pp.unit_price,
+          discount_percent: pp.discount_percent,
+          total_price: pp.total_price,
+          room_location: pp.room_location,
+          mounting_height: pp.mounting_height,
+          status: pp.status,
+          notes: pp.notes,
           foss_pid: productDetail?.foss_pid || '',
-          description_short: productDetail?.description_short || ''
+          description_short: productDetail?.description_short || '',
+          area_version_id: pp.area_version_id,
+          area_code: areaVersionData?.project_areas?.area_code,
+          area_name: areaVersionData?.project_areas?.area_name,
+          area_version_number: areaVersionData?.version_number,
         })
       }
     }
@@ -701,18 +724,6 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
 
     if (phasesError) {
       console.error('Get project phases error:', phasesError)
-    }
-
-    // Get versions
-    const { data: versions, error: versionsError } = await supabaseServer
-      .schema('projects')
-      .from('project_versions')
-      .select('*')
-      .eq('project_id', sanitizedProjectId)
-      .order('version_number', { ascending: false })
-
-    if (versionsError) {
-      console.error('Get project versions error:', versionsError)
     }
 
     // Get project areas (using the listProjectAreasAction from project-areas.ts)
@@ -760,14 +771,12 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
       created_by: project.created_by,
       // Google Drive integration fields
       google_drive_folder_id: project.google_drive_folder_id,
-      current_version: project.current_version ?? 1,
       is_archived: project.is_archived ?? false,
       // Related data
       products: products,
       contacts: contacts || [],
       documents: documents || [],
       phases: phases || [],
-      versions: versions || [],
       areas: areas,
     }
   } catch (error) {
@@ -798,85 +807,6 @@ export async function generateProjectCodeAction(): Promise<ActionResult<{ projec
     return { success: true, data: { project_code: data } }
   } catch (error) {
     console.error('Generate project code error:', error)
-    return { success: false, error: 'An unexpected error occurred' }
-  }
-}
-
-// ============================================================================
-// GET PROJECT VERSIONS
-// ============================================================================
-
-export async function getProjectVersionsAction(
-  projectId: string
-): Promise<ActionResult<ProjectVersion[]>> {
-  try {
-    const sanitizedProjectId = validateProjectId(projectId)
-
-    const { data, error } = await supabaseServer
-      .schema('projects')
-      .from('project_versions')
-      .select('*')
-      .eq('project_id', sanitizedProjectId)
-      .order('version_number', { ascending: false })
-
-    if (error) {
-      console.error('Get project versions error:', error)
-      return { success: false, error: 'Failed to get project versions' }
-    }
-
-    return { success: true, data: data || [] }
-  } catch (error) {
-    console.error('Get project versions error:', error)
-    return { success: false, error: 'An unexpected error occurred' }
-  }
-}
-
-// ============================================================================
-// CREATE PROJECT VERSION
-// ============================================================================
-
-export interface CreateVersionInput {
-  project_id: string
-  version_number: number
-  google_drive_folder_id?: string
-  notes?: string
-  created_by?: string
-}
-
-export async function createProjectVersionAction(
-  input: CreateVersionInput
-): Promise<ActionResult<{ id: string }>> {
-  try {
-    const sanitizedProjectId = validateProjectId(input.project_id)
-
-    const { data, error } = await supabaseServer
-      .schema('projects')
-      .from('project_versions')
-      .insert({
-        project_id: sanitizedProjectId,
-        version_number: input.version_number,
-        google_drive_folder_id: input.google_drive_folder_id || null,
-        notes: input.notes?.trim() || null,
-        created_by: input.created_by || null,
-      })
-      .select('id')
-      .single()
-
-    if (error) {
-      console.error('Create project version error:', error)
-      return { success: false, error: 'Failed to create project version' }
-    }
-
-    // Update current_version on the project
-    await supabaseServer
-      .schema('projects')
-      .from('projects')
-      .update({ current_version: input.version_number, updated_at: new Date().toISOString() })
-      .eq('id', sanitizedProjectId)
-
-    return { success: true, data: { id: data.id } }
-  } catch (error) {
-    console.error('Create project version error:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }
@@ -974,6 +904,45 @@ export async function addProductToProjectAction(
       return { success: false, error: 'Invalid product ID format' }
     }
 
+    // Determine area_version_id - required since products must belong to an area version
+    let areaVersionId = input.area_version_id
+
+    if (!areaVersionId) {
+      // No area specified - get the first area's current version for this project
+      const { data: firstArea, error: areaError } = await supabaseServer
+        .schema('projects')
+        .from('project_areas')
+        .select(`
+          id,
+          area_code,
+          current_version,
+          project_area_versions!inner (id, version_number)
+        `)
+        .eq('project_id', input.project_id)
+        .eq('is_active', true)
+        .order('display_order')
+        .order('floor_level', { nullsFirst: false })
+        .limit(1)
+        .single()
+
+      if (areaError || !firstArea) {
+        return {
+          success: false,
+          error: 'Project has no areas. Please create an area first before adding products.'
+        }
+      }
+
+      // Get the current version ID
+      const versions = firstArea.project_area_versions as Array<{ id: string; version_number: number }>
+      const currentVersion = versions.find(v => v.version_number === firstArea.current_version)
+
+      if (!currentVersion) {
+        return { success: false, error: 'Could not find current version for area' }
+      }
+
+      areaVersionId = currentVersion.id
+    }
+
     // Fetch product price from product_info
     const { data: productData, error: productError } = await supabaseServer
       .schema('items')
@@ -1002,21 +971,15 @@ export async function addProductToProjectAction(
       discountPercent = priceEntry.disc1 || 0
     }
 
-    // Check if product already exists in project (and same area version if specified)
-    let existingQuery = supabaseServer
+    // Check if product already exists in this area version
+    const { data: existing, error: checkError } = await supabaseServer
       .schema('projects')
       .from('project_products')
       .select('id, quantity')
       .eq('project_id', input.project_id)
       .eq('product_id', input.product_id)
-
-    if (input.area_version_id) {
-      existingQuery = existingQuery.eq('area_version_id', input.area_version_id)
-    } else {
-      existingQuery = existingQuery.is('area_version_id', null)
-    }
-
-    const { data: existing, error: checkError } = await existingQuery.single()
+      .eq('area_version_id', areaVersionId)
+      .single()
 
     if (checkError && checkError.code !== 'PGRST116') {
       // PGRST116 = no rows returned, which is expected if product doesn't exist
@@ -1052,7 +1015,7 @@ export async function addProductToProjectAction(
       .insert({
         project_id: input.project_id,
         product_id: input.product_id,
-        area_version_id: input.area_version_id || null,  // NEW: Link to area version
+        area_version_id: areaVersionId,  // Required - links to area version
         quantity: quantity,
         unit_price: unitPrice,
         discount_percent: discountPercent,
