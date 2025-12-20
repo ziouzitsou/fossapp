@@ -4,6 +4,8 @@
 
 This document defines coding patterns and architectural decisions for FOSSAPP. Follow these guidelines for all new features.
 
+> **Note for Claude Code:** This content is also available as a skill (`.claude/skills/coding-patterns/`) which Claude automatically uses when writing code. This document serves as comprehensive human reference.
+
 ---
 
 ## Table of Contents
