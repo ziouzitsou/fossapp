@@ -2,6 +2,8 @@
 
 FOSSAPP API architecture using Next.js App Router patterns and Supabase server actions.
 
+> **Note for Claude Code:** Core patterns are also available as skills (`.claude/skills/coding-patterns/` and `.claude/skills/supabase-patterns/`) which Claude automatically uses. This document serves as comprehensive reference.
+
 ## Overview
 
 **Framework**: Next.js 16 App Router

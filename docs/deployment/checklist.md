@@ -6,6 +6,8 @@
 This checklist was created after the v1.1.4 deployment to prevent common issues.
 **Updated v1.4.1**: Added automated pre-deployment script with smoke tests.
 
+> **Note for Claude Code:** Core deployment workflow is also available as a skill (`.claude/skills/deployment-workflow/`) which Claude automatically uses before committing. This document serves as comprehensive reference.
+
 > **Note**: For version history and release notes, see [CHANGELOG.md](../CHANGELOG.md)
 
 ---
