@@ -2,6 +2,12 @@
 
 import { supabaseServer } from '../supabase-server'
 import { validateProjectId } from './validation'
+import {
+  createAreaFolderAction,
+  deleteAreaFolderAction,
+  createAreaVersionFolderAction,
+  deleteAreaVersionFolderAction
+} from './project-drive'
 
 // ============================================================================
 // INTERFACES
@@ -22,6 +28,7 @@ export interface ProjectArea {
   is_active: boolean
   description?: string
   notes?: string
+  google_drive_folder_id?: string
   created_at: string
   updated_at: string
   // Populated when fetching with version data
@@ -288,7 +295,7 @@ export async function getAreaByIdAction(areaId: string): Promise<ActionResult<Pr
 
 export async function createAreaAction(
   input: CreateAreaInput
-): Promise<ActionResult<{ id: string; version_id: string }>> {
+): Promise<ActionResult<{ id: string; version_id: string; google_drive_folder_id?: string }>> {
   try {
     const sanitizedProjectId = validateProjectId(input.project_id)
 
@@ -300,13 +307,15 @@ export async function createAreaAction(
       return { success: false, error: 'Area name is required' }
     }
 
+    const areaCode = input.area_code.trim().toUpperCase()
+
     // Create the area (trigger will create initial version)
     const { data, error } = await supabaseServer
       .schema('projects')
       .from('project_areas')
       .insert({
         project_id: sanitizedProjectId,
-        area_code: input.area_code.trim().toUpperCase(),
+        area_code: areaCode,
         area_name: input.area_name.trim(),
         area_name_en: input.area_name_en?.trim() || null,
         area_type: input.area_type || null,
@@ -337,11 +346,42 @@ export async function createAreaAction(
       .eq('version_number', 1)
       .single()
 
+    // Try to create Google Drive folder for this area
+    let driveFolderId: string | undefined
+    let versionFolderId: string | undefined
+    try {
+      const driveResult = await createAreaFolderAction(sanitizedProjectId, areaCode)
+      if (driveResult.success && driveResult.data) {
+        driveFolderId = driveResult.data.areaFolderId
+        versionFolderId = driveResult.data.versionFolderId
+
+        // Update area with Drive folder ID
+        await supabaseServer
+          .schema('projects')
+          .from('project_areas')
+          .update({ google_drive_folder_id: driveFolderId })
+          .eq('id', data.id)
+
+        // Update v1 version with its Drive folder ID
+        if (version?.id && versionFolderId) {
+          await supabaseServer
+            .schema('projects')
+            .from('project_area_versions')
+            .update({ google_drive_folder_id: versionFolderId })
+            .eq('id', version.id)
+        }
+      }
+    } catch (driveError) {
+      // Log but don't fail - Drive folder is optional
+      console.warn('Failed to create Drive folder for area:', driveError)
+    }
+
     return {
       success: true,
       data: {
         id: data.id,
-        version_id: version?.id || ''
+        version_id: version?.id || '',
+        google_drive_folder_id: driveFolderId
       }
     }
   } catch (error) {
@@ -412,6 +452,17 @@ export async function updateAreaAction(
 
 export async function deleteAreaAction(areaId: string): Promise<ActionResult> {
   try {
+    // Get the area's Drive folder ID before deleting
+    const { data: area } = await supabaseServer
+      .schema('projects')
+      .from('project_areas')
+      .select('google_drive_folder_id')
+      .eq('id', areaId)
+      .single()
+
+    const driveFolderId = area?.google_drive_folder_id
+
+    // Delete the area from DB (cascade deletes versions, products)
     const { error } = await supabaseServer
       .schema('projects')
       .from('project_areas')
@@ -421,6 +472,16 @@ export async function deleteAreaAction(areaId: string): Promise<ActionResult> {
     if (error) {
       console.error('Delete area error:', error)
       return { success: false, error: 'Failed to delete area' }
+    }
+
+    // Try to delete the Drive folder if it exists
+    if (driveFolderId) {
+      try {
+        await deleteAreaFolderAction(driveFolderId)
+      } catch (driveError) {
+        // Log but don't fail - manual cleanup may be needed
+        console.warn('Failed to delete Drive folder for area:', driveError)
+      }
     }
 
     return { success: true }
@@ -436,13 +497,13 @@ export async function deleteAreaAction(areaId: string): Promise<ActionResult> {
 
 export async function createAreaVersionAction(
   input: CreateVersionInput
-): Promise<ActionResult<{ id: string; version_number: number }>> {
+): Promise<ActionResult<{ id: string; version_number: number; google_drive_folder_id?: string }>> {
   try {
-    // Get the area to find next version number
+    // Get the area to find next version number and Drive folder ID
     const { data: area, error: areaError } = await supabaseServer
       .schema('projects')
       .from('project_areas')
-      .select('current_version')
+      .select('current_version, google_drive_folder_id')
       .eq('id', input.area_id)
       .single()
 
@@ -470,6 +531,30 @@ export async function createAreaVersionAction(
     if (versionError) {
       console.error('Create version error:', versionError)
       return { success: false, error: 'Failed to create new version' }
+    }
+
+    // Try to create Google Drive folder for this version
+    let driveFolderId: string | undefined
+    if (area.google_drive_folder_id) {
+      try {
+        const driveResult = await createAreaVersionFolderAction(
+          area.google_drive_folder_id,
+          newVersionNumber
+        )
+        if (driveResult.success && driveResult.data) {
+          driveFolderId = driveResult.data.versionFolderId
+
+          // Update version with Drive folder ID
+          await supabaseServer
+            .schema('projects')
+            .from('project_area_versions')
+            .update({ google_drive_folder_id: driveFolderId })
+            .eq('id', newVersion.id)
+        }
+      } catch (driveError) {
+        // Log but don't fail - Drive folder is optional
+        console.warn('Failed to create Drive folder for version:', driveError)
+      }
     }
 
     // If copy_from_version is specified, copy products
@@ -527,7 +612,8 @@ export async function createAreaVersionAction(
       success: true,
       data: {
         id: newVersion.id,
-        version_number: newVersionNumber
+        version_number: newVersionNumber,
+        google_drive_folder_id: driveFolderId
       }
     }
   } catch (error) {
@@ -632,11 +718,11 @@ export async function deleteAreaVersionAction(
   areaVersionId: string
 ): Promise<ActionResult> {
   try {
-    // Get version info
+    // Get version info including Drive folder ID
     const { data: version, error: versionError } = await supabaseServer
       .schema('projects')
       .from('project_area_versions')
-      .select('area_id, version_number')
+      .select('area_id, version_number, google_drive_folder_id')
       .eq('id', areaVersionId)
       .single()
 
@@ -656,6 +742,8 @@ export async function deleteAreaVersionAction(
       return { success: false, error: 'Cannot delete the current active version' }
     }
 
+    const driveFolderId = version.google_drive_folder_id
+
     // Delete the version (cascade will delete associated products)
     const { error } = await supabaseServer
       .schema('projects')
@@ -666,6 +754,16 @@ export async function deleteAreaVersionAction(
     if (error) {
       console.error('Delete version error:', error)
       return { success: false, error: 'Failed to delete version' }
+    }
+
+    // Try to delete the Drive folder if it exists
+    if (driveFolderId) {
+      try {
+        await deleteAreaVersionFolderAction(driveFolderId)
+      } catch (driveError) {
+        // Log but don't fail - manual cleanup may be needed
+        console.warn('Failed to delete Drive folder for version:', driveError)
+      }
     }
 
     return { success: true }

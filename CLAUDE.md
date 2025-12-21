@@ -14,7 +14,6 @@ Claude Code has access to specialized skills that provide domain knowledge autom
 | **supabase-patterns** | Database queries | N/A (automatic) |
 | **autolisp-dwg** | Working with DWG features | N/A (automatic) |
 | **deployment-workflow** | Pre-deployment checks | N/A (automatic) |
-| **search-architecture** | Search/filter features | N/A (automatic) |
 
 Skills are in `.claude/skills/` and complement this quick reference guide.
 

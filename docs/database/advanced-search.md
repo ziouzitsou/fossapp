@@ -6,8 +6,6 @@
 **Working Demo**: http://localhost:3001 (search-test-app)
 **Target Database**: Supabase PostgreSQL (14,889+ products)
 
-> **Note for Claude Code:** Essential search architecture knowledge is also available as a skill (`.claude/skills/search-architecture/`) which Claude automatically uses when working with search features. This document (8,500 words) serves as comprehensive reference.
-
 ---
 
 ## Table of Contents

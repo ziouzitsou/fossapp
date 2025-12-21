@@ -25,7 +25,7 @@ export interface CreateProjectWithDriveResult {
   id: string
   project_code: string
   google_drive_folder_id: string
-  version_folder_id: string
+  areas_folder_id: string // ID of 02_Areas folder for creating area subfolders
 }
 
 /**
@@ -131,7 +131,7 @@ export async function createProjectWithDriveAction(
         id: projectId!,
         project_code: projectCode,
         google_drive_folder_id: driveResult.projectFolderId,
-        version_folder_id: '', // Deprecated - versioning is now at area level
+        areas_folder_id: driveResult.areasFolderId,
       },
     }
   } catch (error) {
@@ -318,5 +318,149 @@ export async function listVersionFilesAction(
   } catch (error) {
     console.error('List version files error:', error)
     return { success: false, error: 'Failed to list files' }
+  }
+}
+
+// ============================================================================
+// AREA FOLDER MANAGEMENT
+// ============================================================================
+
+/**
+ * Get the 02_Areas folder ID for a project
+ * Looks it up from the project's Drive folder if not cached
+ */
+export async function getProjectAreasFolderIdAction(
+  projectId: string
+): Promise<ActionResult<string>> {
+  try {
+    const sanitizedProjectId = validateProjectId(projectId)
+
+    // Get project's drive folder ID
+    const { data: project, error } = await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .select('google_drive_folder_id')
+      .eq('id', sanitizedProjectId)
+      .single()
+
+    if (error || !project?.google_drive_folder_id) {
+      return { success: false, error: 'Project not found or has no Drive folder' }
+    }
+
+    // Look up the 02_Areas folder
+    const driveService = getGoogleDriveProjectService()
+    const areasFolderId = await driveService.getAreasFolderId(project.google_drive_folder_id)
+
+    if (!areasFolderId) {
+      return { success: false, error: '02_Areas folder not found in project' }
+    }
+
+    return { success: true, data: areasFolderId }
+  } catch (error) {
+    console.error('Get areas folder ID error:', error)
+    return { success: false, error: 'Failed to get areas folder ID' }
+  }
+}
+
+export interface CreateAreaFolderResult {
+  areaFolderId: string
+  areaCode: string
+  versionFolderId: string // ID of the v1 folder
+}
+
+export interface CreateAreaVersionFolderResult {
+  versionFolderId: string
+  versionNumber: number
+}
+
+/**
+ * Create a folder for an area in the project's 02_Areas folder
+ * Creates: 02_Areas/{areaCode}/v1/[Working, Output]
+ */
+export async function createAreaFolderAction(
+  projectId: string,
+  areaCode: string
+): Promise<ActionResult<CreateAreaFolderResult>> {
+  try {
+    // First get the areas folder ID
+    const areasFolderResult = await getProjectAreasFolderIdAction(projectId)
+    if (!areasFolderResult.success || !areasFolderResult.data) {
+      return { success: false, error: areasFolderResult.error || 'Failed to get areas folder' }
+    }
+
+    // Create the area folder with v1 subfolder
+    const driveService = getGoogleDriveProjectService()
+    const result = await driveService.createAreaFolder(areasFolderResult.data, areaCode)
+
+    return {
+      success: true,
+      data: {
+        areaFolderId: result.areaFolderId,
+        areaCode: result.areaCode,
+        versionFolderId: result.versionFolderId,
+      },
+    }
+  } catch (error) {
+    console.error('Create area folder error:', error)
+    return { success: false, error: 'Failed to create area folder' }
+  }
+}
+
+/**
+ * Create a version folder inside an area folder
+ * Creates: {areaFolder}/v{N}/[Working, Output]
+ */
+export async function createAreaVersionFolderAction(
+  areaFolderId: string,
+  versionNumber: number
+): Promise<ActionResult<CreateAreaVersionFolderResult>> {
+  try {
+    const driveService = getGoogleDriveProjectService()
+    const result = await driveService.createAreaVersionFolder(areaFolderId, versionNumber)
+
+    return {
+      success: true,
+      data: {
+        versionFolderId: result.versionFolderId,
+        versionNumber: result.versionNumber,
+      },
+    }
+  } catch (error) {
+    console.error('Create area version folder error:', error)
+    return { success: false, error: 'Failed to create version folder' }
+  }
+}
+
+/**
+ * Delete a version folder from an area
+ */
+export async function deleteAreaVersionFolderAction(
+  versionFolderId: string
+): Promise<ActionResult> {
+  try {
+    const driveService = getGoogleDriveProjectService()
+    await driveService.deleteAreaVersionFolder(versionFolderId)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Delete area version folder error:', error)
+    return { success: false, error: 'Failed to delete version folder' }
+  }
+}
+
+/**
+ * Delete an area folder from Google Drive
+ */
+export async function deleteAreaFolderAction(
+  areaFolderId: string
+): Promise<ActionResult> {
+  try {
+    const driveService = getGoogleDriveProjectService()
+    await driveService.deleteAreaFolder(areaFolderId)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Delete area folder error:', error)
+    return { success: false, error: 'Failed to delete area folder' }
   }
 }
