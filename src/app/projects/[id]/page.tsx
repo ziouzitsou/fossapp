@@ -19,6 +19,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ProjectFormSheet, DeleteProjectDialog, ProjectAreasCard } from '@/components/projects'
+import { useActiveProject } from '@/lib/active-project-context'
 import { ArrowLeft, Plus, Minus, Trash2, ChevronDown, ChevronRight, Layers } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
@@ -31,6 +32,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const resolvedParams = use(params)
   const router = useRouter()
   const { data: session, status } = useDevSession()
+  const { isActive, setActiveProject } = useActiveProject()
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -139,6 +141,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   }
 
   const handleDeleteSuccess = () => {
+    // Clear active project if the deleted one was active
+    if (isActive(resolvedParams.id)) {
+      setActiveProject(null)
+    }
     router.push('/projects')
   }
 
