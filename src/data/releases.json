@@ -3,6 +3,18 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.10.5",
+      "date": "2025-12-21",
+      "title": "Enhanced Reliability",
+      "description": "Improved Google Drive integration with automatic retry logic for better stability.",
+      "features": [
+        "Automatic retry logic for Google Drive API - handles temporary failures gracefully",
+        "Configurable credentials path for flexible deployment configurations",
+        "More resilient file operations with exponential backoff"
+      ],
+      "tagline": "More reliable, fewer interruptions."
+    },
+    {
       "version": "1.10.2",
       "date": "2025-12-16",
       "title": "Rotating Hint Bar",
