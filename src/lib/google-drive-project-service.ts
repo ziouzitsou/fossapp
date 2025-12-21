@@ -142,7 +142,9 @@ class GoogleDriveProjectService {
     this.archiveFolderId = getEnvVar('GOOGLE_DRIVE_ARCHIVE_FOLDER_ID')
 
     // Load service account credentials
-    const credentialsPath = path.join(process.cwd(), 'credentials', 'google-service-account.json')
+    // Priority: GOOGLE_SERVICE_ACCOUNT_PATH env var > default path
+    const credentialsPath = process.env.GOOGLE_SERVICE_ACCOUNT_PATH ||
+      path.join(process.cwd(), 'credentials', 'google-service-account.json')
 
     if (!fs.existsSync(credentialsPath)) {
       throw new Error(`Service account credentials not found at: ${credentialsPath}`)
@@ -156,6 +158,46 @@ class GoogleDriveProjectService {
     })
 
     this.drive = google.drive({ version: 'v3', auth })
+  }
+
+  /**
+   * Execute an async function with exponential backoff retry
+   * Retries on rate limit (403/429) and server errors (5xx)
+   */
+  private async withRetry<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    operation = 'Drive API call'
+  ): Promise<T> {
+    let lastError: unknown
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn()
+      } catch (error: unknown) {
+        lastError = error
+        const err = error as { code?: number; message?: string }
+
+        // Retry on rate limit (403/429) or server errors (5xx)
+        const isRetryable = err.code === 403 || err.code === 429 ||
+          (err.code && err.code >= 500 && err.code < 600)
+
+        if (isRetryable && attempt < maxRetries) {
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000)
+          console.warn(
+            `${operation} failed (attempt ${attempt}/${maxRetries}), retrying in ${backoffMs}ms:`,
+            err.message
+          )
+          await new Promise(resolve => setTimeout(resolve, backoffMs))
+          continue
+        }
+
+        // Don't retry on other errors or max retries reached
+        throw error
+      }
+    }
+
+    throw lastError
   }
 
   /**
@@ -231,27 +273,35 @@ class GoogleDriveProjectService {
   }
 
   /**
-   * Delete a version folder from an area
+   * Delete a version folder from an area (with retry)
    *
    * @param versionFolderId - Version folder ID to delete
    */
   async deleteAreaVersionFolder(versionFolderId: string): Promise<void> {
-    await this.drive.files.delete({
-      fileId: versionFolderId,
-      supportsAllDrives: true,
-    })
+    await this.withRetry(
+      () => this.drive.files.delete({
+        fileId: versionFolderId,
+        supportsAllDrives: true,
+      }),
+      3,
+      'Delete area version folder'
+    )
   }
 
   /**
-   * Delete an area folder
+   * Delete an area folder (with retry)
    *
    * @param areaFolderId - Area folder ID to delete
    */
   async deleteAreaFolder(areaFolderId: string): Promise<void> {
-    await this.drive.files.delete({
-      fileId: areaFolderId,
-      supportsAllDrives: true,
-    })
+    await this.withRetry(
+      () => this.drive.files.delete({
+        fileId: areaFolderId,
+        supportsAllDrives: true,
+      }),
+      3,
+      'Delete area folder'
+    )
   }
 
   /**
@@ -296,51 +346,65 @@ class GoogleDriveProjectService {
   }
 
   /**
-   * Archive a project by moving it to the Archive folder
+   * Archive a project by moving it to the Archive folder (with retry)
    *
    * @param projectFolderId - Project folder ID to archive
    */
   async archiveProject(projectFolderId: string): Promise<void> {
-    // Get current parents
-    const file = await this.drive.files.get({
-      fileId: projectFolderId,
-      fields: 'parents',
-      supportsAllDrives: true,
-    })
+    await this.withRetry(
+      async () => {
+        // Get current parents
+        const file = await this.drive.files.get({
+          fileId: projectFolderId,
+          fields: 'parents',
+          supportsAllDrives: true,
+        })
 
-    const previousParents = file.data.parents?.join(',') || ''
+        const previousParents = file.data.parents?.join(',') || ''
 
-    // Move to Archive folder
-    await this.drive.files.update({
-      fileId: projectFolderId,
-      addParents: this.archiveFolderId,
-      removeParents: previousParents,
-      supportsAllDrives: true,
-    })
+        // Move to Archive folder
+        await this.drive.files.update({
+          fileId: projectFolderId,
+          addParents: this.archiveFolderId,
+          removeParents: previousParents,
+          supportsAllDrives: true,
+        })
+      },
+      3,
+      'Archive project'
+    )
   }
 
   /**
-   * Delete a version folder
+   * Delete a version folder (with retry)
    *
    * @param versionFolderId - Version folder ID to delete
    */
   async deleteVersion(versionFolderId: string): Promise<void> {
-    await this.drive.files.delete({
-      fileId: versionFolderId,
-      supportsAllDrives: true,
-    })
+    await this.withRetry(
+      () => this.drive.files.delete({
+        fileId: versionFolderId,
+        supportsAllDrives: true,
+      }),
+      3,
+      'Delete version folder'
+    )
   }
 
   /**
-   * Delete a project folder and all its contents
+   * Delete a project folder and all its contents (with retry)
    *
    * @param projectFolderId - Project folder ID to delete
    */
   async deleteProject(projectFolderId: string): Promise<void> {
-    await this.drive.files.delete({
-      fileId: projectFolderId,
-      supportsAllDrives: true,
-    })
+    await this.withRetry(
+      () => this.drive.files.delete({
+        fileId: projectFolderId,
+        supportsAllDrives: true,
+      }),
+      3,
+      'Delete project folder'
+    )
   }
 
   /**
@@ -411,23 +475,28 @@ class GoogleDriveProjectService {
   // ─────────────────────────────────────────────────────────────
 
   /**
-   * Create a folder in Google Drive
+   * Create a folder in Google Drive (with retry on rate limit/server errors)
    */
   private async createFolder(
     name: string,
     parentId: string
   ): Promise<drive_v3.Schema$File> {
-    const response = await this.drive.files.create({
-      requestBody: {
-        name,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentId],
+    return this.withRetry(
+      async () => {
+        const response = await this.drive.files.create({
+          requestBody: {
+            name,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parentId],
+          },
+          supportsAllDrives: true,
+          fields: 'id, name',
+        })
+        return response.data
       },
-      supportsAllDrives: true,
-      fields: 'id, name',
-    })
-
-    return response.data
+      3,
+      `Create folder "${name}"`
+    )
   }
 
   /**
