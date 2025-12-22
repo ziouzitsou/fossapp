@@ -95,6 +95,50 @@ export default function PlannerPage() {
           if (options.length > 0 && !selectedAreaVersion) {
             setSelectedAreaVersion(options[0])
           }
+
+          // Check for stale "inprogress" translations and update their status
+          const inProgressAreas = options.filter(av => av.floorPlanStatus === 'inprogress')
+          if (inProgressAreas.length > 0) {
+            // Check each inprogress area's manifest (in parallel)
+            const manifestUpdates = await Promise.all(
+              inProgressAreas.map(async (area) => {
+                try {
+                  const res = await fetch(`/api/planner/manifest?areaVersionId=${area.versionId}`)
+                  if (res.ok) {
+                    const manifest = await res.json()
+                    if (manifest.status === 'success' || manifest.status === 'failed') {
+                      return {
+                        versionId: area.versionId,
+                        status: manifest.status,
+                        warnings: manifest.warningCount || 0
+                      }
+                    }
+                  }
+                } catch (err) {
+                  console.error(`Failed to check manifest for ${area.areaCode}:`, err)
+                }
+                return null
+              })
+            )
+
+            // Update local state with any completed translations
+            const completedUpdates = manifestUpdates.filter(Boolean)
+            if (completedUpdates.length > 0) {
+              setAreaVersions(prev =>
+                prev.map(av => {
+                  const update = completedUpdates.find(u => u?.versionId === av.versionId)
+                  if (update) {
+                    return {
+                      ...av,
+                      floorPlanStatus: update.status,
+                      floorPlanWarnings: update.warnings
+                    }
+                  }
+                  return av
+                })
+              )
+            }
+          }
         } else {
           setAreaVersions([])
           setSelectedAreaVersion(null)
