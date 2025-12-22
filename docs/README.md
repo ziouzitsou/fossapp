@@ -83,6 +83,7 @@ Development workflows and tasks.
 
 | Document | Description |
 |----------|-------------|
+| [roadmap.md](./development/roadmap.md) | **Planned improvements, tech debt, feature backlog** |
 | [tasks.md](./development/tasks.md) | Common development tasks |
 | [autolisp-reference.md](./development/autolisp-reference.md) | AutoLISP patterns for DWG generation (DWGUNITS, entmake, APS) |
 
@@ -101,4 +102,4 @@ Historical and completed migration docs.
 
 ---
 
-**Last Updated**: 2025-12-14
+**Last Updated**: 2025-12-22
