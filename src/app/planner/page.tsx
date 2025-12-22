@@ -551,8 +551,8 @@ export default function PlannerPage() {
                                   <p className="text-sm font-medium truncate">
                                     {area.floorPlanFilename || 'Floor Plan'}
                                   </p>
-                                  {/* Warning badge - clickable to show details */}
-                                  {area.floorPlanWarnings && area.floorPlanWarnings > 0 && (
+                                  {/* Warning badge - clickable to show details (only when warnings > 0) */}
+                                  {(area.floorPlanWarnings ?? 0) > 0 && (
                                     <TooltipProvider>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
@@ -565,7 +565,7 @@ export default function PlannerPage() {
                                           </button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                          <p>Click to view {area.floorPlanWarnings} warning{area.floorPlanWarnings > 1 ? 's' : ''}</p>
+                                          <p>Click to view {area.floorPlanWarnings} warning{area.floorPlanWarnings! > 1 ? 's' : ''}</p>
                                         </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>

@@ -79,34 +79,6 @@ let scriptsLoaded = false
 let scriptsLoading = false
 const loadCallbacks: Array<() => void> = []
 
-// Helper to convert screen coordinates to world coordinates using visible bounds
-function getWorldCoordsFromScreen(
-  viewer: Viewer3DInstance,
-  container: HTMLElement,
-  clientX: number,
-  clientY: number
-): { x: number; y: number } | null {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const impl = (viewer as any).impl
-  const visibleBounds = impl?.getVisibleBounds?.()
-  if (!visibleBounds) return null
-
-  const rect = container.getBoundingClientRect()
-  const screenX = clientX - rect.left
-  const screenY = clientY - rect.top
-
-  const visWidth = visibleBounds.max.x - visibleBounds.min.x
-  const visHeight = visibleBounds.max.y - visibleBounds.min.y
-
-  // Convert screen coords to world coords
-  // Screen X: 0 -> width maps to visMinX -> visMaxX
-  // Screen Y: 0 -> height maps to visMaxY -> visMinY (Y is flipped)
-  const worldX = visibleBounds.min.x + (screenX / rect.width) * visWidth
-  const worldY = visibleBounds.max.y - (screenY / rect.height) * visHeight
-
-  return { x: worldX, y: worldY }
-}
-
 function loadAutodeskScripts(): Promise<void> {
   return new Promise((resolve) => {
     if (scriptsLoaded) {
@@ -202,8 +174,6 @@ export function PlannerViewer({
   const [measureMode, setMeasureMode] = useState<'none' | 'distance' | 'area'>('none')
   const [hasMeasurement, setHasMeasurement] = useState(false)
   const [hasSelectedMarker, setHasSelectedMarker] = useState(false)
-  const [mouseWorldCoords, setMouseWorldCoords] = useState<{ x: number; y: number } | null>(null)
-  const [snapCoords, setSnapCoords] = useState<{ x: number; y: number; isSnapped: boolean } | null>(null)
 
   // Get viewer token from API
   const getAccessToken = useCallback(async (): Promise<{ access_token: string; expires_in: number }> => {
@@ -623,47 +593,6 @@ export function PlannerViewer({
     return () => container.removeEventListener('wheel', preventScroll)
   }, [])
 
-  // Track mouse position and convert to world coordinates
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container || isLoading) return
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const viewer = viewerRef.current
-      if (!viewer) {
-        setMouseWorldCoords(null)
-        return
-      }
-
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const impl = (viewer as any).impl
-        if (impl?.intersectGround) {
-          const worldPos = impl.intersectGround(e.clientX, e.clientY)
-          if (worldPos) {
-            setMouseWorldCoords({ x: worldPos.x, y: worldPos.y })
-          } else {
-            setMouseWorldCoords(null)
-          }
-        }
-      } catch {
-        setMouseWorldCoords(null)
-      }
-    }
-
-    const handleMouseLeave = () => {
-      setMouseWorldCoords(null)
-    }
-
-    container.addEventListener('mousemove', handleMouseMove)
-    container.addEventListener('mouseleave', handleMouseLeave)
-
-    return () => {
-      container.removeEventListener('mousemove', handleMouseMove)
-      container.removeEventListener('mouseleave', handleMouseLeave)
-    }
-  }, [isLoading])
-
   // ESC key to exit placement mode
   useEffect(() => {
     if (!placementMode) return
@@ -689,31 +618,6 @@ export function PlannerViewer({
       viewer.toolController.deactivateTool('placement-tool')
     }
   }, [placementMode])
-
-  // Track mouse position for snap coordinates display
-  useEffect(() => {
-    if (!placementMode || isLoading) return
-
-    const container = containerRef.current
-    if (!container) return
-
-    const handleMouseMove = (e: MouseEvent) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const viewer = (window as any).NOP_VIEWER as Viewer3DInstance
-      if (!viewer) return
-
-      const coords = getWorldCoordsFromScreen(viewer, container, e.clientX, e.clientY)
-      if (coords) {
-        setSnapCoords({ ...coords, isSnapped: false })
-      }
-    }
-
-    container.addEventListener('mousemove', handleMouseMove)
-    return () => {
-      container.removeEventListener('mousemove', handleMouseMove)
-      setSnapCoords(null)
-    }
-  }, [placementMode, isLoading])
 
   // Toolbar actions
   const handleFitToView = useCallback(() => {
@@ -955,26 +859,6 @@ export function PlannerViewer({
               <TooltipContent>Fit to View</TooltipContent>
             </Tooltip>
 
-            {/* Coordinate Display */}
-            <div className="w-px h-6 bg-border mx-1" />
-            <div className="text-xs font-mono text-muted-foreground min-w-[160px]">
-              {placementMode && snapCoords ? (
-                <span>
-                  X: <span className={snapCoords.isSnapped ? 'text-primary' : 'text-foreground'}>{snapCoords.x.toFixed(2)}</span>
-                  {' '}
-                  Y: <span className={snapCoords.isSnapped ? 'text-primary' : 'text-foreground'}>{snapCoords.y.toFixed(2)}</span>
-                  {snapCoords.isSnapped && <span className="text-primary ml-1">⊙</span>}
-                </span>
-              ) : mouseWorldCoords ? (
-                <span>
-                  X: <span className="text-foreground">{mouseWorldCoords.x.toFixed(2)}</span>
-                  {' '}
-                  Y: <span className="text-foreground">{mouseWorldCoords.y.toFixed(2)}</span>
-                </span>
-              ) : (
-                <span className="text-muted-foreground/50">X: --- Y: ---</span>
-              )}
-            </div>
           </div>
         </div>
       )}
