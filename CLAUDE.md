@@ -151,6 +151,7 @@ See [docs/README.md](./docs/README.md) for complete index.
 | **Deployment** | [checklist](./docs/deployment/checklist.md), [docker](./docs/deployment/docker.md), [vps](./docs/deployment/vps.md) |
 | **Features** | [tiles](./docs/features/tiles.md), [symbols](./docs/features/symbol-generator.md), [playground](./docs/features/playground.md), [filters](./docs/features/filters.md), [pwa](./docs/features/pwa.md), [whats-new](./docs/features/whats-new.md) |
 | **Security** | [auditing](./docs/security/auditing.md), [gemini-auditor](./docs/security/gemini-auditor.md) |
+| **Development** | [roadmap](./docs/development/roadmap.md), [tasks](./docs/development/tasks.md) |
 
 ---
 
@@ -169,4 +170,4 @@ See [docs/deployment/checklist.md](./docs/deployment/checklist.md) for full work
 
 ---
 
-**Last Updated**: 2025-12-13
+**Last Updated**: 2025-12-22
