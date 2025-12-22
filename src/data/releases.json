@@ -3,6 +3,19 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.10.6",
+      "date": "2025-12-22",
+      "title": "Smart Area Selection",
+      "description": "Choose which area to add products to directly from global search.",
+      "features": [
+        "Area selection popover when adding products from global search",
+        "Auto-add to single area when project has only one area",
+        "Smart error handling guides you to create areas if none exist",
+        "Improved prefix matching for more accurate search results"
+      ],
+      "tagline": "Add products exactly where you need them."
+    },
+    {
       "version": "1.10.5",
       "date": "2025-12-21",
       "title": "Enhanced Reliability",
