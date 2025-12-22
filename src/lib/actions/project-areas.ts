@@ -557,12 +557,12 @@ export async function createAreaVersionAction(
       }
     }
 
-    // If copy_from_version is specified, copy products
+    // If copy_from_version is specified, copy products and floor plan
     if (input.copy_from_version) {
       const { data: sourceVersion } = await supabaseServer
         .schema('projects')
         .from('project_area_versions')
-        .select('id')
+        .select('id, floor_plan_urn, floor_plan_filename, floor_plan_hash')
         .eq('area_id', input.area_id)
         .eq('version_number', input.copy_from_version)
         .single()
@@ -594,6 +594,69 @@ export async function createAreaVersionAction(
             .schema('projects')
             .from('project_products')
             .insert(newProducts)
+        }
+
+        // Copy floor plan if source version has one
+        if (sourceVersion.floor_plan_urn && sourceVersion.floor_plan_filename) {
+          try {
+            // Get project's OSS bucket
+            const { data: areaWithProject } = await supabaseServer
+              .schema('projects')
+              .from('project_areas')
+              .select('project_id, projects!inner(oss_bucket)')
+              .eq('id', input.area_id)
+              .single()
+
+            const projectData = areaWithProject?.projects as unknown as { oss_bucket: string | null } | null
+            const bucketName = projectData?.oss_bucket
+
+            if (bucketName) {
+              // Import APS service functions
+              const {
+                generateObjectKey,
+                copyFloorPlanInBucket,
+                translateToSVF2
+              } = await import('../planner/aps-planner-service')
+
+              // Build source and target object keys
+              const sourceObjectKey = generateObjectKey(
+                input.area_id,
+                sourceVersion.id,
+                sourceVersion.floor_plan_filename
+              )
+              const targetObjectKey = generateObjectKey(
+                input.area_id,
+                newVersion.id,
+                sourceVersion.floor_plan_filename
+              )
+
+              // Copy the DWG file in OSS bucket
+              const { urn: newUrn } = await copyFloorPlanInBucket(
+                bucketName,
+                sourceObjectKey,
+                targetObjectKey
+              )
+
+              // Start translation for the copied file
+              await translateToSVF2(newUrn)
+
+              // Update new version with floor plan info
+              await supabaseServer
+                .schema('projects')
+                .from('project_area_versions')
+                .update({
+                  floor_plan_urn: newUrn,
+                  floor_plan_filename: sourceVersion.floor_plan_filename,
+                  floor_plan_hash: sourceVersion.floor_plan_hash
+                })
+                .eq('id', newVersion.id)
+
+              console.log(`[Areas] Copied floor plan to new version ${newVersionNumber}`)
+            }
+          } catch (floorPlanError) {
+            // Log but don't fail - floor plan copy is optional
+            console.warn('Failed to copy floor plan to new version:', floorPlanError)
+          }
         }
       }
     }
@@ -839,6 +902,100 @@ export async function getProjectAreasForDropdownAction(
     return { success: true, data: dropdownItems }
   } catch (error) {
     console.error('Get areas for dropdown error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// ============================================================================
+// LIST AREA VERSION PRODUCTS
+// ============================================================================
+
+export interface AreaVersionProduct {
+  id: string
+  product_id: string
+  foss_pid: string
+  description_short: string
+  quantity: number
+  unit_price?: number
+  discount_percent?: number
+  total_price?: number
+  room_location?: string
+  mounting_height?: number
+  status: string
+  notes?: string
+}
+
+/**
+ * Get products for a specific area version
+ * Used by Planner to display available products for placement
+ */
+export async function listAreaVersionProductsAction(
+  areaVersionId: string
+): Promise<ActionResult<AreaVersionProduct[]>> {
+  try {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(areaVersionId)) {
+      return { success: false, error: 'Invalid area version ID format' }
+    }
+
+    const { data: products, error } = await supabaseServer
+      .schema('projects')
+      .from('project_products')
+      .select(`
+        id,
+        product_id,
+        quantity,
+        unit_price,
+        discount_percent,
+        room_location,
+        mounting_height,
+        status,
+        notes,
+        items:product_id (
+          foss_pid,
+          description_short
+        )
+      `)
+      .eq('area_version_id', areaVersionId)
+      .order('created_at')
+
+    if (error) {
+      console.error('List area version products error:', error)
+      return { success: false, error: 'Failed to fetch products' }
+    }
+
+    if (!products || products.length === 0) {
+      return { success: true, data: [] }
+    }
+
+    // Map to AreaVersionProduct format
+    const mappedProducts: AreaVersionProduct[] = products.map(p => {
+      const item = p.items as unknown as { foss_pid: string; description_short: string } | null
+      const unitPrice = p.unit_price || 0
+      const quantity = p.quantity || 0
+      const discount = p.discount_percent || 0
+      const totalPrice = unitPrice * quantity * (1 - discount / 100)
+
+      return {
+        id: p.id,
+        product_id: p.product_id,
+        foss_pid: item?.foss_pid || 'Unknown',
+        description_short: item?.description_short || 'Unknown Product',
+        quantity: p.quantity,
+        unit_price: p.unit_price ?? undefined,
+        discount_percent: p.discount_percent ?? undefined,
+        total_price: totalPrice > 0 ? totalPrice : undefined,
+        room_location: p.room_location ?? undefined,
+        mounting_height: p.mounting_height ?? undefined,
+        status: p.status || 'active',
+        notes: p.notes ?? undefined
+      }
+    })
+
+    return { success: true, data: mappedProducts }
+  } catch (error) {
+    console.error('List area version products error:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }

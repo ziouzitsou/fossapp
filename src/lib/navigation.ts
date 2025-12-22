@@ -14,6 +14,7 @@ export interface NavigationItem {
   icon: IconType
   href: string
   current: boolean
+  badge?: string // Optional badge text (e.g., "Beta", "New")
 }
 
 /**
@@ -30,7 +31,7 @@ export function getNavigation(currentPath: string): NavigationItem[] {
     { name: 'Tiles', icon: MdGridView, href: '/tiles' },
     { name: 'Symbols', icon: MdAutoAwesome, href: '/symbol-generator' },
     { name: 'Playground', icon: MdCode, href: '/playground' },
-    { name: 'Planner', icon: MdEventNote, href: '/planner' },
+    { name: 'Planner', icon: MdEventNote, href: '/planner', badge: 'Beta' },
   ]
 
   return allItems.map(item => ({
@@ -51,5 +52,5 @@ export const navigationItems = [
   { name: 'Tiles', icon: MdGridView, href: '/tiles' },
   { name: 'Symbols', icon: MdAutoAwesome, href: '/symbol-generator' },
   { name: 'Playground', icon: MdCode, href: '/playground' },
-  { name: 'Planner', icon: MdEventNote, href: '/planner' },
+  { name: 'Planner', icon: MdEventNote, href: '/planner', badge: 'Beta' },
 ] as const

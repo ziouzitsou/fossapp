@@ -18,12 +18,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import type { ProjectProduct } from '@/lib/actions/projects'
+import type { AreaVersionProduct } from '@/lib/actions/project-areas'
 import type { Placement, PlacementModeProduct } from './types'
 
 interface ProductsPanelProps {
-  /** Products from the active project */
-  products: ProjectProduct[]
+  /** Products from the selected area version */
+  products: AreaVersionProduct[]
   /** Current placements (to show placed count) */
   placements: Placement[]
   /** Currently selected product for placement */
@@ -41,7 +41,7 @@ interface ProductsPanelProps {
 }
 
 interface ProductCardProps {
-  product: ProjectProduct
+  product: AreaVersionProduct
   placedCount: number
   isSelected: boolean
   onSelect: () => void
@@ -125,7 +125,7 @@ export function ProductsPanel({
 
   // Group products by room_location (if available)
   const groupedProducts = useMemo(() => {
-    const groups = new Map<string, ProjectProduct[]>()
+    const groups = new Map<string, AreaVersionProduct[]>()
 
     for (const product of products) {
       const location = product.room_location || 'Unassigned'
@@ -138,7 +138,7 @@ export function ProductsPanel({
   }, [products])
 
   // Handler for clicking a product
-  const handleProductClick = (product: ProjectProduct) => {
+  const handleProductClick = (product: AreaVersionProduct) => {
     // If same product clicked, toggle off
     if (placementMode?.projectProductId === product.id) {
       onExitPlacementMode()
@@ -156,9 +156,9 @@ export function ProductsPanel({
     return (
       <div className={cn('p-4 text-center text-muted-foreground', className)}>
         <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">No products in project</p>
+        <p className="text-sm">No products in area</p>
         <p className="text-xs mt-1">
-          Add products to your project to place them on the floor plan
+          Add products to this area version to place them on the floor plan
         </p>
       </div>
     )

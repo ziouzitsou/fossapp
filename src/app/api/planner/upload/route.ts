@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prepareFloorPlan, generateBucketName } from '@/lib/planner/aps-planner-service'
+import {
+  generateObjectKey,
+  generateBucketName,
+  uploadFloorPlan,
+  translateToSVF2,
+  calculateFileHash
+} from '@/lib/planner/aps-planner-service'
 import { supabaseServer } from '@/lib/supabase-server'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
 
 /**
- * Check if floor plan with this hash already exists
+ * Check if floor plan with this hash already exists in any area version
+ * Returns existing URN if found (cache hit)
  */
 async function checkFloorPlanCache(hash: string): Promise<string | null> {
   const { data, error } = await supabaseServer
     .schema('projects')
-    .from('projects')
+    .from('project_area_versions')
     .select('floor_plan_urn')
     .eq('floor_plan_hash', hash)
     .not('floor_plan_urn', 'is', null)
@@ -28,18 +35,20 @@ async function checkFloorPlanCache(hash: string): Promise<string | null> {
 /**
  * POST /api/planner/upload
  *
- * Upload floor plan DWG for a project with persistent storage and caching.
+ * Upload floor plan DWG for an area version with persistent storage and caching.
  *
  * Body: FormData with:
  *   - 'file': DWG file
- *   - 'projectId': Project UUID
+ *   - 'projectId': Project UUID (for bucket reference)
+ *   - 'areaVersionId': Area version UUID
  *
- * Returns: { urn: string, isNewUpload: boolean, bucketName: string }
+ * Returns: { urn: string, isNewUpload: boolean, bucketName: string, fileName: string }
  *
  * Features:
  *   - SHA256 hash caching (same file = instant URN return)
  *   - Persistent OSS bucket per project
- *   - Database storage of URN for future sessions
+ *   - Structured object keys: {areaId}/{versionId}/{filename}
+ *   - Database storage of URN in project_area_versions table
  */
 export async function POST(request: NextRequest) {
   // Security: Require authentication
@@ -64,6 +73,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const projectId = formData.get('projectId') as string | null
+    const areaVersionId = formData.get('areaVersionId') as string | null
 
     // Validate inputs
     if (!file) {
@@ -80,11 +90,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate project ID format
+    if (!areaVersionId) {
+      return NextResponse.json(
+        { error: 'No areaVersionId provided' },
+        { status: 400 }
+      )
+    }
+
+    // Validate UUID formats
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(projectId)) {
       return NextResponse.json(
         { error: 'Invalid project ID format' },
+        { status: 400 }
+      )
+    }
+    if (!uuidRegex.test(areaVersionId)) {
+      return NextResponse.json(
+        { error: 'Invalid area version ID format' },
         { status: 400 }
       )
     }
@@ -98,18 +121,52 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify project exists
-    const { data: project, error: projectError } = await supabaseServer
+    // Verify area version exists and get area_id + project's oss_bucket
+    const { data: areaVersion, error: avError } = await supabaseServer
       .schema('projects')
-      .from('projects')
-      .select('id')
-      .eq('id', projectId)
+      .from('project_area_versions')
+      .select(`
+        id,
+        area_id,
+        project_areas!inner(
+          id,
+          project_id,
+          projects!inner(
+            id,
+            oss_bucket
+          )
+        )
+      `)
+      .eq('id', areaVersionId)
       .single()
 
-    if (projectError || !project) {
+    if (avError || !areaVersion) {
       return NextResponse.json(
-        { error: 'Project not found' },
+        { error: 'Area version not found' },
         { status: 404 }
+      )
+    }
+
+    // Type assertion for nested data (Supabase returns object for !inner join with single())
+    const projectAreas = areaVersion.project_areas as unknown as {
+      id: string
+      project_id: string
+      projects: { id: string; oss_bucket: string | null }
+    }
+
+    // Verify the area version belongs to the specified project
+    if (projectAreas.project_id !== projectId) {
+      return NextResponse.json(
+        { error: 'Area version does not belong to the specified project' },
+        { status: 400 }
+      )
+    }
+
+    const bucketName = projectAreas.projects.oss_bucket
+    if (!bucketName) {
+      return NextResponse.json(
+        { error: 'Project does not have an OSS bucket configured' },
+        { status: 400 }
       )
     }
 
@@ -123,28 +180,61 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    console.log(`[Planner API] Processing ${sanitizedFileName} (${(buffer.length / 1024 / 1024).toFixed(2)} MB) for project ${projectId}`)
+    console.log(`[Planner API] Processing ${sanitizedFileName} (${(buffer.length / 1024 / 1024).toFixed(2)} MB) for area version ${areaVersionId}`)
 
-    // Prepare floor plan with caching
-    const result = await prepareFloorPlan(
-      projectId,
-      sanitizedFileName,
-      buffer,
-      checkFloorPlanCache
-    )
+    // Calculate file hash for caching
+    const fileHash = calculateFileHash(buffer)
+    console.log(`[Planner API] File hash: ${fileHash.substring(0, 16)}...`)
 
-    // Save to database
+    // Check cache - if same file exists anywhere, reuse its URN
+    const cachedUrn = await checkFloorPlanCache(fileHash)
+    if (cachedUrn) {
+      console.log(`[Planner API] Cache hit! Using existing URN`)
+
+      // Save to area version (reusing existing URN)
+      const { error: updateError } = await supabaseServer
+        .schema('projects')
+        .from('project_area_versions')
+        .update({
+          floor_plan_urn: cachedUrn,
+          floor_plan_filename: sanitizedFileName,
+          floor_plan_hash: fileHash
+        })
+        .eq('id', areaVersionId)
+
+      if (updateError) {
+        console.error('[Planner API] Database update error:', updateError)
+        return NextResponse.json(
+          { error: 'Failed to save floor plan info' },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        urn: cachedUrn,
+        isNewUpload: false,
+        bucketName,
+        fileName: sanitizedFileName
+      })
+    }
+
+    // No cache hit - upload new file with structured object key
+    const objectKey = generateObjectKey(areaVersion.area_id, areaVersionId, sanitizedFileName)
+    const { urn } = await uploadFloorPlan(bucketName, objectKey, buffer)
+
+    // Start translation
+    await translateToSVF2(urn)
+
+    // Save to area version
     const { error: updateError } = await supabaseServer
       .schema('projects')
-      .from('projects')
+      .from('project_area_versions')
       .update({
-        floor_plan_urn: result.urn,
+        floor_plan_urn: urn,
         floor_plan_filename: sanitizedFileName,
-        floor_plan_hash: result.fileHash,
-        oss_bucket: result.bucketName,
-        updated_at: new Date().toISOString()
+        floor_plan_hash: fileHash
       })
-      .eq('id', projectId)
+      .eq('id', areaVersionId)
 
     if (updateError) {
       console.error('[Planner API] Database update error:', updateError)
@@ -154,12 +244,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[Planner API] Floor plan saved. Cache hit: ${!result.isNewUpload}`)
+    console.log(`[Planner API] Floor plan saved for area version ${areaVersionId}`)
 
     return NextResponse.json({
-      urn: result.urn,
-      isNewUpload: result.isNewUpload,
-      bucketName: result.bucketName,
+      urn,
+      isNewUpload: true,
+      bucketName,
       fileName: sanitizedFileName
     })
   } catch (error) {
@@ -172,9 +262,9 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/planner/upload?projectId={uuid}
+ * GET /api/planner/upload?areaVersionId={uuid}
  *
- * Get existing floor plan info for a project
+ * Get existing floor plan info for an area version
  */
 export async function GET(request: NextRequest) {
   // Security: Require authentication
@@ -187,11 +277,11 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url)
-  const projectId = searchParams.get('projectId')
+  const areaVersionId = searchParams.get('areaVersionId')
 
-  if (!projectId) {
+  if (!areaVersionId) {
     return NextResponse.json(
-      { error: 'No projectId provided' },
+      { error: 'No areaVersionId provided' },
       { status: 400 }
     )
   }
@@ -199,21 +289,39 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await supabaseServer
       .schema('projects')
-      .from('projects')
-      .select('floor_plan_urn, floor_plan_filename, floor_plan_hash, oss_bucket')
-      .eq('id', projectId)
+      .from('project_area_versions')
+      .select(`
+        floor_plan_urn,
+        floor_plan_filename,
+        floor_plan_hash,
+        area_id,
+        project_areas!inner(
+          project_id,
+          projects!inner(
+            oss_bucket
+          )
+        )
+      `)
+      .eq('id', areaVersionId)
       .single()
 
     if (error) {
       return NextResponse.json(
-        { error: 'Project not found' },
+        { error: 'Area version not found' },
         { status: 404 }
       )
     }
 
+    // Type assertion for nested data (Supabase returns object for !inner join with single())
+    const projectAreas = data.project_areas as unknown as {
+      project_id: string
+      projects: { oss_bucket: string | null }
+    }
+
     if (!data.floor_plan_urn) {
       return NextResponse.json({
-        hasFloorPlan: false
+        hasFloorPlan: false,
+        bucketName: projectAreas.projects.oss_bucket || generateBucketName(projectAreas.project_id)
       })
     }
 
@@ -221,7 +329,7 @@ export async function GET(request: NextRequest) {
       hasFloorPlan: true,
       urn: data.floor_plan_urn,
       fileName: data.floor_plan_filename,
-      bucketName: data.oss_bucket || generateBucketName(projectId)
+      bucketName: projectAreas.projects.oss_bucket || generateBucketName(projectAreas.project_id)
     })
   } catch (error) {
     console.error('[Planner API] Get floor plan error:', error)

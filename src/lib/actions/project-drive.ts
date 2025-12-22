@@ -36,7 +36,7 @@ export interface CreateProjectWithDriveResult {
  * 2. Create project in database
  * 3. Create folder structure in Google Drive
  * 4. Update project with Drive folder ID
- * 5. Create v1 record in project_versions
+ * 5. Create OSS bucket for floor plans (Planner feature)
  */
 export async function createProjectWithDriveAction(
   input: CreateProjectWithDriveInput
@@ -120,6 +120,28 @@ export async function createProjectWithDriveAction(
     if (updateError) {
       console.error('Update project drive folder error:', updateError)
       // Continue anyway - folder was created
+    }
+
+    // 5. Create OSS bucket for floor plans (Planner feature)
+    // Bucket is created upfront since all projects will use Planner
+    try {
+      const { ensureProjectBucketExists } = await import('../planner/aps-planner-service')
+      const bucketName = await ensureProjectBucketExists(projectId!)
+
+      // Update project with bucket name
+      await supabaseServer
+        .schema('projects')
+        .from('projects')
+        .update({
+          oss_bucket: bucketName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', projectId!)
+
+      console.log(`[Project] OSS bucket created: ${bucketName}`)
+    } catch (ossError) {
+      console.error('Create OSS bucket error:', ossError)
+      // Non-fatal - bucket can be created on first upload if this fails
     }
 
     // Note: Project versioning removed. Version folders are now managed at area level.

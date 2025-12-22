@@ -6,11 +6,12 @@ import { useActiveProject } from '@/lib/active-project-context'
 import { PlannerViewer, ProductsPanel } from '@/components/planner'
 import type { Viewer3DInstance, Placement, PlacementModeProduct } from '@/components/planner'
 
-import { Upload, FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2 } from 'lucide-react'
+import { Upload, FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
-import { getProjectByIdAction, type ProjectProduct } from '@/lib/actions/projects'
+import { listProjectAreasAction, listAreaVersionProductsAction, type AreaVersionProduct } from '@/lib/actions/project-areas'
 
 // Type for existing DWG files in OSS
 interface ExistingDWG {
@@ -19,6 +20,18 @@ interface ExistingDWG {
   size: number
   uploadedAt: string
   urn: string
+  areaId?: string
+  versionId?: string
+}
+
+// Type for area-version selection
+interface AreaVersionOption {
+  areaId: string
+  areaCode: string
+  areaName: string
+  versionId: string
+  versionNumber: number
+  hasFloorPlan: boolean
 }
 
 export default function PlannerPage() {
@@ -29,15 +42,20 @@ export default function PlannerPage() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
 
-  // Existing DWGs in OSS
+  // Area-version selection
+  const [areaVersions, setAreaVersions] = useState<AreaVersionOption[]>([])
+  const [selectedAreaVersion, setSelectedAreaVersion] = useState<AreaVersionOption | null>(null)
+  const [loadingAreas, setLoadingAreas] = useState(false)
+
+  // Existing DWGs in OSS for selected area-version
   const [existingDWGs, setExistingDWGs] = useState<ExistingDWG[]>([])
   const [loadingDWGs, setLoadingDWGs] = useState(false)
 
   // Viewer reference
   const viewerRef = useRef<Viewer3DInstance | null>(null)
 
-  // Project products
-  const [products, setProducts] = useState<ProjectProduct[]>([])
+  // Area version products
+  const [products, setProducts] = useState<AreaVersionProduct[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
 
   // Placements state (local for now, DB later)
@@ -47,24 +65,71 @@ export default function PlannerPage() {
   // Placement mode state - which product is being placed
   const [placementMode, setPlacementMode] = useState<PlacementModeProduct | null>(null)
 
-  // Load project products when active project changes
+  // Load project areas when active project changes
+  useEffect(() => {
+    async function loadAreas() {
+      if (!activeProject?.id) {
+        setAreaVersions([])
+        setSelectedAreaVersion(null)
+        return
+      }
+
+      setLoadingAreas(true)
+      try {
+        const result = await listProjectAreasAction(activeProject.id, true) // Include versions
+        if (result.success && result.data) {
+          // Map areas to area-version options (using current version)
+          const options: AreaVersionOption[] = result.data
+            .filter(area => area.current_version_data?.id) // Only areas with version data
+            .map(area => ({
+              areaId: area.id,
+              areaCode: area.area_code,
+              areaName: area.area_name,
+              versionId: area.current_version_data!.id,
+              versionNumber: area.current_version,
+              hasFloorPlan: false // Will be updated when we check for floor plans
+            }))
+
+          setAreaVersions(options)
+
+          // Auto-select first area if available
+          if (options.length > 0 && !selectedAreaVersion) {
+            setSelectedAreaVersion(options[0])
+          }
+        } else {
+          setAreaVersions([])
+          setSelectedAreaVersion(null)
+        }
+      } catch (err) {
+        console.error('Failed to load project areas:', err)
+        setAreaVersions([])
+        setSelectedAreaVersion(null)
+      } finally {
+        setLoadingAreas(false)
+      }
+    }
+
+    loadAreas()
+  }, [activeProject?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load products for selected area version
   useEffect(() => {
     async function loadProducts() {
-      if (!activeProject?.id) {
+      if (!selectedAreaVersion?.versionId) {
         setProducts([])
         return
       }
 
       setLoadingProducts(true)
       try {
-        const project = await getProjectByIdAction(activeProject.id)
-        if (project?.products) {
-          setProducts(project.products)
+        const result = await listAreaVersionProductsAction(selectedAreaVersion.versionId)
+        if (result.success && result.data) {
+          setProducts(result.data)
         } else {
           setProducts([])
         }
       } catch (err) {
-        console.error('Failed to load project products:', err)
+        console.error('Failed to load area version products:', err)
         setProducts([])
       } finally {
         setLoadingProducts(false)
@@ -72,19 +137,24 @@ export default function PlannerPage() {
     }
 
     loadProducts()
-  }, [activeProject?.id])
+  }, [selectedAreaVersion?.versionId])
 
-  // Load existing DWGs from OSS when project changes
+  // Load existing DWGs from OSS when area-version changes
   useEffect(() => {
     async function loadExistingDWGs() {
-      if (!activeProject?.id) {
+      if (!activeProject?.id || !selectedAreaVersion) {
         setExistingDWGs([])
         return
       }
 
       setLoadingDWGs(true)
       try {
-        const response = await fetch(`/api/planner/files?projectId=${activeProject.id}`)
+        const params = new URLSearchParams({
+          projectId: activeProject.id,
+          areaId: selectedAreaVersion.areaId,
+          versionId: selectedAreaVersion.versionId
+        })
+        const response = await fetch(`/api/planner/files?${params}`)
         if (response.ok) {
           const data = await response.json()
           setExistingDWGs(data.files || [])
@@ -100,7 +170,17 @@ export default function PlannerPage() {
     }
 
     loadExistingDWGs()
-  }, [activeProject?.id])
+  }, [activeProject?.id, selectedAreaVersion])
+
+  // Clear viewer when area-version changes
+  useEffect(() => {
+    setSelectedFile(null)
+    setSelectedUrn(null)
+    setSelectedFileName(null)
+    setPlacements([])
+    setSelectedPlacementId(null)
+    viewerRef.current = null
+  }, [selectedAreaVersion?.versionId])
 
   // Clear placements when file changes
   useEffect(() => {
@@ -158,6 +238,14 @@ export default function PlannerPage() {
     setSelectedFile(null)
   }, [])
 
+  // Handle area-version selection change
+  const handleAreaVersionChange = useCallback((versionId: string) => {
+    const option = areaVersions.find(av => av.versionId === versionId)
+    if (option) {
+      setSelectedAreaVersion(option)
+    }
+  }, [areaVersions])
+
   // Viewer ready callback
   const handleViewerReady = useCallback((viewer: Viewer3DInstance) => {
     viewerRef.current = viewer
@@ -202,12 +290,16 @@ export default function PlannerPage() {
     setPlacementMode(null)
   }, [])
 
+  // Determine if we can show the upload area
+  const hasAreas = areaVersions.length > 0
+  const canUpload = activeProject && hasAreas && selectedAreaVersion
+
   return (
     <ProtectedPageLayout>
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="flex-none p-6 pb-4 border-b">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Planner</h1>
               <p className="text-muted-foreground mt-1">
@@ -215,24 +307,50 @@ export default function PlannerPage() {
               </p>
             </div>
 
-            {/* Active Project Badge */}
-            {activeProject ? (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
-                <FolderOpen className="h-4 w-4 text-primary" />
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Project: </span>
-                  <span className="font-medium text-foreground">{activeProject.name}</span>
-                  <span className="text-muted-foreground ml-1">({activeProject.project_code})</span>
+            <div className="flex items-center gap-3">
+              {/* Area-Version Selector */}
+              {activeProject && hasAreas && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <Select
+                    value={selectedAreaVersion?.versionId || ''}
+                    onValueChange={handleAreaVersionChange}
+                  >
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder="Select area/version" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {areaVersions.map((av) => (
+                        <SelectItem key={av.versionId} value={av.versionId}>
+                          <span className="font-medium">{av.areaCode}</span>
+                          <span className="text-muted-foreground ml-1">- {av.areaName}</span>
+                          <span className="text-muted-foreground ml-1">(v{av.versionNumber})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-            ) : (
-              <Link href="/projects">
-                <Button variant="outline" size="sm">
-                  <FolderOpen className="h-4 w-4 mr-2" />
-                  Select a Project
-                </Button>
-              </Link>
-            )}
+              )}
+
+              {/* Active Project Badge */}
+              {activeProject ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
+                  <FolderOpen className="h-4 w-4 text-primary" />
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Project: </span>
+                    <span className="font-medium text-foreground">{activeProject.name}</span>
+                    <span className="text-muted-foreground ml-1">({activeProject.project_code})</span>
+                  </div>
+                </div>
+              ) : (
+                <Link href="/projects">
+                  <Button variant="outline" size="sm">
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                    Select a Project
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
 
@@ -241,7 +359,52 @@ export default function PlannerPage() {
           {!selectedFile && !selectedUrn ? (
             /* File Upload Area */
             <div className="h-full p-6">
-              {activeProject ? (
+              {!activeProject ? (
+                /* No Project Selected */
+                <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30">
+                  <FolderOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
+                  <p className="text-lg font-medium text-muted-foreground mb-2">
+                    Please select a project first
+                  </p>
+                  <p className="text-sm text-muted-foreground/70 mb-4 text-center max-w-md">
+                    Floor plans are saved to your project for persistent storage.
+                    <br />
+                    The same file won&apos;t need re-translation next time.
+                  </p>
+                  <Link href="/projects">
+                    <Button variant="default">
+                      <FolderOpen className="h-4 w-4 mr-2" />
+                      Go to Projects
+                    </Button>
+                  </Link>
+                </div>
+              ) : loadingAreas ? (
+                /* Loading Areas */
+                <div className="h-full flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <span className="ml-3 text-muted-foreground">Loading project areas...</span>
+                </div>
+              ) : !hasAreas ? (
+                /* No Areas - Block with prompt */
+                <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-500/30 bg-amber-500/5">
+                  <AlertCircle className="h-16 w-16 mx-auto mb-4 text-amber-500/50" />
+                  <p className="text-lg font-medium text-foreground mb-2">
+                    Create an area first
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
+                    Floor plans are organized by area and version.
+                    <br />
+                    Create at least one area in your project to upload floor plans.
+                  </p>
+                  <Link href={`/projects/${activeProject.id}`}>
+                    <Button variant="default">
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Go to Project Details
+                    </Button>
+                  </Link>
+                </div>
+              ) : canUpload ? (
+                /* Can Upload - Show existing DWGs and upload area */
                 <div className="h-full flex flex-col gap-4">
                   {/* Existing DWGs List */}
                   {loadingDWGs ? (
@@ -251,7 +414,9 @@ export default function PlannerPage() {
                     </div>
                   ) : existingDWGs.length > 0 ? (
                     <div className="flex-none">
-                      <h3 className="text-sm font-medium text-foreground mb-2">Existing Floor Plans</h3>
+                      <h3 className="text-sm font-medium text-foreground mb-2">
+                        Floor Plans for {selectedAreaVersion?.areaCode} v{selectedAreaVersion?.versionNumber}
+                      </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                         {existingDWGs.map((dwg) => (
                           <button
@@ -296,6 +461,9 @@ export default function PlannerPage() {
                       <p className="text-base font-medium text-foreground mb-1">
                         {existingDWGs.length > 0 ? 'Upload another DWG' : 'Drop your DWG file here'}
                       </p>
+                      <p className="text-sm text-muted-foreground mb-1">
+                        for <span className="font-medium">{selectedAreaVersion?.areaCode}</span> v{selectedAreaVersion?.versionNumber}
+                      </p>
                       <p className="text-sm text-muted-foreground mb-3">
                         or click to browse
                       </p>
@@ -318,26 +486,7 @@ export default function PlannerPage() {
                     )}
                   </div>
                 </div>
-              ) : (
-                /* No Project Selected - Disabled State */
-                <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30">
-                  <FolderOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-                  <p className="text-lg font-medium text-muted-foreground mb-2">
-                    Please select a project first
-                  </p>
-                  <p className="text-sm text-muted-foreground/70 mb-4 text-center max-w-md">
-                    Floor plans are saved to your project for persistent storage.
-                    <br />
-                    The same file won&apos;t need re-translation next time.
-                  </p>
-                  <Link href="/projects">
-                    <Button variant="default">
-                      <FolderOpen className="h-4 w-4 mr-2" />
-                      Go to Projects
-                    </Button>
-                  </Link>
-                </div>
-              )}
+              ) : null}
             </div>
           ) : (
             /* Viewer + Products Panel Layout */
@@ -352,16 +501,17 @@ export default function PlannerPage() {
                       <p className="font-medium text-sm">
                         {selectedFile?.name || selectedFileName || 'Floor Plan'}
                       </p>
-                      {selectedFile && (
-                        <p className="text-xs text-muted-foreground">
-                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      )}
-                      {selectedUrn && !selectedFile && (
-                        <p className="text-xs text-muted-foreground">
-                          From project storage
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {selectedFile && (
+                          <span>{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                        )}
+                        {selectedAreaVersion && (
+                          <span>• {selectedAreaVersion.areaCode} v{selectedAreaVersion.versionNumber}</span>
+                        )}
+                        {selectedUrn && !selectedFile && (
+                          <span>• From project storage</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -395,6 +545,7 @@ export default function PlannerPage() {
                     file={selectedFile || undefined}
                     urn={selectedUrn || undefined}
                     projectId={activeProject?.id}
+                    areaVersionId={selectedAreaVersion?.versionId}
                     theme="dark"
                     placementMode={placementMode}
                     onPlacementAdd={handlePlacementAdd}

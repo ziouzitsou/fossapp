@@ -16,6 +16,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import { Badge } from '@/components/ui/badge'
 
 export function AppSidebar() {
   const pathname = usePathname()
@@ -65,11 +66,18 @@ export function AppSidebar() {
                 <SidebarMenuButton
                   asChild
                   isActive={item.current}
-                  tooltip={item.name}
+                  tooltip={item.badge ? `${item.name} (${item.badge})` : item.name}
                 >
                   <Link href={item.href}>
                     <Icon className="h-5 w-5" />
-                    <span>{item.name}</span>
+                    <span className="flex items-center gap-2">
+                      {item.name}
+                      {item.badge && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-medium">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

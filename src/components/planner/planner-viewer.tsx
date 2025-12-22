@@ -48,6 +48,8 @@ export interface PlannerViewerProps {
   urn?: string
   /** Project ID for persistent storage and caching (uses planner API) */
   projectId?: string
+  /** Area version ID for floor plan storage (required for upload) */
+  areaVersionId?: string
   /** Initial theme */
   theme?: 'light' | 'dark'
   /** Product being placed (click-to-place mode) */
@@ -145,6 +147,7 @@ export function PlannerViewer({
   file,
   urn: initialUrn,
   projectId,
+  areaVersionId,
   theme: initialTheme = 'dark',
   placementMode,
   onPlacementAdd,
@@ -217,8 +220,10 @@ export function PlannerViewer({
     formData.append('file', file)
 
     // Use planner API for persistent storage with caching
-    if (projectId) {
+    // Requires both projectId and areaVersionId
+    if (projectId && areaVersionId) {
       formData.append('projectId', projectId)
+      formData.append('areaVersionId', areaVersionId)
 
       const response = await fetch('/api/planner/upload', {
         method: 'POST',

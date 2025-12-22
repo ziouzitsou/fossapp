@@ -140,13 +140,26 @@ export function deriveUrn(bucketName: string, objectKey: string): string {
 /**
  * List DWG files in a project's OSS bucket
  * Returns files with derived URNs for direct viewer loading
+ *
+ * @param projectId - Project UUID
+ * @param options - Optional filters
+ * @param options.areaId - Filter to specific area
+ * @param options.versionId - Filter to specific version (requires areaId)
  */
-export async function listBucketDWGs(projectId: string): Promise<Array<{
+export async function listBucketDWGs(
+  projectId: string,
+  options?: {
+    areaId?: string
+    versionId?: string
+  }
+): Promise<Array<{
   fileName: string
   objectKey: string
   size: number
   uploadedAt: string
   urn: string
+  areaId?: string
+  versionId?: string
 }>> {
   const accessToken = await getAccessToken()
   const bucketName = generateBucketName(projectId)
@@ -158,16 +171,33 @@ export async function listBucketDWGs(projectId: string): Promise<Array<{
       return []
     }
 
+    // Build prefix filter if options provided
+    let prefix = ''
+    if (options?.areaId) {
+      prefix = options.versionId
+        ? `${options.areaId}/${options.versionId}/`
+        : `${options.areaId}/`
+    }
+
     // Filter to only DWG files and map to our format with derived URNs
     return objects.items
-      .filter(obj => obj.objectKey?.toLowerCase().endsWith('.dwg'))
-      .map(obj => ({
-        fileName: obj.objectKey || '',
-        objectKey: obj.objectKey || '',
-        size: obj.size || 0,
-        uploadedAt: obj.location || new Date().toISOString(),
-        urn: deriveUrn(bucketName, obj.objectKey || '')
-      }))
+      .filter(obj => {
+        if (!obj.objectKey?.toLowerCase().endsWith('.dwg')) return false
+        if (prefix && !obj.objectKey.startsWith(prefix)) return false
+        return true
+      })
+      .map(obj => {
+        const parsed = parseObjectKey(obj.objectKey || '')
+        return {
+          fileName: parsed?.fileName || obj.objectKey || '',
+          objectKey: obj.objectKey || '',
+          size: obj.size || 0,
+          uploadedAt: obj.location || new Date().toISOString(),
+          urn: deriveUrn(bucketName, obj.objectKey || ''),
+          areaId: parsed?.areaId,
+          versionId: parsed?.versionId
+        }
+      })
   } catch (err: unknown) {
     const error = err as { axiosError?: { response?: { status?: number } } }
     if (error.axiosError?.response?.status === 404) {
@@ -219,6 +249,39 @@ export async function deleteProjectBucket(projectId: string): Promise<void> {
 // ============================================================================
 
 /**
+ * Generate structured object key for area-version organization
+ * Format: {areaId}/{versionId}/{fileName}
+ *
+ * This keeps files organized in the bucket by area and version:
+ * - All files for an area are grouped together
+ * - Each version's files are in their own "folder"
+ */
+export function generateObjectKey(
+  areaId: string,
+  versionId: string,
+  fileName: string
+): string {
+  return `${areaId}/${versionId}/${fileName}`
+}
+
+/**
+ * Parse object key back to components
+ */
+export function parseObjectKey(objectKey: string): {
+  areaId: string
+  versionId: string
+  fileName: string
+} | null {
+  const parts = objectKey.split('/')
+  if (parts.length !== 3) return null
+  return {
+    areaId: parts[0],
+    versionId: parts[1],
+    fileName: parts[2]
+  }
+}
+
+/**
  * Calculate SHA256 hash of file buffer
  */
 export function calculateFileHash(buffer: Buffer): string {
@@ -227,18 +290,21 @@ export function calculateFileHash(buffer: Buffer): string {
 
 /**
  * Upload DWG to project bucket
+ *
+ * @param bucketName - OSS bucket name
+ * @param objectKey - Object key (can be structured like "areaId/versionId/file.dwg")
+ * @param fileBuffer - File content
  */
 export async function uploadFloorPlan(
   bucketName: string,
-  fileName: string,
+  objectKey: string,
   fileBuffer: Buffer
 ): Promise<{ objectId: string; urn: string }> {
   const accessToken = await getAccessToken()
 
-  // Use original filename (no timestamp needed - persistent storage)
   const result = await ossClient.uploadObject(
     bucketName,
-    fileName,
+    objectKey,
     fileBuffer,
     { accessToken }
   )
@@ -250,12 +316,52 @@ export async function uploadFloorPlan(
   // Create base64-encoded URN (without padding)
   const urn = Buffer.from(result.objectId).toString('base64').replace(/=/g, '')
 
-  console.log(`[Planner] Uploaded ${fileName} to ${bucketName}, URN: ${urn.substring(0, 20)}...`)
+  console.log(`[Planner] Uploaded ${objectKey} to ${bucketName}, URN: ${urn.substring(0, 20)}...`)
 
   return {
     objectId: result.objectId,
     urn
   }
+}
+
+/**
+ * Copy a DWG file within the same bucket
+ * Used when creating a new area version with copy_from_version
+ *
+ * Note: APS OSS doesn't have a native copy operation, so we download and re-upload.
+ * For floor plans (typically 1-10MB), this is acceptable.
+ */
+export async function copyFloorPlanInBucket(
+  bucketName: string,
+  sourceObjectKey: string,
+  targetObjectKey: string
+): Promise<{ objectId: string; urn: string }> {
+  const accessToken = await getAccessToken()
+
+  // Download the source file using direct REST API
+  // The SDK doesn't have a getObject method, so we use fetch
+  const downloadUrl = `https://developer.api.autodesk.com/oss/v2/buckets/${encodeURIComponent(bucketName)}/objects/${encodeURIComponent(sourceObjectKey)}`
+
+  const downloadResponse = await fetch(downloadUrl, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  })
+
+  if (!downloadResponse.ok) {
+    const errorText = await downloadResponse.text()
+    throw new Error(`Failed to download source file: ${downloadResponse.status} - ${errorText}`)
+  }
+
+  // Convert response to Buffer
+  const arrayBuffer = await downloadResponse.arrayBuffer()
+  const fileBuffer = Buffer.from(arrayBuffer)
+
+  console.log(`[Planner] Downloaded ${sourceObjectKey} (${fileBuffer.length} bytes) for copy`)
+
+  // Upload to new location
+  return uploadFloorPlan(bucketName, targetObjectKey, fileBuffer)
 }
 
 // ============================================================================

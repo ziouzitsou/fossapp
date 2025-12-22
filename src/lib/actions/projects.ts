@@ -392,6 +392,28 @@ export async function createProjectAction(
       return { success: false, error: 'Failed to create project' }
     }
 
+    // Create OSS bucket for floor plans (Planner feature)
+    // Bucket is created upfront since all projects will use Planner
+    try {
+      const { ensureProjectBucketExists } = await import('../planner/aps-planner-service')
+      const bucketName = await ensureProjectBucketExists(data.id)
+
+      // Update project with bucket name
+      await supabaseServer
+        .schema('projects')
+        .from('projects')
+        .update({
+          oss_bucket: bucketName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', data.id)
+
+      console.log(`[Project] OSS bucket created: ${bucketName}`)
+    } catch (ossError) {
+      console.error('Create OSS bucket error:', ossError)
+      // Non-fatal - bucket can be created on first upload if this fails
+    }
+
     return { success: true, data: { id: data.id } }
   } catch (error) {
     console.error('Create project error:', error)
