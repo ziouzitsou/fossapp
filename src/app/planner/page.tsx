@@ -267,6 +267,7 @@ export default function PlannerPage() {
     setSelectedFile(null)
     setSelectedUrn(null)
     setSelectedFileName(null)
+    setSelectedAreaVersion(null) // Clear selection so same area can be clicked again
     setPlacements([])
     setSelectedPlacementId(null)
     viewerRef.current = null
