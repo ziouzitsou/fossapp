@@ -121,16 +121,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify area version exists and get area_id + project's oss_bucket
+    // Verify area version exists and get area info + project's oss_bucket
     const { data: areaVersion, error: avError } = await supabaseServer
       .schema('projects')
       .from('project_area_versions')
       .select(`
         id,
         area_id,
+        version_number,
         project_areas!inner(
           id,
           project_id,
+          area_code,
           projects!inner(
             id,
             oss_bucket
@@ -151,6 +153,7 @@ export async function POST(request: NextRequest) {
     const projectAreas = areaVersion.project_areas as unknown as {
       id: string
       project_id: string
+      area_code: string
       projects: { id: string; oss_bucket: string | null }
     }
 
@@ -218,21 +221,26 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // No cache hit - upload new file with structured object key
-    const objectKey = generateObjectKey(areaVersion.area_id, areaVersionId, sanitizedFileName)
+    // No cache hit - upload new file with meaningful object key
+    const objectKey = generateObjectKey(
+      projectAreas.area_code,
+      areaVersion.version_number,
+      sanitizedFileName
+    )
     const { urn } = await uploadFloorPlan(bucketName, objectKey, buffer)
 
     // Start translation
     await translateToSVF2(urn)
 
-    // Save to area version
+    // Save to area version with status 'inprogress' (translation started)
     const { error: updateError } = await supabaseServer
       .schema('projects')
       .from('project_area_versions')
       .update({
         floor_plan_urn: urn,
         floor_plan_filename: sanitizedFileName,
-        floor_plan_hash: fileHash
+        floor_plan_hash: fileHash,
+        floor_plan_status: 'inprogress'
       })
       .eq('id', areaVersionId)
 

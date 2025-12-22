@@ -66,6 +66,8 @@ export interface AreaVersionSummary {
   // Floor plan fields
   floor_plan_urn?: string
   floor_plan_filename?: string
+  floor_plan_status?: string
+  floor_plan_warnings?: number
 }
 
 export interface CreateAreaInput {
@@ -187,7 +189,9 @@ export async function listProjectAreasAction(
             product_count: productCount,
             total_cost: totalCost,
             floor_plan_urn: currentVersion.floor_plan_urn,
-            floor_plan_filename: currentVersion.floor_plan_filename
+            floor_plan_filename: currentVersion.floor_plan_filename,
+            floor_plan_status: currentVersion.floor_plan_status,
+            floor_plan_warnings: currentVersion.floor_plan_warnings
           } : undefined
         }
 
@@ -1026,17 +1030,18 @@ export async function deleteAreaVersionFloorPlanAction(
       return { success: false, error: 'Invalid area version ID format' }
     }
 
-    // Get the area version with its floor plan info and project ID
+    // Get the area version with its floor plan info and area details
     const { data: areaVersion, error: fetchError } = await supabaseServer
       .schema('projects')
       .from('project_area_versions')
       .select(`
         id,
-        area_id,
+        version_number,
         floor_plan_filename,
         floor_plan_urn,
         project_areas!inner (
-          project_id
+          project_id,
+          area_code
         )
       `)
       .eq('id', areaVersionId)
@@ -1049,29 +1054,34 @@ export async function deleteAreaVersionFloorPlanAction(
 
     // Delete from OSS if file exists
     if (areaVersion.floor_plan_filename && areaVersion.floor_plan_urn) {
-      const projectId = (areaVersion.project_areas as { project_id: string }).project_id
+      // Type assertion for nested join data (Supabase returns object for !inner with single())
+      const projectAreas = areaVersion.project_areas as unknown as { project_id: string; area_code: string }
       const objectKey = generateObjectKey(
-        areaVersion.area_id,
-        areaVersion.id,
+        projectAreas.area_code,
+        areaVersion.version_number,
         areaVersion.floor_plan_filename
       )
 
       try {
-        await deleteFloorPlanObject(projectId, objectKey)
+        await deleteFloorPlanObject(projectAreas.project_id, objectKey)
       } catch (ossError) {
         // Log but don't fail - OSS deletion is best-effort
         console.warn('Failed to delete OSS object:', ossError)
       }
     }
 
-    // Clear floor plan fields from database
+    // Clear all floor plan fields from database
     const { error } = await supabaseServer
       .schema('projects')
       .from('project_area_versions')
       .update({
         floor_plan_urn: null,
         floor_plan_filename: null,
-        floor_plan_hash: null
+        floor_plan_hash: null,
+        floor_plan_status: null,
+        floor_plan_thumbnail_urn: null,
+        floor_plan_warnings: null,
+        floor_plan_manifest: null
       })
       .eq('id', areaVersionId)
 

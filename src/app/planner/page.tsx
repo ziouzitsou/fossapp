@@ -6,11 +6,13 @@ import { useActiveProject } from '@/lib/active-project-context'
 import { PlannerViewer, ProductsPanel } from '@/components/planner'
 import type { Viewer3DInstance, Placement, PlacementModeProduct } from '@/components/planner'
 
-import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Plus, Trash2 } from 'lucide-react'
+import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import Image from 'next/image'
 import { listProjectAreasAction, listAreaVersionProductsAction, deleteAreaVersionFloorPlanAction, type AreaVersionProduct } from '@/lib/actions/project-areas'
 
 // Type for area-version selection
@@ -22,6 +24,8 @@ interface AreaVersionOption {
   versionNumber: number
   floorPlanUrn?: string
   floorPlanFilename?: string
+  floorPlanStatus?: string
+  floorPlanWarnings?: number
 }
 
 export default function PlannerPage() {
@@ -80,7 +84,9 @@ export default function PlannerPage() {
               versionId: area.current_version_data!.id,
               versionNumber: area.current_version,
               floorPlanUrn: area.current_version_data!.floor_plan_urn,
-              floorPlanFilename: area.current_version_data!.floor_plan_filename
+              floorPlanFilename: area.current_version_data!.floor_plan_filename,
+              floorPlanStatus: area.current_version_data!.floor_plan_status,
+              floorPlanWarnings: area.current_version_data!.floor_plan_warnings
             }))
 
           setAreaVersions(options)
@@ -430,15 +436,50 @@ export default function PlannerPage() {
                           {/* Content based on floor plan status */}
                           {hasFloorPlan ? (
                             <div className="flex items-center gap-3">
-                              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <FileIcon className="h-5 w-5 text-primary" />
+                              {/* Thumbnail or fallback icon */}
+                              <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-muted overflow-hidden relative">
+                                {area.floorPlanStatus === 'success' ? (
+                                  <Image
+                                    src={`/api/planner/thumbnail?areaVersionId=${area.versionId}`}
+                                    alt={area.floorPlanFilename || 'Floor plan thumbnail'}
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
+                                  />
+                                ) : area.floorPlanStatus === 'inprogress' ? (
+                                  <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                                    <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                                  </div>
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                                    <FileIcon className="h-5 w-5 text-primary" />
+                                  </div>
+                                )}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium truncate">
-                                  {area.floorPlanFilename || 'Floor Plan'}
-                                </p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-sm font-medium truncate">
+                                    {area.floorPlanFilename || 'Floor Plan'}
+                                  </p>
+                                  {/* Warning badge */}
+                                  {area.floorPlanWarnings && area.floorPlanWarnings > 0 && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">
+                                            <AlertTriangle className="h-3 w-3" />
+                                            <span className="text-[10px] font-medium">{area.floorPlanWarnings}</span>
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>{area.floorPlanWarnings} translation warning{area.floorPlanWarnings > 1 ? 's' : ''}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </div>
                                 <p className="text-xs text-muted-foreground">
-                                  Click to open
+                                  {area.floorPlanStatus === 'inprogress' ? 'Processing...' : 'Click to open'}
                                 </p>
                               </div>
                               {/* Delete button */}

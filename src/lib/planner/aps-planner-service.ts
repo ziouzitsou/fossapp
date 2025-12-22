@@ -141,14 +141,19 @@ export function deriveUrn(bucketName: string, objectKey: string): string {
  * List DWG files in a project's OSS bucket
  * Returns files with derived URNs for direct viewer loading
  *
+ * Note: With the new flat object key format (AreaCode_v1_filename.dwg),
+ * area/version info is in the filename, not parseable IDs.
+ * Use database queries to get floor plan info by area version.
+ *
  * @param projectId - Project UUID
  * @param options - Optional filters
- * @param options.areaId - Filter to specific area
- * @param options.versionId - Filter to specific version (requires areaId)
+ * @param options.prefix - Filter by object key prefix (e.g., "A01_" for area A01)
  */
 export async function listBucketDWGs(
   projectId: string,
   options?: {
+    prefix?: string
+    // Legacy params - ignored but kept for backward compatibility
     areaId?: string
     versionId?: string
   }
@@ -158,8 +163,6 @@ export async function listBucketDWGs(
   size: number
   uploadedAt: string
   urn: string
-  areaId?: string
-  versionId?: string
 }>> {
   const accessToken = await getAccessToken()
   const bucketName = generateBucketName(projectId)
@@ -171,33 +174,20 @@ export async function listBucketDWGs(
       return []
     }
 
-    // Build prefix filter if options provided
-    let prefix = ''
-    if (options?.areaId) {
-      prefix = options.versionId
-        ? `${options.areaId}/${options.versionId}/`
-        : `${options.areaId}/`
-    }
-
     // Filter to only DWG files and map to our format with derived URNs
     return objects.items
       .filter(obj => {
         if (!obj.objectKey?.toLowerCase().endsWith('.dwg')) return false
-        if (prefix && !obj.objectKey.startsWith(prefix)) return false
+        if (options?.prefix && !obj.objectKey.startsWith(options.prefix)) return false
         return true
       })
-      .map(obj => {
-        const parsed = parseObjectKey(obj.objectKey || '')
-        return {
-          fileName: parsed?.fileName || obj.objectKey || '',
-          objectKey: obj.objectKey || '',
-          size: obj.size || 0,
-          uploadedAt: obj.location || new Date().toISOString(),
-          urn: deriveUrn(bucketName, obj.objectKey || ''),
-          areaId: parsed?.areaId,
-          versionId: parsed?.versionId
-        }
-      })
+      .map(obj => ({
+        fileName: obj.objectKey || '',
+        objectKey: obj.objectKey || '',
+        size: obj.size || 0,
+        uploadedAt: obj.location || new Date().toISOString(),
+        urn: deriveUrn(bucketName, obj.objectKey || '')
+      }))
   } catch (err: unknown) {
     const error = err as { axiosError?: { response?: { status?: number } } }
     if (error.axiosError?.response?.status === 404) {
@@ -275,36 +265,22 @@ export async function deleteProjectBucket(projectId: string): Promise<void> {
 // ============================================================================
 
 /**
- * Generate structured object key for area-version organization
- * Format: {areaId}/{versionId}/{fileName}
+ * Generate meaningful object key for OSS storage
+ * Format: {areaCode}_v{versionNumber}_{fileName}
  *
- * This keeps files organized in the bucket by area and version:
- * - All files for an area are grouped together
- * - Each version's files are in their own "folder"
+ * Example: A01_v1_FloorPlan.dwg
+ *
+ * This creates human-readable object names in OSS bucket
+ * while keeping the file organized by area and version.
  */
 export function generateObjectKey(
-  areaId: string,
-  versionId: string,
+  areaCode: string,
+  versionNumber: number,
   fileName: string
 ): string {
-  return `${areaId}/${versionId}/${fileName}`
-}
-
-/**
- * Parse object key back to components
- */
-export function parseObjectKey(objectKey: string): {
-  areaId: string
-  versionId: string
-  fileName: string
-} | null {
-  const parts = objectKey.split('/')
-  if (parts.length !== 3) return null
-  return {
-    areaId: parts[0],
-    versionId: parts[1],
-    fileName: parts[2]
-  }
+  // Sanitize area code for OSS (alphanumeric and underscores only)
+  const safeAreaCode = areaCode.replace(/[^a-zA-Z0-9]/g, '_')
+  return `${safeAreaCode}_v${versionNumber}_${fileName}`
 }
 
 /**
@@ -565,5 +541,202 @@ export async function prepareFloorPlan(
     bucketName,
     fileHash,
     isNewUpload: true
+  }
+}
+
+// ============================================================================
+// MANIFEST HANDLING
+// ============================================================================
+
+/**
+ * Parsed manifest data for UI display
+ */
+export interface ManifestData {
+  status: 'pending' | 'inprogress' | 'success' | 'failed'
+  hasThumbnail: boolean
+  thumbnailUrn?: string  // 200x200 thumbnail URN
+  warningCount: number
+  warnings: Array<{
+    code: string
+    message: string
+  }>
+  documentInfo?: {
+    dwgVersion?: string
+    author?: string
+    fileSize?: string
+    dateCreated?: string
+    lastWrite?: string
+  }
+  views: Array<{
+    guid: string
+    name: string
+    role: string
+    thumbnailUrn?: string
+  }>
+}
+
+/**
+ * Get and parse the full manifest for a URN
+ * Returns structured data for UI display
+ */
+export async function getManifestData(urn: string): Promise<ManifestData> {
+  const accessToken = await getAccessToken()
+
+  try {
+    const response = await fetch(
+      `https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/${urn}/manifest`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return {
+          status: 'pending',
+          hasThumbnail: false,
+          warningCount: 0,
+          warnings: [],
+          views: []
+        }
+      }
+      throw new Error(`Failed to get manifest: ${response.status}`)
+    }
+
+    const manifest = await response.json()
+    return parseManifest(manifest)
+  } catch (err) {
+    console.error('[Planner] Error fetching manifest:', err)
+    return {
+      status: 'pending',
+      hasThumbnail: false,
+      warningCount: 0,
+      warnings: [],
+      views: []
+    }
+  }
+}
+
+/**
+ * Parse raw APS manifest into structured data
+ */
+function parseManifest(manifest: Record<string, unknown>): ManifestData {
+  const result: ManifestData = {
+    status: (manifest.status as string || 'pending') as ManifestData['status'],
+    hasThumbnail: manifest.hasThumbnail === 'true',
+    warningCount: 0,
+    warnings: [],
+    views: []
+  }
+
+  // Process derivatives
+  const derivatives = manifest.derivatives as Array<Record<string, unknown>> | undefined
+  if (!derivatives || derivatives.length === 0) {
+    return result
+  }
+
+  const mainDerivative = derivatives[0]
+
+  // Extract warnings
+  const messages = mainDerivative.messages as Array<{
+    type?: string
+    code?: string
+    message?: string | string[]
+  }> | undefined
+
+  if (messages) {
+    for (const msg of messages) {
+      if (msg.type === 'warning' && msg.code) {
+        const messageText = Array.isArray(msg.message)
+          ? msg.message.join(' - ')
+          : (msg.message || '')
+        result.warnings.push({
+          code: msg.code,
+          message: messageText
+        })
+      }
+    }
+    result.warningCount = result.warnings.length
+  }
+
+  // Extract document info
+  const properties = mainDerivative.properties as Record<string, Record<string, string>> | undefined
+  if (properties?.['Document Information']) {
+    const docInfo = properties['Document Information']
+    result.documentInfo = {
+      dwgVersion: docInfo['DWGVersion'],
+      author: docInfo['Last Author'],
+      fileSize: docInfo['FileSize'],
+      dateCreated: docInfo['Date Created'],
+      lastWrite: docInfo['Last Write']
+    }
+  }
+
+  // Extract views and thumbnails
+  const children = mainDerivative.children as Array<Record<string, unknown>> | undefined
+  if (children) {
+    for (const child of children) {
+      if (child.type === 'geometry' && child.role === '2d') {
+        const view: ManifestData['views'][0] = {
+          guid: child.guid as string,
+          name: child.name as string || 'Unknown',
+          role: child.role as string
+        }
+
+        // Find 200x200 thumbnail
+        const viewChildren = child.children as Array<Record<string, unknown>> | undefined
+        if (viewChildren) {
+          for (const resource of viewChildren) {
+            if (resource.role === 'thumbnail') {
+              const resolution = resource.resolution as number[] | undefined
+              if (resolution && resolution[0] === 200) {
+                view.thumbnailUrn = resource.urn as string
+                // Use first view's 200x200 as main thumbnail
+                if (!result.thumbnailUrn) {
+                  result.thumbnailUrn = resource.urn as string
+                }
+              }
+            }
+          }
+        }
+
+        result.views.push(view)
+      }
+    }
+  }
+
+  return result
+}
+
+/**
+ * Fetch thumbnail image from APS
+ * Returns base64 encoded PNG data
+ */
+export async function getThumbnailBase64(thumbnailUrn: string): Promise<string | null> {
+  const accessToken = await getAccessToken()
+
+  try {
+    const response = await fetch(
+      `https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/${encodeURIComponent(thumbnailUrn)}/thumbnail?width=200&height=200`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      console.error(`[Planner] Thumbnail fetch failed: ${response.status}`)
+      return null
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    const base64 = Buffer.from(arrayBuffer).toString('base64')
+    return `data:image/png;base64,${base64}`
+  } catch (err) {
+    console.error('[Planner] Error fetching thumbnail:', err)
+    return null
   }
 }
