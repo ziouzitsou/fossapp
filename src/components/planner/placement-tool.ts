@@ -38,7 +38,7 @@ export interface PlacementCoords {
  * Page dimensions metadata from the Model Derivative
  * Used to transform viewer coordinates to DWG model space
  */
-interface PageDimensions {
+export interface PageDimensions {
   page_width: number
   page_height: number
   logical_width: number
@@ -78,6 +78,39 @@ function viewerToDwgCoords(
   const dwgY = (logicalY - ty) / sy
 
   return { dwgX, dwgY }
+}
+
+/**
+ * Transform DWG model space coordinates to viewer coordinates.
+ * This is the inverse of viewerToDwgCoords - used when loading
+ * persisted placements back onto the viewer.
+ *
+ * Formula (inverse of viewerToDwgCoords):
+ * 1. DWG to logical: logicalX = dwgX * scaleX + translateX
+ * 2. Logical to viewer: viewerX = logicalX * (pageWidth / logicalWidth)
+ */
+export function dwgToViewerCoords(
+  dwgX: number,
+  dwgY: number,
+  pageDim: PageDimensions
+): { viewerX: number; viewerY: number } {
+  const { page_width, page_height, logical_width, logical_height, source_to_logical_xform } = pageDim
+
+  // Extract scale and translation from the 4x4 transform matrix (column-major)
+  const sx = source_to_logical_xform[0]
+  const sy = source_to_logical_xform[5]
+  const tx = source_to_logical_xform[12]
+  const ty = source_to_logical_xform[13]
+
+  // Step 1: Apply source_to_logical_xform (DWG to logical)
+  const logicalX = dwgX * sx + tx
+  const logicalY = dwgY * sy + ty
+
+  // Step 2: Convert logical coords to viewer coords
+  const viewerX = logicalX * (page_width / logical_width)
+  const viewerY = logicalY * (page_height / logical_height)
+
+  return { viewerX, viewerY }
 }
 
 export interface SnapState {
@@ -164,6 +197,13 @@ export class PlacementTool {
   }
 
   getNames() { return this.names }
+
+  /**
+   * Get the cached page dimensions for external coordinate transformations
+   */
+  getPageDimensions(): PageDimensions | null {
+    return this.pageDimensions
+  }
   getName() { return this.names[0] }
 
   /**

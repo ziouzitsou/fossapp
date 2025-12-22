@@ -1091,3 +1091,103 @@ export async function deleteAreaVersionFloorPlanAction(
     return { success: false, error: 'An unexpected error occurred' }
   }
 }
+
+// ============================================================================
+// PLANNER PLACEMENTS
+// ============================================================================
+
+/**
+ * Placement data structure for floor plan placements
+ */
+export interface PlacementData {
+  id: string
+  projectProductId: string
+  productId: string
+  productName: string
+  worldX: number
+  worldY: number
+  rotation: number
+}
+
+/**
+ * Load all placements for an area version
+ */
+export async function loadAreaPlacementsAction(
+  areaVersionId: string
+): Promise<ActionResult<PlacementData[]>> {
+  try {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(areaVersionId)) {
+      return { success: false, error: 'Invalid area version ID format' }
+    }
+
+    const { data, error } = await supabaseServer
+      .schema('projects')
+      .rpc('get_area_placements', { p_area_version_id: areaVersionId })
+
+    if (error) {
+      console.error('Load placements error:', error)
+      return { success: false, error: 'Failed to load placements' }
+    }
+
+    // Map database results to PlacementData format
+    const placements: PlacementData[] = (data || []).map((row: {
+      id: string
+      project_product_id: string
+      product_id: string
+      product_name: string
+      world_x: number
+      world_y: number
+      rotation: number
+    }) => ({
+      id: row.id,
+      projectProductId: row.project_product_id,
+      productId: row.product_id,
+      productName: row.product_name,
+      worldX: Number(row.world_x),
+      worldY: Number(row.world_y),
+      rotation: Number(row.rotation)
+    }))
+
+    return { success: true, data: placements }
+  } catch (error) {
+    console.error('Load area placements error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+/**
+ * Save all placements for an area version (atomic replace)
+ * Deletes existing placements and inserts new ones in a transaction
+ */
+export async function saveAreaPlacementsAction(
+  areaVersionId: string,
+  placements: PlacementData[]
+): Promise<ActionResult> {
+  try {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(areaVersionId)) {
+      return { success: false, error: 'Invalid area version ID format' }
+    }
+
+    // Call RPC function for atomic save
+    const { error } = await supabaseServer
+      .schema('projects')
+      .rpc('save_area_placements', {
+        p_area_version_id: areaVersionId,
+        p_placements: placements
+      })
+
+    if (error) {
+      console.error('Save placements error:', error)
+      return { success: false, error: 'Failed to save placements' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Save area placements error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}

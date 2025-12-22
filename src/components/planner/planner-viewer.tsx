@@ -22,7 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import type { Viewer3DInstance, WorldCoordinates as WorldCoordsType, ViewerInitOptions } from '@/types/autodesk-viewer'
 import type { PlacementModeProduct, Placement, DwgUnitInfo } from './types'
-import { PlacementTool } from './placement-tool'
+import { PlacementTool, dwgToViewerCoords, type PageDimensions } from './placement-tool'
 import { MarkupMarkers } from './markup-markers'
 
 // Re-export the Viewer3DInstance type for consumers
@@ -54,6 +54,8 @@ export interface PlannerViewerProps {
   theme?: 'light' | 'dark'
   /** Product being placed (click-to-place mode) */
   placementMode?: PlacementModeProduct | null
+  /** Initial placements to render when viewer loads (from database) */
+  initialPlacements?: Placement[]
   /** Callback when a placement is added via click-to-place (includes generated id) */
   onPlacementAdd?: (placement: Omit<Placement, 'dbId'>) => void
   /** Callback when a placement is deleted */
@@ -126,6 +128,7 @@ export function PlannerViewer({
   areaVersionId,
   theme: initialTheme = 'dark',
   placementMode,
+  initialPlacements,
   onPlacementAdd,
   onPlacementDelete,
   onExitPlacementMode,
@@ -168,6 +171,16 @@ export function PlannerViewer({
 
   // Ref for MarkupMarkers instance
   const markupMarkersRef = useRef<MarkupMarkers | null>(null)
+
+  // Ref for page dimensions (needed for coordinate transformation when loading placements)
+  const pageDimensionsRef = useRef<PageDimensions | null>(null)
+
+  // Ref for initial placements to render after viewer is ready
+  const initialPlacementsRef = useRef(initialPlacements)
+  initialPlacementsRef.current = initialPlacements
+
+  // Track which placement IDs have been rendered to avoid duplicates
+  const renderedPlacementIdsRef = useRef<Set<string>>(new Set())
 
   const [isLoading, setIsLoading] = useState(true)
   const [loadingStage, setLoadingStage] = useState<'scripts' | 'upload' | 'translation' | 'viewer' | 'cache-hit'>('scripts')
@@ -436,6 +449,9 @@ export function PlannerViewer({
                     }
 
                     if (markerData) {
+                      // Track this placement as rendered to prevent duplicate markers
+                      renderedPlacementIdsRef.current.add(placementId)
+
                       console.log('[PlannerViewer] Placed marker:', {
                         id: placementId,
                         dwgX: coords.dwgX.toFixed(2),
@@ -461,6 +477,38 @@ export function PlannerViewer({
               )
               viewer.toolController.registerTool(tool)
               placementToolRef.current = tool
+
+              // Cache page dimensions for loading placements
+              pageDimensionsRef.current = tool.getPageDimensions()
+
+              // Render initial placements (loaded from database)
+              if (initialPlacementsRef.current?.length && markupMarkersRef.current && pageDimensionsRef.current) {
+                console.log('[PlannerViewer] Rendering', initialPlacementsRef.current.length, 'initial placements')
+                for (const placement of initialPlacementsRef.current) {
+                  if (renderedPlacementIdsRef.current.has(placement.id)) continue
+
+                  // Convert DWG coords back to viewer coords
+                  const viewerCoords = dwgToViewerCoords(
+                    placement.worldX,
+                    placement.worldY,
+                    pageDimensionsRef.current
+                  )
+
+                  markupMarkersRef.current.addMarkerAtWorld(
+                    viewerCoords.viewerX,
+                    viewerCoords.viewerY,
+                    0, // Z coord
+                    {
+                      productId: placement.productId,
+                      projectProductId: placement.projectProductId,
+                      productName: placement.productName,
+                    },
+                    placement.id
+                  )
+                  renderedPlacementIdsRef.current.add(placement.id)
+                }
+                console.log('[PlannerViewer] Initial placements rendered')
+              }
 
               // Activate pan tool by default (mouse wheel zooms, drag pans)
               viewer.toolController.activateTool('pan')
@@ -535,6 +583,7 @@ export function PlannerViewer({
     return () => {
       mounted = false
       isInitializedRef.current = false
+      renderedPlacementIdsRef.current.clear() // Reset rendered placements tracking
       cleanup?.()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -647,6 +696,44 @@ export function PlannerViewer({
       viewer.toolController.deactivateTool('placement-tool')
     }
   }, [placementMode, measureMode])
+
+  // Effect to render late-arriving placements (handles race condition)
+  // This runs when initialPlacements changes after viewer is ready
+  useEffect(() => {
+    if (!initialPlacements?.length || !markupMarkersRef.current || !pageDimensionsRef.current || isLoading) {
+      return
+    }
+
+    // Render any placements that haven't been rendered yet
+    let newlyRendered = 0
+    for (const placement of initialPlacements) {
+      if (renderedPlacementIdsRef.current.has(placement.id)) continue
+
+      const viewerCoords = dwgToViewerCoords(
+        placement.worldX,
+        placement.worldY,
+        pageDimensionsRef.current
+      )
+
+      markupMarkersRef.current.addMarkerAtWorld(
+        viewerCoords.viewerX,
+        viewerCoords.viewerY,
+        0,
+        {
+          productId: placement.productId,
+          projectProductId: placement.projectProductId,
+          productName: placement.productName,
+        },
+        placement.id
+      )
+      renderedPlacementIdsRef.current.add(placement.id)
+      newlyRendered++
+    }
+
+    if (newlyRendered > 0) {
+      console.log('[PlannerViewer] Rendered', newlyRendered, 'late-arriving placements')
+    }
+  }, [initialPlacements, isLoading])
 
   // Toolbar actions
   const handleToggleMeasure = useCallback((mode: 'distance' | 'area') => {

@@ -6,7 +6,7 @@ import { useActiveProject } from '@/lib/active-project-context'
 import { PlannerViewer, ProductsPanel } from '@/components/planner'
 import type { Viewer3DInstance, Placement, PlacementModeProduct, DwgUnitInfo } from '@/components/planner'
 
-import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Plus, Trash2, AlertTriangle, Info } from 'lucide-react'
+import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Plus, Trash2, AlertTriangle, Info, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -31,7 +31,15 @@ import {
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import Image from 'next/image'
-import { listProjectAreasAction, listAreaVersionProductsAction, deleteAreaVersionFloorPlanAction, type AreaVersionProduct } from '@/lib/actions/project-areas'
+import {
+  listProjectAreasAction,
+  listAreaVersionProductsAction,
+  deleteAreaVersionFloorPlanAction,
+  loadAreaPlacementsAction,
+  saveAreaPlacementsAction,
+  type AreaVersionProduct,
+  type PlacementData
+} from '@/lib/actions/project-areas'
 
 // Type for area-version selection
 interface AreaVersionOption {
@@ -71,6 +79,9 @@ export default function PlannerPage() {
   const [warningsData, setWarningsData] = useState<Array<{ code: string; message: string }> | null>(null)
   const [loadingWarnings, setLoadingWarnings] = useState(false)
 
+  // Unsaved changes dialog state
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
+
   // Viewer reference
   const viewerRef = useRef<Viewer3DInstance | null>(null)
 
@@ -78,15 +89,35 @@ export default function PlannerPage() {
   const [products, setProducts] = useState<AreaVersionProduct[]>([])
   const [_loadingProducts, setLoadingProducts] = useState(false)
 
-  // Placements state (local for now, DB later)
+  // Placements state
   const [placements, setPlacements] = useState<Placement[]>([])
   const [selectedPlacementId, setSelectedPlacementId] = useState<string | null>(null)
+  const [savedPlacements, setSavedPlacements] = useState<PlacementData[]>([]) // Last saved state
+  const [isSaving, setIsSaving] = useState(false)
+  const [_loadingPlacements, setLoadingPlacements] = useState(false)
 
   // Placement mode state - which product is being placed
   const [placementMode, setPlacementMode] = useState<PlacementModeProduct | null>(null)
 
   // DWG unit info from the viewer
   const [dwgUnitInfo, setDwgUnitInfo] = useState<DwgUnitInfo | null>(null)
+
+  // Compute dirty state by comparing current placements with saved state
+  const isDirty = (() => {
+    if (placements.length !== savedPlacements.length) return true
+    // Compare each placement (order matters)
+    return placements.some((p, i) => {
+      const saved = savedPlacements[i]
+      if (!saved) return true
+      return (
+        p.id !== saved.id ||
+        p.worldX !== saved.worldX ||
+        p.worldY !== saved.worldY ||
+        p.rotation !== saved.rotation ||
+        p.projectProductId !== saved.projectProductId
+      )
+    })
+  })()
 
   // Load project areas when active project changes
   useEffect(() => {
@@ -175,7 +206,7 @@ export default function PlannerPage() {
     }
 
     loadAreas()
-  }, [activeProject?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeProject?.id])
 
   // Load products for selected area version
   useEffect(() => {
@@ -211,16 +242,71 @@ export default function PlannerPage() {
     setSelectedUrn(selectedAreaVersion?.floorPlanUrn || null)
     setSelectedFileName(selectedAreaVersion?.floorPlanFilename || null)
     setPlacements([])
+    setSavedPlacements([])
     setSelectedPlacementId(null)
     setDwgUnitInfo(null)
     viewerRef.current = null
   }, [selectedAreaVersion?.versionId, selectedAreaVersion?.floorPlanUrn, selectedAreaVersion?.floorPlanFilename])
 
-  // Clear placements when file changes
+  // Load placements from database when area version has a floor plan
+  useEffect(() => {
+    async function loadPlacements() {
+      if (!selectedAreaVersion?.versionId || !selectedAreaVersion?.floorPlanUrn) {
+        return
+      }
+
+      setLoadingPlacements(true)
+      try {
+        const result = await loadAreaPlacementsAction(selectedAreaVersion.versionId)
+        if (result.success && result.data) {
+          // Convert PlacementData to Placement (add dbId)
+          const loadedPlacements: Placement[] = result.data.map((p, index) => ({
+            id: p.id,
+            productId: p.productId,
+            projectProductId: p.projectProductId,
+            productName: p.productName,
+            worldX: p.worldX,
+            worldY: p.worldY,
+            rotation: p.rotation,
+            dbId: dbIdCounterRef.current + index
+          }))
+          // Update counter to avoid conflicts
+          dbIdCounterRef.current += result.data.length + 1
+
+          setPlacements(loadedPlacements)
+          setSavedPlacements(result.data)
+        }
+      } catch (err) {
+        console.error('Failed to load placements:', err)
+      } finally {
+        setLoadingPlacements(false)
+      }
+    }
+
+    loadPlacements()
+  }, [selectedAreaVersion?.versionId, selectedAreaVersion?.floorPlanUrn])
+
+  // Clear placements when file changes (new upload)
   useEffect(() => {
     setPlacements([])
+    setSavedPlacements([])
     setSelectedPlacementId(null)
   }, [selectedFile])
+
+  // Navigation guard - warn user about unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault()
+        // Modern browsers ignore custom messages, but this is required
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty])
 
   // Per-card drag handlers
   const handleCardDragOver = useCallback((e: React.DragEvent, areaId: string) => {
@@ -263,15 +349,58 @@ export default function PlannerPage() {
     setPendingUploadArea(null)
   }, [pendingUploadArea])
 
-  const clearFile = useCallback(() => {
+  // Actually clear the file (called after confirmation if dirty)
+  const doClearFile = useCallback(() => {
     setSelectedFile(null)
     setSelectedUrn(null)
     setSelectedFileName(null)
     setSelectedAreaVersion(null) // Clear selection so same area can be clicked again
     setPlacements([])
+    setSavedPlacements([])
     setSelectedPlacementId(null)
     viewerRef.current = null
   }, [])
+
+  // Clear file with unsaved changes check
+  const clearFile = useCallback(() => {
+    if (isDirty) {
+      setShowUnsavedDialog(true)
+    } else {
+      doClearFile()
+    }
+  }, [isDirty, doClearFile])
+
+  // Save placements to database
+  const handleSavePlacements = useCallback(async () => {
+    if (!selectedAreaVersion?.versionId || isSaving) return
+
+    setIsSaving(true)
+    try {
+      // Convert Placement to PlacementData (remove dbId)
+      const placementData: PlacementData[] = placements.map(p => ({
+        id: p.id,
+        projectProductId: p.projectProductId,
+        productId: p.productId,
+        productName: p.productName,
+        worldX: p.worldX,
+        worldY: p.worldY,
+        rotation: p.rotation
+      }))
+
+      const result = await saveAreaPlacementsAction(selectedAreaVersion.versionId, placementData)
+      if (result.success) {
+        setSavedPlacements(placementData)
+      } else {
+        console.error('Save failed:', result.error)
+        alert('Failed to save placements: ' + (result.error || 'Unknown error'))
+      }
+    } catch (err) {
+      console.error('Save placements error:', err)
+      alert('Failed to save placements')
+    } finally {
+      setIsSaving(false)
+    }
+  }, [selectedAreaVersion?.versionId, placements, isSaving])
 
   // Handle clicking on an area card with existing DWG
   const handleAreaCardClick = useCallback((area: AreaVersionOption) => {
@@ -723,7 +852,40 @@ export default function PlannerPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
+                    {/* Dirty indicator */}
+                    {isDirty && (
+                      <span className="text-xs text-amber-500 font-medium">● Unsaved</span>
+                    )}
+                    {/* Save button */}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={isDirty ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={handleSavePlacements}
+                            disabled={!isDirty || isSaving || !selectedAreaVersion?.versionId}
+                            className={cn(
+                              isDirty
+                                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                                : 'text-muted-foreground'
+                            )}
+                          >
+                            {isSaving ? (
+                              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                            ) : (
+                              <Save className="h-4 w-4 mr-1.5" />
+                            )}
+                            Save
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{isDirty ? 'Save placements to database' : 'No changes to save'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <div className="h-6 w-px bg-border mx-1" /> {/* Separator */}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -758,6 +920,7 @@ export default function PlannerPage() {
                     areaVersionId={selectedAreaVersion?.versionId}
                     theme="dark"
                     placementMode={placementMode}
+                    initialPlacements={placements}
                     onPlacementAdd={handlePlacementAdd}
                     onPlacementDelete={handlePlacementDelete}
                     onExitPlacementMode={handleExitPlacementMode}
@@ -912,6 +1075,52 @@ export default function PlannerPage() {
           </p>
         </DialogContent>
       </Dialog>
+
+      {/* Unsaved Changes Dialog */}
+      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved placement changes. What would you like to do?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => setShowUnsavedDialog(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowUnsavedDialog(false)
+                doClearFile()
+              }}
+            >
+              Discard Changes
+            </Button>
+            <Button
+              onClick={async () => {
+                await handleSavePlacements()
+                setShowUnsavedDialog(false)
+                doClearFile()
+              }}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-1.5" />
+                  Save & Close
+                </>
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ProtectedPageLayout>
   )
 }
