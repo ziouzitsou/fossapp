@@ -614,10 +614,20 @@ export function PlannerViewer({
 
     if (placementMode) {
       viewer.toolController.activateTool('placement-tool')
+
+      // Exit measure mode when entering placement mode
+      if (measureMode !== 'none') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const measureExt = viewer.getExtension('Autodesk.Measure') as any
+        if (measureExt) {
+          measureExt.deactivate()
+        }
+        setMeasureMode('none')
+      }
     } else {
       viewer.toolController.deactivateTool('placement-tool')
     }
-  }, [placementMode])
+  }, [placementMode, measureMode])
 
   // Toolbar actions
   const handleToggleMeasure = useCallback((mode: 'distance' | 'area') => {
@@ -628,6 +638,11 @@ export function PlannerViewer({
     const measureExt = viewer.getExtension('Autodesk.Measure') as any
     if (!measureExt) return
 
+    // Exit placement mode when entering measure mode
+    if (placementMode) {
+      onExitPlacementMode?.()
+    }
+
     if (measureMode === mode) {
       // Same mode clicked - deactivate
       measureExt.deactivate()
@@ -637,7 +652,7 @@ export function PlannerViewer({
       measureExt.activate(mode)
       setMeasureMode(mode)
     }
-  }, [measureMode])
+  }, [measureMode, placementMode, onExitPlacementMode])
 
   const handleClearMeasurements = useCallback(() => {
     const viewer = viewerRef.current
@@ -764,15 +779,25 @@ export function PlannerViewer({
       {showToolbar && (
         <div className="flex-none border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex items-center justify-center gap-1 p-2">
-            {/* Placement mode indicator */}
+            {/* Placement mode indicator - styled like active measure button */}
             {placementMode && (
               <>
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20">
-                  <MousePointer2 className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-medium text-primary">
-                    {placementMode.fossPid}
-                  </span>
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => onExitPlacementMode?.()}
+                    >
+                      <MousePointer2 className="h-4 w-4" />
+                      <span className="text-xs font-medium">
+                        {placementMode.fossPid}
+                      </span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Click to exit placement mode (or press ESC)</TooltipContent>
+                </Tooltip>
                 <div className="w-px h-6 bg-border mx-1" />
               </>
             )}
