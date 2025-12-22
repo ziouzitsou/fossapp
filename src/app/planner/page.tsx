@@ -6,10 +6,27 @@ import { useActiveProject } from '@/lib/active-project-context'
 import { PlannerViewer, ProductsPanel } from '@/components/planner'
 import type { Viewer3DInstance, Placement, PlacementModeProduct } from '@/components/planner'
 
-import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Plus, Trash2, AlertTriangle } from 'lucide-react'
+import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Plus, Trash2, AlertTriangle, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -46,6 +63,12 @@ export default function PlannerPage() {
 
   // Deletion state
   const [deletingAreaId, setDeletingAreaId] = useState<string | null>(null)
+  const [deleteConfirmArea, setDeleteConfirmArea] = useState<AreaVersionOption | null>(null)
+
+  // Warnings dialog state
+  const [warningsDialogArea, setWarningsDialogArea] = useState<AreaVersionOption | null>(null)
+  const [warningsData, setWarningsData] = useState<Array<{ code: string; message: string }> | null>(null)
+  const [loadingWarnings, setLoadingWarnings] = useState(false)
 
   // Viewer reference
   const viewerRef = useRef<Viewer3DInstance | null>(null)
@@ -261,26 +284,27 @@ export default function PlannerPage() {
     }
   }, [])
 
-  // Handle deleting floor plan from an area
-  const handleDeleteFloorPlan = useCallback(async (e: React.MouseEvent, area: AreaVersionOption) => {
+  // Handle clicking delete button - opens confirmation dialog
+  const handleDeleteClick = useCallback((e: React.MouseEvent, area: AreaVersionOption) => {
     e.stopPropagation() // Prevent card click
-
     if (!area.floorPlanUrn) return
+    setDeleteConfirmArea(area)
+  }, [])
 
-    // Confirm deletion
-    const confirmed = window.confirm(
-      `Delete floor plan "${area.floorPlanFilename}" from ${area.areaCode}?`
-    )
-    if (!confirmed) return
+  // Handle confirming deletion from dialog
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteConfirmArea) return
 
-    setDeletingAreaId(area.areaId)
+    setDeletingAreaId(deleteConfirmArea.areaId)
+    setDeleteConfirmArea(null) // Close dialog immediately
+
     try {
-      const result = await deleteAreaVersionFloorPlanAction(area.versionId)
+      const result = await deleteAreaVersionFloorPlanAction(deleteConfirmArea.versionId)
       if (result.success) {
         // Update local state to remove floor plan info
         setAreaVersions(prev =>
           prev.map(av =>
-            av.versionId === area.versionId
+            av.versionId === deleteConfirmArea.versionId
               ? { ...av, floorPlanUrn: undefined, floorPlanFilename: undefined }
               : av
           )
@@ -293,6 +317,30 @@ export default function PlannerPage() {
       alert('Failed to delete floor plan')
     } finally {
       setDeletingAreaId(null)
+    }
+  }, [deleteConfirmArea])
+
+  // Handle clicking warnings badge - opens warnings dialog
+  const handleWarningsClick = useCallback(async (e: React.MouseEvent, area: AreaVersionOption) => {
+    e.stopPropagation() // Prevent card click
+
+    setWarningsDialogArea(area)
+    setWarningsData(null)
+    setLoadingWarnings(true)
+
+    try {
+      const res = await fetch(`/api/planner/manifest?areaVersionId=${area.versionId}`)
+      if (res.ok) {
+        const manifest = await res.json()
+        setWarningsData(manifest.warnings || [])
+      } else {
+        setWarningsData([])
+      }
+    } catch (err) {
+      console.error('Failed to fetch warnings:', err)
+      setWarningsData([])
+    } finally {
+      setLoadingWarnings(false)
     }
   }, [])
 
@@ -503,18 +551,21 @@ export default function PlannerPage() {
                                   <p className="text-sm font-medium truncate">
                                     {area.floorPlanFilename || 'Floor Plan'}
                                   </p>
-                                  {/* Warning badge */}
+                                  {/* Warning badge - clickable to show details */}
                                   {area.floorPlanWarnings && area.floorPlanWarnings > 0 && (
                                     <TooltipProvider>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">
+                                          <button
+                                            onClick={(e) => handleWarningsClick(e, area)}
+                                            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 transition-colors cursor-pointer"
+                                          >
                                             <AlertTriangle className="h-3 w-3" />
                                             <span className="text-[10px] font-medium">{area.floorPlanWarnings}</span>
-                                          </div>
+                                          </button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                          <p>{area.floorPlanWarnings} translation warning{area.floorPlanWarnings > 1 ? 's' : ''}</p>
+                                          <p>Click to view {area.floorPlanWarnings} warning{area.floorPlanWarnings > 1 ? 's' : ''}</p>
                                         </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
@@ -526,7 +577,7 @@ export default function PlannerPage() {
                               </div>
                               {/* Delete button */}
                               <button
-                                onClick={(e) => handleDeleteFloorPlan(e, area)}
+                                onClick={(e) => handleDeleteClick(e, area)}
                                 disabled={deletingAreaId === area.areaId}
                                 className={cn(
                                   'flex-shrink-0 p-2 rounded-lg transition-colors',
@@ -708,6 +759,85 @@ export default function PlannerPage() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmArea} onOpenChange={(open) => !open && setDeleteConfirmArea(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Floor Plan</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove the floor plan from <strong>{deleteConfirmArea?.areaCode}</strong>?
+              {deleteConfirmArea?.floorPlanFilename && (
+                <span className="block mt-2 text-sm">
+                  File: <span className="font-mono text-foreground/80">{deleteConfirmArea.floorPlanFilename}</span>
+                </span>
+              )}
+              <span className="block mt-2 text-muted-foreground">
+                This will delete the DWG file from storage. You can upload a new one anytime.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Translation Warnings Dialog */}
+      <Dialog open={!!warningsDialogArea} onOpenChange={(open) => !open && setWarningsDialogArea(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Translation Warnings
+            </DialogTitle>
+            <DialogDescription>
+              {warningsDialogArea?.areaCode} - {warningsDialogArea?.floorPlanFilename}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[300px] overflow-y-auto">
+            {loadingWarnings ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : warningsData && warningsData.length > 0 ? (
+              warningsData.map((warning, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20"
+                >
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-1">
+                        {warning.code}
+                      </p>
+                      <p className="text-sm text-foreground/80">
+                        {warning.message || 'No additional details available'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No warning details available</p>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            These warnings are from Autodesk&apos;s translation service. They typically indicate minor issues
+            that may affect how certain elements are displayed.
+          </p>
+        </DialogContent>
+      </Dialog>
     </ProtectedPageLayout>
   )
 }
