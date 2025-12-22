@@ -949,26 +949,10 @@ export async function listAreaVersionProductsAction(
       return { success: false, error: 'Invalid area version ID format' }
     }
 
+    // Use PostgreSQL function in projects schema to join across schemas
     const { data: products, error } = await supabaseServer
       .schema('projects')
-      .from('project_products')
-      .select(`
-        id,
-        product_id,
-        quantity,
-        unit_price,
-        discount_percent,
-        room_location,
-        mounting_height,
-        status,
-        notes,
-        items:product_id (
-          foss_pid,
-          description_short
-        )
-      `)
-      .eq('area_version_id', areaVersionId)
-      .order('created_at')
+      .rpc('get_area_version_products', { p_area_version_id: areaVersionId })
 
     if (error) {
       console.error('List area version products error:', error)
@@ -979,9 +963,20 @@ export async function listAreaVersionProductsAction(
       return { success: true, data: [] }
     }
 
-    // Map to AreaVersionProduct format
-    const mappedProducts: AreaVersionProduct[] = products.map(p => {
-      const item = p.items as unknown as { foss_pid: string; description_short: string } | null
+    // Map RPC results to AreaVersionProduct format
+    const mappedProducts: AreaVersionProduct[] = products.map((p: {
+      id: string
+      product_id: string
+      foss_pid: string
+      description_short: string
+      quantity: number
+      unit_price?: number
+      discount_percent?: number
+      room_location?: string
+      mounting_height?: number
+      status?: string
+      notes?: string
+    }) => {
       const unitPrice = p.unit_price || 0
       const quantity = p.quantity || 0
       const discount = p.discount_percent || 0
@@ -990,8 +985,8 @@ export async function listAreaVersionProductsAction(
       return {
         id: p.id,
         product_id: p.product_id,
-        foss_pid: item?.foss_pid || 'Unknown',
-        description_short: item?.description_short || 'Unknown Product',
+        foss_pid: p.foss_pid || 'Unknown',
+        description_short: p.description_short || 'Unknown Product',
         quantity: p.quantity,
         unit_price: p.unit_price ?? undefined,
         discount_percent: p.discount_percent ?? undefined,

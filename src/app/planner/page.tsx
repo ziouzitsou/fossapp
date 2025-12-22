@@ -182,15 +182,16 @@ export default function PlannerPage() {
     loadProducts()
   }, [selectedAreaVersion?.versionId])
 
-  // Clear viewer when area-version changes
+  // Update viewer when area-version changes
   useEffect(() => {
     setSelectedFile(null)
-    setSelectedUrn(null)
-    setSelectedFileName(null)
+    // Set URN from selected area (don't clear - this caused double-click bug)
+    setSelectedUrn(selectedAreaVersion?.floorPlanUrn || null)
+    setSelectedFileName(selectedAreaVersion?.floorPlanFilename || null)
     setPlacements([])
     setSelectedPlacementId(null)
     viewerRef.current = null
-  }, [selectedAreaVersion?.versionId])
+  }, [selectedAreaVersion?.versionId, selectedAreaVersion?.floorPlanUrn, selectedAreaVersion?.floorPlanFilename])
 
   // Clear placements when file changes
   useEffect(() => {
@@ -251,11 +252,8 @@ export default function PlannerPage() {
   // Handle clicking on an area card with existing DWG
   const handleAreaCardClick = useCallback((area: AreaVersionOption) => {
     if (area.floorPlanUrn) {
-      // Area has a floor plan - load it
+      // Area has a floor plan - select it (useEffect will set URN)
       setSelectedAreaVersion(area)
-      setSelectedUrn(area.floorPlanUrn)
-      setSelectedFileName(area.floorPlanFilename || 'Floor Plan')
-      setSelectedFile(null)
     } else {
       // Area has no floor plan - open file picker
       setPendingUploadArea(area)
@@ -487,7 +485,7 @@ export default function PlannerPage() {
                                     src={`/api/planner/thumbnail?areaVersionId=${area.versionId}`}
                                     alt={area.floorPlanFilename || 'Floor plan thumbnail'}
                                     fill
-                                    className="object-cover"
+                                    className="object-cover pointer-events-none"
                                     unoptimized
                                   />
                                 ) : area.floorPlanStatus === 'inprogress' ? (
