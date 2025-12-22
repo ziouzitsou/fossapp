@@ -114,11 +114,6 @@ export default function PlannerPage() {
 
           setAreaVersions(options)
 
-          // Auto-select first area if available
-          if (options.length > 0 && !selectedAreaVersion) {
-            setSelectedAreaVersion(options[0])
-          }
-
           // Check for stale "inprogress" translations and update their status
           const inProgressAreas = options.filter(av => av.floorPlanStatus === 'inprogress')
           if (inProgressAreas.length > 0) {
