@@ -67,7 +67,9 @@ export interface PlannerViewerProps {
   /** Callback when user clicks on the viewer (for placing products) */
   onViewerClick?: (worldCoords: WorldCoordinates | null, screenCoords: { x: number; y: number }) => void
   /** Callback when upload completes (with cache info) */
-  onUploadComplete?: (urn: string, isNewUpload: boolean) => void
+  onUploadComplete?: (urn: string, isNewUpload: boolean, fileName: string) => void
+  /** Callback when translation completes successfully */
+  onTranslationComplete?: (urn: string) => void
   /** Additional class name */
   className?: string
 }
@@ -157,6 +159,7 @@ export function PlannerViewer({
   onError,
   onViewerClick,
   onUploadComplete,
+  onTranslationComplete,
   className,
 }: PlannerViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -166,11 +169,13 @@ export function PlannerViewer({
   const onReadyRef = useRef(onReady)
   const onErrorRef = useRef(onError)
   const onUploadCompleteRef = useRef(onUploadComplete)
+  const onTranslationCompleteRef = useRef(onTranslationComplete)
   const onPlacementAddRef = useRef(onPlacementAdd)
   const onPlacementDeleteRef = useRef(onPlacementDelete)
   onReadyRef.current = onReady
   onErrorRef.current = onError
   onUploadCompleteRef.current = onUploadComplete
+  onTranslationCompleteRef.current = onTranslationComplete
   onPlacementAddRef.current = onPlacementAdd
   onPlacementDeleteRef.current = onPlacementDelete
 
@@ -250,7 +255,7 @@ export function PlannerViewer({
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
 
-      onUploadCompleteRef.current?.(data.urn, data.isNewUpload)
+      onUploadCompleteRef.current?.(data.urn, data.isNewUpload, data.fileName)
       return data.urn
     }
 
@@ -308,6 +313,8 @@ export function PlannerViewer({
         // Ensure progress shows 100% on completion
         setTranslationProgress(100)
         setIsIndeterminate(false)
+        // Notify parent that translation is complete
+        onTranslationCompleteRef.current?.(fileUrn)
         return
       }
 

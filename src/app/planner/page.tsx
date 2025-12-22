@@ -597,8 +597,48 @@ export default function PlannerPage() {
                     onExitPlacementMode={handleExitPlacementMode}
                     onReady={handleViewerReady}
                     onError={(error) => console.error('Viewer error:', error)}
-                    onUploadComplete={(urn, isNewUpload) => {
-                      console.log('Upload complete:', { urn: urn.substring(0, 20) + '...', isNewUpload })
+                    onUploadComplete={(urn, isNewUpload, fileName) => {
+                      console.log('Upload complete:', { urn: urn.substring(0, 20) + '...', isNewUpload, fileName })
+                      // Update local state with new floor plan info
+                      if (selectedAreaVersion) {
+                        setAreaVersions(prev =>
+                          prev.map(av =>
+                            av.versionId === selectedAreaVersion.versionId
+                              ? {
+                                  ...av,
+                                  floorPlanUrn: urn,
+                                  floorPlanFilename: fileName,
+                                  floorPlanStatus: isNewUpload ? 'inprogress' : 'success'
+                                }
+                              : av
+                          )
+                        )
+                      }
+                    }}
+                    onTranslationComplete={async () => {
+                      // Fetch manifest to update DB and get warnings/thumbnail
+                      if (selectedAreaVersion) {
+                        try {
+                          const res = await fetch(`/api/planner/manifest?areaVersionId=${selectedAreaVersion.versionId}`)
+                          if (res.ok) {
+                            const manifest = await res.json()
+                            // Update local state with success status and warnings
+                            setAreaVersions(prev =>
+                              prev.map(av =>
+                                av.versionId === selectedAreaVersion.versionId
+                                  ? {
+                                      ...av,
+                                      floorPlanStatus: 'success',
+                                      floorPlanWarnings: manifest.warningCount || 0
+                                    }
+                                  : av
+                              )
+                            )
+                          }
+                        } catch (err) {
+                          console.error('Failed to fetch manifest:', err)
+                        }
+                      }
                     }}
                   />
                 </div>
