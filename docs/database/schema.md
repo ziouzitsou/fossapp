@@ -1,11 +1,128 @@
-# PostgreSQL Schema Exploration: ETIM and Items
+# PostgreSQL Schema Exploration
 
 ## Database Structure Overview
 
-This document provides a comprehensive overview of two interconnected schemas in the PostgreSQL database:
+This document provides a comprehensive overview of the PostgreSQL database schemas:
 
 1. **ETIM Schema**: Contains the ETIM (Electro-Technical Information Model) classification system
 2. **Items Schema**: Contains actual product data that references the ETIM classification
+3. **Search Schema**: Contains search infrastructure, taxonomy, and full-text search functions
+
+## Schema Organization Principles
+
+Each schema has a specific purpose to maintain clean separation of concerns:
+
+| Schema | Purpose | Contains |
+|--------|---------|----------|
+| `items` | Product data | Products, catalogs, suppliers, product_info matview |
+| `etim` | ETIM standard | Classes, features, values, units (reference data) |
+| `search` | Search infrastructure | FTS functions, taxonomy, filters, classification rules |
+| `public` | Backward compatibility | Wrapper functions that delegate to proper schemas |
+
+### Schema Dependency Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Application Layer                       │
+│              (Next.js Server Actions, API Routes)            │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       search schema                          │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  search_products_fts()  ← Full-text search          │    │
+│  │  taxonomy              ← Product categories          │    │
+│  │  classification_rules  ← Mapping rules               │    │
+│  │  filter_definitions    ← Faceted search config       │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       items schema                           │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  product              ← Core product records         │    │
+│  │  product_detail       ← Extended info, ETIM class    │    │
+│  │  product_feature      ← ETIM feature values          │    │
+│  │  product_info         ← Materialized view (search)   │    │
+│  │  product_search_index ← FTS tsvector index           │    │
+│  │  catalog, supplier    ← Reference data               │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                        etim schema                           │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  class, group         ← Product classifications      │    │
+│  │  feature, featuregroup← Product characteristics      │    │
+│  │  value                ← Alphanumeric values          │    │
+│  │  unit                 ← Units of measurement         │    │
+│  │  classfeaturemap      ← Class-feature mappings       │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Search Schema
+
+The search schema contains all search-related infrastructure:
+
+### Full-Text Search Function
+
+```sql
+-- Primary search function with prefix matching
+search.search_products_fts(search_query TEXT, result_limit INTEGER)
+  RETURNS SETOF items.product_info
+```
+
+**Features:**
+- Prefix matching: "enter" matches "ENTERO", "ENTERPRISE"
+- Multi-word queries: "spy 39" → `'spy':* & '39':*`
+- Dual-config search: Uses both 'simple' (codes) and 'english' (text) configs
+- Ranking: Exact foss_pid matches prioritized
+
+### Taxonomy Table
+
+Hierarchical product categories for navigation:
+
+```sql
+search.taxonomy (
+  code TEXT PRIMARY KEY,     -- e.g., 'LUM_CEIL_REC'
+  parent_code TEXT,          -- Parent category
+  level INTEGER,             -- 0=root, 1=main, 2=sub, 3=type
+  name TEXT,                 -- Display name
+  icon TEXT                  -- Lucide icon name
+)
+```
+
+### Classification Rules Table
+
+Maps products to taxonomy via ETIM classes/features:
+
+```sql
+search.classification_rules (
+  rule_name TEXT,
+  taxonomy_code TEXT,        -- Target taxonomy category
+  etim_class_ids TEXT[],     -- Matching ETIM classes
+  etim_feature_conditions JSONB,
+  text_pattern TEXT          -- Optional text matching
+)
+```
+
+### Filter Definitions Table
+
+Defines faceted search filters:
+
+```sql
+search.filter_definitions (
+  filter_key TEXT,           -- e.g., 'ip_rating'
+  filter_type TEXT,          -- 'select', 'range', 'boolean'
+  etim_feature_id TEXT,      -- Maps to ETIM feature
+  ui_component TEXT,         -- React component type
+  applicable_taxonomy_codes TEXT[]
+)
+```
 
 ## Schema Relationships
 
