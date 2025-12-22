@@ -360,7 +360,18 @@ export default function PlannerPage() {
       return [...prev, newPlacement]
     })
     setSelectedPlacementId(newPlacement.id)
-  }, [])
+
+    // Check if product quantity is now exhausted and exit placement mode
+    // Count is: current placements + 1 (the new one we just added)
+    if (placementMode) {
+      const currentCount = placements.filter(p => p.projectProductId === placementMode.projectProductId).length
+      const product = products.find(p => p.id === placementMode.projectProductId)
+
+      if (product && currentCount + 1 >= product.quantity) {
+        setPlacementMode(null)
+      }
+    }
+  }, [placements, placementMode, products])
 
   const _handlePlacementSelect = useCallback((id: string | null) => {
     setSelectedPlacementId(id)
