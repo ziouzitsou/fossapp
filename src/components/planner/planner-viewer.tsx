@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { Viewer3DInstance, WorldCoordinates as WorldCoordsType, ViewerInitOptions } from '@/types/autodesk-viewer'
-import type { PlacementModeProduct, Placement } from './types'
+import type { PlacementModeProduct, Placement, DwgUnitInfo } from './types'
 import { PlacementTool } from './placement-tool'
 import { MarkupMarkers } from './markup-markers'
 
@@ -70,6 +70,8 @@ export interface PlannerViewerProps {
   onUploadComplete?: (urn: string, isNewUpload: boolean, fileName: string) => void
   /** Callback when translation completes successfully */
   onTranslationComplete?: (urn: string) => void
+  /** Callback when DWG unit info is available (after model loads) */
+  onUnitInfoAvailable?: (info: DwgUnitInfo) => void
   /** Additional class name */
   className?: string
 }
@@ -132,6 +134,7 @@ export function PlannerViewer({
   onViewerClick,
   onUploadComplete,
   onTranslationComplete,
+  onUnitInfoAvailable,
   className,
 }: PlannerViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -142,12 +145,14 @@ export function PlannerViewer({
   const onErrorRef = useRef(onError)
   const onUploadCompleteRef = useRef(onUploadComplete)
   const onTranslationCompleteRef = useRef(onTranslationComplete)
+  const onUnitInfoAvailableRef = useRef(onUnitInfoAvailable)
   const onPlacementAddRef = useRef(onPlacementAdd)
   const onPlacementDeleteRef = useRef(onPlacementDelete)
   onReadyRef.current = onReady
   onErrorRef.current = onError
   onUploadCompleteRef.current = onUploadComplete
   onTranslationCompleteRef.current = onTranslationComplete
+  onUnitInfoAvailableRef.current = onUnitInfoAvailable
   onPlacementAddRef.current = onPlacementAdd
   onPlacementDeleteRef.current = onPlacementDelete
 
@@ -353,6 +358,20 @@ export function PlannerViewer({
 
             try {
               await viewer.loadDocumentNode(doc, viewable)
+
+              // Extract DWG unit information from the model
+              const model = viewer.model
+              if (model && onUnitInfoAvailableRef.current) {
+                const unitInfo: DwgUnitInfo = {
+                  unitString: model.getUnitString?.() ?? null,
+                  displayUnit: model.getDisplayUnit?.() ?? null,
+                  unitScale: model.getUnitScale?.() ?? null,
+                  pageUnits: (model.getMetadata?.('page_dimensions', 'page_units', null) as string | null) ?? null,
+                  modelUnits: (model.getMetadata?.('page_dimensions', 'model_units', null) as string | null) ?? null,
+                }
+                console.log('[PlannerViewer] DWG unit info:', unitInfo)
+                onUnitInfoAvailableRef.current(unitInfo)
+              }
 
               // Initialize MarkupMarkers for product placement
               const markers = new MarkupMarkers(viewer)

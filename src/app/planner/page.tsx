@@ -4,12 +4,13 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { useActiveProject } from '@/lib/active-project-context'
 import { PlannerViewer, ProductsPanel } from '@/components/planner'
-import type { Viewer3DInstance, Placement, PlacementModeProduct } from '@/components/planner'
+import type { Viewer3DInstance, Placement, PlacementModeProduct, DwgUnitInfo } from '@/components/planner'
 
 import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Plus, Trash2, AlertTriangle, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,6 +84,9 @@ export default function PlannerPage() {
 
   // Placement mode state - which product is being placed
   const [placementMode, setPlacementMode] = useState<PlacementModeProduct | null>(null)
+
+  // DWG unit info from the viewer
+  const [dwgUnitInfo, setDwgUnitInfo] = useState<DwgUnitInfo | null>(null)
 
   // Load project areas when active project changes
   useEffect(() => {
@@ -208,6 +212,7 @@ export default function PlannerPage() {
     setSelectedFileName(selectedAreaVersion?.floorPlanFilename || null)
     setPlacements([])
     setSelectedPlacementId(null)
+    setDwgUnitInfo(null)
     viewerRef.current = null
   }, [selectedAreaVersion?.versionId, selectedAreaVersion?.floorPlanUrn, selectedAreaVersion?.floorPlanFilename])
 
@@ -343,6 +348,11 @@ export default function PlannerPage() {
   // Viewer ready callback
   const handleViewerReady = useCallback((viewer: Viewer3DInstance) => {
     viewerRef.current = viewer
+  }, [])
+
+  // DWG unit info callback
+  const handleUnitInfoAvailable = useCallback((info: DwgUnitInfo) => {
+    setDwgUnitInfo(info)
   }, [])
 
   // Counter for generating unique dbIds (DataVisualization sprites need numeric IDs)
@@ -644,9 +654,60 @@ export default function PlannerPage() {
                       <FileIcon className="h-5 w-5 text-primary" />
                     </div>
                     <div className="space-y-0.5">
-                      <p className="font-medium">
-                        {selectedFile?.name || selectedFileName || 'Floor Plan'}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium">
+                          {selectedFile?.name || selectedFileName || 'Floor Plan'}
+                        </p>
+                        {dwgUnitInfo && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="p-0.5 rounded hover:bg-muted transition-colors">
+                                <Info className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72" align="start">
+                              <div className="space-y-3">
+                                <h4 className="font-medium text-sm">DWG Unit Information</h4>
+                                <div className="space-y-2 text-sm">
+                                  {dwgUnitInfo.unitString && (
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Unit String:</span>
+                                      <span className="font-mono">{dwgUnitInfo.unitString}</span>
+                                    </div>
+                                  )}
+                                  {dwgUnitInfo.displayUnit && (
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Display Unit:</span>
+                                      <span className="font-mono">{dwgUnitInfo.displayUnit}</span>
+                                    </div>
+                                  )}
+                                  {dwgUnitInfo.unitScale !== null && (
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Scale to Meters:</span>
+                                      <span className="font-mono">{dwgUnitInfo.unitScale}</span>
+                                    </div>
+                                  )}
+                                  {dwgUnitInfo.modelUnits && (
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Model Units:</span>
+                                      <span className="font-mono">{dwgUnitInfo.modelUnits}</span>
+                                    </div>
+                                  )}
+                                  {dwgUnitInfo.pageUnits && (
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Page Units:</span>
+                                      <span className="font-mono">{dwgUnitInfo.pageUnits}</span>
+                                    </div>
+                                  )}
+                                  {!dwgUnitInfo.unitString && !dwgUnitInfo.displayUnit && !dwgUnitInfo.modelUnits && !dwgUnitInfo.pageUnits && (
+                                    <p className="text-muted-foreground italic">No unit information available</p>
+                                  )}
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        )}
+                      </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         {selectedFile && (
                           <span>{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</span>
@@ -701,6 +762,7 @@ export default function PlannerPage() {
                     onPlacementDelete={handlePlacementDelete}
                     onExitPlacementMode={handleExitPlacementMode}
                     onReady={handleViewerReady}
+                    onUnitInfoAvailable={handleUnitInfoAvailable}
                     onError={(error) => console.error('Viewer error:', error)}
                     onUploadComplete={(urn, isNewUpload, fileName) => {
                       console.log('Upload complete:', { urn: urn.substring(0, 20) + '...', isNewUpload, fileName })

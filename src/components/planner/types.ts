@@ -52,3 +52,15 @@ export interface PlacementModeProduct {
   fossPid: string
   description: string
 }
+
+/**
+ * DWG unit information extracted from the APS viewer model
+ * Used to display drawing unit metadata to users
+ */
+export interface DwgUnitInfo {
+  unitString: string | null       // e.g., "mm", "cm", "m", "in", "ft"
+  displayUnit: string | null      // Display unit string
+  unitScale: number | null        // Scale factor to meters (e.g., 0.001 for mm)
+  pageUnits: string | null        // From page_dimensions metadata (2D)
+  modelUnits: string | null       // From page_dimensions metadata (2D)
+}

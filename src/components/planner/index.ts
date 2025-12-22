@@ -21,4 +21,5 @@ export type {
   PanelProduct,
   DragProductData,
   PlacementModeProduct,
+  DwgUnitInfo,
 } from './types'

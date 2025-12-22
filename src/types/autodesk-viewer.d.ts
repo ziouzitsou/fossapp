@@ -51,6 +51,16 @@ interface WorldCoordinates {
 }
 
 /**
+ * Viewer Model - provides access to model metadata and units
+ */
+interface ViewerModel {
+  getUnitString?: () => string | null
+  getDisplayUnit?: () => string | null
+  getUnitScale?: () => number | null
+  getMetadata?: (itemName: string, subitemName?: string, defaultValue?: unknown) => unknown
+}
+
+/**
  * GuiViewer3D - Viewer with built-in toolbar inside the canvas
  * Used by tiles/dwg-viewer.tsx
  */
@@ -87,6 +97,8 @@ interface Viewer3DInstance {
   addEventListener: (event: string, callback: (e: unknown) => void) => void
   removeEventListener: (event: string, callback: (e: unknown) => void) => void
   getExtension: (extensionId: string) => unknown
+  /** The currently loaded model (available after loadDocumentNode completes) */
+  model?: ViewerModel
   /** Internal implementation with low-level APIs */
   impl?: {
     createOverlayScene: (name: string) => boolean
@@ -129,6 +141,7 @@ export {
   BubbleNode,
   Viewable,
   WorldCoordinates,
+  ViewerModel,
   GuiViewer3DInstance,
   Viewer3DInstance
 }
