@@ -209,6 +209,32 @@ export async function listBucketDWGs(
 }
 
 /**
+ * Delete a single object from the bucket
+ * Used when removing a floor plan from an area version
+ */
+export async function deleteFloorPlanObject(
+  projectId: string,
+  objectKey: string
+): Promise<void> {
+  const accessToken = await getAccessToken()
+  const bucketName = generateBucketName(projectId)
+
+  try {
+    await ossClient.deleteObject(bucketName, objectKey, { accessToken })
+    console.log(`[Planner] Deleted object: ${objectKey} from ${bucketName}`)
+  } catch (err: unknown) {
+    const error = err as { axiosError?: { response?: { status?: number } } }
+    if (error.axiosError?.response?.status === 404) {
+      // Object doesn't exist, nothing to delete
+      console.log(`[Planner] Object not found (already deleted?): ${objectKey}`)
+    } else {
+      console.error(`[Planner] Error deleting object ${objectKey}:`, err)
+      throw err
+    }
+  }
+}
+
+/**
  * Delete project bucket and all its contents
  * Called when a project is deleted
  */

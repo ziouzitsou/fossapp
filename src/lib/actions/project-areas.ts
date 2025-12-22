@@ -8,6 +8,7 @@ import {
   createAreaVersionFolderAction,
   deleteAreaVersionFolderAction
 } from './project-drive'
+import { deleteFloorPlanObject, generateObjectKey } from '../planner/aps-planner-service'
 
 // ============================================================================
 // INTERFACES
@@ -62,6 +63,9 @@ export interface AreaVersionSummary {
   created_by?: string
   product_count: number
   total_cost: number
+  // Floor plan fields
+  floor_plan_urn?: string
+  floor_plan_filename?: string
 }
 
 export interface CreateAreaInput {
@@ -181,7 +185,9 @@ export async function listProjectAreasAction(
             created_at: currentVersion.created_at,
             created_by: currentVersion.created_by,
             product_count: productCount,
-            total_cost: totalCost
+            total_cost: totalCost,
+            floor_plan_urn: currentVersion.floor_plan_urn,
+            floor_plan_filename: currentVersion.floor_plan_filename
           } : undefined
         }
 
@@ -996,6 +1002,87 @@ export async function listAreaVersionProductsAction(
     return { success: true, data: mappedProducts }
   } catch (error) {
     console.error('List area version products error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// ============================================================================
+// DELETE FLOOR PLAN FROM AREA VERSION
+// ============================================================================
+
+/**
+ * Remove floor plan from an area version
+ *
+ * This deletes both the database reference AND the OSS file.
+ * If other versions need the file, use copyTo() when creating them.
+ */
+export async function deleteAreaVersionFloorPlanAction(
+  areaVersionId: string
+): Promise<ActionResult> {
+  try {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(areaVersionId)) {
+      return { success: false, error: 'Invalid area version ID format' }
+    }
+
+    // Get the area version with its floor plan info and project ID
+    const { data: areaVersion, error: fetchError } = await supabaseServer
+      .schema('projects')
+      .from('project_area_versions')
+      .select(`
+        id,
+        area_id,
+        floor_plan_filename,
+        floor_plan_urn,
+        project_areas!inner (
+          project_id
+        )
+      `)
+      .eq('id', areaVersionId)
+      .single()
+
+    if (fetchError || !areaVersion) {
+      console.error('Fetch area version error:', fetchError)
+      return { success: false, error: 'Area version not found' }
+    }
+
+    // Delete from OSS if file exists
+    if (areaVersion.floor_plan_filename && areaVersion.floor_plan_urn) {
+      const projectId = (areaVersion.project_areas as { project_id: string }).project_id
+      const objectKey = generateObjectKey(
+        areaVersion.area_id,
+        areaVersion.id,
+        areaVersion.floor_plan_filename
+      )
+
+      try {
+        await deleteFloorPlanObject(projectId, objectKey)
+      } catch (ossError) {
+        // Log but don't fail - OSS deletion is best-effort
+        console.warn('Failed to delete OSS object:', ossError)
+      }
+    }
+
+    // Clear floor plan fields from database
+    const { error } = await supabaseServer
+      .schema('projects')
+      .from('project_area_versions')
+      .update({
+        floor_plan_urn: null,
+        floor_plan_filename: null,
+        floor_plan_hash: null
+      })
+      .eq('id', areaVersionId)
+
+    if (error) {
+      console.error('Delete floor plan error:', error)
+      return { success: false, error: 'Failed to delete floor plan' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Delete area version floor plan error:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }

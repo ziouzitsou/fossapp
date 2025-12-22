@@ -6,23 +6,12 @@ import { useActiveProject } from '@/lib/active-project-context'
 import { PlannerViewer, ProductsPanel } from '@/components/planner'
 import type { Viewer3DInstance, Placement, PlacementModeProduct } from '@/components/planner'
 
-import { Upload, FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle } from 'lucide-react'
+import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
-import { listProjectAreasAction, listAreaVersionProductsAction, type AreaVersionProduct } from '@/lib/actions/project-areas'
-
-// Type for existing DWG files in OSS
-interface ExistingDWG {
-  fileName: string
-  objectKey: string
-  size: number
-  uploadedAt: string
-  urn: string
-  areaId?: string
-  versionId?: string
-}
+import { listProjectAreasAction, listAreaVersionProductsAction, deleteAreaVersionFloorPlanAction, type AreaVersionProduct } from '@/lib/actions/project-areas'
 
 // Type for area-version selection
 interface AreaVersionOption {
@@ -31,7 +20,8 @@ interface AreaVersionOption {
   areaName: string
   versionId: string
   versionNumber: number
-  hasFloorPlan: boolean
+  floorPlanUrn?: string
+  floorPlanFilename?: string
 }
 
 export default function PlannerPage() {
@@ -39,7 +29,7 @@ export default function PlannerPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedUrn, setSelectedUrn] = useState<string | null>(null)
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
-  const [isDragOver, setIsDragOver] = useState(false)
+  const [dragOverAreaId, setDragOverAreaId] = useState<string | null>(null)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
 
   // Area-version selection
@@ -47,16 +37,18 @@ export default function PlannerPage() {
   const [selectedAreaVersion, setSelectedAreaVersion] = useState<AreaVersionOption | null>(null)
   const [loadingAreas, setLoadingAreas] = useState(false)
 
-  // Existing DWGs in OSS for selected area-version
-  const [existingDWGs, setExistingDWGs] = useState<ExistingDWG[]>([])
-  const [loadingDWGs, setLoadingDWGs] = useState(false)
+  // Pending upload area - tracks which area a file input belongs to
+  const [pendingUploadArea, setPendingUploadArea] = useState<AreaVersionOption | null>(null)
+
+  // Deletion state
+  const [deletingAreaId, setDeletingAreaId] = useState<string | null>(null)
 
   // Viewer reference
   const viewerRef = useRef<Viewer3DInstance | null>(null)
 
   // Area version products
   const [products, setProducts] = useState<AreaVersionProduct[]>([])
-  const [loadingProducts, setLoadingProducts] = useState(false)
+  const [_loadingProducts, setLoadingProducts] = useState(false)
 
   // Placements state (local for now, DB later)
   const [placements, setPlacements] = useState<Placement[]>([])
@@ -87,7 +79,8 @@ export default function PlannerPage() {
               areaName: area.area_name,
               versionId: area.current_version_data!.id,
               versionNumber: area.current_version,
-              hasFloorPlan: false // Will be updated when we check for floor plans
+              floorPlanUrn: area.current_version_data!.floor_plan_urn,
+              floorPlanFilename: area.current_version_data!.floor_plan_filename
             }))
 
           setAreaVersions(options)
@@ -139,39 +132,6 @@ export default function PlannerPage() {
     loadProducts()
   }, [selectedAreaVersion?.versionId])
 
-  // Load existing DWGs from OSS when area-version changes
-  useEffect(() => {
-    async function loadExistingDWGs() {
-      if (!activeProject?.id || !selectedAreaVersion) {
-        setExistingDWGs([])
-        return
-      }
-
-      setLoadingDWGs(true)
-      try {
-        const params = new URLSearchParams({
-          projectId: activeProject.id,
-          areaId: selectedAreaVersion.areaId,
-          versionId: selectedAreaVersion.versionId
-        })
-        const response = await fetch(`/api/planner/files?${params}`)
-        if (response.ok) {
-          const data = await response.json()
-          setExistingDWGs(data.files || [])
-        } else {
-          setExistingDWGs([])
-        }
-      } catch (err) {
-        console.error('Failed to load existing DWGs:', err)
-        setExistingDWGs([])
-      } finally {
-        setLoadingDWGs(false)
-      }
-    }
-
-    loadExistingDWGs()
-  }, [activeProject?.id, selectedAreaVersion])
-
   // Clear viewer when area-version changes
   useEffect(() => {
     setSelectedFile(null)
@@ -188,39 +148,46 @@ export default function PlannerPage() {
     setSelectedPlacementId(null)
   }, [selectedFile])
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  // Per-card drag handlers
+  const handleCardDragOver = useCallback((e: React.DragEvent, areaId: string) => {
     e.preventDefault()
-    // Only set drag over for file drops, not product drops
+    e.stopPropagation()
     if (e.dataTransfer.types.includes('Files')) {
-      setIsDragOver(true)
+      setDragOverAreaId(areaId)
     }
   }, [])
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleCardDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragOver(false)
+    e.stopPropagation()
+    setDragOverAreaId(null)
   }, [])
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleCardDrop = useCallback((e: React.DragEvent, area: AreaVersionOption) => {
     e.preventDefault()
-    setIsDragOver(false)
+    e.stopPropagation()
+    setDragOverAreaId(null)
 
     const files = Array.from(e.dataTransfer.files)
     const dwgFile = files.find(f => f.name.toLowerCase().endsWith('.dwg'))
 
     if (dwgFile) {
+      // Set the area for this file upload
+      setSelectedAreaVersion(area)
       setSelectedFile(dwgFile)
     }
   }, [])
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file && file.name.toLowerCase().endsWith('.dwg')) {
+    if (file && file.name.toLowerCase().endsWith('.dwg') && pendingUploadArea) {
+      setSelectedAreaVersion(pendingUploadArea)
       setSelectedFile(file)
     }
-    // Reset input so same file can be selected again
+    // Reset input and pending area
     e.target.value = ''
-  }, [])
+    setPendingUploadArea(null)
+  }, [pendingUploadArea])
 
   const clearFile = useCallback(() => {
     setSelectedFile(null)
@@ -231,20 +198,55 @@ export default function PlannerPage() {
     viewerRef.current = null
   }, [])
 
-  // Select an existing DWG from OSS - uses pre-derived URN
-  const handleSelectExistingDWG = useCallback((dwg: ExistingDWG) => {
-    setSelectedUrn(dwg.urn)
-    setSelectedFileName(dwg.fileName)
-    setSelectedFile(null)
+  // Handle clicking on an area card with existing DWG
+  const handleAreaCardClick = useCallback((area: AreaVersionOption) => {
+    if (area.floorPlanUrn) {
+      // Area has a floor plan - load it
+      setSelectedAreaVersion(area)
+      setSelectedUrn(area.floorPlanUrn)
+      setSelectedFileName(area.floorPlanFilename || 'Floor Plan')
+      setSelectedFile(null)
+    } else {
+      // Area has no floor plan - open file picker
+      setPendingUploadArea(area)
+      document.getElementById('dwg-upload')?.click()
+    }
   }, [])
 
-  // Handle area-version selection change
-  const handleAreaVersionChange = useCallback((versionId: string) => {
-    const option = areaVersions.find(av => av.versionId === versionId)
-    if (option) {
-      setSelectedAreaVersion(option)
+  // Handle deleting floor plan from an area
+  const handleDeleteFloorPlan = useCallback(async (e: React.MouseEvent, area: AreaVersionOption) => {
+    e.stopPropagation() // Prevent card click
+
+    if (!area.floorPlanUrn) return
+
+    // Confirm deletion
+    const confirmed = window.confirm(
+      `Delete floor plan "${area.floorPlanFilename}" from ${area.areaCode}?`
+    )
+    if (!confirmed) return
+
+    setDeletingAreaId(area.areaId)
+    try {
+      const result = await deleteAreaVersionFloorPlanAction(area.versionId)
+      if (result.success) {
+        // Update local state to remove floor plan info
+        setAreaVersions(prev =>
+          prev.map(av =>
+            av.versionId === area.versionId
+              ? { ...av, floorPlanUrn: undefined, floorPlanFilename: undefined }
+              : av
+          )
+        )
+      } else {
+        alert(result.error || 'Failed to delete floor plan')
+      }
+    } catch (err) {
+      console.error('Delete floor plan error:', err)
+      alert('Failed to delete floor plan')
+    } finally {
+      setDeletingAreaId(null)
     }
-  }, [areaVersions])
+  }, [])
 
   // Viewer ready callback
   const handleViewerReady = useCallback((viewer: Viewer3DInstance) => {
@@ -268,7 +270,7 @@ export default function PlannerPage() {
     setSelectedPlacementId(newPlacement.id)
   }, [])
 
-  const handlePlacementSelect = useCallback((id: string | null) => {
+  const _handlePlacementSelect = useCallback((id: string | null) => {
     setSelectedPlacementId(id)
   }, [])
 
@@ -290,9 +292,8 @@ export default function PlannerPage() {
     setPlacementMode(null)
   }, [])
 
-  // Determine if we can show the upload area
+  // Determine if we have areas
   const hasAreas = areaVersions.length > 0
-  const canUpload = activeProject && hasAreas && selectedAreaVersion
 
   return (
     <ProtectedPageLayout>
@@ -300,38 +301,12 @@ export default function PlannerPage() {
         {/* Header */}
         <div className="flex-none p-6 pb-4 border-b">
           <div className="flex items-center justify-between gap-4">
-            <div>
+            <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-foreground">Planner</h1>
-              <p className="text-muted-foreground mt-1">
-                Upload a floor plan DWG to start planning
-              </p>
+              <Badge variant="secondary" className="text-xs">Beta</Badge>
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Area-Version Selector */}
-              {activeProject && hasAreas && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <Select
-                    value={selectedAreaVersion?.versionId || ''}
-                    onValueChange={handleAreaVersionChange}
-                  >
-                    <SelectTrigger className="w-[220px]">
-                      <SelectValue placeholder="Select area/version" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {areaVersions.map((av) => (
-                        <SelectItem key={av.versionId} value={av.versionId}>
-                          <span className="font-medium">{av.areaCode}</span>
-                          <span className="text-muted-foreground ml-1">- {av.areaName}</span>
-                          <span className="text-muted-foreground ml-1">(v{av.versionNumber})</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
               {/* Active Project Badge */}
               {activeProject ? (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
@@ -403,87 +378,115 @@ export default function PlannerPage() {
                     </Button>
                   </Link>
                 </div>
-              ) : canUpload ? (
-                /* Can Upload - Show existing DWGs and upload area */
-                <div className="h-full flex flex-col gap-4">
-                  {/* Existing DWGs List */}
-                  {loadingDWGs ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      <span className="ml-2 text-sm text-muted-foreground">Loading floor plans...</span>
-                    </div>
-                  ) : existingDWGs.length > 0 ? (
-                    <div className="flex-none">
-                      <h3 className="text-sm font-medium text-foreground mb-2">
-                        Floor Plans for {selectedAreaVersion?.areaCode} v{selectedAreaVersion?.versionNumber}
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                        {existingDWGs.map((dwg) => (
-                          <button
-                            key={dwg.objectKey}
-                            onClick={() => handleSelectExistingDWG(dwg)}
-                            className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent transition-colors text-left"
-                          >
-                            <FileIcon className="h-8 w-8 text-primary flex-none" />
+              ) : hasAreas ? (
+                /* Area Cards Grid */
+                <div className="h-full flex flex-col">
+                  {/* Hidden file input */}
+                  <input
+                    type="file"
+                    accept=".dwg"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="dwg-upload"
+                  />
+
+                  {/* Area Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {areaVersions.map((area) => {
+                      const hasFloorPlan = !!area.floorPlanUrn
+                      const isDragOver = dragOverAreaId === area.areaId
+
+                      return (
+                        <div
+                          key={area.versionId}
+                          onClick={() => handleAreaCardClick(area)}
+                          onDragOver={(e) => !hasFloorPlan && handleCardDragOver(e, area.areaId)}
+                          onDragLeave={handleCardDragLeave}
+                          onDrop={(e) => !hasFloorPlan && handleCardDrop(e, area)}
+                          className={cn(
+                            'relative p-4 rounded-xl border-2 cursor-pointer transition-all',
+                            hasFloorPlan
+                              ? 'bg-card hover:bg-accent border-border hover:border-primary/50'
+                              : isDragOver
+                                ? 'bg-primary/10 border-primary border-dashed'
+                                : 'bg-muted/30 border-dashed border-muted-foreground/30 hover:border-muted-foreground/50 hover:bg-muted/50'
+                          )}
+                        >
+                          {/* Area Header */}
+                          <div className="flex items-start justify-between gap-2 mb-3">
                             <div className="min-w-0">
-                              <p className="font-medium text-sm truncate">{dwg.fileName}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {(dwg.size / 1024 / 1024).toFixed(2)} MB
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-foreground">{area.areaCode}</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                  v{area.versionNumber}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground truncate mt-0.5">
+                                {area.areaName}
                               </p>
                             </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
+                          </div>
 
-                  {/* Upload Area */}
-                  <div
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    className={cn(
-                      'flex-1 flex flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors',
-                      isDragOver
-                        ? 'border-primary bg-primary/5'
-                        : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-                    )}
-                  >
-                    <input
-                      type="file"
-                      accept=".dwg"
-                      onChange={handleFileChange}
-                      className="hidden"
-                      id="dwg-upload"
-                    />
-                    <div className="text-center">
-                      <Upload className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                      <p className="text-base font-medium text-foreground mb-1">
-                        {existingDWGs.length > 0 ? 'Upload another DWG' : 'Drop your DWG file here'}
-                      </p>
-                      <p className="text-sm text-muted-foreground mb-1">
-                        for <span className="font-medium">{selectedAreaVersion?.areaCode}</span> v{selectedAreaVersion?.versionNumber}
-                      </p>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        or click to browse
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          document.getElementById('dwg-upload')?.click()
-                        }}
-                      >
-                        Select DWG File
-                      </Button>
-                    </div>
-                    {isDragOver && (
-                      <p className="mt-3 text-sm text-primary font-medium">
-                        Drop to upload
-                      </p>
-                    )}
+                          {/* Content based on floor plan status */}
+                          {hasFloorPlan ? (
+                            <div className="flex items-center gap-3">
+                              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <FileIcon className="h-5 w-5 text-primary" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium truncate">
+                                  {area.floorPlanFilename || 'Floor Plan'}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Click to open
+                                </p>
+                              </div>
+                              {/* Delete button */}
+                              <button
+                                onClick={(e) => handleDeleteFloorPlan(e, area)}
+                                disabled={deletingAreaId === area.areaId}
+                                className={cn(
+                                  'flex-shrink-0 p-2 rounded-lg transition-colors',
+                                  'hover:bg-destructive/10 hover:text-destructive',
+                                  'text-muted-foreground',
+                                  deletingAreaId === area.areaId && 'opacity-50 cursor-not-allowed'
+                                )}
+                                title="Delete floor plan"
+                              >
+                                {deletingAreaId === area.areaId ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                'flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors',
+                                isDragOver ? 'bg-primary/20' : 'bg-muted'
+                              )}>
+                                <Plus className={cn(
+                                  'h-5 w-5',
+                                  isDragOver ? 'text-primary' : 'text-muted-foreground'
+                                )} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className={cn(
+                                  'text-sm font-medium',
+                                  isDragOver ? 'text-primary' : 'text-muted-foreground'
+                                )}>
+                                  {isDragOver ? 'Drop to upload' : 'Upload DWG'}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Click or drop file
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               ) : null}
