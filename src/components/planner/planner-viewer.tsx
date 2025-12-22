@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Loader2, AlertCircle, Maximize, CheckCircle2, Ruler, Trash2, Square, MousePointer2 } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2, Ruler, Trash2, Square, MousePointer2 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -620,15 +620,6 @@ export function PlannerViewer({
   }, [placementMode])
 
   // Toolbar actions
-  const handleFitToView = useCallback(() => {
-    const viewer = viewerRef.current
-    if (!viewer) return
-
-    // Simple fitToView - works for both 2D and 3D
-    // The viewer handles the camera transition smoothly
-    viewer.fitToView()
-  }, [])
-
   const handleToggleMeasure = useCallback((mode: 'distance' | 'area') => {
     const viewer = viewerRef.current
     if (!viewer) return
@@ -843,21 +834,6 @@ export function PlannerViewer({
                 <TooltipContent>Delete Marker (or press Delete key)</TooltipContent>
               </Tooltip>
             )}
-
-            <div className="w-px h-6 bg-border mx-1" />
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleFitToView}
-                >
-                  <Maximize className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Fit to View</TooltipContent>
-            </Tooltip>
 
           </div>
         </div>
