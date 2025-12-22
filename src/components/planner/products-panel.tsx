@@ -168,7 +168,7 @@ export function ProductsPanel({
       {/* Header */}
       <div className="flex-none px-4 py-4 border-b">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-semibold">Products</h3>
+          <h3 className="font-semibold">Product Groups</h3>
           <Badge variant="secondary" className="tabular-nums">{products.length}</Badge>
         </div>
         <p className="text-xs text-muted-foreground">
