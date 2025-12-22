@@ -3,6 +3,20 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.11.1",
+      "date": "2025-12-22",
+      "title": "Planner Refinements",
+      "description": "Save your product placements and enjoy a smoother planning experience with key usability improvements.",
+      "features": [
+        "Placement persistence - save product positions on your floor plans with explicit save action",
+        "DWG unit info - see drawing units (mm, cm, m, inches) via info popover",
+        "Delete confirmation dialogs prevent accidental data loss",
+        "Measure and placement modes now mutually exclusive for clarity",
+        "Better panel organization - 'Products' renamed to 'Product Groups'"
+      ],
+      "tagline": "Your placements, saved and secure."
+    },
+    {
       "version": "1.11.0",
       "date": "2025-12-22",
       "title": "Floor Plan Planner (Beta)",
