@@ -629,34 +629,39 @@ export default function PlannerPage() {
             /* Viewer + Products Panel Layout */
             <div className="h-full flex">
               {/* Viewer Area */}
-              <div className="flex-1 flex flex-col p-6 pr-0">
+              <div className="flex-1 flex flex-col pt-6 pl-6 pb-6">
                 {/* File Info Bar */}
-                <div className="flex-none flex items-center justify-between mb-4 p-3 rounded-lg bg-muted/50 border">
-                  <div className="flex items-center gap-3">
-                    <FileIcon className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium text-sm">
+                <div className="flex-none flex items-center justify-between mb-4 mr-4 px-4 py-3 rounded-xl bg-muted/50 border">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+                      <FileIcon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="font-medium">
                         {selectedFile?.name || selectedFileName || 'Floor Plan'}
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         {selectedFile && (
                           <span>{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</span>
                         )}
                         {selectedAreaVersion && (
-                          <span>• {selectedAreaVersion.areaCode} v{selectedAreaVersion.versionNumber}</span>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                            {selectedAreaVersion.areaCode} v{selectedAreaVersion.versionNumber}
+                          </Badge>
                         )}
                         {selectedUrn && !selectedFile && (
-                          <span>• From project storage</span>
+                          <span className="text-muted-foreground/70">From project storage</span>
                         )}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
-                      className="text-muted-foreground"
+                      className="text-muted-foreground h-9 w-9"
+                      title={isPanelCollapsed ? 'Show products panel' : 'Hide products panel'}
                     >
                       {isPanelCollapsed ? (
                         <PanelRight className="h-4 w-4" />
@@ -668,16 +673,16 @@ export default function PlannerPage() {
                       variant="ghost"
                       size="sm"
                       onClick={clearFile}
-                      className="text-muted-foreground hover:text-destructive"
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                     >
-                      <X className="h-4 w-4 mr-1" />
+                      <X className="h-4 w-4 mr-1.5" />
                       Close
                     </Button>
                   </div>
                 </div>
 
                 {/* Planner Viewer */}
-                <div className="flex-1 rounded-lg overflow-hidden border">
+                <div className="flex-1 rounded-lg overflow-hidden border mr-4">
                   <PlannerViewer
                     file={selectedFile || undefined}
                     urn={selectedUrn || undefined}

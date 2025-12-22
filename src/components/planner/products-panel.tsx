@@ -10,7 +10,6 @@
 import { useMemo } from 'react'
 import { Package, MousePointer2, ChevronDown, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -57,7 +56,7 @@ function ProductCard({ product, placedCount, isSelected, onSelect }: ProductCard
       onClick={isDisabled ? undefined : onSelect}
       disabled={isDisabled}
       className={cn(
-        'w-full flex items-center gap-2 p-2 rounded-md border bg-card text-left transition-all',
+        'w-full flex items-center gap-3 p-3 rounded-lg border bg-card text-left transition-all',
         isSelected
           ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
           : 'hover:bg-accent hover:border-accent-foreground/20',
@@ -76,18 +75,18 @@ function ProductCard({ product, placedCount, isSelected, onSelect }: ProductCard
       </div>
 
       {/* Product info */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 space-y-0.5">
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-medium truncate">
             {product.foss_pid}
           </span>
           {placedCount > 0 && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
               {placedCount}/{product.quantity}
             </Badge>
           )}
         </div>
-        <p className="text-xs text-muted-foreground truncate">
+        <p className="text-xs text-muted-foreground truncate leading-relaxed">
           {product.description_short}
         </p>
       </div>
@@ -95,7 +94,7 @@ function ProductCard({ product, placedCount, isSelected, onSelect }: ProductCard
       {/* Quantity badge */}
       <Badge
         variant={remaining > 0 ? 'outline' : 'secondary'}
-        className="flex-shrink-0"
+        className="flex-shrink-0 tabular-nums"
       >
         {remaining > 0 ? remaining : 0}
       </Badge>
@@ -167,19 +166,19 @@ export function ProductsPanel({
   return (
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
-      <div className="flex-none p-3 border-b">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm">Products</h3>
-          <Badge variant="secondary">{products.length}</Badge>
+      <div className="flex-none px-4 py-4 border-b">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-semibold">Products</h3>
+          <Badge variant="secondary" className="tabular-nums">{products.length}</Badge>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-xs text-muted-foreground">
           Click to select, then click on floor plan
         </p>
       </div>
 
       {/* Product list */}
-      <ScrollArea className="flex-1">
-        <div className="p-3 space-y-2">
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-4 py-3 space-y-3">
           {groupedProducts.size === 1 && groupedProducts.has('Unassigned') ? (
             // No grouping needed - flat list
             products.map((product) => (
@@ -194,21 +193,21 @@ export function ProductsPanel({
           ) : (
             // Grouped by room location
             Array.from(groupedProducts.entries()).map(([location, groupProducts]) => (
-              <Collapsible key={location} defaultOpen>
+              <Collapsible key={location} defaultOpen className="space-y-2">
                 <CollapsibleTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full justify-start gap-2 h-8"
+                    className="w-full justify-start gap-2 h-9 px-2"
                   >
                     <ChevronDown className="h-4 w-4 transition-transform group-data-[state=closed]:rotate-[-90deg]" />
-                    <span className="truncate">{location}</span>
-                    <Badge variant="outline" className="ml-auto">
+                    <span className="truncate font-medium">{location}</span>
+                    <Badge variant="outline" className="ml-auto tabular-nums">
                       {groupProducts.length}
                     </Badge>
                   </Button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-1 mt-1 ml-2">
+                <CollapsibleContent className="space-y-2 ml-2 pl-2 border-l border-border/50">
                   {groupProducts.map((product) => (
                     <ProductCard
                       key={product.id}
@@ -223,38 +222,40 @@ export function ProductsPanel({
             ))
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Placement mode indicator - above footer */}
       {placementMode && (
-        <div className="flex-none mx-3 mb-2 p-2 rounded-md bg-primary/10 border border-primary/20">
+        <div className="flex-none mx-4 mb-3 p-3 rounded-lg bg-primary/10 border border-primary/20">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <MousePointer2 className="h-4 w-4 text-primary flex-shrink-0" />
-              <span className="text-xs font-medium text-primary truncate">
-                Placing: {placementMode.fossPid}
+              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                <MousePointer2 className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <span className="text-sm font-medium text-primary truncate">
+                {placementMode.fossPid}
               </span>
             </div>
             <Button
               variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 hover:bg-primary/20"
+              size="icon"
+              className="h-7 w-7 hover:bg-primary/20"
               onClick={onExitPlacementMode}
             >
-              <X className="h-3 w-3" />
+              <X className="h-4 w-4" />
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Click on floor plan to place • ESC to cancel
+          <p className="text-xs text-muted-foreground mt-2 ml-8">
+            Click on floor plan to place
           </p>
         </div>
       )}
 
       {/* Footer with placement summary */}
-      <div className="flex-none px-3 py-2 border-t bg-muted/50">
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Placed</span>
-          <span>{placements.length} markers</span>
+      <div className="flex-none px-4 py-3 border-t bg-muted/30">
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Placed</span>
+          <span className="font-medium tabular-nums">{placements.length} markers</span>
         </div>
       </div>
     </div>

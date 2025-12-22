@@ -581,14 +581,33 @@ export function PlannerViewer({
     return () => container.removeEventListener('click', handleClick)
   }, [onViewerClick])
 
-  // Handle resize
+  // Handle resize (window and container)
   useEffect(() => {
+    const container = containerRef.current
+
     const handleResize = () => {
       viewerRef.current?.resize()
     }
 
+    // Window resize
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+
+    // Container resize (e.g., sidebar collapse)
+    let resizeObserver: ResizeObserver | null = null
+    if (container) {
+      resizeObserver = new ResizeObserver(() => {
+        // Small delay to let CSS transitions complete
+        requestAnimationFrame(() => {
+          viewerRef.current?.resize()
+        })
+      })
+      resizeObserver.observe(container)
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      resizeObserver?.disconnect()
+    }
   }, [])
 
   // Prevent wheel events from propagating
