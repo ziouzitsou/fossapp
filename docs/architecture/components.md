@@ -2,6 +2,8 @@
 
 FOSSAPP uses shadcn/ui component library built on Radix UI primitives and Tailwind CSS.
 
+> **Note for Claude Code:** Component patterns are also available as a skill (`.claude/skills/coding-patterns/`) which Claude automatically uses. This document serves as comprehensive reference.
+
 ## Overview
 
 **Component Library**: shadcn/ui

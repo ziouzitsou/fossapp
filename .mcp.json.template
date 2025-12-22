@@ -52,11 +52,18 @@
 			"args": [
 				"-y",
 				"@supabase/mcp-server-supabase@latest",
-				"--project-ref=your-supabase-project-ref"
+				"--project-ref=hyppizgiozyyyelwdius"
 			],
 			"env": {
 				"SUPABASE_ACCESS_TOKEN": "your-supabase-access-token-here"
 			}
+		},
+		"shadcn": {
+			"command": "npx",
+			"args": [
+				"shadcn@latest",
+				"mcp"
+			]
 		}
 	}
 }

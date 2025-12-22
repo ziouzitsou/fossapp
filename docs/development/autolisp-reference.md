@@ -4,6 +4,8 @@
 
 This document covers AutoLISP patterns used across FOSSAPP for generating DWG files via APS Design Automation.
 
+> **Note for Claude Code:** This content is also available as a skill (`.claude/skills/autolisp-dwg/`) which Claude automatically uses when working with DWG generation features. This document serves as comprehensive human reference.
+
 ---
 
 ## Features Using AutoLISP

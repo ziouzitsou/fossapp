@@ -100,11 +100,12 @@ async function testDriveConnection() {
       console.log('   Available drives:', drives.map(d => d.name).join(', '))
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error & { code?: number }
     console.error('❌ Error connecting to Google Drive:')
-    console.error('   ', error.message)
+    console.error('   ', err.message)
 
-    if (error.code === 403) {
+    if (err.code === 403) {
       console.log('\n   Possible causes:')
       console.log('   - Google Drive API not enabled')
       console.log('   - Service account not added to Shared Drive')

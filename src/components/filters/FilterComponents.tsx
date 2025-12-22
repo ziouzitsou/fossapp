@@ -5,8 +5,18 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import * as LucideIcons from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FilterDefinition } from '@/lib/filters/actions'
+
+// Type-safe Lucide icon lookup
+type LucideIconName = keyof typeof LucideIcons
+function getLucideIcon(name: string | undefined): LucideIcon | null {
+  if (!name) return null
+  const icon = LucideIcons[name as LucideIconName]
+  if (typeof icon === 'function') return icon as LucideIcon
+  return null
+}
 
 // ============================================================================
 // Range Filter (e.g., CRI, CCT, Voltage)
@@ -34,7 +44,7 @@ export function RangeFilter({
     value?.max || configMax
   ])
 
-  // Reset when actual range changes
+  // Reset when actual range changes (intentional state sync)
   useEffect(() => {
     if (!value) {
       setLocalValue([configMin, configMax])
@@ -50,9 +60,7 @@ export function RangeFilter({
     onChange(isDefault ? undefined : { min: newValue[0], max: newValue[1] })
   }
 
-  const IconComponent = filter.ui_config?.icon
-    ? (LucideIcons[filter.ui_config.icon as keyof typeof LucideIcons] as any)
-    : null
+  const IconComponent = getLucideIcon(filter.ui_config?.icon as string | undefined)
 
   return (
     <div className="space-y-3">
@@ -129,9 +137,7 @@ export function CategoricalFilter({
     onChange(newValue.length === 0 ? undefined : newValue)
   }
 
-  const IconComponent = filter.ui_config?.icon
-    ? (LucideIcons[filter.ui_config.icon as keyof typeof LucideIcons] as any)
-    : null
+  const IconComponent = getLucideIcon(filter.ui_config?.icon as string | undefined)
 
   return (
     <div className="space-y-3">
@@ -209,9 +215,7 @@ export function BooleanFilter({
     false: 'No'
   }
 
-  const IconComponent = filter.ui_config?.icon
-    ? (LucideIcons[filter.ui_config.icon as keyof typeof LucideIcons] as any)
-    : null
+  const IconComponent = getLucideIcon(filter.ui_config?.icon as string | undefined)
 
   return (
     <div className="space-y-3">

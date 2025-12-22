@@ -21,6 +21,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
   Command,
   CommandList,
   CommandEmpty,
@@ -33,7 +38,7 @@ import { ProductInfo } from '@/types/product'
 import { ProductImage } from '@/components/tiles/product-image'
 import { useBucket } from '@/components/tiles/bucket-context'
 import { useActiveProject } from '@/lib/active-project-context'
-import { addProductToProjectAction } from '@/lib/actions'
+import { addProductToProjectAction, getProjectAreasForDropdownAction, type AreaDropdownItem } from '@/lib/actions'
 import { toast } from 'sonner'
 
 interface SearchModalProps {
@@ -63,6 +68,9 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null)
   const [addingToProject, setAddingToProject] = useState<string | null>(null)
+  const [areaPopoverProduct, setAreaPopoverProduct] = useState<string | null>(null)
+  const [projectAreas, setProjectAreas] = useState<AreaDropdownItem[]>([])
+  const [loadingAreas, setLoadingAreas] = useState(false)
 
   // Reset state when modal closes
   useEffect(() => {
@@ -73,6 +81,9 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       setCopiedId(null)
       setExpandedProduct(null)
       setAddingToProject(null)
+      setAreaPopoverProduct(null)
+      setProjectAreas([])
+      setLoadingAreas(false)
     }
   }, [open])
 
@@ -168,16 +179,69 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       return
     }
 
+    // Fetch areas for the project
+    setLoadingAreas(true)
+    try {
+      const areasResult = await getProjectAreasForDropdownAction(activeProject.id)
+
+      if (!areasResult.success || !areasResult.data) {
+        toast.error('Failed to fetch project areas')
+        setLoadingAreas(false)
+        return
+      }
+
+      const areas = areasResult.data
+
+      if (areas.length === 0) {
+        toast.error('No areas in project', {
+          description: 'Create an area first in the project',
+          action: {
+            label: 'Go to Project',
+            onClick: () => {
+              onOpenChange(false)
+              router.push(`/projects/${activeProject.id}`)
+            }
+          }
+        })
+        setLoadingAreas(false)
+        return
+      }
+
+      // If only one area, add directly
+      if (areas.length === 1) {
+        setLoadingAreas(false)
+        await addProductToArea(product, areas[0])
+        return
+      }
+
+      // Multiple areas - show popover for selection
+      setProjectAreas(areas)
+      setAreaPopoverProduct(product.product_id)
+      setLoadingAreas(false)
+    } catch {
+      toast.error('Failed to fetch project areas')
+      setLoadingAreas(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProject, onOpenChange, router])
+
+  // Add product to a specific area
+  const addProductToArea = useCallback(async (product: ProductInfo, area: AreaDropdownItem) => {
+    if (!activeProject) return
+
+    setAreaPopoverProduct(null)
     setAddingToProject(product.product_id)
+
     try {
       const result = await addProductToProjectAction({
         project_id: activeProject.id,
         product_id: product.product_id,
+        area_version_id: area.current_version_id,
         quantity: 1,
       })
 
       if (result.success) {
-        toast.success(`Added to ${activeProject.name}`, {
+        toast.success(`Added to ${area.area_code}`, {
           action: {
             label: 'View Project',
             onClick: () => {
@@ -191,7 +255,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
           description: result.error
         })
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to add product')
     } finally {
       setAddingToProject(null)
@@ -318,18 +382,54 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                             Symbol Generator
                           </button>
 
-                          <button
-                            onClick={(e) => handleAddToProject(product, e)}
-                            disabled={addingToProject === product.product_id}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                          <Popover
+                            open={areaPopoverProduct === product.product_id}
+                            onOpenChange={(open) => {
+                              if (!open) setAreaPopoverProduct(null)
+                            }}
                           >
-                            {addingToProject === product.product_id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <FolderPlus className="h-3.5 w-3.5" />
-                            )}
-                            {activeProject ? `Add to ${activeProject.project_code}` : 'Add to Project'}
-                          </button>
+                            <PopoverTrigger asChild>
+                              <button
+                                onClick={(e) => handleAddToProject(product, e)}
+                                disabled={addingToProject === product.product_id || loadingAreas}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                              >
+                                {(addingToProject === product.product_id || loadingAreas) ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <FolderPlus className="h-3.5 w-3.5" />
+                                )}
+                                {activeProject ? `Add to ${activeProject.project_code}` : 'Add to Project'}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56 p-2" align="start">
+                              <div className="text-sm font-medium text-muted-foreground mb-2 px-2">
+                                Select area:
+                              </div>
+                              <div className="space-y-1">
+                                {projectAreas.map((area) => (
+                                  <button
+                                    key={area.area_id}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      addProductToArea(product, area)
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
+                                  >
+                                    <span className="font-medium">{area.area_code}</span>
+                                    <span className="text-muted-foreground ml-2">
+                                      {area.area_name}
+                                    </span>
+                                    {area.floor_level !== null && (
+                                      <span className="text-xs text-muted-foreground ml-1">
+                                        (L{area.floor_level})
+                                      </span>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
 
                           <button
                             onClick={(e) => handleCopyPid(product, e)}

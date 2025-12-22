@@ -76,7 +76,7 @@ export function BucketProvider({ children }: { children: ReactNode }) {
   const [canvasItems, setCanvasItems] = useState<BucketItem[]>([])
   const [tileGroups, setTileGroups] = useState<TileGroup[]>([])
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount (hydration pattern)
   useEffect(() => {
     setBucketItems(loadFromStorage(STORAGE_KEYS.bucket, []))
     setCanvasItems(loadFromStorage(STORAGE_KEYS.canvas, []))

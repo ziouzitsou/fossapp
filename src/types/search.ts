@@ -6,7 +6,7 @@
 // Filter object structure (passed as JSONB to search functions)
 export interface SearchFilters {
   query?: string
-  filters?: Record<string, any> // JSONB filters object
+  filters?: Record<string, unknown> // JSONB filters object
   categories?: string[] // taxonomy_codes
   suppliers?: string[]
   // Boolean flags
@@ -38,7 +38,7 @@ export interface SearchProduct {
   image_url?: string
   datasheet_url?: string
   // Features (JSONB)
-  features?: Record<string, any>
+  features?: Record<string, unknown>
   // Boolean flags
   indoor?: boolean
   outdoor?: boolean
@@ -105,7 +105,7 @@ export interface FilterDefinition {
   etim_unit_id?: string
   display_order: number
   ui_component?: string
-  ui_config?: Record<string, any>
+  ui_config?: Record<string, unknown>
   applicable_taxonomy_codes?: string[]
   active: boolean
 }

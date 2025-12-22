@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/pagination'
 import { ChevronRight } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
-import { cn, getThumbnailUrl } from '@/lib/utils'
+import { getThumbnailUrl } from '@/lib/utils'
 import Image from 'next/image'
 
 function ProductsPageContent() {
@@ -140,12 +140,12 @@ function ProductsPageContent() {
           const total = await countProductsAction({
             categories: [currentCategory],
             suppliers: filterValues.supplier ? [filterValues.supplier.toString()] : undefined,
-            indoor: filterValues.indoor ?? null,
-            outdoor: filterValues.outdoor ?? null,
-            submersible: filterValues.submersible ?? null,
-            trimless: filterValues.trimless ?? null,
-            cutShapeRound: filterValues.cut_shape_round ?? null,
-            cutShapeRectangular: filterValues.cut_shape_rectangular ?? null,
+            indoor: filterValues.indoor ?? undefined,
+            outdoor: filterValues.outdoor ?? undefined,
+            submersible: filterValues.submersible ?? undefined,
+            trimless: filterValues.trimless ?? undefined,
+            cutShapeRound: filterValues.cut_shape_round ?? undefined,
+            cutShapeRectangular: filterValues.cut_shape_rectangular ?? undefined,
             filters: {
               // Range filters (cct, cri, lumens_output, voltage, beam_angle)
               ...(filterValues.cct?.min !== undefined || filterValues.cct?.max !== undefined ? { cct: filterValues.cct } : {}),
@@ -170,12 +170,12 @@ function ProductsPageContent() {
           const { products } = await searchProductsWithFiltersAction({
             categories: [currentCategory],
             suppliers: filterValues.supplier ? [filterValues.supplier.toString()] : undefined,
-            indoor: filterValues.indoor ?? null,
-            outdoor: filterValues.outdoor ?? null,
-            submersible: filterValues.submersible ?? null,
-            trimless: filterValues.trimless ?? null,
-            cutShapeRound: filterValues.cut_shape_round ?? null,
-            cutShapeRectangular: filterValues.cut_shape_rectangular ?? null,
+            indoor: filterValues.indoor ?? undefined,
+            outdoor: filterValues.outdoor ?? undefined,
+            submersible: filterValues.submersible ?? undefined,
+            trimless: filterValues.trimless ?? undefined,
+            cutShapeRound: filterValues.cut_shape_round ?? undefined,
+            cutShapeRectangular: filterValues.cut_shape_rectangular ?? undefined,
             filters: {
               // Range filters
               ...(filterValues.cct?.min !== undefined || filterValues.cct?.max !== undefined ? { cct: filterValues.cct } : {}),

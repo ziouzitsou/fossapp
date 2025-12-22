@@ -28,6 +28,7 @@ export function UserDropdown({ user }: UserDropdownProps) {
   const [mounted, setMounted] = useState(false)
   const { theme, setTheme } = useTheme()
 
+  // Hydration pattern - intentional
   useEffect(() => {
     setMounted(true)
   }, [])

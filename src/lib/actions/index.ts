@@ -75,15 +75,12 @@ export {
   updateProjectAction,
   deleteProjectAction,
   generateProjectCodeAction,
-  getProjectVersionsAction,
-  createProjectVersionAction,
   updateProjectDriveFolderAction,
   archiveProjectAction,
   addProductToProjectAction,
   updateProjectProductQuantityAction,
   removeProductFromProjectAction,
   type ProjectListItem,
-  type ProjectVersion,
   type ProjectProduct,
   type ProjectContact,
   type ProjectDocument,
@@ -93,10 +90,33 @@ export {
   type ProjectListResult,
   type CreateProjectInput,
   type UpdateProjectInput,
-  type CreateVersionInput,
   type AddProductToProjectInput,
   type ActionResult,
 } from './projects'
+
+// ============================================================================
+// PROJECT AREAS (Multi-area versioning)
+// ============================================================================
+
+export {
+  listProjectAreasAction,
+  getAreaByIdAction,
+  createAreaAction,
+  updateAreaAction,
+  deleteAreaAction,
+  createAreaVersionAction,
+  setAreaCurrentVersionAction,
+  getAreaVersionsAction,
+  deleteAreaVersionAction,
+  getProjectAreasForDropdownAction,
+  type ProjectArea,
+  type AreaVersion,
+  type AreaVersionSummary,
+  type AreaDropdownItem,
+  type CreateAreaInput,
+  type UpdateAreaInput,
+  type CreateVersionInput as CreateAreaVersionInput,
+} from './project-areas'
 
 // ============================================================================
 // SUPPLIERS

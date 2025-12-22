@@ -202,7 +202,7 @@ export function ProjectFormSheet({
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleCustomerChange = (customerId: string | null, customer: CustomerSearchResult | null) => {
+  const handleCustomerChange = (customerId: string | null, _customer: CustomerSearchResult | null) => {
     setFormData((prev) => ({ ...prev, customer_id: customerId || undefined }))
   }
 

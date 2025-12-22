@@ -4,6 +4,21 @@ Essential guidance for Claude Code. For detailed docs, see [docs/README.md](./do
 
 ---
 
+## 🤖 Claude Code Skills
+
+Claude Code has access to specialized skills that provide domain knowledge automatically:
+
+| Skill | Auto-Activates When | Manual Invoke |
+|-------|---------------------|---------------|
+| **coding-patterns** | Writing/modifying code | N/A (automatic) |
+| **supabase-patterns** | Database queries | N/A (automatic) |
+| **autolisp-dwg** | Working with DWG features | N/A (automatic) |
+| **deployment-workflow** | Pre-deployment checks | N/A (automatic) |
+
+Skills are in `.claude/skills/` and complement this quick reference guide.
+
+---
+
 ## Pre-Deployment (MANDATORY)
 
 **BEFORE any deployment, version bump, or git tag:**

@@ -6,7 +6,6 @@
 
 import { ProductInfo, Feature } from '@/types/product'
 import { DIMENSION_FEATURE_IDS, LuminaireDimensions } from './types'
-import { parseAndFormatRange } from '@/lib/utils/feature-utils'
 
 /**
  * Extract numeric value from a feature

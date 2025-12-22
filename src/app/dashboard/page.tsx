@@ -51,7 +51,6 @@ export default function Dashboard() {
     if (status === 'authenticated') {
       loadDashboardData()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 
   const loadDashboardData = async () => {

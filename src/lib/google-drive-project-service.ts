@@ -25,61 +25,71 @@ function getEnvVar(name: string): string {
   return value
 }
 
-// Skeleton folder structure
-const SKELETON_FOLDERS = ['01_Input', '02_Working', '03_Output', '04_Specs']
+// Skeleton folder structure - hierarchical
+// Top-level folders only - subfolders created via createNestedFolders()
+const SKELETON_STRUCTURE: Record<string, string[]> = {
+  '00_Customer': ['Drawings', 'Photos', 'Documents'],
+  '01_Working': ['CAD', 'Calculations'],
+  '02_Areas': [], // Empty initially - populated when areas are added
+  '03_Output': ['Drawings', 'Presentations', 'Schedules'],
+  '04_Specs': ['Cut_Sheets', 'Photometrics'],
+}
 
-// README content for each folder
+// README content for each folder (reserved for future use)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const README_CONTENT: Record<string, string> = {
-  '01_Input': `# Input Files
+  '00_Customer': `# Customer Files
 
-Place customer-provided files here:
+Reference materials provided by the customer (read-only):
 
-- Original AutoCAD drawings (DWG)
-- Reference PDFs
-- Site photos
-- Floor plans
-- Any source material from customer
+- **Drawings/**: Architectural DWG/DXF files, floor plans
+- **Photos/**: Site photos, existing installation images
+- **Documents/**: Specifications, requirements, correspondence
 
 ---
 
 *This folder is part of the FOSSAPP project template.*
 `,
-  '02_Working': `# Working Files
+  '01_Working': `# Working Files
 
 Engineer work-in-progress files:
 
-- Cleaned AutoCAD drawings
-- Draft layouts
-- Work files (not final)
-- Intermediate versions
+- **CAD/**: Working AutoCAD/DWG files
+- **Calculations/**: DIALux, AGi32, Relux calculations
 
 ---
 
 *This folder is part of the FOSSAPP project template.*
 `,
-  '03_Output': `# Output Files
+  '02_Areas': `# Project Areas
 
-Final deliverables for customer:
+Organized by area code (e.g., GF-LOBBY, FF-OFFICE).
 
-- Printed PDFs
-- Final AutoCAD files
-- Presentation materials
-- Lighting schedules
-- Final layouts
+Area folders are created automatically when areas are added in FOSSAPP.
+Each area folder may contain Working and Output subfolders.
 
 ---
 
 *This folder is part of the FOSSAPP project template.*
 `,
-  '04_Specs': `# Specifications
+  '03_Output': `# Final Deliverables
 
-Product documentation:
+Files ready for customer delivery:
 
-- Cut sheets
-- Technical data sheets
-- IES/LDT photometric files
-- Installation guides
-- Product images
+- **Drawings/**: Final PDFs and DWG files
+- **Presentations/**: Renders, presentation materials
+- **Schedules/**: Lighting schedules, BOMs
+
+---
+
+*This folder is part of the FOSSAPP project template.*
+`,
+  '04_Specs': `# Product Specifications
+
+Product documentation and photometric data:
+
+- **Cut_Sheets/**: Product specification sheets
+- **Photometrics/**: IES/LDT files
 
 ---
 
@@ -99,9 +109,21 @@ export interface DriveFile {
 
 export interface ProjectFolderResult {
   projectFolderId: string
-  versionFolderId: string
+  areasFolderId: string // ID of the 02_Areas folder for creating area subfolders
 }
 
+export interface AreaFolderResult {
+  areaFolderId: string
+  areaCode: string
+  versionFolderId: string // ID of the v1 folder created inside the area
+}
+
+export interface AreaVersionFolderResult {
+  versionFolderId: string
+  versionNumber: number
+}
+
+// Deprecated - project-level versioning removed
 export interface VersionFolderResult {
   versionFolderId: string
   versionNumber: number
@@ -120,7 +142,9 @@ class GoogleDriveProjectService {
     this.archiveFolderId = getEnvVar('GOOGLE_DRIVE_ARCHIVE_FOLDER_ID')
 
     // Load service account credentials
-    const credentialsPath = path.join(process.cwd(), 'credentials', 'google-service-account.json')
+    // Priority: GOOGLE_SERVICE_ACCOUNT_PATH env var > default path
+    const credentialsPath = process.env.GOOGLE_SERVICE_ACCOUNT_PATH ||
+      path.join(process.cwd(), 'credentials', 'google-service-account.json')
 
     if (!fs.existsSync(credentialsPath)) {
       throw new Error(`Service account credentials not found at: ${credentialsPath}`)
@@ -137,26 +161,160 @@ class GoogleDriveProjectService {
   }
 
   /**
+   * Execute an async function with exponential backoff retry
+   * Retries on rate limit (403/429) and server errors (5xx)
+   */
+  private async withRetry<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    operation = 'Drive API call'
+  ): Promise<T> {
+    let lastError: unknown
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn()
+      } catch (error: unknown) {
+        lastError = error
+        const err = error as { code?: number; message?: string }
+
+        // Retry on rate limit (403/429) or server errors (5xx)
+        const isRetryable = err.code === 403 || err.code === 429 ||
+          (err.code && err.code >= 500 && err.code < 600)
+
+        if (isRetryable && attempt < maxRetries) {
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000)
+          console.warn(
+            `${operation} failed (attempt ${attempt}/${maxRetries}), retrying in ${backoffMs}ms:`,
+            err.message
+          )
+          await new Promise(resolve => setTimeout(resolve, backoffMs))
+          continue
+        }
+
+        // Don't retry on other errors or max retries reached
+        throw error
+      }
+    }
+
+    throw lastError
+  }
+
+  /**
    * Create a new project folder structure in Google Drive
-   * Creates: Projects/{projectCode}/v1/{skeleton folders}
+   * Creates: Projects/{projectCode}/{skeleton folders with subfolders}
    *
    * @param projectCode - Project code (e.g., "2512-001")
-   * @returns Project folder ID and version 1 folder ID
+   * @returns Project folder ID and areas folder ID
    */
   async createProjectFolder(projectCode: string): Promise<ProjectFolderResult> {
     // 1. Create project root folder
     const projectFolder = await this.createFolder(projectCode, this.projectsFolderId)
 
-    // 2. Create v1 folder
-    const v1Folder = await this.createFolder('v1', projectFolder.id!)
-
-    // 3. Create skeleton subfolders with README files
-    await this.createSkeletonStructure(v1Folder.id!)
+    // 2. Create skeleton structure with subfolders
+    const folderIds = await this.createSkeletonStructure(projectFolder.id!)
 
     return {
       projectFolderId: projectFolder.id!,
+      areasFolderId: folderIds['02_Areas'] || '',
+    }
+  }
+
+  /**
+   * Create an area folder inside the 02_Areas folder
+   * Structure: 02_Areas/{areaCode}/v1/[Working, Output]
+   *
+   * @param areasFolderId - The 02_Areas folder ID from project
+   * @param areaCode - Area code (e.g., "GF-LOBBY")
+   * @returns Area folder ID, code, and v1 folder ID
+   */
+  async createAreaFolder(
+    areasFolderId: string,
+    areaCode: string
+  ): Promise<AreaFolderResult> {
+    // Create area folder
+    const areaFolder = await this.createFolder(areaCode, areasFolderId)
+
+    // Create v1 folder with Working and Output subfolders
+    const v1Folder = await this.createFolder('v1', areaFolder.id!)
+    await this.createFolder('Working', v1Folder.id!)
+    await this.createFolder('Output', v1Folder.id!)
+
+    return {
+      areaFolderId: areaFolder.id!,
+      areaCode,
       versionFolderId: v1Folder.id!,
     }
+  }
+
+  /**
+   * Create a version folder inside an area folder
+   * Structure: {areaFolder}/v{N}/[Working, Output]
+   *
+   * @param areaFolderId - The area folder ID
+   * @param versionNumber - Version number (e.g., 2)
+   * @returns Version folder ID and number
+   */
+  async createAreaVersionFolder(
+    areaFolderId: string,
+    versionNumber: number
+  ): Promise<AreaVersionFolderResult> {
+    // Create version folder
+    const versionFolder = await this.createFolder(`v${versionNumber}`, areaFolderId)
+
+    // Create Working and Output subfolders
+    await this.createFolder('Working', versionFolder.id!)
+    await this.createFolder('Output', versionFolder.id!)
+
+    return {
+      versionFolderId: versionFolder.id!,
+      versionNumber,
+    }
+  }
+
+  /**
+   * Delete a version folder from an area (with retry)
+   *
+   * @param versionFolderId - Version folder ID to delete
+   */
+  async deleteAreaVersionFolder(versionFolderId: string): Promise<void> {
+    await this.withRetry(
+      () => this.drive.files.delete({
+        fileId: versionFolderId,
+        supportsAllDrives: true,
+      }),
+      3,
+      'Delete area version folder'
+    )
+  }
+
+  /**
+   * Delete an area folder (with retry)
+   *
+   * @param areaFolderId - Area folder ID to delete
+   */
+  async deleteAreaFolder(areaFolderId: string): Promise<void> {
+    await this.withRetry(
+      () => this.drive.files.delete({
+        fileId: areaFolderId,
+        supportsAllDrives: true,
+      }),
+      3,
+      'Delete area folder'
+    )
+  }
+
+  /**
+   * Get the 02_Areas folder ID from a project folder
+   * Used when project was created before this update
+   *
+   * @param projectFolderId - Project folder ID
+   * @returns Areas folder ID or null if not found
+   */
+  async getAreasFolderId(projectFolderId: string): Promise<string | null> {
+    const files = await this.listFiles(projectFolderId)
+    const areasFolder = files.find((f) => f.name === '02_Areas' && f.isFolder)
+    return areasFolder?.id || null
   }
 
   /**
@@ -188,51 +346,65 @@ class GoogleDriveProjectService {
   }
 
   /**
-   * Archive a project by moving it to the Archive folder
+   * Archive a project by moving it to the Archive folder (with retry)
    *
    * @param projectFolderId - Project folder ID to archive
    */
   async archiveProject(projectFolderId: string): Promise<void> {
-    // Get current parents
-    const file = await this.drive.files.get({
-      fileId: projectFolderId,
-      fields: 'parents',
-      supportsAllDrives: true,
-    })
+    await this.withRetry(
+      async () => {
+        // Get current parents
+        const file = await this.drive.files.get({
+          fileId: projectFolderId,
+          fields: 'parents',
+          supportsAllDrives: true,
+        })
 
-    const previousParents = file.data.parents?.join(',') || ''
+        const previousParents = file.data.parents?.join(',') || ''
 
-    // Move to Archive folder
-    await this.drive.files.update({
-      fileId: projectFolderId,
-      addParents: this.archiveFolderId,
-      removeParents: previousParents,
-      supportsAllDrives: true,
-    })
+        // Move to Archive folder
+        await this.drive.files.update({
+          fileId: projectFolderId,
+          addParents: this.archiveFolderId,
+          removeParents: previousParents,
+          supportsAllDrives: true,
+        })
+      },
+      3,
+      'Archive project'
+    )
   }
 
   /**
-   * Delete a version folder
+   * Delete a version folder (with retry)
    *
    * @param versionFolderId - Version folder ID to delete
    */
   async deleteVersion(versionFolderId: string): Promise<void> {
-    await this.drive.files.delete({
-      fileId: versionFolderId,
-      supportsAllDrives: true,
-    })
+    await this.withRetry(
+      () => this.drive.files.delete({
+        fileId: versionFolderId,
+        supportsAllDrives: true,
+      }),
+      3,
+      'Delete version folder'
+    )
   }
 
   /**
-   * Delete a project folder and all its contents
+   * Delete a project folder and all its contents (with retry)
    *
    * @param projectFolderId - Project folder ID to delete
    */
   async deleteProject(projectFolderId: string): Promise<void> {
-    await this.drive.files.delete({
-      fileId: projectFolderId,
-      supportsAllDrives: true,
-    })
+    await this.withRetry(
+      () => this.drive.files.delete({
+        fileId: projectFolderId,
+        supportsAllDrives: true,
+      }),
+      3,
+      'Delete project folder'
+    )
   }
 
   /**
@@ -303,39 +475,58 @@ class GoogleDriveProjectService {
   // ─────────────────────────────────────────────────────────────
 
   /**
-   * Create a folder in Google Drive
+   * Create a folder in Google Drive (with retry on rate limit/server errors)
    */
   private async createFolder(
     name: string,
     parentId: string
   ): Promise<drive_v3.Schema$File> {
-    const response = await this.drive.files.create({
-      requestBody: {
-        name,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentId],
+    return this.withRetry(
+      async () => {
+        const response = await this.drive.files.create({
+          requestBody: {
+            name,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parentId],
+          },
+          supportsAllDrives: true,
+          fields: 'id, name',
+        })
+        return response.data
       },
-      supportsAllDrives: true,
-      fields: 'id, name',
-    })
-
-    return response.data
+      3,
+      `Create folder "${name}"`
+    )
   }
 
   /**
-   * Create skeleton folder structure
+   * Create skeleton folder structure with subfolders
+   * Returns map of top-level folder names to their IDs
+   *
    * Note: README files skipped for now due to service account limitations
    * Files can be uploaded later by users through Google Drive UI
    */
-  private async createSkeletonStructure(parentFolderId: string): Promise<void> {
-    for (const folderName of SKELETON_FOLDERS) {
-      // Create subfolder
-      await this.createFolder(folderName, parentFolderId)
+  private async createSkeletonStructure(
+    parentFolderId: string
+  ): Promise<Record<string, string>> {
+    const folderIds: Record<string, string> = {}
+
+    for (const [topFolder, subFolders] of Object.entries(SKELETON_STRUCTURE)) {
+      // Create top-level folder
+      const folder = await this.createFolder(topFolder, parentFolderId)
+      folderIds[topFolder] = folder.id!
+
+      // Create subfolders
+      for (const subFolder of subFolders) {
+        await this.createFolder(subFolder, folder.id!)
+      }
 
       // NOTE: README files temporarily disabled
       // Service accounts have issues uploading files with content
       // Users can add files through Google Drive UI
     }
+
+    return folderIds
   }
 
   /**

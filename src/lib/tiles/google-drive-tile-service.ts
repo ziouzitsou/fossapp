@@ -108,14 +108,14 @@ class GoogleDriveTileService {
             await this.deleteFolder(existingBak.id!)
             console.log(`Deleted old backup: ${bakName}`)
           }
-        } catch (err) {
+        } catch {
           console.log(`Could not delete old backup (may not exist): ${bakName}`)
         }
         // Rename existing folder to .BAK (ignore errors if folder no longer exists)
         try {
           await this.renameFolder(existingFolder.id!, bakName)
           console.log(`Renamed existing folder to: ${bakName}`)
-        } catch (err) {
+        } catch {
           console.log(`Could not rename existing folder (may not exist): ${tileName}`)
         }
       }

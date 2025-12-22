@@ -21,7 +21,7 @@ export default function RangeFilter({
   maxBound = 100,
   step = 1,
   presets = [],
-  showHistogram = false,
+  showHistogram: _showHistogram = false,
   facets = [],
 }: RangeFilterProps) {
   // Get actual range from facets if available

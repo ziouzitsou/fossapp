@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server'
  * Public routes: /, /api/health, /api/auth/*
  */
 export default withAuth(
-  function middleware(req) {
+  function middleware(_req) {
     // Additional middleware logic can go here
     // The token has already been verified by withAuth at this point
     return NextResponse.next()

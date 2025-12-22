@@ -62,7 +62,7 @@ export function formatPrice(price: number | undefined, currency: 'EUR' | 'USD' =
 /**
  * Debounce function for search input
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {

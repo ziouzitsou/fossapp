@@ -10,7 +10,7 @@
 import { supabaseServer } from '../supabase-server'
 import { getGoogleDriveProjectService } from '../google-drive-project-service'
 import { validateProjectId } from './validation'
-import type { ActionResult, CreateProjectInput, ProjectVersion } from './projects'
+import type { ActionResult, CreateProjectInput } from './projects'
 
 // ============================================================================
 // CREATE PROJECT WITH DRIVE FOLDER
@@ -25,7 +25,7 @@ export interface CreateProjectWithDriveResult {
   id: string
   project_code: string
   google_drive_folder_id: string
-  version_folder_id: string
+  areas_folder_id: string // ID of 02_Areas folder for creating area subfolders
 }
 
 /**
@@ -88,7 +88,6 @@ export async function createProjectWithDriveAction(
         lighting_designer: input.lighting_designer?.trim() || null,
         notes: input.notes?.trim() || null,
         tags: input.tags || null,
-        current_version: 1,
         is_archived: false,
       })
       .select('id')
@@ -105,7 +104,8 @@ export async function createProjectWithDriveAction(
     const driveService = getGoogleDriveProjectService()
     const driveResult = await driveService.createProjectFolder(projectCode)
 
-    driveFolderId = driveResult.projectFolderId
+    // Store folder ID for potential rollback (currently unused but kept for future use)
+    driveFolderId = driveResult.projectFolderId // eslint-disable-line @typescript-eslint/no-unused-vars
 
     // 4. Update project with Drive folder ID
     const { error: updateError } = await supabaseServer
@@ -122,22 +122,8 @@ export async function createProjectWithDriveAction(
       // Continue anyway - folder was created
     }
 
-    // 5. Create v1 record in project_versions
-    const { error: versionError } = await supabaseServer
-      .schema('projects')
-      .from('project_versions')
-      .insert({
-        project_id: projectId,
-        version_number: 1,
-        google_drive_folder_id: driveResult.versionFolderId,
-        notes: 'Initial version',
-        created_by: input.created_by || null,
-      })
-
-    if (versionError) {
-      console.error('Create version record error:', versionError)
-      // Continue anyway - project was created
-    }
+    // Note: Project versioning removed. Version folders are now managed at area level.
+    // See project-areas.ts for area-level versioning.
 
     return {
       success: true,
@@ -145,7 +131,7 @@ export async function createProjectWithDriveAction(
         id: projectId!,
         project_code: projectCode,
         google_drive_folder_id: driveResult.projectFolderId,
-        version_folder_id: driveResult.versionFolderId,
+        areas_folder_id: driveResult.areasFolderId,
       },
     }
   } catch (error) {
@@ -172,7 +158,7 @@ export async function createProjectWithDriveAction(
 }
 
 // ============================================================================
-// CREATE NEW VERSION
+// CREATE NEW VERSION (DEPRECATED - use area-level versioning)
 // ============================================================================
 
 export interface CreateVersionResult {
@@ -182,103 +168,17 @@ export interface CreateVersionResult {
 }
 
 /**
- * Create a new version by copying the current version folder
- *
- * Flow:
- * 1. Get project and current version info
- * 2. Copy folder in Google Drive
- * 3. Create version record in DB
- * 4. Update current_version on project
+ * @deprecated Project-level versioning has been removed.
+ * Use area-level versioning instead (see project-areas.ts).
  */
 export async function createProjectVersionWithDriveAction(
-  projectId: string,
-  notes?: string,
-  createdBy?: string
+  _projectId: string,
+  _notes?: string,
+  _createdBy?: string
 ): Promise<ActionResult<CreateVersionResult>> {
-  try {
-    const sanitizedProjectId = validateProjectId(projectId)
-
-    // 1. Get project info
-    const { data: project, error: projectError } = await supabaseServer
-      .schema('projects')
-      .from('projects')
-      .select('id, project_code, google_drive_folder_id, current_version')
-      .eq('id', sanitizedProjectId)
-      .single()
-
-    if (projectError || !project) {
-      console.error('Get project error:', projectError)
-      return { success: false, error: 'Project not found' }
-    }
-
-    if (!project.google_drive_folder_id) {
-      return { success: false, error: 'Project has no Google Drive folder' }
-    }
-
-    // Get current version folder ID
-    const { data: currentVersion, error: versionError } = await supabaseServer
-      .schema('projects')
-      .from('project_versions')
-      .select('google_drive_folder_id')
-      .eq('project_id', sanitizedProjectId)
-      .eq('version_number', project.current_version)
-      .single()
-
-    if (versionError || !currentVersion?.google_drive_folder_id) {
-      console.error('Get current version error:', versionError)
-      return { success: false, error: 'Current version folder not found' }
-    }
-
-    const newVersionNumber = project.current_version + 1
-
-    // 2. Copy folder in Google Drive
-    const driveService = getGoogleDriveProjectService()
-    const driveResult = await driveService.createVersion(
-      project.google_drive_folder_id,
-      currentVersion.google_drive_folder_id,
-      newVersionNumber
-    )
-
-    // 3. Create version record in DB
-    const { data: newVersion, error: createError } = await supabaseServer
-      .schema('projects')
-      .from('project_versions')
-      .insert({
-        project_id: sanitizedProjectId,
-        version_number: newVersionNumber,
-        google_drive_folder_id: driveResult.versionFolderId,
-        notes: notes?.trim() || `Version ${newVersionNumber}`,
-        created_by: createdBy || null,
-      })
-      .select('id')
-      .single()
-
-    if (createError || !newVersion) {
-      console.error('Create version record error:', createError)
-      return { success: false, error: 'Failed to create version record' }
-    }
-
-    // 4. Update current_version on project
-    await supabaseServer
-      .schema('projects')
-      .from('projects')
-      .update({
-        current_version: newVersionNumber,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', sanitizedProjectId)
-
-    return {
-      success: true,
-      data: {
-        version_id: newVersion.id,
-        version_number: newVersionNumber,
-        google_drive_folder_id: driveResult.versionFolderId,
-      },
-    }
-  } catch (error) {
-    console.error('Create version with drive error:', error)
-    return { success: false, error: 'Failed to create new version' }
+  return {
+    success: false,
+    error: 'Project-level versioning has been removed. Use area-level versioning instead.'
   }
 }
 
@@ -351,100 +251,20 @@ export async function archiveProjectWithDriveAction(
 }
 
 // ============================================================================
-// DELETE VERSION
+// DELETE VERSION (DEPRECATED - use area-level versioning)
 // ============================================================================
 
 /**
- * Delete a project version
- *
- * Flow:
- * 1. Check it's not the only version
- * 2. Delete folder in Google Drive
- * 3. Delete version record in DB
- * 4. Update current_version if needed
+ * @deprecated Project-level versioning has been removed.
+ * Use area-level versioning instead (see deleteAreaVersionAction in project-areas.ts).
  */
 export async function deleteProjectVersionWithDriveAction(
-  projectId: string,
-  versionNumber: number
+  _projectId: string,
+  _versionNumber: number
 ): Promise<ActionResult> {
-  try {
-    const sanitizedProjectId = validateProjectId(projectId)
-
-    // 1. Get all versions count
-    const { data: versions, error: versionsError } = await supabaseServer
-      .schema('projects')
-      .from('project_versions')
-      .select('id, version_number, google_drive_folder_id')
-      .eq('project_id', sanitizedProjectId)
-      .order('version_number', { ascending: false })
-
-    if (versionsError || !versions) {
-      console.error('Get versions error:', versionsError)
-      return { success: false, error: 'Failed to get project versions' }
-    }
-
-    if (versions.length <= 1) {
-      return { success: false, error: 'Cannot delete the only version. Delete the project instead.' }
-    }
-
-    const versionToDelete = versions.find(v => v.version_number === versionNumber)
-    if (!versionToDelete) {
-      return { success: false, error: 'Version not found' }
-    }
-
-    // 2. Delete folder in Google Drive
-    if (versionToDelete.google_drive_folder_id) {
-      try {
-        const driveService = getGoogleDriveProjectService()
-        await driveService.deleteVersion(versionToDelete.google_drive_folder_id)
-      } catch (driveError) {
-        console.error('Delete drive folder error:', driveError)
-        // Continue with DB delete even if Drive fails
-      }
-    }
-
-    // 3. Delete version record in DB
-    const { error: deleteError } = await supabaseServer
-      .schema('projects')
-      .from('project_versions')
-      .delete()
-      .eq('id', versionToDelete.id)
-
-    if (deleteError) {
-      console.error('Delete version record error:', deleteError)
-      return { success: false, error: 'Failed to delete version record' }
-    }
-
-    // 4. Update current_version if we deleted the current version
-    const { data: project } = await supabaseServer
-      .schema('projects')
-      .from('projects')
-      .select('current_version')
-      .eq('id', sanitizedProjectId)
-      .single()
-
-    if (project && project.current_version === versionNumber) {
-      // Set to the highest remaining version
-      const highestRemaining = versions
-        .filter(v => v.version_number !== versionNumber)
-        .sort((a, b) => b.version_number - a.version_number)[0]
-
-      if (highestRemaining) {
-        await supabaseServer
-          .schema('projects')
-          .from('projects')
-          .update({
-            current_version: highestRemaining.version_number,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', sanitizedProjectId)
-      }
-    }
-
-    return { success: true }
-  } catch (error) {
-    console.error('Delete version with drive error:', error)
-    return { success: false, error: 'Failed to delete version' }
+  return {
+    success: false,
+    error: 'Project-level versioning has been removed. Use area-level versioning instead.'
   }
 }
 
@@ -498,5 +318,149 @@ export async function listVersionFilesAction(
   } catch (error) {
     console.error('List version files error:', error)
     return { success: false, error: 'Failed to list files' }
+  }
+}
+
+// ============================================================================
+// AREA FOLDER MANAGEMENT
+// ============================================================================
+
+/**
+ * Get the 02_Areas folder ID for a project
+ * Looks it up from the project's Drive folder if not cached
+ */
+export async function getProjectAreasFolderIdAction(
+  projectId: string
+): Promise<ActionResult<string>> {
+  try {
+    const sanitizedProjectId = validateProjectId(projectId)
+
+    // Get project's drive folder ID
+    const { data: project, error } = await supabaseServer
+      .schema('projects')
+      .from('projects')
+      .select('google_drive_folder_id')
+      .eq('id', sanitizedProjectId)
+      .single()
+
+    if (error || !project?.google_drive_folder_id) {
+      return { success: false, error: 'Project not found or has no Drive folder' }
+    }
+
+    // Look up the 02_Areas folder
+    const driveService = getGoogleDriveProjectService()
+    const areasFolderId = await driveService.getAreasFolderId(project.google_drive_folder_id)
+
+    if (!areasFolderId) {
+      return { success: false, error: '02_Areas folder not found in project' }
+    }
+
+    return { success: true, data: areasFolderId }
+  } catch (error) {
+    console.error('Get areas folder ID error:', error)
+    return { success: false, error: 'Failed to get areas folder ID' }
+  }
+}
+
+export interface CreateAreaFolderResult {
+  areaFolderId: string
+  areaCode: string
+  versionFolderId: string // ID of the v1 folder
+}
+
+export interface CreateAreaVersionFolderResult {
+  versionFolderId: string
+  versionNumber: number
+}
+
+/**
+ * Create a folder for an area in the project's 02_Areas folder
+ * Creates: 02_Areas/{areaCode}/v1/[Working, Output]
+ */
+export async function createAreaFolderAction(
+  projectId: string,
+  areaCode: string
+): Promise<ActionResult<CreateAreaFolderResult>> {
+  try {
+    // First get the areas folder ID
+    const areasFolderResult = await getProjectAreasFolderIdAction(projectId)
+    if (!areasFolderResult.success || !areasFolderResult.data) {
+      return { success: false, error: areasFolderResult.error || 'Failed to get areas folder' }
+    }
+
+    // Create the area folder with v1 subfolder
+    const driveService = getGoogleDriveProjectService()
+    const result = await driveService.createAreaFolder(areasFolderResult.data, areaCode)
+
+    return {
+      success: true,
+      data: {
+        areaFolderId: result.areaFolderId,
+        areaCode: result.areaCode,
+        versionFolderId: result.versionFolderId,
+      },
+    }
+  } catch (error) {
+    console.error('Create area folder error:', error)
+    return { success: false, error: 'Failed to create area folder' }
+  }
+}
+
+/**
+ * Create a version folder inside an area folder
+ * Creates: {areaFolder}/v{N}/[Working, Output]
+ */
+export async function createAreaVersionFolderAction(
+  areaFolderId: string,
+  versionNumber: number
+): Promise<ActionResult<CreateAreaVersionFolderResult>> {
+  try {
+    const driveService = getGoogleDriveProjectService()
+    const result = await driveService.createAreaVersionFolder(areaFolderId, versionNumber)
+
+    return {
+      success: true,
+      data: {
+        versionFolderId: result.versionFolderId,
+        versionNumber: result.versionNumber,
+      },
+    }
+  } catch (error) {
+    console.error('Create area version folder error:', error)
+    return { success: false, error: 'Failed to create version folder' }
+  }
+}
+
+/**
+ * Delete a version folder from an area
+ */
+export async function deleteAreaVersionFolderAction(
+  versionFolderId: string
+): Promise<ActionResult> {
+  try {
+    const driveService = getGoogleDriveProjectService()
+    await driveService.deleteAreaVersionFolder(versionFolderId)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Delete area version folder error:', error)
+    return { success: false, error: 'Failed to delete version folder' }
+  }
+}
+
+/**
+ * Delete an area folder from Google Drive
+ */
+export async function deleteAreaFolderAction(
+  areaFolderId: string
+): Promise<ActionResult> {
+  try {
+    const driveService = getGoogleDriveProjectService()
+    await driveService.deleteAreaFolder(areaFolderId)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Delete area folder error:', error)
+    return { success: false, error: 'Failed to delete area folder' }
   }
 }

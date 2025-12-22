@@ -5,7 +5,7 @@
  * Uses ETIM dimensional features to describe luminaire geometry.
  */
 
-import { ProductInfo, Feature } from '@/types/product'
+import { ProductInfo } from '@/types/product'
 
 // Key ETIM Feature IDs for luminaire dimensions
 export const DIMENSION_FEATURE_IDS = {

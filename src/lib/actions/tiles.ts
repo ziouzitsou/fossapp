@@ -14,7 +14,7 @@ const TILES_SEARCH_LIMIT = 20
 /**
  * Search products using PostgreSQL Full-Text Search
  * Searches across: foss_pid, manufacturer_pid, description, supplier, class
- * Uses items.product_search_index for fast FTS with ranking
+ * Uses search.search_products_fts with prefix matching for partial word searches
  *
  * Used by: /api/tiles/search API endpoint, Global Search modal
  */
@@ -25,13 +25,14 @@ export async function searchProductsForTilesAction(
   try {
     const sanitizedQuery = validateSearchQuery(query)
 
-    // Use raw SQL for FTS with ranking
-    // plainto_tsquery handles multi-word queries automatically
-    // We use 'simple' config for codes (preserves exact text) combined with 'english' for text
-    const { data, error } = await supabaseServer.rpc('search_products_fts', {
-      search_query: sanitizedQuery,
-      result_limit: TILES_SEARCH_LIMIT
-    })
+    // Call search schema function with prefix matching
+    // Converts "enter" to "enter:*" to match "ENTERO", etc.
+    const { data, error } = await supabaseServer
+      .schema('search')
+      .rpc('search_products_fts', {
+        search_query: sanitizedQuery,
+        result_limit: TILES_SEARCH_LIMIT
+      })
 
     if (error) {
       console.error('FTS product search failed:', {

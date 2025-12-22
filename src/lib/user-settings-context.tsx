@@ -5,7 +5,6 @@ import { useDevSession } from '@/lib/use-dev-session'
 import {
   getUserSettingsAction,
   updateUserSettingsAction,
-  type UserSettings,
   type UpdateSettingsInput,
 } from '@/lib/actions/user-settings'
 
