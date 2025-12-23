@@ -8,7 +8,7 @@
 
 import { memo } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Bot, User, Paperclip, FileText, Image as ImageIcon } from 'lucide-react'
+import { Paperclip, FileText, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCost, formatTokens } from '@/lib/feedback/pricing'
 import ReactMarkdown from 'react-markdown'
@@ -104,9 +104,12 @@ function ChatMessageComponent({ message, userImage, userName }: ChatMessageProps
             </AvatarFallback>
           </>
         ) : (
-          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white">
-            <Bot className="h-4 w-4" />
-          </AvatarFallback>
+          <>
+            <AvatarImage src="/anthropic-logo.png" alt="Claude" />
+            <AvatarFallback className="bg-[#D4A27F] text-white text-xs font-semibold">
+              AI
+            </AvatarFallback>
+          </>
         )}
       </Avatar>
 
