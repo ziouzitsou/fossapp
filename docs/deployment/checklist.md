@@ -227,6 +227,7 @@ docker system prune -a --volumes
 Before running `npm version patch`:
 
 - [ ] `./scripts/deploy-check.sh` passes all checks
+  - [ ] Environment variables synced (local ↔ production)
   - [ ] TypeScript type-check passes
   - [ ] ESLint validation passes
   - [ ] Smoke tests pass (7 tests)
@@ -241,12 +242,16 @@ Before running `npm version patch`:
 - [ ] **Dashboard hints reviewed** (if new features added)
   - Review `src/data/hints.ts` for new feature hints
   - Update/remove hints for deprecated features
+- [ ] **New env vars added** (if feature needs them)
+  - Add to `src/lib/env-schema.ts` first
+  - Add to local `.env.local`
+  - Add to production `.env.production` (via SSH)
 
 Before deploying to production:
 
 - [ ] GitHub has latest code
 - [ ] Version tag created and pushed
-- [ ] Production environment variables set
+- [ ] Production environment variables verified (`npm run env:check`)
 - [ ] Database migrations applied (if any)
 - [ ] Backup taken (if major changes)
 
@@ -310,40 +315,64 @@ npm run build
 
 Environment files (`.env.production`) contain secrets and are **never committed to git**.
 
-### Sync Script
+### Single Source of Truth: env-schema.ts
 
-Use the sync helper to keep production in sync:
+All required environment variables are defined in `src/lib/env-schema.ts`. This file:
+- Documents all env vars with descriptions
+- Validates them at runtime (server startup)
+- Is used by pre-deployment checks
+
+**When adding a new feature that needs env vars:**
+1. Add the definition to `src/lib/env-schema.ts`
+2. Run `npm run env:check` to verify sync
+3. Add to local `.env.local`
+4. Add to production `.env.production` (via SSH)
+
+### Environment Check Commands
 
 ```bash
-# Sync local .env.production to server
-./scripts/sync-env.sh
+# Compare local vs production environments (RECOMMENDED before deploy)
+npm run env:check
 
-# Compare local vs production (shows key differences only)
-./scripts/sync-env.sh --diff
+# Just check local .env.local
+npm run env:check-local
 
-# Pull production env to local (for backup or review)
-./scripts/sync-env.sh --pull
+# Generate .env.example from schema
+npm run env:generate
+
+# Full pre-deployment checks (includes env check)
+npm run deploy:check
 ```
 
-### When to Sync
+### Runtime Validation
 
-- After changing API keys (APS, Google, Supabase)
+The app validates environment variables at startup and logs warnings for missing required vars. In production, this helps identify configuration issues immediately.
+
+### When to Check
+
+- **Before every deployment** (automatic via `deploy-check.sh`)
 - After adding new environment variables
-- Before major deployments with config changes
+- After changing API keys
+- When features aren't working (check logs for missing vars)
+
+### Adding Variables to Production
+
+```bash
+# SSH to production
+ssh -i ~/.ssh/platon.key sysadmin@platon.titancnc.eu
+
+# Edit the env file
+nano /opt/fossapp/.env.production
+
+# Restart container to pick up changes
+cd /opt/fossapp && docker compose down && docker compose up -d
+```
 
 ### Important Notes
 
-- Always restart the container after syncing: `docker compose restart fossapp`
-- The script creates automatic backups on the server before overwriting
+- Always restart the container after changing env vars
 - Never commit `.env*` files to git (even private repos)
-
-### Future Improvement: git-crypt
-
-**TODO**: Consider implementing [git-crypt](https://github.com/AGWA/git-crypt) for encrypted secrets in the repository. This would allow:
-- Secrets stored encrypted in git history
-- Automatic decryption for authorized developers
-- Easier onboarding and secret rotation
-- Audit trail for secret changes
+- Production uses `.env.production`, not `.env` or `.env.local`
 
 ---
 

@@ -35,7 +35,26 @@ run_check() {
   fi
 }
 
-# Check 0: Security - Auth bypass must not be enabled in production
+# Check 0: Environment variable sync between local and production
+echo -n "⚙️  Environment: Checking env var sync with production... "
+if [ -f "./scripts/check-env-sync.sh" ]; then
+  if ./scripts/check-env-sync.sh --local-only > /tmp/env-check-output.log 2>&1; then
+    echo -e "${GREEN}✓ PASSED${NC}"
+  else
+    echo -e "${RED}✗ FAILED${NC}"
+    echo ""
+    echo "Missing required environment variables in local .env.local:"
+    cat /tmp/env-check-output.log
+    echo ""
+    echo "Run './scripts/check-env-sync.sh' for full comparison with production."
+    echo ""
+    FAILED=1
+  fi
+else
+  echo -e "${YELLOW}⚠ SKIPPED${NC} (check-env-sync.sh not found)"
+fi
+
+# Check 0b: Security - Auth bypass must not be enabled in production
 echo -n "⚙️  Security: Auth bypass disabled in production... "
 if [ -f ".env.production" ]; then
   if grep -q "NEXT_PUBLIC_BYPASS_AUTH=true" .env.production 2>/dev/null; then

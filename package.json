@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start -p 8080",
     "lint": "eslint .",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "env:check": "./scripts/check-env-sync.sh",
+    "env:check-local": "./scripts/check-env-sync.sh --local-only",
+    "env:generate": "./scripts/check-env-sync.sh --generate",
+    "deploy:check": "./scripts/deploy-check.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
