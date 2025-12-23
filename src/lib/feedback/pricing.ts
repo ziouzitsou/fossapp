@@ -2,10 +2,60 @@
  * Claude Pricing Utility
  *
  * Calculate and display costs for AI chat messages.
- * Prices are in USD per 1 million tokens.
+ * Prices are in USD per 1 million tokens, with EUR conversion.
  *
  * @see https://www.anthropic.com/pricing
+ * @see https://github.com/fawazahmed0/currency-api (free currency API)
  */
+
+// ============================================================================
+// Currency Conversion (USD → EUR)
+// ============================================================================
+
+// Cache for exchange rate (refreshes daily)
+let cachedRate: { rate: number; fetchedAt: number } | null = null
+const CACHE_DURATION_MS = 24 * 60 * 60 * 1000 // 24 hours
+const FALLBACK_RATE = 0.96 // Approximate EUR/USD rate
+
+/**
+ * Fetch current USD to EUR exchange rate
+ * Uses free currency-api with CDN hosting (no API key needed)
+ */
+export async function getUsdToEurRate(): Promise<number> {
+  // Return cached rate if still valid
+  if (cachedRate && Date.now() - cachedRate.fetchedAt < CACHE_DURATION_MS) {
+    return cachedRate.rate
+  }
+
+  try {
+    const response = await fetch(
+      'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json',
+      { next: { revalidate: 86400 } } // Cache for 24h in Next.js
+    )
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+    const rate = data?.usd?.eur ?? FALLBACK_RATE
+
+    // Cache the rate
+    cachedRate = { rate, fetchedAt: Date.now() }
+    return rate
+  } catch (error) {
+    console.warn('[Pricing] Currency API failed, using fallback rate:', error)
+    return FALLBACK_RATE
+  }
+}
+
+/**
+ * Convert USD to EUR (sync version using cached/fallback rate)
+ */
+export function usdToEur(usd: number): number {
+  const rate = cachedRate?.rate ?? FALLBACK_RATE
+  return usd * rate
+}
 
 // ============================================================================
 // Pricing Configuration
@@ -85,7 +135,7 @@ export function calculateCost(
 }
 
 /**
- * Format cost for display (e.g., "$0.0012" or "< $0.0001")
+ * Format cost for display in USD (e.g., "$0.0012" or "< $0.0001")
  */
 export function formatCost(cost: number): string {
   if (cost === 0) {
@@ -98,6 +148,31 @@ export function formatCost(cost: number): string {
     return `$${cost.toFixed(4)}`
   }
   return `$${cost.toFixed(2)}`
+}
+
+/**
+ * Format cost for display in EUR (e.g., "€0.0012" or "< €0.0001")
+ * Uses cached exchange rate or fallback
+ */
+export function formatCostEur(costUsd: number): string {
+  const costEur = usdToEur(costUsd)
+  if (costEur === 0) {
+    return '€0.00'
+  }
+  if (costEur < 0.0001) {
+    return '< €0.0001'
+  }
+  if (costEur < 0.01) {
+    return `€${costEur.toFixed(4)}`
+  }
+  return `€${costEur.toFixed(2)}`
+}
+
+/**
+ * Format cost showing both USD and EUR
+ */
+export function formatCostBoth(costUsd: number): string {
+  return `${formatCost(costUsd)} (${formatCostEur(costUsd)})`
 }
 
 /**

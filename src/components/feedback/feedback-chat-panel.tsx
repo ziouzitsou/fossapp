@@ -31,7 +31,7 @@ import {
 } from 'lucide-react'
 import { ChatMessage } from './chat-message'
 import { captureAndUploadScreenshot, uploadFile } from '@/lib/feedback/screenshot'
-import { formatCost } from '@/lib/feedback/pricing'
+import { formatCostEur, getUsdToEurRate } from '@/lib/feedback/pricing'
 import { toast } from 'sonner'
 import type { ChatUIMessage, Attachment, StreamChunk } from '@/types/feedback'
 
@@ -53,6 +53,11 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Prefetch exchange rate on mount
+  useEffect(() => {
+    getUsdToEurRate() // Cache the rate for cost display
+  }, [])
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -314,7 +319,7 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
             <div className="flex items-center gap-2">
               {sessionCost > 0 && (
                 <span className="text-xs text-muted-foreground">
-                  Session: {formatCost(sessionCost)}
+                  Session: {formatCostEur(sessionCost)}
                 </span>
               )}
               <Button

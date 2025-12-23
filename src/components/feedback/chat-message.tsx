@@ -10,7 +10,7 @@ import { memo } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Paperclip, FileText, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { formatCost, formatTokens } from '@/lib/feedback/pricing'
+import { formatCostEur, formatTokens } from '@/lib/feedback/pricing'
 import ReactMarkdown from 'react-markdown'
 import type { ChatUIMessage, Attachment } from '@/types/feedback'
 
@@ -180,7 +180,7 @@ function ChatMessageComponent({ message, userImage, userName }: ChatMessageProps
             {message.cost !== undefined && (
               <>
                 <span>•</span>
-                <span>{formatCost(message.cost)}</span>
+                <span>{formatCostEur(message.cost)}</span>
               </>
             )}
           </div>
