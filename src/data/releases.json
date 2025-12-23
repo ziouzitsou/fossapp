@@ -3,6 +3,19 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.12.1",
+      "date": "2025-12-23",
+      "title": "Environment Safety Net",
+      "description": "New validation system ensures all required configuration is in place before deployment.",
+      "features": [
+        "Environment variable sync checker - compares local and production configs",
+        "Runtime validation - app warns at startup if required variables are missing",
+        "Pre-deployment checks now include environment validation",
+        "Single source of truth for all env vars in env-schema.ts"
+      ],
+      "tagline": "Deploy with confidence."
+    },
+    {
       "version": "1.12.0",
       "date": "2025-12-23",
       "title": "Feedback Assistant with Email Notifications",
