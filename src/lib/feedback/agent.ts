@@ -2,10 +2,10 @@
  * Feedback Chat AI Agent
  *
  * Claude-powered assistant with custom tools for product queries.
- * Uses OpenAI SDK via OpenRouter for centralized key management.
+ * Uses Anthropic SDK via OpenRouter's Anthropic-compatible endpoint.
  */
 
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import { supabaseServer } from '../supabase-server'
 import { calculateCost } from './pricing'
 import type { ToolCall } from '@/types/feedback'
@@ -14,9 +14,9 @@ import type { ToolCall } from '@/types/feedback'
 // Configuration
 // ============================================================================
 
-// Initialize OpenAI client with OpenRouter
-const openai = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
+// Initialize Anthropic client with OpenRouter's Anthropic skin
+const anthropic = new Anthropic({
+  baseURL: 'https://openrouter.ai/api',
   apiKey: process.env.FEEDBACK_CHAT_OPENROUTER_KEY || '',
   defaultHeaders: {
     'HTTP-Referer': 'https://fossapp.online',
@@ -47,7 +47,7 @@ const SYSTEM_PROMPT = `You are **FOSSAPP Assistant**, an AI helper for the FOSSA
 
 ## Important Guidelines
 1. **Focus**: Only answer questions related to FOSSAPP, lighting products, and the database
-2. **Off-topic**: For unrelated questions, politely redirect: "I'm specialized in helping with FOSSAPP and lighting products. For that question, you might want to..."
+2. **Off-topic**: For unrelated questions, politely redirect: "I'm specialized in helping with FOSSAPP and lighting products. For that question, you might want..."
 3. **Accuracy**: Never make up product data - always use the tools to get real information
 4. **Honesty**: If you can't find information, say so: "I couldn't find that product. Could you check the spelling or try a different search term?"
 5. **Concise**: Be helpful but brief - users are busy lighting design professionals
@@ -67,61 +67,52 @@ When users report bugs or request features:
 4. Assure them it will be reviewed by the development team`
 
 // ============================================================================
-// Tool Definitions (OpenAI format)
+// Tool Definitions (Anthropic format)
 // ============================================================================
 
-const tools: OpenAI.ChatCompletionTool[] = [
+const tools: Anthropic.Tool[] = [
   {
-    type: 'function',
-    function: {
-      name: 'search_products',
-      description:
-        'Search FOSSAPP product database by keyword. Searches product descriptions, family names, and product IDs. Returns up to 10 matching products with basic info.',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description:
-              'Search query (e.g., "downlight 3000K", "wall luminaire IP65", "DT102")',
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum results to return (default: 10, max: 20)',
-          },
+    name: 'search_products',
+    description:
+      'Search FOSSAPP product database by keyword. Searches product descriptions, family names, and product IDs. Returns up to 10 matching products with basic info.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description:
+            'Search query (e.g., "downlight 3000K", "wall luminaire IP65", "DT102")',
         },
-        required: ['query'],
+        limit: {
+          type: 'number',
+          description: 'Maximum results to return (default: 10, max: 20)',
+        },
       },
+      required: ['query'],
     },
   },
   {
-    type: 'function',
-    function: {
-      name: 'get_product_details',
-      description:
-        'Get full details for a specific product including all features, specifications, and pricing. Use the product_id from search results or a FOSS PID like "DT102149200B".',
-      parameters: {
-        type: 'object',
-        properties: {
-          product_id: {
-            type: 'string',
-            description: 'UUID of the product OR FOSS PID (e.g., "DT102149200B")',
-          },
+    name: 'get_product_details',
+    description:
+      'Get full details for a specific product including all features, specifications, and pricing. Use the product_id from search results or a FOSS PID like "DT102149200B".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        product_id: {
+          type: 'string',
+          description: 'UUID of the product OR FOSS PID (e.g., "DT102149200B")',
         },
-        required: ['product_id'],
       },
+      required: ['product_id'],
     },
   },
   {
-    type: 'function',
-    function: {
-      name: 'get_suppliers',
-      description:
-        'List all available suppliers in the FOSSAPP database with their product counts.',
-      parameters: {
-        type: 'object',
-        properties: {},
-      },
+    name: 'get_suppliers',
+    description:
+      'List all available suppliers in the FOSSAPP database with their product counts.',
+    input_schema: {
+      type: 'object',
+      properties: {},
     },
   },
 ]
@@ -336,157 +327,154 @@ export async function runFeedbackAgent(
   let totalOutputTokens = 0
 
   try {
-    // Convert to OpenAI message format
-    const openaiMessages: OpenAI.ChatCompletionMessageParam[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...messages.map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      })),
-    ]
+    // Convert to Anthropic message format
+    const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }))
 
-    // Create streaming completion
-    const stream = await openai.chat.completions.create({
+    // Create streaming message
+    const stream = anthropic.messages.stream({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      messages: openaiMessages,
+      system: SYSTEM_PROMPT,
+      messages: anthropicMessages,
       tools,
-      stream: true,
     })
 
-    let pendingToolCalls: Array<{
+    // Collect tool use blocks during streaming
+    const pendingToolUse: Array<{
       id: string
       name: string
-      arguments: string
+      input: Record<string, unknown>
     }> = []
+    let currentToolUse: {
+      id: string
+      name: string
+      inputJson: string
+    } | null = null
 
     // Process stream events
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta
-
-      // Handle text content
-      if (delta?.content) {
-        fullContent += delta.content
-        onEvent?.({ type: 'text', content: delta.content })
-      }
-
-      // Handle tool calls
-      if (delta?.tool_calls) {
-        for (const toolCall of delta.tool_calls) {
-          if (toolCall.index !== undefined) {
-            // Initialize or update tool call
-            if (!pendingToolCalls[toolCall.index]) {
-              pendingToolCalls[toolCall.index] = {
-                id: toolCall.id || '',
-                name: toolCall.function?.name || '',
-                arguments: '',
-              }
-            }
-            if (toolCall.id) {
-              pendingToolCalls[toolCall.index].id = toolCall.id
-            }
-            if (toolCall.function?.name) {
-              pendingToolCalls[toolCall.index].name = toolCall.function.name
-            }
-            if (toolCall.function?.arguments) {
-              pendingToolCalls[toolCall.index].arguments +=
-                toolCall.function.arguments
-            }
+    for await (const event of stream) {
+      if (event.type === 'content_block_start') {
+        if (event.content_block.type === 'tool_use') {
+          currentToolUse = {
+            id: event.content_block.id,
+            name: event.content_block.name,
+            inputJson: '',
           }
         }
-      }
-
-      // Track usage from final chunk
-      if (chunk.usage) {
-        totalInputTokens = chunk.usage.prompt_tokens
-        totalOutputTokens = chunk.usage.completion_tokens
+      } else if (event.type === 'content_block_delta') {
+        if (event.delta.type === 'text_delta') {
+          fullContent += event.delta.text
+          onEvent?.({ type: 'text', content: event.delta.text })
+        } else if (
+          event.delta.type === 'input_json_delta' &&
+          currentToolUse
+        ) {
+          currentToolUse.inputJson += event.delta.partial_json
+        }
+      } else if (event.type === 'content_block_stop') {
+        if (currentToolUse) {
+          let parsedInput: Record<string, unknown> = {}
+          try {
+            parsedInput = JSON.parse(currentToolUse.inputJson || '{}')
+          } catch {
+            parsedInput = {}
+          }
+          pendingToolUse.push({
+            id: currentToolUse.id,
+            name: currentToolUse.name,
+            input: parsedInput,
+          })
+          currentToolUse = null
+        }
+      } else if (event.type === 'message_delta') {
+        if (event.usage) {
+          totalOutputTokens = event.usage.output_tokens
+        }
+      } else if (event.type === 'message_start') {
+        if (event.message.usage) {
+          totalInputTokens = event.message.usage.input_tokens
+        }
       }
     }
 
+    // Get final message for complete usage
+    const finalMessage = await stream.finalMessage()
+    totalInputTokens = finalMessage.usage.input_tokens
+    totalOutputTokens = finalMessage.usage.output_tokens
+
     // Execute any tool calls
-    if (pendingToolCalls.length > 0) {
-      const toolResults: OpenAI.ChatCompletionToolMessageParam[] = []
+    if (pendingToolUse.length > 0) {
+      const toolResults: Anthropic.ToolResultBlockParam[] = []
 
-      for (const tc of pendingToolCalls) {
-        if (!tc.name) continue
-
-        let toolInput: Record<string, unknown> = {}
-        try {
-          toolInput = JSON.parse(tc.arguments || '{}')
-        } catch {
-          toolInput = {}
-        }
-
+      for (const tu of pendingToolUse) {
         onEvent?.({
           type: 'tool_start',
-          toolName: tc.name,
-          toolInput,
+          toolName: tu.name,
+          toolInput: tu.input,
         })
 
-        const { result, durationMs } = await handleToolCall(tc.name, toolInput)
+        const { result, durationMs } = await handleToolCall(tu.name, tu.input)
 
         toolCalls.push({
-          name: tc.name,
-          input: toolInput,
+          name: tu.name,
+          input: tu.input,
           output: result,
           duration_ms: durationMs,
         })
 
         onEvent?.({
           type: 'tool_end',
-          toolName: tc.name,
+          toolName: tu.name,
           toolResult: result,
         })
 
         toolResults.push({
-          role: 'tool',
-          tool_call_id: tc.id,
+          type: 'tool_result',
+          tool_use_id: tu.id,
           content: result,
         })
       }
 
-      // Continue conversation with tool results
-      const continuationMessages: OpenAI.ChatCompletionMessageParam[] = [
-        ...openaiMessages,
+      // Build continuation messages with tool results
+      const continuationMessages: Anthropic.MessageParam[] = [
+        ...anthropicMessages,
         {
           role: 'assistant',
-          content: fullContent || null,
-          tool_calls: pendingToolCalls.map((tc) => ({
-            id: tc.id,
-            type: 'function' as const,
-            function: {
-              name: tc.name,
-              arguments: tc.arguments,
-            },
-          })),
+          content: finalMessage.content,
         },
-        ...toolResults,
+        {
+          role: 'user',
+          content: toolResults,
+        },
       ]
 
       // Get final response after tool use
-      const continuationStream = await openai.chat.completions.create({
+      const continuationStream = anthropic.messages.stream({
         model: MODEL,
         max_tokens: MAX_TOKENS,
+        system: SYSTEM_PROMPT,
         messages: continuationMessages,
         tools,
-        stream: true,
       })
 
       fullContent = '' // Reset for final response
 
-      for await (const chunk of continuationStream) {
-        const delta = chunk.choices[0]?.delta
-
-        if (delta?.content) {
-          fullContent += delta.content
-          onEvent?.({ type: 'text', content: delta.content })
-        }
-
-        if (chunk.usage) {
-          totalInputTokens += chunk.usage.prompt_tokens
-          totalOutputTokens += chunk.usage.completion_tokens
+      for await (const event of continuationStream) {
+        if (
+          event.type === 'content_block_delta' &&
+          event.delta.type === 'text_delta'
+        ) {
+          fullContent += event.delta.text
+          onEvent?.({ type: 'text', content: event.delta.text })
         }
       }
+
+      const continuationFinal = await continuationStream.finalMessage()
+      totalInputTokens += continuationFinal.usage.input_tokens
+      totalOutputTokens += continuationFinal.usage.output_tokens
     }
 
     const cost = calculateCost(MODEL, totalInputTokens, totalOutputTokens)
