@@ -91,7 +91,7 @@ function ChatMessageComponent({ message, userImage, userName }: ChatMessageProps
     <div
       className={cn(
         'flex gap-3 p-3 rounded-lg',
-        isUser ? 'bg-muted/30' : 'bg-background'
+        isUser ? 'bg-primary/10' : 'bg-muted/50'
       )}
     >
       {/* Avatar */}
@@ -131,7 +131,7 @@ function ChatMessageComponent({ message, userImage, userName }: ChatMessageProps
         </div>
 
         {/* Message content */}
-        <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+        <div className="prose prose-sm dark:prose-invert max-w-none break-words text-foreground">
           <ReactMarkdown
             components={{
               // Render links safely
