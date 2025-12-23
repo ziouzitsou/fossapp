@@ -3,6 +3,18 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.12.2",
+      "date": "2025-12-23",
+      "title": "Smarter Feedback Assistant",
+      "description": "The feedback assistant can now handle complex queries that require multiple database lookups.",
+      "features": [
+        "Multi-turn tool support - assistant can chain multiple queries (search then get details)",
+        "Better pricing queries - now retrieves detailed product info to calculate averages",
+        "Safety limits - max 5 tool iterations to prevent runaway queries"
+      ],
+      "tagline": "Ask complex questions, get complete answers."
+    },
+    {
       "version": "1.12.1",
       "date": "2025-12-23",
       "title": "Environment Safety Net",

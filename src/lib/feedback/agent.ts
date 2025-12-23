@@ -31,6 +31,7 @@ const anthropic = new Anthropic({
 
 const MODEL = process.env.FEEDBACK_CHAT_MODEL || 'anthropic/claude-sonnet-4'
 const MAX_TOKENS = parseInt(process.env.FEEDBACK_CHAT_MAX_TOKENS || '4096')
+const MAX_TOOL_ITERATIONS = 5 // Prevent infinite tool loops
 
 // ============================================================================
 // System Prompt
@@ -410,7 +411,86 @@ export interface StreamEvent {
 }
 
 /**
+ * Process a message stream and collect text content and tool uses
+ */
+async function processStream(
+  stream: ReturnType<typeof anthropic.messages.stream>,
+  onEvent?: (event: StreamEvent) => void
+): Promise<{
+  textContent: string
+  pendingToolUse: Array<{ id: string; name: string; input: Record<string, unknown> }>
+  inputTokens: number
+  outputTokens: number
+  finalMessage: Anthropic.Message
+}> {
+  let textContent = ''
+  const pendingToolUse: Array<{
+    id: string
+    name: string
+    input: Record<string, unknown>
+  }> = []
+  let currentToolUse: {
+    id: string
+    name: string
+    inputJson: string
+  } | null = null
+  let inputTokens = 0
+  let outputTokens = 0
+
+  for await (const event of stream) {
+    if (event.type === 'content_block_start') {
+      if (event.content_block.type === 'tool_use') {
+        currentToolUse = {
+          id: event.content_block.id,
+          name: event.content_block.name,
+          inputJson: '',
+        }
+      }
+    } else if (event.type === 'content_block_delta') {
+      if (event.delta.type === 'text_delta') {
+        textContent += event.delta.text
+        onEvent?.({ type: 'text', content: event.delta.text })
+      } else if (event.delta.type === 'input_json_delta' && currentToolUse) {
+        currentToolUse.inputJson += event.delta.partial_json
+      }
+    } else if (event.type === 'content_block_stop') {
+      if (currentToolUse) {
+        let parsedInput: Record<string, unknown> = {}
+        try {
+          parsedInput = JSON.parse(currentToolUse.inputJson || '{}')
+        } catch {
+          parsedInput = {}
+        }
+        pendingToolUse.push({
+          id: currentToolUse.id,
+          name: currentToolUse.name,
+          input: parsedInput,
+        })
+        currentToolUse = null
+      }
+    } else if (event.type === 'message_delta') {
+      if (event.usage) {
+        outputTokens = event.usage.output_tokens
+      }
+    } else if (event.type === 'message_start') {
+      if (event.message.usage) {
+        inputTokens = event.message.usage.input_tokens
+      }
+    }
+  }
+
+  const finalMessage = await stream.finalMessage()
+  inputTokens = finalMessage.usage.input_tokens
+  outputTokens = finalMessage.usage.output_tokens
+
+  return { textContent, pendingToolUse, inputTokens, outputTokens, finalMessage }
+}
+
+/**
  * Run the feedback agent with streaming
+ *
+ * Supports multi-turn tool use: Claude can call multiple tools in sequence
+ * before providing a final text response.
  *
  * @param messages - Conversation history with optional attachments
  * @param onEvent - Callback for streaming events
@@ -419,8 +499,8 @@ export async function runFeedbackAgent(
   messages: AgentMessage[],
   onEvent?: (event: StreamEvent) => void
 ): Promise<AgentResult> {
-  const toolCalls: ToolCall[] = []
-  let fullContent = ''
+  const allToolCalls: ToolCall[] = []
+  let finalTextContent = ''
   let totalInputTokens = 0
   let totalOutputTokens = 0
 
@@ -428,102 +508,50 @@ export async function runFeedbackAgent(
     // Convert to Anthropic message format with vision support
     const anthropicMessages: Anthropic.MessageParam[] = await Promise.all(
       messages.map(async (m) => {
-        // Check if this message has image attachments
         const hasImages = m.attachments?.some(
           (a) => a.type === 'image' || a.type === 'screenshot'
         )
 
         if (hasImages && m.role === 'user') {
-          // Build multimodal content for user messages with images
           const content = await buildMessageContent(m.content, m.attachments)
-          return {
-            role: m.role,
-            content,
-          }
+          return { role: m.role, content }
         }
 
-        // Simple text content for messages without images
-        return {
-          role: m.role,
-          content: m.content,
-        }
+        return { role: m.role, content: m.content }
       })
     )
 
-    // Create streaming message
-    const stream = anthropic.messages.stream({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: SYSTEM_PROMPT,
-      messages: anthropicMessages,
-      tools,
-    })
+    // Mutable conversation history for the agentic loop
+    let conversationMessages = [...anthropicMessages]
+    let iteration = 0
 
-    // Collect tool use blocks during streaming
-    const pendingToolUse: Array<{
-      id: string
-      name: string
-      input: Record<string, unknown>
-    }> = []
-    let currentToolUse: {
-      id: string
-      name: string
-      inputJson: string
-    } | null = null
+    // Agentic loop: continue while Claude wants to use tools
+    while (iteration < MAX_TOOL_ITERATIONS) {
+      iteration++
 
-    // Process stream events
-    for await (const event of stream) {
-      if (event.type === 'content_block_start') {
-        if (event.content_block.type === 'tool_use') {
-          currentToolUse = {
-            id: event.content_block.id,
-            name: event.content_block.name,
-            inputJson: '',
-          }
-        }
-      } else if (event.type === 'content_block_delta') {
-        if (event.delta.type === 'text_delta') {
-          fullContent += event.delta.text
-          onEvent?.({ type: 'text', content: event.delta.text })
-        } else if (
-          event.delta.type === 'input_json_delta' &&
-          currentToolUse
-        ) {
-          currentToolUse.inputJson += event.delta.partial_json
-        }
-      } else if (event.type === 'content_block_stop') {
-        if (currentToolUse) {
-          let parsedInput: Record<string, unknown> = {}
-          try {
-            parsedInput = JSON.parse(currentToolUse.inputJson || '{}')
-          } catch {
-            parsedInput = {}
-          }
-          pendingToolUse.push({
-            id: currentToolUse.id,
-            name: currentToolUse.name,
-            input: parsedInput,
-          })
-          currentToolUse = null
-        }
-      } else if (event.type === 'message_delta') {
-        if (event.usage) {
-          totalOutputTokens = event.usage.output_tokens
-        }
-      } else if (event.type === 'message_start') {
-        if (event.message.usage) {
-          totalInputTokens = event.message.usage.input_tokens
-        }
+      // Create streaming message
+      const stream = anthropic.messages.stream({
+        model: MODEL,
+        max_tokens: MAX_TOKENS,
+        system: SYSTEM_PROMPT,
+        messages: conversationMessages,
+        tools,
+      })
+
+      // Process the stream
+      const { textContent, pendingToolUse, inputTokens, outputTokens, finalMessage } =
+        await processStream(stream, onEvent)
+
+      totalInputTokens += inputTokens
+      totalOutputTokens += outputTokens
+
+      // If no tool calls, we're done - this is the final response
+      if (pendingToolUse.length === 0) {
+        finalTextContent = textContent
+        break
       }
-    }
 
-    // Get final message for complete usage
-    const finalMessage = await stream.finalMessage()
-    totalInputTokens = finalMessage.usage.input_tokens
-    totalOutputTokens = finalMessage.usage.output_tokens
-
-    // Execute any tool calls
-    if (pendingToolUse.length > 0) {
+      // Execute tool calls
       const toolResults: Anthropic.ToolResultBlockParam[] = []
 
       for (const tu of pendingToolUse) {
@@ -535,7 +563,7 @@ export async function runFeedbackAgent(
 
         const { result, durationMs } = await handleToolCall(tu.name, tu.input)
 
-        toolCalls.push({
+        allToolCalls.push({
           name: tu.name,
           input: tu.input,
           output: result,
@@ -555,9 +583,10 @@ export async function runFeedbackAgent(
         })
       }
 
-      // Build continuation messages with tool results
-      const continuationMessages: Anthropic.MessageParam[] = [
-        ...anthropicMessages,
+      // Add assistant message (with tool use) and user message (with tool results)
+      // to conversation for the next iteration
+      conversationMessages = [
+        ...conversationMessages,
         {
           role: 'assistant',
           content: finalMessage.content,
@@ -568,30 +597,19 @@ export async function runFeedbackAgent(
         },
       ]
 
-      // Get final response after tool use
-      const continuationStream = anthropic.messages.stream({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPT,
-        messages: continuationMessages,
-        tools,
-      })
-
-      fullContent = '' // Reset for final response
-
-      for await (const event of continuationStream) {
-        if (
-          event.type === 'content_block_delta' &&
-          event.delta.type === 'text_delta'
-        ) {
-          fullContent += event.delta.text
-          onEvent?.({ type: 'text', content: event.delta.text })
-        }
+      // Store any text content from this iteration (usually empty when tools are called)
+      // The final text will come in the last iteration when no tools are called
+      if (textContent) {
+        finalTextContent = textContent
       }
+    }
 
-      const continuationFinal = await continuationStream.finalMessage()
-      totalInputTokens += continuationFinal.usage.input_tokens
-      totalOutputTokens += continuationFinal.usage.output_tokens
+    // Safety check: if we hit max iterations, log a warning
+    if (iteration >= MAX_TOOL_ITERATIONS) {
+      console.warn(
+        `[Feedback Agent] Hit max tool iterations (${MAX_TOOL_ITERATIONS}). ` +
+        `Response may be incomplete. Tool calls: ${allToolCalls.length}`
+      )
     }
 
     const cost = calculateCost(MODEL, totalInputTokens, totalOutputTokens)
@@ -603,11 +621,11 @@ export async function runFeedbackAgent(
     })
 
     return {
-      content: fullContent,
+      content: finalTextContent,
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
       cost,
-      toolCalls,
+      toolCalls: allToolCalls,
     }
   } catch (error) {
     const errorMessage =
