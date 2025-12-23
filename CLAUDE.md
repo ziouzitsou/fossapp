@@ -87,7 +87,28 @@ import { supabase } from '@/lib/supabase'
 | `src/lib/actions/` | Server actions by domain |
 | `src/lib/auth.ts` | NextAuth configuration |
 | `src/data/releases.json` | **What's New** - update for each release! |
+| `src/lib/feedback/knowledge-base.ts` | **Feedback AI knowledge** - update when features change! |
 | `.env.local` | Secrets (NEVER commit) |
+
+---
+
+## Feedback Assistant Knowledge Base
+
+**IMPORTANT**: When adding or changing features, update the AI assistant's knowledge!
+
+```
+src/lib/feedback/knowledge-base.ts
+```
+
+The feedback assistant (sidebar chat) only knows what's in this file. If you add a new feature and don't update the knowledge base, the assistant will say "I don't have information about that."
+
+**Update when you:**
+- Add a new feature
+- Change how a feature works
+- Add new statuses or options
+- Remove/deprecate features
+
+See [docs/features/feedback-assistant.md](./docs/features/feedback-assistant.md) for full documentation.
 
 ---
 
@@ -113,6 +134,9 @@ src/
 | Tiles | `/tiles` | [features/tiles.md](./docs/features/tiles.md) |
 | Symbols | `/symbol-generator` | [features/symbol-generator.md](./docs/features/symbol-generator.md) |
 | Playground | `/playground` | [features/playground.md](./docs/features/playground.md) |
+| Projects | `/projects` | [features/project-management/](./docs/features/project-management/) |
+| Planner | `/planner` | [features/planner.md](./docs/features/planner.md) |
+| Feedback | Sidebar | [features/feedback-assistant.md](./docs/features/feedback-assistant.md) |
 | Dashboard | `/dashboard` | - |
 
 ---
@@ -170,4 +194,4 @@ See [docs/deployment/checklist.md](./docs/deployment/checklist.md) for full work
 
 ---
 
-**Last Updated**: 2025-12-22
+**Last Updated**: 2025-12-23
