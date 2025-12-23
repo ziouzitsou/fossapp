@@ -102,8 +102,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get chat history for context (last 20 messages)
-    const chatHistory = await getRecentMessagesAction(chatId, 20)
+    // Get chat history for context (last 50 messages for better memory)
+    const chatHistory = await getRecentMessagesAction(chatId, 50)
     const formattedHistory: AgentMessage[] = chatHistory
       .filter((m) => m.role !== 'system')
       .map((m) => ({

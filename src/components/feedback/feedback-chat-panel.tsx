@@ -5,6 +5,11 @@
  *
  * Slide-out panel for AI-powered feedback chat.
  * Features: streaming responses, file uploads, screenshots, cost tracking.
+ *
+ * Memory persistence: Chat survives page navigation and refresh until explicit submit.
+ * - chatId stored in localStorage
+ * - Messages loaded from DB on panel mount
+ * - Clear on "Submit Feedback" or "New Chat"
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
@@ -19,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Badge } from '@/components/ui/badge'
 import {
   Send,
   Camera,
@@ -26,14 +32,17 @@ import {
   Loader2,
   X,
   MessageCircle,
-  History,
   Plus,
+  CheckCircle,
 } from 'lucide-react'
 import { ChatMessage } from './chat-message'
 import { captureAndUploadScreenshot, uploadFile } from '@/lib/feedback/screenshot'
 import { formatCostEur, getUsdToEurRate } from '@/lib/feedback/pricing'
 import { toast } from 'sonner'
-import type { ChatUIMessage, Attachment, StreamChunk } from '@/types/feedback'
+import type { ChatUIMessage, Attachment, StreamChunk, FeedbackMessage } from '@/types/feedback'
+
+// localStorage key for persisting chat across page navigation
+const CHAT_ID_STORAGE_KEY = 'fossapp_feedback_chat_id'
 
 interface FeedbackChatPanelProps {
   open: boolean
@@ -45,10 +54,13 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
   const [messages, setMessages] = useState<ChatUIMessage[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCapturing, setIsCapturing] = useState(false)
   const [chatId, setChatId] = useState<string | null>(null)
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
   const [sessionCost, setSessionCost] = useState(0)
+  const [historyRestored, setHistoryRestored] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -58,6 +70,77 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
   useEffect(() => {
     getUsdToEurRate() // Cache the rate for cost display
   }, [])
+
+  /**
+   * Load chat history from API
+   * Called when restoring a chat from localStorage
+   */
+  const loadChatHistory = useCallback(async (savedChatId: string) => {
+    if (!session?.user?.email) return false
+
+    setIsLoadingHistory(true)
+    try {
+      const response = await fetch(`/api/feedback/chat?chat_id=${savedChatId}`)
+
+      if (!response.ok) {
+        // Chat not found or doesn't belong to user - clear storage
+        localStorage.removeItem(CHAT_ID_STORAGE_KEY)
+        return false
+      }
+
+      const data = await response.json()
+
+      // Check if chat is still active (not resolved/archived)
+      if (data.chat?.status !== 'active') {
+        localStorage.removeItem(CHAT_ID_STORAGE_KEY)
+        return false
+      }
+
+      // Convert FeedbackMessage[] to ChatUIMessage[]
+      const loadedMessages: ChatUIMessage[] = data.messages.map((m: FeedbackMessage) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        attachments: m.attachments || undefined,
+        input_tokens: m.input_tokens || undefined,
+        output_tokens: m.output_tokens || undefined,
+        cost: m.cost || undefined,
+        created_at: m.created_at,
+      }))
+
+      // Calculate session cost from loaded messages
+      const totalCost = loadedMessages.reduce((sum, m) => sum + (m.cost || 0), 0)
+
+      setMessages(loadedMessages)
+      setChatId(savedChatId)
+      setSessionCost(totalCost)
+      return true
+    } catch (error) {
+      console.error('[FeedbackChat] Error loading history:', error)
+      localStorage.removeItem(CHAT_ID_STORAGE_KEY)
+      return false
+    } finally {
+      setIsLoadingHistory(false)
+    }
+  }, [session?.user?.email])
+
+  /**
+   * Restore chat from localStorage on mount
+   * Only runs once when session is available
+   */
+  useEffect(() => {
+    if (historyRestored || !session?.user?.email) return
+
+    const savedChatId = localStorage.getItem(CHAT_ID_STORAGE_KEY)
+    if (savedChatId) {
+      loadChatHistory(savedChatId).then((success) => {
+        if (success) {
+          toast.info('Previous conversation restored')
+        }
+      })
+    }
+    setHistoryRestored(true)
+  }, [session?.user?.email, historyRestored, loadChatHistory])
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -121,10 +204,11 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
         throw new Error(error.error || 'Failed to send message')
       }
 
-      // Get chat ID from header
+      // Get chat ID from header and persist to localStorage
       const responseChatId = response.headers.get('X-Chat-ID')
       if (responseChatId && !chatId) {
         setChatId(responseChatId)
+        localStorage.setItem(CHAT_ID_STORAGE_KEY, responseChatId)
       }
 
       // Read SSE stream
@@ -278,7 +362,7 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
   }, [])
 
   /**
-   * Start new chat
+   * Start new chat - clears current state and localStorage
    */
   const startNewChat = useCallback(() => {
     setMessages([])
@@ -286,7 +370,46 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
     setSessionCost(0)
     setPendingAttachments([])
     setInputValue('')
+    localStorage.removeItem(CHAT_ID_STORAGE_KEY)
   }, [])
+
+  /**
+   * Submit feedback - marks chat as resolved and clears state
+   */
+  const submitFeedback = useCallback(async () => {
+    if (!chatId || isSubmitting) return
+
+    setIsSubmitting(true)
+    try {
+      // Call API to update chat status to resolved
+      const response = await fetch('/api/feedback/chat/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, status: 'resolved' }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to submit feedback')
+      }
+
+      // Clear localStorage and reset state
+      localStorage.removeItem(CHAT_ID_STORAGE_KEY)
+      setMessages([])
+      setChatId(null)
+      setSessionCost(0)
+      setPendingAttachments([])
+      setInputValue('')
+
+      toast.success('Feedback submitted! Thank you for your input.')
+      onOpenChange(false)
+    } catch (error) {
+      console.error('[FeedbackChat] Submit error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to submit feedback')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [chatId, isSubmitting, onOpenChange])
 
   /**
    * Handle keyboard shortcuts
@@ -315,16 +438,39 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
             <div className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-primary" />
               <SheetTitle className="text-base">FOSSAPP Assistant</SheetTitle>
+              {chatId && messages.length > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                  Draft
+                </Badge>
+              )}
             </div>
-            <div className="flex items-center gap-3 mr-6">
+            <div className="flex items-center gap-2 mr-6">
               {sessionCost > 0 && (
                 <span className="text-xs text-muted-foreground">
-                  Session: {formatCostEur(sessionCost)}
+                  {formatCostEur(sessionCost)}
                 </span>
+              )}
+              {chatId && messages.length > 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={submitFeedback}
+                  disabled={isSubmitting || isLoading}
+                  className="h-7 text-xs"
+                  title="Submit feedback and close"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                  )}
+                  Submit
+                </Button>
               )}
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-7 w-7"
                 onClick={startNewChat}
                 title="New chat"
               >
@@ -340,7 +486,12 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
         {/* Messages */}
         <ScrollArea ref={scrollRef} className="flex-1 px-2">
           <div className="space-y-2 py-4">
-            {messages.length === 0 ? (
+            {isLoadingHistory ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Loader2 className="h-8 w-8 mx-auto mb-3 animate-spin opacity-50" />
+                <p className="text-sm">Restoring conversation...</p>
+              </div>
+            ) : messages.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-20" />
                 <p className="text-sm">Start a conversation</p>
