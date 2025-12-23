@@ -1,12 +1,15 @@
 'use client'
 
 import * as React from 'react'
+import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
+import { MessageCircle } from 'lucide-react'
 import { getNavigation } from '@/lib/navigation'
 import { VersionDisplay } from '@/components/version-display'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { FeedbackChatPanel } from '@/components/feedback/feedback-chat-panel'
 import {
   Sidebar,
   SidebarContent,
@@ -17,10 +20,16 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import { Badge } from '@/components/ui/badge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export function AppSidebar() {
   const pathname = usePathname()
   const navigation = getNavigation(pathname)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   return (
     <Sidebar collapsible="icon">
@@ -86,9 +95,29 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
 
-      {/* Footer with Theme Toggle and Version */}
+      {/* Footer with Feedback, Theme Toggle and Version */}
       <SidebarFooter className="border-t">
         <div className="flex flex-col gap-2 p-2 group-data-[collapsible=icon]:p-1">
+          {/* Feedback Button */}
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <SidebarMenuButton
+                    onClick={() => setFeedbackOpen(true)}
+                    className="w-full justify-start"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                    <span>Feedback</span>
+                  </SidebarMenuButton>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  AI Assistant & Feedback
+                </TooltipContent>
+              </Tooltip>
+            </SidebarMenuItem>
+          </SidebarMenu>
+
           {/* Theme Toggle */}
           <div className="flex items-center justify-center">
             <ThemeToggle />
@@ -100,6 +129,9 @@ export function AppSidebar() {
           </div>
         </div>
       </SidebarFooter>
+
+      {/* Feedback Chat Panel */}
+      <FeedbackChatPanel open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </Sidebar>
   )
 }

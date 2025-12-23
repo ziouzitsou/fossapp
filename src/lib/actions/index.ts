@@ -172,3 +172,24 @@ export {
   type UserSettings,
   type UpdateSettingsInput,
 } from './user-settings'
+
+// ============================================================================
+// FEEDBACK CHAT
+// ============================================================================
+
+export {
+  // Chat operations
+  createChatAction,
+  getChatAction,
+  getUserChatsAction,
+  updateChatStatusAction,
+  updateChatSubjectAction,
+  deleteChatAction,
+  // Message operations
+  getChatMessagesAction,
+  addMessageAction,
+  getRecentMessagesAction,
+  // Storage operations
+  getUploadUrlAction,
+  getAttachmentUrlAction,
+} from './feedback'

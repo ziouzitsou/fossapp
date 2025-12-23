@@ -53,6 +53,8 @@ export const RATE_LIMITS = {
   'planner-status': { limit: 120, windowMs: 60_000 },   // 120 req/min (polling during translation)
   'symbol-generator': { limit: 20, windowMs: 60_000 },  // 20 req/min (vision LLM analysis)
   'symbol-generator-dwg': { limit: 10, windowMs: 60_000 }, // 10 req/min (LLM + APS generation)
+  'feedback-chat': { limit: 30, windowMs: 60_000 },       // 30 req/min (AI feedback chat)
+  'feedback-upload': { limit: 20, windowMs: 60_000 },     // 20 req/min (file uploads)
 } as const
 
 export type RateLimitEndpoint = keyof typeof RATE_LIMITS

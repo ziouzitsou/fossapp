@@ -58,6 +58,9 @@ export type EventType =
   | 'page_view'
   | 'api_call'
 
+  // Feedback Chat
+  | 'feedback_chat'              // AI feedback chat message sent
+
 /**
  * Event data structure (flexible JSONB)
  */
