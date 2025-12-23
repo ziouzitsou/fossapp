@@ -316,7 +316,7 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
               <MessageCircle className="h-5 w-5 text-primary" />
               <SheetTitle className="text-base">FOSSAPP Assistant</SheetTitle>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 mr-6">
               {sessionCost > 0 && (
                 <span className="text-xs text-muted-foreground">
                   Session: {formatCostEur(sessionCost)}
