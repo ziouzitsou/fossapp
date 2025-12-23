@@ -2,12 +2,18 @@
  * Feedback Chat Status API Route
  *
  * POST: Update chat status (resolve, archive, etc.)
+ * Sends email notification when status changes to 'resolved'.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
-import { updateChatStatusAction, getChatAction } from '@/lib/actions/feedback'
+import {
+  updateChatStatusAction,
+  getChatAction,
+  getChatWithMessagesAction,
+} from '@/lib/actions/feedback'
+import { sendFeedbackNotification } from '@/lib/feedback/email'
 
 export async function POST(request: NextRequest) {
   // Require authentication
@@ -61,10 +67,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Send email notification when feedback is submitted (resolved)
+    let emailSent = false
+    if (status === 'resolved') {
+      const chatData = await getChatWithMessagesAction(chat_id)
+      if (chatData) {
+        const emailResult = await sendFeedbackNotification({
+          chatId: chat_id,
+          userEmail: chatData.chat.user_email,
+          subject: chatData.chat.subject,
+          messages: chatData.messages.map((m) => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            created_at: m.created_at,
+          })),
+          totalCost: chatData.chat.total_cost || 0,
+          messageCount: chatData.chat.message_count || 0,
+        })
+        emailSent = emailResult.success
+        if (!emailResult.success) {
+          console.error('[Feedback Status] Email failed:', emailResult.error)
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       chat_id,
       status,
+      emailSent,
     })
   } catch (error) {
     console.error('[Feedback Status API] Error:', error)

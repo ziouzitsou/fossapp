@@ -320,3 +320,42 @@ export async function getAttachmentUrlAction(path: string): Promise<string> {
 
   return data.publicUrl
 }
+
+/**
+ * Get chat with all messages (for email notifications)
+ * Does NOT verify user ownership - use only in server contexts
+ */
+export async function getChatWithMessagesAction(
+  chatId: string
+): Promise<{ chat: FeedbackChat; messages: FeedbackMessage[] } | null> {
+  // Get chat
+  const { data: chat, error: chatError } = await supabaseServer
+    .schema('feedback')
+    .from('chats')
+    .select('*')
+    .eq('id', chatId)
+    .single()
+
+  if (chatError || !chat) {
+    console.error('[Feedback] Failed to get chat for email:', chatError?.message)
+    return null
+  }
+
+  // Get messages
+  const { data: messages, error: msgError } = await supabaseServer
+    .schema('feedback')
+    .from('chat_messages')
+    .select('*')
+    .eq('chat_id', chatId)
+    .order('created_at', { ascending: true })
+
+  if (msgError) {
+    console.error('[Feedback] Failed to get messages for email:', msgError.message)
+    return null
+  }
+
+  return {
+    chat: chat as FeedbackChat,
+    messages: (messages as FeedbackMessage[]) || [],
+  }
+}
