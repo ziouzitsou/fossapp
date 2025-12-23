@@ -5,6 +5,10 @@
  *
  * CRUD operations for feedback chats and messages.
  * All operations use supabaseServer (service_role) for full access.
+ *
+ * Tables are in the `feedback` schema:
+ * - feedback.chats
+ * - feedback.chat_messages
  */
 
 import { supabaseServer } from '../supabase-server'
@@ -27,7 +31,8 @@ export async function createChatAction(
   subject?: string
 ): Promise<FeedbackChat | null> {
   const { data, error } = await supabaseServer
-    .from('feedback_chats')
+    .schema('feedback')
+    .from('chats')
     .insert({
       user_email: userEmail,
       subject: subject || null,
@@ -51,7 +56,8 @@ export async function getChatAction(
   userEmail: string
 ): Promise<FeedbackChat | null> {
   const { data, error } = await supabaseServer
-    .from('feedback_chats')
+    .schema('feedback')
+    .from('chats')
     .select('*')
     .eq('id', chatId)
     .eq('user_email', userEmail)
@@ -81,7 +87,8 @@ export async function getUserChatsAction(
   const offset = (page - 1) * pageSize
 
   let query = supabaseServer
-    .from('feedback_chats')
+    .schema('feedback')
+    .from('chats')
     .select('*', { count: 'exact' })
     .eq('user_email', userEmail)
     .order('updated_at', { ascending: false })
@@ -113,7 +120,8 @@ export async function updateChatStatusAction(
   status: 'active' | 'resolved' | 'archived'
 ): Promise<boolean> {
   const { error } = await supabaseServer
-    .from('feedback_chats')
+    .schema('feedback')
+    .from('chats')
     .update({
       status,
       updated_at: new Date().toISOString(),
@@ -138,7 +146,8 @@ export async function updateChatSubjectAction(
   subject: string
 ): Promise<boolean> {
   const { error } = await supabaseServer
-    .from('feedback_chats')
+    .schema('feedback')
+    .from('chats')
     .update({
       subject: subject.substring(0, 200), // Limit subject length
       updated_at: new Date().toISOString(),
@@ -162,7 +171,8 @@ export async function deleteChatAction(
   userEmail: string
 ): Promise<boolean> {
   const { error } = await supabaseServer
-    .from('feedback_chats')
+    .schema('feedback')
+    .from('chats')
     .delete()
     .eq('id', chatId)
     .eq('user_email', userEmail)
@@ -193,7 +203,8 @@ export async function getChatMessagesAction(
   }
 
   const { data, error } = await supabaseServer
-    .from('feedback_chat_messages')
+    .schema('feedback')
+    .from('chat_messages')
     .select('*')
     .eq('chat_id', chatId)
     .order('created_at', { ascending: true })
@@ -222,7 +233,8 @@ export async function addMessageAction(
   }
 ): Promise<FeedbackMessage | null> {
   const { data, error } = await supabaseServer
-    .from('feedback_chat_messages')
+    .schema('feedback')
+    .from('chat_messages')
     .insert({
       chat_id: chatId,
       role,
@@ -252,7 +264,8 @@ export async function getRecentMessagesAction(
   limit: number = 20
 ): Promise<FeedbackMessage[]> {
   const { data, error } = await supabaseServer
-    .from('feedback_chat_messages')
+    .schema('feedback')
+    .from('chat_messages')
     .select('*')
     .eq('chat_id', chatId)
     .order('created_at', { ascending: false })

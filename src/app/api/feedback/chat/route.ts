@@ -17,7 +17,7 @@ import {
   getUserChatsAction,
   getRecentMessagesAction,
 } from '@/lib/actions/feedback'
-import { runFeedbackAgent, type StreamEvent } from '@/lib/feedback/agent'
+import { runFeedbackAgent, type StreamEvent, type AgentMessage } from '@/lib/feedback/agent'
 import { logEvent } from '@/lib/event-logger'
 import type { Attachment, ToolCall } from '@/types/feedback'
 
@@ -54,12 +54,15 @@ export async function POST(request: NextRequest) {
       attachments?: Attachment[]
     }
 
-    // Validate message
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    // Validate message (allow empty message if attachments present)
+    const hasAttachments = attachments && attachments.length > 0
+    if (!hasAttachments && (!message || typeof message !== 'string' || message.trim().length === 0)) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    const sanitizedMessage = message.trim().substring(0, 10000) // Max 10K chars
+    // Default message for screenshot-only submissions
+    const sanitizedMessage = message?.trim()?.substring(0, 10000) ||
+      (hasAttachments ? 'Please analyze this screenshot.' : '')
 
     // Get or create chat
     let chatId = chat_id
@@ -101,11 +104,12 @@ export async function POST(request: NextRequest) {
 
     // Get chat history for context (last 20 messages)
     const chatHistory = await getRecentMessagesAction(chatId, 20)
-    const formattedHistory = chatHistory
+    const formattedHistory: AgentMessage[] = chatHistory
       .filter((m) => m.role !== 'system')
       .map((m) => ({
         role: m.role as 'user' | 'assistant',
         content: m.content,
+        attachments: m.attachments || undefined,
       }))
 
     // Create SSE stream

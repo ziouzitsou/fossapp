@@ -3,12 +3,13 @@
  *
  * Claude-powered assistant with custom tools for product queries.
  * Uses Anthropic SDK via OpenRouter's Anthropic-compatible endpoint.
+ * Supports vision for screenshot/image analysis.
  */
 
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseServer } from '../supabase-server'
 import { calculateCost } from './pricing'
-import type { ToolCall } from '@/types/feedback'
+import type { ToolCall, Attachment } from '@/types/feedback'
 
 // ============================================================================
 // Configuration
@@ -39,6 +40,7 @@ const SYSTEM_PROMPT = `You are **FOSSAPP Assistant**, an AI helper for the FOSSA
 - Explain how to use FOSSAPP features (Tiles, Playground, Symbol Generator, Planner)
 - Provide guidance on product selection for lighting projects
 - Collect bug reports and feature requests (acknowledge and thank the user)
+- **Analyze screenshots** when users share them to help identify UI issues or answer questions about what they see
 
 ## Available Tools
 - **search_products**: Search products by keyword (description, family, product ID)
@@ -52,6 +54,7 @@ const SYSTEM_PROMPT = `You are **FOSSAPP Assistant**, an AI helper for the FOSSA
 4. **Honesty**: If you can't find information, say so: "I couldn't find that product. Could you check the spelling or try a different search term?"
 5. **Concise**: Be helpful but brief - users are busy lighting design professionals
 6. **Language**: Respond in the same language the user writes in (Greek or English)
+7. **Screenshots**: When users share screenshots, carefully analyze what you see and provide helpful feedback about the FOSSAPP interface, any issues visible, or answer their questions about the content
 
 ## Database Context
 - **Suppliers**: Delta Light, MOLTO LUCE, Flos, and more
@@ -289,8 +292,93 @@ async function handleToolCall(
 }
 
 // ============================================================================
+// Vision Support
+// ============================================================================
+
+/**
+ * Fetch an image from URL and convert to base64
+ */
+async function fetchImageAsBase64(
+  url: string
+): Promise<{ base64: string; mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp' } | null> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.error(`[Vision] Failed to fetch image: ${response.status}`)
+      return null
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/png'
+    const arrayBuffer = await response.arrayBuffer()
+    const base64 = Buffer.from(arrayBuffer).toString('base64')
+
+    // Map content type to Anthropic's expected media types
+    let mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp' = 'image/png'
+    if (contentType.includes('jpeg') || contentType.includes('jpg')) {
+      mediaType = 'image/jpeg'
+    } else if (contentType.includes('gif')) {
+      mediaType = 'image/gif'
+    } else if (contentType.includes('webp')) {
+      mediaType = 'image/webp'
+    }
+
+    return { base64, mediaType }
+  } catch (error) {
+    console.error('[Vision] Error fetching image:', error)
+    return null
+  }
+}
+
+/**
+ * Build content blocks for a message, including images if attachments are present
+ */
+async function buildMessageContent(
+  text: string,
+  attachments?: Attachment[]
+): Promise<Anthropic.ContentBlockParam[]> {
+  const content: Anthropic.ContentBlockParam[] = []
+
+  // Add image attachments first (so Claude sees them before the text)
+  if (attachments && attachments.length > 0) {
+    for (const attachment of attachments) {
+      // Only process image types
+      if (attachment.type === 'image' || attachment.type === 'screenshot') {
+        const imageData = await fetchImageAsBase64(attachment.url)
+        if (imageData) {
+          content.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: imageData.mediaType,
+              data: imageData.base64,
+            },
+          })
+        }
+      }
+      // PDFs are not supported by vision - could add text extraction later
+    }
+  }
+
+  // Add text content
+  if (text) {
+    content.push({
+      type: 'text',
+      text,
+    })
+  }
+
+  return content
+}
+
+// ============================================================================
 // Main Agent Function
 // ============================================================================
+
+export interface AgentMessage {
+  role: 'user' | 'assistant'
+  content: string
+  attachments?: Attachment[]
+}
 
 export interface AgentResult {
   content: string
@@ -314,11 +402,11 @@ export interface StreamEvent {
 /**
  * Run the feedback agent with streaming
  *
- * @param messages - Conversation history
+ * @param messages - Conversation history with optional attachments
  * @param onEvent - Callback for streaming events
  */
 export async function runFeedbackAgent(
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  messages: AgentMessage[],
   onEvent?: (event: StreamEvent) => void
 ): Promise<AgentResult> {
   const toolCalls: ToolCall[] = []
@@ -327,11 +415,30 @@ export async function runFeedbackAgent(
   let totalOutputTokens = 0
 
   try {
-    // Convert to Anthropic message format
-    const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
-      role: m.role,
-      content: m.content,
-    }))
+    // Convert to Anthropic message format with vision support
+    const anthropicMessages: Anthropic.MessageParam[] = await Promise.all(
+      messages.map(async (m) => {
+        // Check if this message has image attachments
+        const hasImages = m.attachments?.some(
+          (a) => a.type === 'image' || a.type === 'screenshot'
+        )
+
+        if (hasImages && m.role === 'user') {
+          // Build multimodal content for user messages with images
+          const content = await buildMessageContent(m.content, m.attachments)
+          return {
+            role: m.role,
+            content,
+          }
+        }
+
+        // Simple text content for messages without images
+        return {
+          role: m.role,
+          content: m.content,
+        }
+      })
+    )
 
     // Create streaming message
     const stream = anthropic.messages.stream({
@@ -510,7 +617,7 @@ export async function runFeedbackAgent(
  * Run the feedback agent without streaming (simpler API)
  */
 export async function runFeedbackAgentSync(
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+  messages: AgentMessage[]
 ): Promise<AgentResult> {
   return runFeedbackAgent(messages)
 }
