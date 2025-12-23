@@ -3,6 +3,20 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.12.0",
+      "date": "2025-12-23",
+      "title": "Feedback Assistant with Email Notifications",
+      "description": "Get help from our AI assistant and submit feedback that reaches the development team instantly.",
+      "features": [
+        "AI-powered feedback assistant - ask questions, report bugs, or request features",
+        "Email notifications - submitted feedback is delivered to the development team via Resend",
+        "Vision support - attach screenshots for better bug reports",
+        "Chat persistence - conversations survive page navigation",
+        "Improved dark mode contrast in chat panel"
+      ],
+      "tagline": "Your feedback, heard instantly."
+    },
+    {
       "version": "1.11.1",
       "date": "2025-12-22",
       "title": "Planner Refinements",
