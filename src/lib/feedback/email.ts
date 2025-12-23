@@ -7,10 +7,19 @@
 
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialization to avoid build-time errors
+let resend: Resend | null = null
+function getResendClient(): Resend {
+  if (!resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is not set')
+    }
+    resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return resend
+}
 
 const FROM_EMAIL = 'FOSSAPP Feedback <noreply@feedback.fossapp.online>'
-const NOTIFICATION_EMAIL = process.env.FEEDBACK_NOTIFICATION_EMAIL || 'dimitri@foss.gr'
 
 export interface FeedbackMessage {
   role: 'user' | 'assistant'
@@ -141,9 +150,10 @@ ${data.messages.map((m) => `[${m.role.toUpperCase()}] ${m.content}`).join('\n\n'
 Chat ID: ${data.chatId}
     `.trim()
 
-    const { error } = await resend.emails.send({
+    const notificationEmail = process.env.FEEDBACK_NOTIFICATION_EMAIL || 'development@foss.gr'
+    const { error } = await getResendClient().emails.send({
       from: FROM_EMAIL,
-      to: NOTIFICATION_EMAIL,
+      to: notificationEmail,
       subject: emailSubject,
       html,
       text,
