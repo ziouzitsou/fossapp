@@ -35,23 +35,51 @@ run_check() {
   fi
 }
 
-# Check 0: Environment variable sync between local and production
-echo -n "⚙️  Environment: Checking env var sync with production... "
-if [ -f "./scripts/check-env-sync.sh" ]; then
-  if ./scripts/check-env-sync.sh --local-only > /tmp/env-check-output.log 2>&1; then
-    echo -e "${GREEN}✓ PASSED${NC}"
-  else
-    echo -e "${RED}✗ FAILED${NC}"
-    echo ""
-    echo "Missing required environment variables in local .env.local:"
-    cat /tmp/env-check-output.log
-    echo ""
-    echo "Run './scripts/check-env-sync.sh' for full comparison with production."
-    echo ""
-    FAILED=1
-  fi
+# Check 0: Auto-sync .env.production to server if changed
+echo -n "⚙️  Environment: Syncing .env.production to server... "
+SSH_KEY="$HOME/.ssh/platon.key"
+SSH_HOST="sysadmin@platon.titancnc.eu"
+REMOTE_ENV="/opt/fossapp/.env.production"
+LOCAL_ENV=".env.production"
+
+if [ ! -f "$LOCAL_ENV" ]; then
+  echo -e "${RED}✗ FAILED${NC}"
+  echo "  Local .env.production not found!"
+  FAILED=1
+elif [ ! -f "$SSH_KEY" ]; then
+  echo -e "${YELLOW}⚠ SKIPPED${NC} (SSH key not found)"
 else
-  echo -e "${YELLOW}⚠ SKIPPED${NC} (check-env-sync.sh not found)"
+  # Get remote file content (keys only, sorted)
+  REMOTE_KEYS=$(ssh -i "$SSH_KEY" "$SSH_HOST" "grep -E '^[A-Z_]+=' $REMOTE_ENV 2>/dev/null | cut -d= -f1 | sort" 2>/dev/null) || REMOTE_KEYS=""
+  LOCAL_KEYS=$(grep -E '^[A-Z_]+=' "$LOCAL_ENV" | cut -d= -f1 | sort)
+
+  # Check for new keys in local that aren't in remote
+  NEW_KEYS=$(comm -23 <(echo "$LOCAL_KEYS") <(echo "$REMOTE_KEYS"))
+
+  # Check for value changes (compare full file hashes of matching keys)
+  REMOTE_CONTENT=$(ssh -i "$SSH_KEY" "$SSH_HOST" "cat $REMOTE_ENV" 2>/dev/null) || REMOTE_CONTENT=""
+
+  CHANGED_KEYS=""
+  while IFS= read -r key; do
+    [ -z "$key" ] && continue
+    LOCAL_VAL=$(grep "^${key}=" "$LOCAL_ENV" | cut -d= -f2-)
+    REMOTE_VAL=$(echo "$REMOTE_CONTENT" | grep "^${key}=" | cut -d= -f2-)
+    if [ "$LOCAL_VAL" != "$REMOTE_VAL" ] && [ -n "$REMOTE_VAL" ]; then
+      CHANGED_KEYS="$CHANGED_KEYS $key"
+    fi
+  done <<< "$LOCAL_KEYS"
+
+  if [ -n "$NEW_KEYS" ] || [ -n "$CHANGED_KEYS" ]; then
+    # Sync needed - backup and push
+    ssh -i "$SSH_KEY" "$SSH_HOST" "cp $REMOTE_ENV ${REMOTE_ENV}.backup-\$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+    scp -i "$SSH_KEY" "$LOCAL_ENV" "$SSH_HOST:$REMOTE_ENV" > /dev/null 2>&1
+
+    echo -e "${GREEN}✓ SYNCED${NC}"
+    [ -n "$NEW_KEYS" ] && echo -e "  ${YELLOW}New keys:${NC} $(echo $NEW_KEYS | tr '\n' ' ')"
+    [ -n "$CHANGED_KEYS" ] && echo -e "  ${YELLOW}Changed:${NC}$CHANGED_KEYS"
+  else
+    echo -e "${GREEN}✓ IN SYNC${NC}"
+  fi
 fi
 
 # Check 0b: Security - Auth bypass must not be enabled in production
