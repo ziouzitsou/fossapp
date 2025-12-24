@@ -43,6 +43,8 @@ import type { ChatUIMessage, Attachment, StreamChunk, FeedbackMessage } from '@/
 
 // localStorage key for persisting chat across page navigation
 const CHAT_ID_STORAGE_KEY = 'fossapp_feedback_chat_id'
+// sessionStorage key to prevent repeated "restored" toasts on navigation
+const HISTORY_RESTORED_KEY = 'fossapp_feedback_history_restored'
 
 interface FeedbackChatPanelProps {
   open: boolean
@@ -126,16 +128,21 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
 
   /**
    * Restore chat from localStorage on mount
-   * Only runs once when session is available
+   * Only runs once per browser session (uses sessionStorage to track)
    */
   useEffect(() => {
     if (historyRestored || !session?.user?.email) return
 
+    // Check sessionStorage to prevent repeated toasts on page navigation
+    const alreadyRestored = sessionStorage.getItem(HISTORY_RESTORED_KEY)
     const savedChatId = localStorage.getItem(CHAT_ID_STORAGE_KEY)
+
     if (savedChatId) {
       loadChatHistory(savedChatId).then((success) => {
-        if (success) {
+        // Only show toast once per browser session
+        if (success && !alreadyRestored) {
           toast.info('Previous conversation restored')
+          sessionStorage.setItem(HISTORY_RESTORED_KEY, 'true')
         }
       })
     }
