@@ -558,6 +558,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                               <Table>
                                 <TableHeader>
                                   <TableRow>
+                                    <TableHead className="w-[40px] text-center">#</TableHead>
                                     <TableHead>Product</TableHead>
                                     <TableHead>Location</TableHead>
                                     <TableHead className="text-center">Qty</TableHead>
@@ -569,10 +570,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                  {group.products.map((product) => {
+                                  {group.products.map((product, index) => {
                                     const isUpdating = updatingProducts.has(product.id)
                                     return (
                                       <TableRow key={product.id} className={isUpdating ? 'opacity-50' : ''}>
+                                        <TableCell className="text-center text-muted-foreground font-medium">
+                                          {index + 1}
+                                        </TableCell>
                                         <TableCell>
                                           <Link
                                             href={`/products/${product.product_id}`}
@@ -595,13 +599,19 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                                               <Minus className="h-3 w-3" />
                                             </Button>
                                             <Input
+                                              key={`${product.id}-${product.quantity}`}
                                               type="number"
                                               min={1}
-                                              value={product.quantity}
-                                              onChange={(e) => {
+                                              defaultValue={product.quantity}
+                                              onBlur={(e) => {
                                                 const val = parseInt(e.target.value, 10)
-                                                if (!isNaN(val) && val >= 1) {
+                                                if (!isNaN(val) && val >= 1 && val !== product.quantity) {
                                                   handleQuantityChange(product.id, val)
+                                                }
+                                              }}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                  e.currentTarget.blur()
                                                 }
                                               }}
                                               className="w-14 h-7 text-center px-1"
