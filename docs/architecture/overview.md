@@ -1,6 +1,6 @@
 # FOSSAPP Architecture Guide
 
-**Last Updated**: 2025-11-29
+**Last Updated**: 2025-12-24
 
 This document defines coding patterns and architectural decisions for FOSSAPP. Follow these guidelines for all new features.
 
@@ -503,6 +503,74 @@ When moving code from `src/lib/actions.ts` to domain files:
 4. Remove from original `actions.ts`
 5. Test all callers still work
 6. Commit with clear message
+
+---
+
+## URL-Based State Management
+
+**Policy (as of 2025-12)**: All client-side navigation state (tabs, filters, views, selections) MUST be stored in URL query parameters.
+
+### Why URL State
+
+- **Browser navigation works**: Back/forward buttons restore previous state
+- **Shareable links**: Users can share exact view with colleagues
+- **Refresh-safe**: Page reload preserves state
+- **No side effects**: Doesn't break other functionality
+
+### Pattern
+
+```typescript
+'use client'
+import { useRouter, useSearchParams } from 'next/navigation'
+
+export default function PageWithState() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Read state from URL (with default)
+  const activeTab = searchParams.get('tab') || 'overview'
+
+  // Update URL when state changes
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === 'overview') {
+      params.delete('tab')  // Clean URL for default value
+    } else {
+      params.set('tab', value)
+    }
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }
+
+  return (
+    <Tabs value={activeTab} onValueChange={handleTabChange}>
+      {/* ... */}
+    </Tabs>
+  )
+}
+```
+
+### Guidelines
+
+| State Type | URL Param | Example |
+|------------|-----------|---------|
+| Active tab | `?tab=products` | `/projects/123?tab=products` |
+| Selected item | `?area=abc123` | `/planner?area=abc123` |
+| Filters | `?category=LED&status=active` | `/products?category=LED` |
+| View mode | `?view=grid` | `/products?view=grid` |
+| Search query | `?q=spotlight` | `/products?q=spotlight` |
+
+### Best Practices
+
+1. **Clean URLs for defaults**: Delete param when value equals default
+2. **Use `router.replace()`**: Avoids polluting history with every state change
+3. **Add `{ scroll: false }`**: Prevents page jumping
+4. **Validate URL params**: Use allowlist for valid values
+5. **Controlled components**: Use `value`/`onValueChange` not `defaultValue`
+
+### Implemented Pages
+
+- `/projects/[id]` - `?tab=` for tab selection
+- `/planner` - `?area=` for selected area/DWG
 
 ---
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { useActiveProject } from '@/lib/active-project-context'
 import { PlannerViewer, ProductsPanel } from '@/components/planner'
@@ -55,6 +56,8 @@ interface AreaVersionOption {
 }
 
 export default function PlannerPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { activeProject } = useActiveProject()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedUrn, setSelectedUrn] = useState<string | null>(null)
@@ -148,6 +151,15 @@ export default function PlannerPage() {
             }))
 
           setAreaVersions(options)
+
+          // Auto-select area from URL param if present
+          const areaIdFromUrl = searchParams.get('area')
+          if (areaIdFromUrl && !selectedAreaVersion) {
+            const areaFromUrl = options.find(a => a.areaId === areaIdFromUrl)
+            if (areaFromUrl && areaFromUrl.floorPlanUrn) {
+              setSelectedAreaVersion(areaFromUrl)
+            }
+          }
 
           // Check for stale "inprogress" translations and update their status
           const inProgressAreas = options.filter(av => av.floorPlanStatus === 'inprogress')
@@ -359,7 +371,11 @@ export default function PlannerPage() {
     setSavedPlacements([])
     setSelectedPlacementId(null)
     viewerRef.current = null
-  }, [])
+    // Clear URL param
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('area')
+    router.replace(params.toString() ? `?${params.toString()}` : '/planner', { scroll: false })
+  }, [router, searchParams])
 
   // Clear file with unsaved changes check
   const clearFile = useCallback(() => {
@@ -407,12 +423,16 @@ export default function PlannerPage() {
     if (area.floorPlanUrn) {
       // Area has a floor plan - select it (useEffect will set URN)
       setSelectedAreaVersion(area)
+      // Update URL with selected area
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('area', area.areaId)
+      router.replace(`?${params.toString()}`, { scroll: false })
     } else {
       // Area has no floor plan - open file picker
       setPendingUploadArea(area)
       document.getElementById('dwg-upload')?.click()
     }
-  }, [])
+  }, [router, searchParams])
 
   // Handle clicking delete button - opens confirmation dialog
   const handleDeleteClick = useCallback((e: React.MouseEvent, area: AreaVersionOption) => {

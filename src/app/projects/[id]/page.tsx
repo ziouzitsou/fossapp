@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { use } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
 import {
   getProjectByIdAction,
@@ -31,6 +31,7 @@ interface ProjectPageProps {
 export default function ProjectPage({ params }: ProjectPageProps) {
   const resolvedParams = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session, status } = useDevSession()
   const { isActive, setActiveProject } = useActiveProject()
   const [project, setProject] = useState<ProjectDetail | null>(null)
@@ -45,6 +46,21 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   // Expanded areas state for collapsible sections
   const [expandedAreas, setExpandedAreas] = useState<Set<string>>(new Set(['all']))
+
+  // Tab state from URL
+  const validTabs = ['overview', 'areas', 'products', 'contacts', 'documents', 'phases']
+  const tabFromUrl = searchParams.get('tab')
+  const activeTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : 'overview'
+
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === 'overview') {
+      params.delete('tab')
+    } else {
+      params.set('tab', value)
+    }
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }
 
   const handleQuantityChange = async (productId: string, newQuantity: number) => {
     if (newQuantity < 1) return
@@ -307,7 +323,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           </div>
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="areas">Areas ({project.areas?.length || 0})</TabsTrigger>
