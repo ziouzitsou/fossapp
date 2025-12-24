@@ -3,6 +3,19 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.12.3",
+      "date": "2025-12-24",
+      "title": "Better Product Search",
+      "description": "The feedback assistant now searches more fields and understands lighting vocabulary better.",
+      "features": [
+        "Extended search - now includes technical specs and ETIM categories",
+        "Vocabulary mapping - understands 'spotlight', 'pendant', 'outdoor' and more",
+        "Better CCT search - find products by '3000K', '4000K' color temperature",
+        "Category awareness - knows product counts per ETIM class"
+      ],
+      "tagline": "Find products the way you describe them."
+    },
+    {
       "version": "1.12.2",
       "date": "2025-12-23",
       "title": "Smarter Feedback Assistant",

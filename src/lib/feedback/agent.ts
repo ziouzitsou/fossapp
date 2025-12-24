@@ -142,6 +142,11 @@ async function handleSearchProducts(input: {
   const limit = Math.min(input.limit || 10, 20)
   const sanitizedQuery = input.query.replace(/[<>]/g, '').substring(0, 200)
 
+  // Search across multiple fields for better coverage:
+  // - description_short: product names
+  // - description_long: technical specs (CCT, lumens, etc.)
+  // - class_name: ETIM categories (Downlight, Pendant, etc.)
+  // - foss_pid/family: product codes
   const { data, error } = await supabaseServer
     .schema('items')
     .from('product_info')
@@ -149,7 +154,7 @@ async function handleSearchProducts(input: {
       'product_id, foss_pid, description_short, supplier_name, class_name, family'
     )
     .or(
-      `description_short.ilike.%${sanitizedQuery}%,foss_pid.ilike.%${sanitizedQuery}%,family.ilike.%${sanitizedQuery}%`
+      `description_short.ilike.%${sanitizedQuery}%,description_long.ilike.%${sanitizedQuery}%,class_name.ilike.%${sanitizedQuery}%,foss_pid.ilike.%${sanitizedQuery}%,family.ilike.%${sanitizedQuery}%`
     )
     .limit(limit)
 

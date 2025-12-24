@@ -23,6 +23,11 @@ export interface KnowledgeBase {
   lastUpdated: string
   features: Record<string, FeatureKnowledge>
   commonQuestions: Record<string, string>
+  productVocabulary: {
+    searchTips: string[]
+    synonyms: Record<string, string[]>
+    categories: Record<string, string>
+  }
 }
 
 export const FOSSAPP_KNOWLEDGE: KnowledgeBase = {
@@ -160,6 +165,37 @@ export const FOSSAPP_KNOWLEDGE: KnowledgeBase = {
     'change product status': 'Currently, product status in projects is fixed at "specified". Status workflow features are planned for a future update.',
     'export project': 'Project export features are available through the project actions menu. You can export product lists and specifications.',
   },
+
+  // Product vocabulary helps the assistant understand user terminology
+  productVocabulary: {
+    searchTips: [
+      'Search also covers description_long (technical specs) and class_name (ETIM categories)',
+      'For CCT/color temperature, try "3000K", "4000K", "2700K" or "warm white"',
+      'For brightness, include "lm" or specific values like "2000lm"',
+      'Product families: BOXY, ENTERO, MONOSPOT, SUPERLIGHT, FLUXA (Delta Light); ECOLINE, LOGIC (Meyer)',
+    ],
+    synonyms: {
+      // User term -> what to actually search
+      spotlight: ['spot', 'monospot', 'metaspot', 'nightspot'],
+      downlight: ['downlight', 'recessed', 'ceiling recessed'],
+      'wall light': ['wall', 'wall-mounted', 'wallwash'],
+      pendant: ['pendant', 'suspended', 'hanging'],
+      'track light': ['track', 'rail', 'light-track'],
+      outdoor: ['outdoor', 'IP65', 'IP67', 'exterior', 'garden'],
+      bathroom: ['IP44', 'IP65', 'wet area'],
+      dimmable: ['dimmable', 'DIM5', 'DIM8', 'phase cut'],
+      'LED strip': ['strip', 'ribbon', 'tape', 'linear'],
+    },
+    categories: {
+      // ETIM class names for reference
+      'Downlight/spot/floodlight': '13,607 products - includes spots, downlights, floodlights',
+      'Ceiling-/wall luminaire': '4,184 products - surface mounted ceiling and wall lights',
+      'Pendant luminaire': '1,090 products - hanging/suspended lights',
+      'In-ground luminaire': '2,265 products - recessed ground lights, uplights',
+      'Light-track': '59 products - track lighting systems',
+      'Luminaire bollard': '222 products - outdoor path/garden bollards',
+    },
+  },
 }
 
 /**
@@ -194,6 +230,21 @@ export function generateKnowledgeSummary(): string {
   summary += '\n### Quick Answers\n'
   for (const [question, answer] of Object.entries(kb.commonQuestions)) {
     summary += `- **${question}**: ${answer}\n`
+  }
+
+  // Product vocabulary for better search
+  summary += '\n### Product Search Vocabulary\n'
+  summary += 'When users search for products, use these mappings:\n'
+  for (const [userTerm, dbTerms] of Object.entries(kb.productVocabulary.synonyms)) {
+    summary += `- "${userTerm}" → try: ${dbTerms.join(', ')}\n`
+  }
+  summary += '\nProduct categories (ETIM classes):\n'
+  for (const [category, description] of Object.entries(kb.productVocabulary.categories)) {
+    summary += `- ${category}: ${description}\n`
+  }
+  summary += '\nSearch tips:\n'
+  for (const tip of kb.productVocabulary.searchTips) {
+    summary += `- ${tip}\n`
   }
 
   return summary
