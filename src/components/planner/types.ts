@@ -14,6 +14,7 @@ export interface Placement {
   productId: string          // Reference to project_products.product_id
   projectProductId: string   // Reference to project_products.id
   productName: string        // Display name (foss_pid or description)
+  symbol?: string            // Category symbol (e.g., "A1", "B2") for DWG
   worldX: number             // DWG world X coordinate
   worldY: number             // DWG world Y coordinate
   dbId: number               // Unique dbId for the marker
@@ -51,6 +52,7 @@ export interface PlacementModeProduct {
   productId: string
   fossPid: string
   description: string
+  symbol?: string  // Category symbol (e.g., "A1") for marker label
 }
 
 /**

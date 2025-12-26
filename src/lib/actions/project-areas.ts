@@ -933,6 +933,10 @@ export interface AreaVersionProduct {
   mounting_height?: number
   status: string
   notes?: string
+  // Symbol fields for DWG generation
+  category_code?: string  // A, B, C, etc.
+  symbol_sequence?: number  // 1, 2, 3, etc.
+  symbol?: string  // Combined: "A1", "B2", etc.
 }
 
 /**
@@ -1107,6 +1111,7 @@ export interface PlacementData {
   worldX: number
   worldY: number
   rotation: number
+  symbol?: string  // Category symbol (e.g., "A1") for marker label
 }
 
 /**
@@ -1140,6 +1145,7 @@ export async function loadAreaPlacementsAction(
       world_x: number
       world_y: number
       rotation: number
+      symbol: string | null
     }) => ({
       id: row.id,
       projectProductId: row.project_product_id,
@@ -1147,7 +1153,8 @@ export async function loadAreaPlacementsAction(
       productName: row.product_name,
       worldX: Number(row.world_x),
       worldY: Number(row.world_y),
-      rotation: Number(row.rotation)
+      rotation: Number(row.rotation),
+      symbol: row.symbol || undefined
     }))
 
     return { success: true, data: placements }

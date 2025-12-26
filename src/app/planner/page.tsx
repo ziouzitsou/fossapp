@@ -277,6 +277,7 @@ export default function PlannerPage() {
             productId: p.productId,
             projectProductId: p.projectProductId,
             productName: p.productName,
+            symbol: p.symbol,
             worldX: p.worldX,
             worldY: p.worldY,
             rotation: p.rotation,
@@ -398,6 +399,7 @@ export default function PlannerPage() {
         projectProductId: p.projectProductId,
         productId: p.productId,
         productName: p.productName,
+        symbol: p.symbol,
         worldX: p.worldX,
         worldY: p.worldY,
         rotation: p.rotation

@@ -21,6 +21,7 @@ export interface MarkerData {
   productId: string
   projectProductId: string
   productName: string
+  symbol?: string  // e.g., "A1", "B2" - for DWG generation
   // Markup space coordinates (not world coords!)
   markupX: number
   markupY: number
@@ -250,17 +251,19 @@ export class MarkupMarkers {
     circle.setAttribute('stroke-width', '2')
     circle.style.pointerEvents = 'auto'
 
-    // Label (first letter of product name)
+    // Label - prefer symbol (A1, B2) if available, else first letter
+    const label = data.symbol || data.productName.charAt(0).toUpperCase()
     const text = document.createElementNS(ns, 'text')
     text.setAttribute('x', '0')
     text.setAttribute('y', '0')
     text.setAttribute('text-anchor', 'middle')
     text.setAttribute('dominant-baseline', 'central')
     text.setAttribute('fill', '#ffffff')
-    text.setAttribute('font-size', '10')
+    // Smaller font for 2+ char labels like "A1"
+    text.setAttribute('font-size', label.length > 1 ? '9' : '10')
     text.setAttribute('font-weight', 'bold')
     text.style.pointerEvents = 'none'
-    text.textContent = data.productName.charAt(0).toUpperCase()
+    text.textContent = label
 
     group.appendChild(circle)
     group.appendChild(text)

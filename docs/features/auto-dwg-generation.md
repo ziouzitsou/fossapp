@@ -63,18 +63,22 @@ Example: "A3" = 3rd Interior Spot model in this area
 
 ## Rough Implementation Phases
 
-### Phase 1: Category Symbol Database Structure
-- [ ] Design category rules table
-- [ ] Create function to determine category from product
-- [ ] Add `foss_category` to product_info mat view (or separate approach)
-- [ ] Add `symbol_sequence` to project_products
-- [ ] Test with sample products
+### Phase 1: Category Symbol Database Structure ✅
+- [x] Design category rules table (`items.foss_category_rules`)
+- [x] Create function to determine category from product (`items.get_foss_category()`)
+- [x] Helper function for IP extraction (`items.get_product_ip_rating()`)
+- [x] Add `symbol_sequence` to `projects.project_products`
+- [x] Test with sample products (25,726 categorized, ~2K accessories excluded)
 
-### Phase 2: Planner Symbol Display
-- [ ] Pass symbol code through planner data flow
-- [ ] Update marker rendering to show "A1" instead of first letter
-- [ ] Store symbol in placements table
-- [ ] UI to show symbol in product panel
+**Migration:** `20251224100000_add_foss_category_system.sql`
+
+### Phase 2: Planner Symbol Display ✅
+- [x] Pass symbol code through planner data flow
+- [x] Update marker rendering to show "A1" instead of first letter
+- [x] Symbol computed from project_products via RPC (not stored in placements)
+- [x] Products panel passes symbol to placement mode
+
+**Migration:** `20251226100000_add_planner_symbol_support.sql`
 
 ### Phase 3: Symbol Generator Integration
 - [ ] Connect Symbol Generator page to use category codes
@@ -135,11 +139,40 @@ Example: "A3" = 3rd Interior Spot model in this area
 
 ## Next Session Focus
 
-**Database structure for product categorization:**
-- Table design for category rules
-- Function to evaluate rules
-- Where to store category (mat view vs separate)
-- Performance considerations
+**Phase 2: Planner Symbol Display**
+- Query category when loading project products
+- Assign symbol_sequence per category within area
+- Update planner markers to show "A1", "B2" etc.
+
+---
+
+## Phase 1 Results (2024-12-24)
+
+### Category Distribution
+| Code | Category | Products |
+|------|----------|----------|
+| A | Interior Spots | 5,393 |
+| B | Suspension | 1,090 |
+| C | Exterior Spots | 8,199 |
+| D | LED Tapes | 56 |
+| F | Interior Wall Lights | 417 |
+| G | Exterior Wall Lights | 3,762 |
+| H | Floor Lights | 56 |
+| I | Bollards | 222 |
+| J | Street / Pole Lights | 313 |
+| K | Table | 17 |
+| M | Profiles | 65 |
+| N | Track Light | 59 |
+| O | Step / Orientation Lights | 167 |
+| P | Underwater | 336 |
+| Q | In-ground / Landscape | 1,925 |
+| T | Linear Systems | 3,938 |
+| **Total** | | **26,015** |
+
+### Uncategorized (by design)
+- Accessories/spare parts: ~1,600
+- LED drivers/modules: ~120
+- Products missing IP rating: ~25
 
 ---
 

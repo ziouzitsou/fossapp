@@ -147,6 +147,7 @@ export function ProductsPanel({
         productId: product.product_id,
         fossPid: product.foss_pid,
         description: product.description_short,
+        symbol: product.symbol,
       })
     }
   }
