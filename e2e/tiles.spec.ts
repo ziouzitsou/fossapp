@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, hasE2EAuth } from './fixtures';
 
 /**
  * Tiles Feature Tests
@@ -6,8 +6,11 @@ import { test, expect } from '@playwright/test';
  * Tests for the Tile Management System (DWG generation).
  * The tiles page allows users to create tile groups and generate DWG files.
  *
- * NOTE: Full functionality requires authentication.
- * These tests verify UI elements and basic interactions.
+ * Authentication:
+ * - When E2E_TEST_SECRET is configured, tests run with auth bypass
+ * - When not configured, tests check for proper auth protection
+ *
+ * @see e2e/fixtures.ts for session mocking implementation
  */
 
 test.describe('Tiles Page', () => {

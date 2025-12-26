@@ -8,8 +8,17 @@ import { defineConfig, devices } from '@playwright/test';
  *   npm run test:e2e:ui       # Run with Playwright UI
  *   npm run test:e2e:headed   # Run with visible browser
  *
+ * E2E Authentication:
+ *   Tests use a secure header bypass for authentication.
+ *   Set E2E_TEST_SECRET env var to enable authenticated tests.
+ *   See docs/testing/e2e-auth-bypass.md for details.
+ *
  * @see https://playwright.dev/docs/test-configuration
  */
+
+// E2E test secret for authenticated tests
+const E2E_TEST_SECRET = process.env.E2E_TEST_SECRET;
+
 export default defineConfig({
   // Test directory
   testDir: './e2e',
@@ -45,6 +54,13 @@ export default defineConfig({
 
     // Video on failure
     video: 'on-first-retry',
+
+    // E2E auth header - added to all requests when secret is configured
+    ...(E2E_TEST_SECRET && {
+      extraHTTPHeaders: {
+        'x-e2e-test-key': E2E_TEST_SECRET,
+      },
+    }),
   },
 
   // Test projects for different browsers

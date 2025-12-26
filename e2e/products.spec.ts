@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, hasE2EAuth } from './fixtures';
 
 /**
  * Product Search Tests
@@ -6,8 +6,12 @@ import { test, expect } from '@playwright/test';
  * Tests for the main product search functionality.
  * FOSSAPP has 56K+ products with advanced filtering.
  *
- * NOTE: Products page requires authentication in production.
- * These tests verify the page is protected and check behavior when accessible.
+ * Authentication:
+ * - When E2E_TEST_SECRET is configured, tests run with auth bypass
+ * - When not configured, auth-dependent tests are skipped
+ *
+ * @see e2e/fixtures.ts for session mocking implementation
+ * @see docs/testing/e2e-auth-bypass.md for setup instructions
  */
 
 test.describe('Product Search', () => {
@@ -16,86 +20,62 @@ test.describe('Product Search', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('products page requires authentication', async ({ page }) => {
+  test('products page requires authentication when not bypassed', async ({ page }) => {
+    // This test verifies auth protection when E2E bypass is NOT configured
+    test.skip(hasE2EAuth(), 'Skipping auth check when E2E bypass is active');
+
     // Products page is protected - should redirect to login or show auth prompt
     const signInButton = page.locator('text=Sign in with Google');
     const welcomeText = page.locator('text=Welcome to FOSSAPP');
-    const categoriesHeading = page.locator('h2:has-text("Product Categories")');
 
     const isLoginPage = await signInButton.isVisible() || await welcomeText.isVisible();
-    const isProductsPage = await categoriesHeading.isVisible();
+    expect(isLoginPage).toBeTruthy();
 
-    // Either we're on the login page (correct protection) or authenticated and see products
-    expect(isLoginPage || isProductsPage).toBeTruthy();
-
-    if (isLoginPage) {
-      // Verify login button is present
-      await expect(signInButton).toBeVisible();
-    }
+    // Verify login button is present
+    await expect(signInButton).toBeVisible();
   });
 
-  test('search input is functional when authenticated', async ({ page }) => {
-    // Skip if not authenticated (redirected to login)
-    const isLoginPage = await page.locator('text=Sign in with Google').first().isVisible();
-    test.skip(isLoginPage, 'Requires authentication - skipping in unauthenticated context');
+  test('products page loads with categories when authenticated', async ({ page }) => {
+    // This test verifies the page works when authenticated
+    test.skip(!hasE2EAuth(), 'Requires E2E_TEST_SECRET for authentication bypass');
 
-    // Find search input
-    const searchInput = page.locator('input[type="search"], input[placeholder*="search" i], input[name="search"]').first();
+    // With auth bypass, we should see the products page content
+    const categoriesHeading = page.locator('h2:has-text("Product Categories")');
 
-    // If search exists, test it
-    if (await searchInput.isVisible()) {
-      await searchInput.fill('LED');
-      await searchInput.press('Enter');
-
-      // Wait for results to update
-      await page.waitForLoadState('networkidle');
-
-      // URL should reflect search or results should update
-      // This is a basic check - customize based on actual implementation
-    }
+    // Wait for content to load
+    await expect(categoriesHeading).toBeVisible({ timeout: 10000 });
   });
 
-  test('pagination works if present when authenticated', async ({ page }) => {
-    // Skip if not authenticated (redirected to login)
-    const isLoginPage = await page.locator('text=Sign in with Google').first().isVisible();
-    test.skip(isLoginPage, 'Requires authentication - skipping in unauthenticated context');
+  test('category cards are displayed when authenticated', async ({ page }) => {
+    test.skip(!hasE2EAuth(), 'Requires E2E_TEST_SECRET for authentication bypass');
 
-    // Look for pagination controls
-    const pagination = page.locator('nav[aria-label*="pagination" i], .pagination, [data-testid="pagination"]');
+    // Wait for page to fully load
+    await page.waitForTimeout(1000);
 
-    if (await pagination.isVisible()) {
-      // Find next page button
-      const nextButton = pagination.locator('button:has-text("Next"), a:has-text("Next"), [aria-label="Next"]').first();
+    // Verify category cards are displayed (Luminaires, Accessories, Drivers, etc.)
+    const luminaires = page.getByText('Luminaires').first();
+    const accessories = page.getByText('Accessories').first();
 
-      if (await nextButton.isVisible() && await nextButton.isEnabled()) {
-        await nextButton.click();
-        await page.waitForLoadState('networkidle');
+    await expect(luminaires).toBeVisible({ timeout: 10000 });
+    await expect(accessories).toBeVisible();
 
-        // Page should have changed (URL or content)
-      }
-    }
+    // Verify product counts are shown
+    const productCount = page.getByText(/\d+.*products/i).first();
+    await expect(productCount).toBeVisible();
   });
 
-  test('filters panel is accessible when authenticated', async ({ page }) => {
-    // Skip if not authenticated (redirected to login)
-    const isLoginPage = await page.locator('text=Sign in with Google').first().isVisible();
-    test.skip(isLoginPage, 'Requires authentication - skipping in unauthenticated context');
+  test('filters panel shows supplier options when authenticated', async ({ page }) => {
+    test.skip(!hasE2EAuth(), 'Requires E2E_TEST_SECRET for authentication bypass');
 
-    // Look for filter controls
-    const filterPanel = page.locator('[data-testid="filters"], .filters, aside, [role="complementary"]').first();
+    // Wait for page to load
+    await page.waitForTimeout(1000);
 
-    // If filters exist, they should be visible or toggleable
-    if (await filterPanel.isVisible()) {
-      await expect(filterPanel).toBeVisible();
-    } else {
-      // Check for a filter toggle button
-      const filterToggle = page.locator('button:has-text("Filter"), button:has-text("Filters"), [aria-label*="filter" i]').first();
+    // The products page shows a Filters section - look for specific supplier names
+    const deltaLight = page.getByText('Delta Light').first();
+    const meyerLighting = page.getByText('Meyer Lighting').first();
 
-      if (await filterToggle.isVisible()) {
-        await filterToggle.click();
-        // Filters should appear
-        await expect(page.locator('[data-testid="filters"], .filters, .filter-panel').first()).toBeVisible();
-      }
-    }
+    // At least one supplier should be visible
+    const hasSuppliers = await deltaLight.isVisible() || await meyerLighting.isVisible();
+    expect(hasSuppliers).toBeTruthy();
   });
 });
