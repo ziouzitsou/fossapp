@@ -5,6 +5,8 @@
  * - Database clients (Supabase server & client)
  * - Event logging (server & client)
  * - Rate limiting
+ * - Configuration constants
+ * - Validation utilities
  */
 
 export const CORE_VERSION = '0.0.1'
@@ -29,3 +31,32 @@ export {
   RATE_LIMITS,
 } from './ratelimit'
 export type { RateLimitEndpoint } from './ratelimit'
+
+// Configuration constants
+export {
+  VALIDATION,
+  PAGINATION,
+  DASHBOARD,
+  CACHE,
+  UI,
+  API,
+} from './config'
+export type {
+  ValidationConfig,
+  PaginationConfig,
+  DashboardConfig,
+  CacheConfig,
+  UIConfig,
+  APIConfig,
+} from './config'
+
+// Validation utilities
+export {
+  validateSearchQuery,
+  validateProductId,
+  validateCustomerId,
+  validateProjectId,
+  validateTaxonomyCode,
+  validateSupplierId,
+  validateUUID,
+} from './validation'
