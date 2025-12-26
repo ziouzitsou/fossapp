@@ -10,7 +10,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
-import { supabaseServer } from '../supabase-server'
+import { supabaseServer } from '@fossapp/core/db/server'
 import { calculateCost } from './pricing'
 import { generateKnowledgeSummary } from './knowledge-base'
 import type { ToolCall, Attachment } from '@/types/feedback'

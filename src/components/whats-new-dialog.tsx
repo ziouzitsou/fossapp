@@ -7,8 +7,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
+} from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
 import { Sparkles, Zap, Check } from 'lucide-react'
 import { useUserSettings } from '@/lib/user-settings-context'
 import releases from '@/data/releases.json'

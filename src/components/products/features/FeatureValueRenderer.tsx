@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Feature } from '@/types/product';
-import { Badge } from '@/components/ui/badge';
+import { Feature } from '@fossapp/products/types';
+import { Badge } from '@fossapp/ui';
 import { getFeatureDisplayValue } from '@/lib/utils/feature-utils';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 

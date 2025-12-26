@@ -2,7 +2,7 @@
 
 import { useDroppable } from '@dnd-kit/core'
 import { Grid2X2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@fossapp/ui'
 
 interface CanvasDropZoneProps {
   id: string

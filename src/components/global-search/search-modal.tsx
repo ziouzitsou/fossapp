@@ -19,12 +19,12 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from '@fossapp/ui'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@fossapp/ui'
 import {
   Command,
   CommandList,
@@ -32,9 +32,9 @@ import {
   CommandGroup,
   CommandItem,
   CommandSeparator,
-} from '@/components/ui/command'
-import { Badge } from '@/components/ui/badge'
-import { ProductInfo } from '@/types/product'
+} from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
+import { ProductInfo } from '@fossapp/products/types'
 import { ProductImage } from '@/components/tiles/product-image'
 import { useBucket } from '@/components/tiles/bucket-context'
 import { useActiveProject } from '@/lib/active-project-context'

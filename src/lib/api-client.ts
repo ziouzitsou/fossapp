@@ -4,7 +4,7 @@
  * Wrapper around fetch() that logs API errors to analytics
  */
 
-import { logEventClient } from './event-logger'
+import { logEventClient } from '@fossapp/core/logging/client'
 
 interface FetchOptions extends RequestInit {
   trackPerformance?: boolean

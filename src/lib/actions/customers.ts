@@ -1,8 +1,8 @@
 'use server'
 
-import { supabaseServer } from '../supabase-server'
-import { validateSearchQuery, validateCustomerId } from './validation'
-import { PAGINATION } from '@/lib/constants'
+import { supabaseServer } from '@fossapp/core/db/server'
+import { validateSearchQuery, validateCustomerId } from '@fossapp/core/validation'
+import { PAGINATION } from '@fossapp/core/config'
 
 // ============================================================================
 // INTERFACES

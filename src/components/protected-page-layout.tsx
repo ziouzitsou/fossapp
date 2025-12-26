@@ -5,11 +5,11 @@ import Link from 'next/link'
 import { FaFolder, FaTimes } from 'react-icons/fa'
 import { AppSidebar } from '@/components/app-sidebar'
 import { UserDropdown } from '@/components/user-dropdown'
-import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
+import { SidebarInset, SidebarTrigger } from '@fossapp/ui'
 import { useDevSession } from '@/lib/use-dev-session'
 import { useActiveProject } from '@/lib/active-project-context'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Badge } from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
 
 interface ProtectedPageLayoutProps {
   children: React.ReactNode

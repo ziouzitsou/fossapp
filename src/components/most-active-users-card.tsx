@@ -1,7 +1,7 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
 import { Users, Search, Eye, LogIn } from 'lucide-react'
 import { ActiveUser } from '@/lib/actions'
 import { formatDistanceToNow } from 'date-fns'

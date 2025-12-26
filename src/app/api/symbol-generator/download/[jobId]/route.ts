@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getJob } from '@/lib/tiles/progress-store'
+import { getJob } from '@fossapp/tiles/progress'
 
 export const dynamic = 'force-dynamic'
 

@@ -59,10 +59,8 @@ export {
   type ProductDetail,
   type ProductByTaxonomy,
   type ProductByTaxonomyResult,
-} from './products'
-
-// Re-export ProductSearchResult from types (canonical location)
-export type { ProductSearchResult } from '@/types/product'
+  type ProductSearchResult,
+} from '@fossapp/products/actions'
 
 // ============================================================================
 // PROJECTS
@@ -158,7 +156,7 @@ export {
   validateProjectId,
   validateTaxonomyCode,
   validateSupplierId,
-} from './validation'
+} from '@fossapp/core/validation'
 
 // ============================================================================
 // USER SETTINGS

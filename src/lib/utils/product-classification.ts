@@ -1,4 +1,4 @@
-import { ProductInfo, TemplateType } from '@/types/product';
+import { ProductInfo, TemplateType } from '@fossapp/products/types';
 
 // Define class-to-template mappings based on ETIM classification
 const LUMINAIRE_CLASSES = [

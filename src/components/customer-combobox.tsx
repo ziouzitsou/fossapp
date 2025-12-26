@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { cn } from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
 import {
   Command,
   CommandEmpty,
@@ -11,12 +11,12 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command'
+} from '@fossapp/ui'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@fossapp/ui'
 import { searchCustomersAction, type CustomerSearchResult } from '@/lib/actions'
 
 interface CustomerComboboxProps {

@@ -20,11 +20,11 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Badge } from '@/components/ui/badge'
+} from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
+import { Textarea } from '@fossapp/ui'
+import { ScrollArea } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
 import {
   Send,
   Camera,

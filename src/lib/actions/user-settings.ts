@@ -1,6 +1,6 @@
 'use server'
 
-import { supabaseServer } from '../supabase-server'
+import { supabaseServer } from '@fossapp/core/db/server'
 
 // ============================================================================
 // INTERFACES

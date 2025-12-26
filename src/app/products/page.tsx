@@ -15,19 +15,19 @@ import { CategoryLevel1 } from '@/components/products/CategoryLevel1'
 import { InfoTooltip } from '@/components/products/InfoTooltip'
 import { FilterPanel, type FilterValues } from '@/components/filters/FilterPanel'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
-import { Spinner } from '@/components/ui/spinner'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Spinner } from '@fossapp/ui'
+import { Skeleton } from '@fossapp/ui'
+import { Tabs, TabsList, TabsTrigger } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@fossapp/ui'
 import {
   Pagination,
   PaginationContent,
   PaginationItem,
   PaginationPrevious,
   PaginationNext,
-} from '@/components/ui/pagination'
+} from '@fossapp/ui'
 import { ChevronRight } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import { getThumbnailUrl } from '@/lib/utils'

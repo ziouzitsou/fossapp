@@ -2,10 +2,10 @@
 
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { BucketItem, getProductThumbnail } from '@/lib/tiles/types'
+import { Button } from '@fossapp/ui'
+import { BucketItem, getProductThumbnail } from '@fossapp/tiles/types'
 import { ProductImage } from './product-image'
-import { cn } from '@/lib/utils'
+import { cn } from '@fossapp/ui'
 
 interface DraggableProductProps {
   item: BucketItem

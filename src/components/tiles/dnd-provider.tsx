@@ -13,7 +13,7 @@ import {
   closestCenter,
 } from '@dnd-kit/core'
 import { useBucket } from '@/components/tiles/bucket-context'
-import { BucketItem } from '@/lib/tiles/types'
+import { BucketItem } from '@fossapp/tiles/types'
 import { ProductCard } from './product-card'
 
 interface DndProviderProps {

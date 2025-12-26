@@ -4,7 +4,7 @@
  * Extracts and formats ETIM dimensional features from product data.
  */
 
-import { ProductInfo, Feature } from '@/types/product'
+import { ProductInfo, Feature } from '@fossapp/products/types'
 import { DIMENSION_FEATURE_IDS, LuminaireDimensions } from './types'
 
 /**

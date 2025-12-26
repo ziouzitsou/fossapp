@@ -5,26 +5,26 @@ import { useRouter } from 'next/navigation'
 import { useDevSession } from '@/lib/use-dev-session'
 import { listProjectsAction, ProjectListItem, ProjectListResult } from '@/lib/actions'
 import { DashboardLayout } from '@/components/dashboard-layout'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Spinner } from '@/components/ui/spinner'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Card, CardContent } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
+import { Skeleton } from '@fossapp/ui'
+import { Spinner } from '@fossapp/ui'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@fossapp/ui'
 import {
   Pagination,
   PaginationContent,
   PaginationItem,
   PaginationPrevious,
   PaginationNext,
-} from '@/components/ui/pagination'
+} from '@fossapp/ui'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@fossapp/ui'
 import { ProjectFormSheet, DeleteProjectDialog } from '@/components/projects'
 import { useActiveProject } from '@/lib/active-project-context'
 import { FaCheck } from 'react-icons/fa'

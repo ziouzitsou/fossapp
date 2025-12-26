@@ -1,6 +1,6 @@
 'use server'
 
-import { supabaseServer } from '../supabase-server'
+import { supabaseServer } from '@fossapp/core/db/server'
 import { TaxonomyCategory } from '../taxonomy-data'
 
 // Re-export type for convenience

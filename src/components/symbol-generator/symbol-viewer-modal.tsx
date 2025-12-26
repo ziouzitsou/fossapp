@@ -7,8 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+} from '@fossapp/ui'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@fossapp/ui'
 import { DwgViewer } from '@/components/tiles/dwg-viewer'
 import { Image as ImageIcon, FileText } from 'lucide-react'
 

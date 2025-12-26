@@ -8,21 +8,21 @@ import {
   SheetHeader,
   SheetTitle,
   SheetFooter,
-} from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+} from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
+import { Input } from '@fossapp/ui'
+import { Label } from '@fossapp/ui'
+import { Textarea } from '@fossapp/ui'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Spinner } from '@/components/ui/spinner'
+} from '@fossapp/ui'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@fossapp/ui'
+import { ScrollArea } from '@fossapp/ui'
+import { Spinner } from '@fossapp/ui'
 import {
   updateProjectAction,
   type CreateProjectInput,

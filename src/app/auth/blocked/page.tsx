@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { FaBan } from 'react-icons/fa'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@fossapp/ui'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@fossapp/ui'
 
 export default function BlockedPage() {
   return (

@@ -1,7 +1,7 @@
 'use client'
 
 import { signIn } from 'next-auth/react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@fossapp/ui'
 
 export function LoginForm() {
   const handleGoogleSignIn = () => {

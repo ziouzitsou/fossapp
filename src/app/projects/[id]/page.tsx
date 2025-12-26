@@ -12,17 +12,17 @@ import {
   removeProductFromProjectAction
 } from '@/lib/actions'
 import { DashboardLayout } from '@/components/dashboard-layout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
+import { Spinner } from '@fossapp/ui'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@fossapp/ui'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@fossapp/ui'
 import { ProjectFormSheet, DeleteProjectDialog, ProjectAreasCard } from '@/components/projects'
 import { useActiveProject } from '@/lib/active-project-context'
 import { ArrowLeft, Plus, Minus, Trash2, ChevronDown, ChevronRight, Layers } from 'lucide-react'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Input } from '@/components/ui/input'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@fossapp/ui'
+import { Input } from '@fossapp/ui'
 
 interface ProjectPageProps {
   params: Promise<{ id: string }>

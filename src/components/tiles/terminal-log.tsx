@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { cn } from '@/lib/utils'
+import { cn } from '@fossapp/ui'
 import { CheckCircle2, Circle, Loader2, XCircle, Terminal as TerminalIcon, X, Camera, FileText, Settings, Cloud, Bot } from 'lucide-react'
 
 export interface LogMessage {

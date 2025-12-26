@@ -10,5 +10,32 @@
 
 // Re-export from submodules
 export * from './progress'
-export * from './types'
-export * from './scripts'
+
+// Types - TileMember from types (UI/bucket usage)
+export {
+  type ProductInfo,
+  type ProductPrice,
+  type MultimediaItem,
+  type ProductFeature,
+  type BucketItem,
+  type TileMember,  // Use the types/index.ts version (required filenames)
+  type TileGroup,
+  getProductImage,
+  getProductDrawing,
+  getProductThumbnail,
+  getProductLDC,
+  getProductDeeplink,
+} from './types'
+
+// Scripts - TileMember excluded (use scripts subpath import for script-specific types)
+export {
+  type TileData,
+  type ScriptSettings,
+  TileScriptGenerator,
+  pixelsToMm,
+  calculateAutoCADScale,
+  calculateMemberScaling,
+  calculateContainerDimensions,
+  generateTileScript,
+  previewTileScript,
+} from './scripts'

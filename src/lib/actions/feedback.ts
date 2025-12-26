@@ -11,7 +11,7 @@
  * - feedback.chat_messages
  */
 
-import { supabaseServer } from '../supabase-server'
+import { supabaseServer } from '@fossapp/core/db/server'
 import type {
   FeedbackChat,
   FeedbackMessage,

@@ -10,8 +10,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Import and re-export ProductSearchResult from centralized types
-import type { ProductSearchResult } from '@/types/product'
-export type { ProductSearchResult } from '@/types/product'
+import type { ProductSearchResult } from '@fossapp/products/types'
+export type { ProductSearchResult } from '@fossapp/products/types'
 
 export async function searchProducts(query: string): Promise<ProductSearchResult[]> {
   try {

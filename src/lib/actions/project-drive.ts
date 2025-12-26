@@ -7,9 +7,9 @@
  * for project management. They ensure consistency between DB and Drive.
  */
 
-import { supabaseServer } from '../supabase-server'
+import { supabaseServer } from '@fossapp/core/db/server'
 import { getGoogleDriveProjectService } from '../google-drive-project-service'
-import { validateProjectId } from './validation'
+import { validateProjectId } from '@fossapp/core/validation'
 import type { ActionResult, CreateProjectInput } from './projects'
 
 // ============================================================================

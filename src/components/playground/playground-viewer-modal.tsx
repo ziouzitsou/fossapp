@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog'
+} from '@fossapp/ui'
 import { DwgViewer } from '@/components/tiles/dwg-viewer'
 
 interface PlaygroundViewerModalProps {

@@ -9,8 +9,8 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from '@/components/ui/command'
-import { DialogTitle } from '@/components/ui/dialog'
+} from '@fossapp/ui'
+import { DialogTitle } from '@fossapp/ui'
 import { FaHistory, FaClock } from 'react-icons/fa'
 
 interface CommandPaletteProps {

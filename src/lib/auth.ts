@@ -1,6 +1,6 @@
 import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import { logEvent } from './event-logger'
+import { logEvent } from '@fossapp/core/logging/server'
 import { upsertUserOnLogin, getUserByEmail } from './user-service'
 
 // Validate required environment variables at module load time

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ProductInfo, TemplateType } from '@/types/product';
+import { ProductInfo, TemplateType } from '@fossapp/products/types';
 import { LuminaireLayout } from './LuminaireLayout';
 import { AccessoryLayout } from './AccessoryLayout';
 import { LightLineLayout } from './LightLineLayout';

@@ -1,9 +1,9 @@
 'use server'
 
-import { supabaseServer } from '../supabase-server'
-import { logEvent } from '../event-logger'
-import { validateSearchQuery } from './validation'
-import { ProductInfo } from '@/lib/tiles/types'
+import { supabaseServer } from '@fossapp/core/db/server'
+import { logEvent } from '@fossapp/core/logging/server'
+import { validateSearchQuery } from '@fossapp/core/validation'
+import { ProductInfo } from '@fossapp/tiles/types'
 
 // ============================================================================
 // TILES PRODUCT SEARCH (Full-Text Search)

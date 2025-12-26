@@ -1,12 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Slider } from '@/components/ui/slider'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { Slider } from '@fossapp/ui'
+import { Checkbox } from '@fossapp/ui'
+import { Label } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@fossapp/ui'
 import type { FilterDefinition } from '@/lib/filters/actions'
 
 // Type-safe Lucide icon lookup

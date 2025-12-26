@@ -1,11 +1,11 @@
 'use client'
 
 import { TaxonomyCategory } from '@/lib/taxonomy-data'
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
+import { ScrollArea, ScrollBar } from '@fossapp/ui'
+import { cn } from '@fossapp/ui'
 import * as LucideIcons from 'lucide-react'
 import { InfoTooltip } from './InfoTooltip'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@fossapp/ui'
 
 interface CategoryLevel1Props {
   categories: TaxonomyCategory[]

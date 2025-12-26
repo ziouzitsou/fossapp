@@ -5,11 +5,11 @@ import { useEffect, useState } from 'react'
 import { useDevSession } from '@/lib/use-dev-session'
 import { FaSearch, FaHistory, FaTrash } from 'react-icons/fa'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Spinner } from '@/components/ui/spinner'
+import { Button } from '@fossapp/ui'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@fossapp/ui'
+import { Input } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
+import { Spinner } from '@fossapp/ui'
 import { CommandPalette, useCommandPalette } from '@/components/command-palette'
 import {
   Pagination,
@@ -17,7 +17,7 @@ import {
   PaginationItem,
   PaginationPrevious,
   PaginationNext,
-} from '@/components/ui/pagination'
+} from '@fossapp/ui'
 import {
   searchCustomersAction,
   listCustomersAction,

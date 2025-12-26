@@ -1,13 +1,13 @@
 'use client';
 
 import React from 'react';
-import { ProductInfo } from '@/types/product';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { ProductInfo } from '@fossapp/products/types';
+import { Card, CardContent } from '@fossapp/ui';
+import { Badge } from '@fossapp/ui';
 import { FaLink } from 'react-icons/fa';
 import { FeatureGroupsDisplay } from '../features/FeatureGroupsDisplay';
 import { MediaGallery } from '../media/MediaGallery';
-import { MarkdownDescription } from '@/components/ui/markdown-description';
+import { MarkdownDescription } from '@fossapp/ui';
 
 interface LightLineLayoutProps {
   product: ProductInfo;

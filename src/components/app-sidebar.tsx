@@ -18,13 +18,13 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from '@/components/ui/sidebar'
-import { Badge } from '@/components/ui/badge'
+} from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip'
+} from '@fossapp/ui'
 
 export function AppSidebar() {
   const pathname = usePathname()

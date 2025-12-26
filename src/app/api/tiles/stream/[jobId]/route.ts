@@ -4,7 +4,7 @@
  */
 
 import { NextRequest } from 'next/server'
-import { getJob, subscribe, ProgressMessage } from '@/lib/tiles/progress-store'
+import { getJob, subscribe, ProgressMessage } from '@fossapp/tiles/progress'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'

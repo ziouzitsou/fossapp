@@ -8,11 +8,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Spinner } from '@/components/ui/spinner'
+} from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
+import { Input } from '@fossapp/ui'
+import { Label } from '@fossapp/ui'
+import { Spinner } from '@fossapp/ui'
 import { deleteProjectAction } from '@/lib/actions'
 
 interface DeleteProjectDialogProps {

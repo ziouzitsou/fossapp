@@ -1,4 +1,4 @@
-import { Feature } from '@/types/product';
+import { Feature } from '@fossapp/products/types';
 import {
   FaBolt, FaLightbulb, FaRuler, FaCogs, FaShieldAlt,
   FaThermometerHalf, FaWifi, FaTint, FaCertificate, FaListAlt

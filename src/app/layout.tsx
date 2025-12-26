@@ -3,8 +3,7 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { APP_CONFIG, PWA_CONFIG } from "@/lib/config";
 import { WhatsNewDialog } from "@/components/whats-new-dialog";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { Toaster } from "@/components/ui/sonner";
+import { SidebarProvider, Toaster } from "@fossapp/ui";
 
 export const metadata: Metadata = {
   title: APP_CONFIG.APP_NAME,

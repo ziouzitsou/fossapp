@@ -6,7 +6,7 @@
  * Handles floor plan upload, caching, and database operations
  */
 
-import { supabaseServer } from '../supabase-server'
+import { supabaseServer } from '@fossapp/core/db/server'
 import {
   prepareFloorPlan,
   getTranslationStatus,

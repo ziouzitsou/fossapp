@@ -13,8 +13,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Button } from '@/components/ui/button'
+} from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
 
 interface UserDropdownProps {
   user?: {

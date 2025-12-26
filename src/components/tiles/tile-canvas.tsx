@@ -2,14 +2,14 @@
 
 import { Grid2X2, Plus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@fossapp/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
 import { useBucket } from '@/components/tiles/bucket-context'
 import { CanvasDropZone } from './canvas-drop-zone'
 import { DraggableProduct } from './draggable-product'
 import { TileGroupCard } from './tile-group-card'
-import { cn } from '@/lib/utils'
+import { cn } from '@fossapp/ui'
 
 // Drop zone for creating new tiles
 function NewTileDropZone() {

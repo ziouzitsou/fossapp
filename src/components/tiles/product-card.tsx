@@ -1,8 +1,8 @@
 'use client'
 
-import { BucketItem, getProductThumbnail } from '@/lib/tiles/types'
+import { BucketItem, getProductThumbnail } from '@fossapp/tiles/types'
 import { ProductImage } from './product-image'
-import { cn } from '@/lib/utils'
+import { cn } from '@fossapp/ui'
 
 interface ProductCardProps {
   item: BucketItem

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { X, Lightbulb, Command } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@fossapp/ui'
 import { hints, type Hint } from '@/data/hints'
 
 const ROTATION_INTERVAL = 12000 // 12 seconds

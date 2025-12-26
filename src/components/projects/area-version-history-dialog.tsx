@@ -7,11 +7,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
-import { Spinner } from '@/components/ui/spinner'
+} from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
+import { Card, CardContent } from '@fossapp/ui'
+import { Spinner } from '@fossapp/ui'
 import { CheckCircle2, Circle, FileText, Trash2 } from 'lucide-react'
 import {
   getAreaByIdAction,

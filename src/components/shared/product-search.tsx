@@ -2,11 +2,11 @@
 
 import { useState, ReactNode } from 'react'
 import { Search, Loader2, ExternalLink, History, X } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { ProductInfo } from '@/types/product'
+import { Input } from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
+import { Card, CardContent } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
+import { ProductInfo } from '@fossapp/products/types'
 import { ProductImage } from '@/components/tiles/product-image'
 import { useSearchHistory } from '@/lib/user-settings-context'
 

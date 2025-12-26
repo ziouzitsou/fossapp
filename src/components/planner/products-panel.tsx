@@ -9,14 +9,14 @@
 
 import { useMemo } from 'react'
 import { Package, MousePointer2, ChevronDown, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { cn } from '@fossapp/ui'
+import { Button } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+} from '@fossapp/ui'
 import type { AreaVersionProduct } from '@/lib/actions/project-areas'
 import type { Placement, PlacementModeProduct } from './types'
 

@@ -8,7 +8,7 @@ import { LoginImageSlideshow } from '@/components/login-image-slideshow'
 import { FossappLogo } from '@/components/fossapp-logo'
 import { ProductCountDisplay } from '@/components/product-count-display'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { Spinner } from '@/components/ui/spinner'
+import { Spinner } from '@fossapp/ui'
 
 export default function Home() {
   const { data: session, status } = useSession()

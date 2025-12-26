@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Building2, Check } from 'lucide-react'
 import { getSuppliersWithTaxonomyCountsAction, type Supplier } from '@/lib/actions'
-import { cn } from '@/lib/utils'
+import { cn } from '@fossapp/ui'
 import { useTheme } from 'next-themes'
 
 interface SupplierFilterProps {

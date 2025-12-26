@@ -13,7 +13,7 @@ import { authOptions } from '@/lib/auth'
 import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 import { analyzeForSymbol } from '@/lib/symbol-generator/vision-service'
 import { extractDimensions } from '@/lib/symbol-generator/dimension-utils'
-import { ProductInfo } from '@/types/product'
+import { ProductInfo } from '@fossapp/products/types'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // 60 seconds for vision analysis

@@ -2,11 +2,11 @@
 
 import React, { useState, useCallback } from 'react';
 import { logEventClient } from '@fossapp/core/logging/client';
-import { Multimedia } from '@/types/product';
+import { Multimedia } from '@fossapp/products/types';
 import Image from 'next/image';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@fossapp/ui';
+import { Button } from '@fossapp/ui';
+import { Badge } from '@fossapp/ui';
 import { FaImage, FaFileAlt, FaFilePdf, FaChartArea, FaExternalLinkAlt, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import type { IconType } from 'react-icons';
 

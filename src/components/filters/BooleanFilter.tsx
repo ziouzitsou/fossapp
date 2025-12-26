@@ -1,7 +1,7 @@
 'use client'
 
 import { BooleanFilterProps } from './types'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { ToggleGroup, ToggleGroupItem } from '@fossapp/ui'
 import { Check, X, CircleDashed } from 'lucide-react'
 
 /**

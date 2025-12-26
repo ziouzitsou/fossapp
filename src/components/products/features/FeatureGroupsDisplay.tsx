@@ -1,14 +1,14 @@
 'use client';
 
 import React from 'react';
-import { ProductInfo } from '@/types/product';
+import { ProductInfo } from '@fossapp/products/types';
 import { FeatureGroup } from './FeatureGroup';
 import {
   groupFeaturesByCategory,
   FEATURE_GROUP_CONFIG,
   getImportantFeatures
 } from '@/lib/utils/feature-utils';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@fossapp/ui';
 import { FeatureValueRenderer } from './FeatureValueRenderer';
 
 interface FeatureGroupsDisplayProps {

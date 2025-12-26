@@ -7,7 +7,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@fossapp/ui'
 import { Paintbrush } from 'lucide-react'
 
 export function ThemeSelector() {

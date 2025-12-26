@@ -1,6 +1,6 @@
 'use server'
 
-import { supabaseServer } from './supabase-server'
+import { supabaseServer } from '@fossapp/core/db/server'
 import type { SearchFilters, SearchProduct, TaxonomyNode, FilterFacet, DynamicFacet, FilterDefinition } from '@/types/search'
 
 /**

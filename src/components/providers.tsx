@@ -1,7 +1,7 @@
 'use client'
 
 import { SessionProvider } from 'next-auth/react'
-import { ThemeProvider } from './theme-provider'
+import { ThemeProvider } from '@fossapp/ui'
 import { UserSettingsProvider } from '@/lib/user-settings-context'
 import { BucketProvider } from '@/components/tiles/bucket-context'
 import { GlobalSearchProvider } from '@/components/global-search'

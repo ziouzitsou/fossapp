@@ -7,9 +7,9 @@
  */
 
 import { memo } from 'react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@fossapp/ui'
 import { Paperclip, FileText, Image as ImageIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@fossapp/ui'
 import { formatCostEur, formatTokens } from '@/lib/feedback/pricing'
 import ReactMarkdown from 'react-markdown'
 import type { ChatUIMessage, Attachment } from '@/types/feedback'

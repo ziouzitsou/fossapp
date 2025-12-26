@@ -3,7 +3,7 @@
 // Skip static generation - uses useSearchParams which requires Suspense in Next.js 16
 export const dynamic = 'force-dynamic'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { useActiveProject } from '@/lib/active-project-context'
@@ -11,10 +11,10 @@ import { PlannerViewer, ProductsPanel } from '@/components/planner'
 import type { Viewer3DInstance, Placement, PlacementModeProduct, DwgUnitInfo } from '@/components/planner'
 
 import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Plus, Trash2, AlertTriangle, Info, Save } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Button } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@fossapp/ui'
+import { Popover, PopoverContent, PopoverTrigger } from '@fossapp/ui'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,15 +24,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+} from '@fossapp/ui'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { cn } from '@/lib/utils'
+} from '@fossapp/ui'
+import { cn } from '@fossapp/ui'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -58,7 +58,20 @@ interface AreaVersionOption {
   floorPlanWarnings?: number
 }
 
-export default function PlannerPage() {
+// Loading fallback for Suspense
+function PlannerLoading() {
+  return (
+    <ProtectedPageLayout>
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-3 text-muted-foreground">Loading planner...</span>
+      </div>
+    </ProtectedPageLayout>
+  )
+}
+
+// Main planner content - uses useSearchParams which requires Suspense
+function PlannerContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { activeProject } = useActiveProject()
@@ -1145,5 +1158,14 @@ export default function PlannerPage() {
         </AlertDialogContent>
       </AlertDialog>
     </ProtectedPageLayout>
+  )
+}
+
+// Page export - wraps content in Suspense for useSearchParams
+export default function PlannerPage() {
+  return (
+    <Suspense fallback={<PlannerLoading />}>
+      <PlannerContent />
+    </Suspense>
   )
 }

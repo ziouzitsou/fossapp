@@ -1,7 +1,7 @@
 'use server'
 
-import { supabaseServer } from '../supabase-server'
-import { validateProjectId } from './validation'
+import { supabaseServer } from '@fossapp/core/db/server'
+import { validateProjectId } from '@fossapp/core/validation'
 import {
   createAreaFolderAction,
   deleteAreaFolderAction,

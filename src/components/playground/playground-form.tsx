@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@fossapp/ui'
+import { Textarea } from '@fossapp/ui'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@fossapp/ui'
 import { TerminalLog } from '@/components/tiles/terminal-log'
 import { DraftingCompass, Loader2, Download, Sparkles, Eye } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@fossapp/ui'
 import { PlaygroundViewerModal } from './playground-viewer-modal'
 
 interface PlaygroundResult {

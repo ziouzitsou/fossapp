@@ -1,10 +1,4 @@
 /**
- * Re-export cn from @fossapp/ui for backward compatibility
- * @deprecated Import cn directly from @fossapp/ui
- */
-export { cn } from '@fossapp/ui'
-
-/**
  * Extract thumbnail URL from multimedia array
  * Priority: MD47 (Supabase thumbnail) → MD02 (print-ready) → MD01 (supplier external)
  * NOTE: This is domain-specific, stays in the app (not moved to @fossapp/ui)

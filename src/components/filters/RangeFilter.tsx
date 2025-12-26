@@ -1,9 +1,9 @@
 'use client'
 
 import { RangeFilterProps } from './types'
-import { Slider } from '@/components/ui/slider'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
+import { Slider } from '@fossapp/ui'
+import { Switch } from '@fossapp/ui'
+import { Label } from '@fossapp/ui'
 
 /**
  * RangeFilter - For R (Range) type filters

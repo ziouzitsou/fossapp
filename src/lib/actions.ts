@@ -5,7 +5,7 @@
  * Preferred imports:
  * - import { getDashboardStatsAction } from '@/lib/actions/dashboard'
  * - import { searchCustomersAction } from '@/lib/actions/customers'
- * - import { searchProductsBasicAction } from '@/lib/actions/products'
+ * - import { searchProductsBasicAction } from '@fossapp/products/actions'
  *
  * Domain files:
  * - dashboard.ts  → Stats, analytics, catalogs

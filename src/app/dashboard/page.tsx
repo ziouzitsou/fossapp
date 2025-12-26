@@ -6,9 +6,9 @@ import { useDevSession } from '@/lib/use-dev-session'
 import { useTheme } from 'next-themes'
 import Image from 'next/image'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Spinner } from '@/components/ui/spinner'
+import { Card, CardContent, CardHeader, CardTitle } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
+import { Spinner } from '@fossapp/ui'
 import { Package, Building2, Grid3x3, Calendar } from 'lucide-react'
 import {
   getDashboardStatsAction,

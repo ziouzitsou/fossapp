@@ -15,11 +15,11 @@ import {
   Eye,
   MousePointerClick,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { ProductInfo } from '@/types/product'
+import { Button } from '@fossapp/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
+import { Separator } from '@fossapp/ui'
+import { ProductInfo } from '@fossapp/products/types'
 import {
   extractDimensions,
   formatDimensionsForDisplay,

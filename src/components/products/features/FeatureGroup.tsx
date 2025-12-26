@@ -2,10 +2,10 @@
 
 import React, { useState, useCallback } from 'react';
 import { logEventClient } from '@fossapp/core/logging/client';
-import { Feature } from '@/types/product';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Feature } from '@fossapp/products/types';
+import { Card, CardContent, CardHeader } from '@fossapp/ui';
+import { Badge } from '@fossapp/ui';
+import { Button } from '@fossapp/ui';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { IconType } from 'react-icons';
 import { FeatureValueRenderer } from './FeatureValueRenderer';

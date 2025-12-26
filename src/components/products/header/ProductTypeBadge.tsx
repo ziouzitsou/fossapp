@@ -1,5 +1,5 @@
 import React from 'react';
-import { TemplateType } from '@/types/product';
+import { TemplateType } from '@fossapp/products/types';
 import { Lightbulb, Wrench, Link2, Package, LucideIcon } from 'lucide-react';
 
 interface ProductTypeBadgeProps {

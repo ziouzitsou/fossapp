@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
-import { ProductInfo, BucketItem, TileGroup } from '@/lib/tiles/types'
+import { ProductInfo, BucketItem, TileGroup } from '@fossapp/tiles/types'
 
 const STORAGE_KEYS = {
   bucket: 'tiles-bucket-items',

@@ -6,22 +6,22 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { FaArrowLeft, FaHeart, FaRegHeart, FaPlus, FaFolder, FaCheck, FaCopy } from 'react-icons/fa'
 import { MdGridView } from 'react-icons/md'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Spinner } from '@/components/ui/spinner'
+import { Button } from '@fossapp/ui'
+import { Card, CardContent } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
+import { Spinner } from '@fossapp/ui'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { useTheme } from 'next-themes'
 
 // Import our new template system
-import { ProductInfo } from '@/types/product'
+import { ProductInfo } from '@fossapp/products/types'
 import { getTemplateType } from '@/lib/utils/product-classification'
 import { ProductTypeBadge } from '@/components/products/header/ProductTypeBadge'
 import { ProductLayout } from '@/components/products/layouts/ProductLayout'
 import { useActiveProject } from '@/lib/active-project-context'
 import { addProductToProjectAction, getProjectAreasForDropdownAction, type AreaDropdownItem } from '@/lib/actions'
 import { useBucket } from '@/components/tiles/bucket-context'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@fossapp/ui'
 
 export default function ProductDetailPage() {
   const { data: session, status } = useDevSession()

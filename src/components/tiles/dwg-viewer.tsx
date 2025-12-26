@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Loader2, AlertCircle } from 'lucide-react'
-import { Progress } from '@/components/ui/progress'
-import { cn } from '@/lib/utils'
+import { Progress } from '@fossapp/ui'
+import { cn } from '@fossapp/ui'
 import type { GuiViewer3DInstance, ViewerInitOptions } from '@/types/autodesk-viewer'
 
 // Status polling types

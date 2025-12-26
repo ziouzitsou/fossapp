@@ -5,7 +5,7 @@
  * Uses service_role key for admin operations.
  */
 
-import { supabaseServer } from './supabase-server'
+import { supabaseServer } from '@fossapp/core/db/server'
 export { GROUP_PERMISSIONS, hasPermission, type GroupName, type Permission } from './permissions'
 
 export interface UserRecord {
