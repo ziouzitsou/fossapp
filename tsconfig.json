@@ -31,6 +31,24 @@
       ],
       "@fossapp/core/*": [
         "./packages/core/src/*"
+      ],
+      "@fossapp/products": [
+        "./packages/products/src/index.ts"
+      ],
+      "@fossapp/products/*": [
+        "./packages/products/src/*"
+      ],
+      "@fossapp/tiles": [
+        "./packages/tiles/src/index.ts"
+      ],
+      "@fossapp/tiles/*": [
+        "./packages/tiles/src/*"
+      ],
+      "@fossapp/projects": [
+        "./packages/projects/src/index.ts"
+      ],
+      "@fossapp/projects/*": [
+        "./packages/projects/src/*"
       ]
     }
   },

@@ -27,6 +27,9 @@
   },
   "dependencies": {
     "@fossapp/core": "*",
+    "@fossapp/products": "*",
+    "@fossapp/projects": "*",
+    "@fossapp/tiles": "*",
     "@fossapp/ui": "*",
     "@anthropic-ai/sdk": "^0.71.2",
     "@aps_sdk/authentication": "^1.0.0",

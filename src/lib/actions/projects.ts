@@ -5,155 +5,38 @@ import { validateProjectId } from './validation'
 import { getGoogleDriveProjectService } from '../google-drive-project-service'
 
 // ============================================================================
-// INTERFACES
+// TYPES - Re-exported from @fossapp/projects for backward compatibility
 // ============================================================================
 
-export interface ProjectListItem {
-  id: string
-  project_code: string
-  name: string
-  name_en?: string
-  customer_name?: string
-  customer_name_en?: string
-  city?: string
-  project_type?: string
-  status: string
-  priority: string
-  estimated_budget?: number
-  currency?: string
-  start_date?: string
-  expected_completion_date?: string
-  created_at: string
-  // Google Drive integration fields
-  google_drive_folder_id?: string
-  is_archived: boolean
-}
+export type {
+  ProjectListItem,
+  ProjectProduct,
+  ProjectContact,
+  ProjectDocument,
+  ProjectPhase,
+  ProjectDetail,
+  ProjectListParams,
+  ProjectListResult,
+  CreateProjectInput,
+  UpdateProjectInput,
+  AddProductToProjectInput,
+  ActionResult,
+  ProjectArea,
+} from '@fossapp/projects'
 
-export interface ProjectProduct {
-  id: string
-  product_id: string
-  foss_pid: string
-  description_short: string
-  quantity: number
-  unit_price?: number
-  discount_percent?: number
-  total_price?: number
-  room_location?: string
-  mounting_height?: number
-  status: string
-  notes?: string
-  // Area version information (for multi-area projects)
-  area_version_id?: string
-  area_code?: string
-  area_name?: string
-  area_version_number?: number
-}
-
-export interface ProjectContact {
-  id: string
-  contact_type: string
-  name: string
-  company?: string
-  email?: string
-  phone?: string
-  mobile?: string
-  role?: string
-  is_primary: boolean
-  notes?: string
-}
-
-export interface ProjectDocument {
-  id: string
-  document_type: string
-  title: string
-  description?: string
-  file_path?: string
-  file_url?: string
-  mime_type?: string
-  file_size_bytes?: number
-  version: string
-  is_latest: boolean
-  created_at: string
-  created_by?: string
-}
-
-export interface ProjectPhase {
-  id: string
-  phase_number: number
-  phase_name: string
-  description?: string
-  budget?: number
-  status: string
-  start_date?: string
-  end_date?: string
-}
-
-export interface ProjectDetail {
-  id: string
-  project_code: string
-  name: string
-  name_en?: string
-  description?: string
-  customer_id?: string
-  customer_name?: string
-  customer_name_en?: string
-  customer_email?: string
-  customer_phone?: string
-  street_address?: string
-  postal_code?: string
-  city?: string
-  region?: string
-  prefecture?: string
-  country?: string
-  latitude?: number
-  longitude?: number
-  project_type?: string
-  project_category?: string
-  building_area_sqm?: number
-  estimated_budget?: number
-  currency?: string
-  status: string
-  priority: string
-  start_date?: string
-  expected_completion_date?: string
-  actual_completion_date?: string
-  project_manager?: string
-  architect_firm?: string
-  electrical_engineer?: string
-  lighting_designer?: string
-  notes?: string
-  tags?: string[]
-  created_at: string
-  updated_at: string
-  created_by?: string
-  // Google Drive integration fields
-  google_drive_folder_id?: string
-  is_archived: boolean
-  // Related data
-  products: ProjectProduct[]
-  contacts: ProjectContact[]
-  documents: ProjectDocument[]
-  phases: ProjectPhase[]
-  areas: ProjectArea[]  // Multi-area support with per-area versioning
-}
-
-// Import ProjectArea type (will be added)
-import type { ProjectArea } from './project-areas'
-
-export interface ProjectListParams {
-  page?: number
-  pageSize?: number
-  sortBy?: 'created_at' | 'project_code' | 'name' | 'status'
-  sortOrder?: 'asc' | 'desc'
-}
-
-export interface ProjectListResult {
-  projects: ProjectListItem[]
-  total: number
-  page: number
-  pageSize: number
-  totalPages: number
-}
+// Import types for use in this file
+import type {
+  ProjectListItem,
+  ProjectProduct,
+  ProjectDetail,
+  ProjectListParams,
+  ProjectListResult,
+  CreateProjectInput,
+  UpdateProjectInput,
+  AddProductToProjectInput,
+  ActionResult,
+  ProjectArea,
+} from '@fossapp/projects'
 
 // ============================================================================
 // LIST PROJECTS
@@ -289,49 +172,6 @@ export async function listProjectsAction(params: ProjectListParams = {}): Promis
       totalPages: 0
     }
   }
-}
-
-// ============================================================================
-// CREATE PROJECT INPUT
-// ============================================================================
-
-export interface CreateProjectInput {
-  project_code: string
-  name: string
-  name_en?: string
-  description?: string
-  customer_id?: string
-  street_address?: string
-  postal_code?: string
-  city?: string
-  region?: string
-  prefecture?: string
-  country?: string
-  project_type?: string
-  project_category?: string
-  building_area_sqm?: number
-  estimated_budget?: number
-  currency?: string
-  status?: string
-  priority?: string
-  start_date?: string
-  expected_completion_date?: string
-  project_manager?: string
-  architect_firm?: string
-  electrical_engineer?: string
-  lighting_designer?: string
-  notes?: string
-  tags?: string[]
-}
-
-export interface UpdateProjectInput extends Partial<CreateProjectInput> {
-  actual_completion_date?: string
-}
-
-export interface ActionResult<T = void> {
-  success: boolean
-  data?: T
-  error?: string
 }
 
 // ============================================================================
@@ -910,15 +750,6 @@ export async function archiveProjectAction(
 // ============================================================================
 // ADD PRODUCT TO PROJECT
 // ============================================================================
-
-export interface AddProductToProjectInput {
-  project_id: string
-  product_id: string
-  area_version_id?: string  // NEW: Assign to specific area version
-  quantity?: number
-  room_location?: string
-  notes?: string
-}
 
 /**
  * Add a product to a project with default quantity of 1

@@ -18,6 +18,10 @@ Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 pa
 - [x] Phase 1: Extract @fossapp/core ✅ COMPLETE
 - [x] Phase 2: Extract @fossapp/ui ✅ COMPLETE
 - [ ] Phase 3: Extract domain packages ← **IN PROGRESS**
+  - [x] 3A: Extended core (config, validation)
+  - [x] 3B: @fossapp/products
+  - [x] 3C: @fossapp/tiles
+  - [x] 3D: @fossapp/projects
 - [ ] Phase 4: Update deployment
 - [ ] Phase 5: E2E tests
 - [ ] Phase 6: Production deployment
@@ -26,23 +30,22 @@ Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 pa
 
 **Date**: 2025-12-26
 **Completed**:
-- **Phase 3A**: Extended @fossapp/core with shared utilities:
-  - `config/constants.ts` - Centralized constants (VALIDATION, PAGINATION, DASHBOARD, etc.)
-  - `validation/index.ts` - Shared validation utilities (validateSearchQuery, etc.)
-- **Phase 3B**: Created @fossapp/products package:
-  - `types/` - Product types (ProductInfo, Feature, MIME_CODES, etc.)
-  - `actions/` - Server actions (search, getById, getByTaxonomy)
-- Created re-export stubs for backward compatibility
+- **Phase 3C**: Created @fossapp/tiles package (progress, types, scripts)
+- **Phase 3D**: Created @fossapp/projects package:
+  - `types/` - Project types (ProjectListItem, ProjectDetail, ProjectProduct, etc.)
+  - `types/areas.ts` - Area types (ProjectArea, AreaVersion, AreaVersionSummary)
+- Updated server action files to import and re-export types from packages
 - Verified 17/18 E2E tests pass (1 flaky auth test - pre-existing)
 
 **Key Learning**:
-- Server action re-export stubs must NOT have `'use server'` directive
-- Only async functions can be exported from `'use server'` files
-- Types should be re-exported separately from actions
+- Server actions can import types from packages while keeping `'use server'` directive
+- Use `export type { ... }` to re-export types for backward compatibility
+- Types can be separated from server actions without breaking existing imports
 
 **Next Steps**:
-1. Extract @fossapp/tiles package (includes progress-store)
-2. Continue with other domain packages (projects, etc.)
+1. Consider Phase 4: Update deployment configuration
+2. Consider creating more shared utility packages
+3. Clean up and consolidate duplicate code
 
 **Blockers**:
 - None
@@ -199,8 +202,62 @@ Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 pa
 
 **Next Session Should**:
 1. Read this file first
-2. Extract @fossapp/tiles package (with progress-store)
-3. Update playground and symbol-generator to use @fossapp/tiles/progress
+2. Extract @fossapp/projects package
+3. Consider extracting more shared utilities
+
+### Session 5: 2025-12-26
+**Focus**: Phase 3C - Extract @fossapp/tiles
+**Accomplished**:
+- Created @fossapp/tiles package structure:
+  - `packages/tiles/package.json` with exports for progress, types, scripts
+  - `packages/tiles/tsconfig.json` extending root config
+  - `packages/tiles/src/progress/progress-store.ts` - SSE streaming job progress
+  - `packages/tiles/src/types/index.ts` - Tile-specific types
+  - `packages/tiles/src/scripts/index.ts` - AutoLISP script generator
+- Added @fossapp/tiles and @fossapp/products to root package.json dependencies
+- Added TypeScript paths for @fossapp/tiles/* and @fossapp/products/*
+- Created re-export stubs in original src/lib/tiles/ locations
+- Server-heavy services (aps-service, aps-viewer, image-processor, google-drive) stay in app
+- 17/18 E2E tests passing (1 flaky auth test - pre-existing)
+
+**Files Created**:
+- `packages/tiles/package.json`
+- `packages/tiles/tsconfig.json`
+- `packages/tiles/src/index.ts`
+- `packages/tiles/src/progress/index.ts`
+- `packages/tiles/src/progress/progress-store.ts`
+- `packages/tiles/src/types/index.ts`
+- `packages/tiles/src/scripts/index.ts`
+
+**Files Modified** (now re-export stubs):
+- `src/lib/tiles/progress-store.ts` → @fossapp/tiles/progress
+- `src/lib/tiles/types.ts` → @fossapp/tiles/types
+- `src/lib/tiles/script-generator.ts` → @fossapp/tiles/scripts
+
+### Session 6: 2025-12-26
+**Focus**: Phase 3D - Extract @fossapp/projects
+**Accomplished**:
+- Created @fossapp/projects package structure:
+  - `packages/projects/package.json` with exports for types, types/areas
+  - `packages/projects/tsconfig.json` extending root config
+  - `packages/projects/src/types/index.ts` - All project types
+  - `packages/projects/src/types/areas.ts` - Area and version types
+- Updated server action files to import types from package:
+  - `src/lib/actions/projects.ts` - imports and re-exports types
+  - `src/lib/actions/project-areas.ts` - imports and re-exports area types
+- Server actions stay in app (depend on Supabase, Google Drive, planner)
+- 17/18 E2E tests passing (1 flaky auth test - pre-existing)
+
+**Files Created**:
+- `packages/projects/package.json`
+- `packages/projects/tsconfig.json`
+- `packages/projects/src/index.ts`
+- `packages/projects/src/types/index.ts`
+- `packages/projects/src/types/areas.ts`
+
+**Files Modified** (now import from package):
+- `src/lib/actions/projects.ts` → imports from @fossapp/projects
+- `src/lib/actions/project-areas.ts` → imports from @fossapp/projects/types/areas
 
 ---
 
@@ -229,10 +286,25 @@ _Track which files have been moved/modified for easy debugging_
 - [x] `src/types/product.ts` → `packages/products/src/types/index.ts`
 - [x] `src/lib/actions/products.ts` → `packages/products/src/actions/index.ts`
 
+### Moved to @fossapp/tiles ✅
+- [x] `src/lib/tiles/progress-store.ts` → `packages/tiles/src/progress/progress-store.ts`
+- [x] `src/lib/tiles/types.ts` → `packages/tiles/src/types/index.ts`
+- [x] `src/lib/tiles/script-generator.ts` → `packages/tiles/src/scripts/index.ts`
+- [ ] `src/lib/tiles/aps-service.ts` → _Staying in app (heavy APS SDK deps)_
+- [ ] `src/lib/tiles/aps-viewer.ts` → _Staying in app (heavy APS SDK deps)_
+- [ ] `src/lib/tiles/image-processor.ts` → _Staying in app (Sharp deps)_
+- [ ] `src/lib/tiles/google-drive-tile-service.ts` → _Staying in app (googleapis deps)_
+- [ ] `src/lib/tiles/actions.ts` → _Staying in app (server actions, depends on above)_
+
+### Moved to @fossapp/projects ✅
+- [x] `src/lib/actions/projects.ts` types → `packages/projects/src/types/index.ts`
+- [x] `src/lib/actions/project-areas.ts` types → `packages/projects/src/types/areas.ts`
+- [ ] Server actions stay in app (heavy deps on Supabase, Google Drive, planner)
+
 ### Phase 3: Domain Packages (IN PROGRESS)
 - [x] Products/search functionality → @fossapp/products ✅
-- [ ] Projects management → @fossapp/projects
-- [ ] Tiles/DWG generation → @fossapp/tiles ← **NEXT**
+- [x] Tiles/DWG generation → @fossapp/tiles ✅ (core components extracted)
+- [x] Projects management → @fossapp/projects ✅ (types extracted)
 
 ### Import Updates Required
 _List files that need import path updates after each extraction_
@@ -240,6 +312,8 @@ _List files that need import path updates after each extraction_
 **Phase 1 Complete** - 30+ files updated to use @fossapp/core
 **Phase 2 Complete** - 180+ UI component imports work via re-export stubs
 **Phase 3A/3B Complete** - config, validation, products extracted with re-export stubs
+**Phase 3C Complete** - tiles (progress, types, scripts) extracted with re-export stubs
+**Phase 3D Complete** - projects (types, area types) extracted with re-export in server actions
 
 ---
 
@@ -297,6 +371,8 @@ _Document key decisions for future reference_
 | Explicit client imports | Avoid server code leaking into client bundles | 2025-12-26 |
 | Re-export stubs | Backward compatibility during migration | 2025-12-26 |
 
+| Keep tiles services in app | Heavy server deps (APS SDK, Sharp, googleapis) | 2025-12-26 |
+
 ---
 
-**Last Updated**: 2025-12-26 (Phase 3A/3B complete - core extended, products extracted) by Claude Code
+**Last Updated**: 2025-12-26 (Phase 3D complete - @fossapp/projects extracted) by Claude Code
