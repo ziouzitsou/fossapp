@@ -82,6 +82,7 @@ If ANY check fails: **STOP** and report errors. Never skip failures.
 | **Dev Server** | `npm run dev` → :8080 |
 | **SSH** | `ssh -i ~/.ssh/platon.key sysadmin@platon.titancnc.eu` |
 | **Deploy Dir** | `/opt/fossapp/` |
+| **Docker Registry** | `registry.digitalocean.com/fossapp` |
 
 ---
 
@@ -104,7 +105,7 @@ npx shadcn@latest add <name> # Add shadcn component
 - **Database**: Supabase PostgreSQL (56K+ products)
 - **Auth**: NextAuth.js v4 (Google OAuth)
 - **UI**: shadcn/ui + Tailwind CSS (via @fossapp/ui)
-- **Deploy**: Docker multi-stage builds
+- **Deploy**: Docker multi-stage builds + DigitalOcean Container Registry
 
 ---
 
@@ -133,6 +134,7 @@ import { supabase } from '@/lib/supabase'
 | `src/lib/auth.ts` | NextAuth configuration |
 | `src/data/releases.json` | **What's New** - update for each release! |
 | `src/lib/feedback/knowledge-base.ts` | **Feedback AI knowledge** - update when features change! |
+| `scripts/docker-push.sh` | Build & push to DO registry |
 | `.env.local` | Secrets (NEVER commit) |
 
 ---
@@ -234,15 +236,47 @@ See [docs/README.md](./docs/README.md) for complete index.
 
 **Recommended**: Use production-deployer agent in Claude Code.
 
-**Manual**:
+### Quick Deploy (5 seconds)
+
+Uses pre-built images from DigitalOcean Container Registry:
+
 ```bash
-npm version patch && git push origin main --tags
-ssh -i ~/.ssh/platon.key sysadmin@platon.titancnc.eu "cd /opt/fossapp && ./deploy.sh vX.X.X"
+# 1. Build & push to registry (from dev machine)
+./scripts/docker-push.sh
+
+# 2. Pull & restart on production
+ssh platon 'cd /opt/fossapp && docker compose pull && docker compose up -d'
+
+# 3. Verify
 curl https://main.fossapp.online/api/health
+```
+
+### Full Deploy (with version bump)
+
+```bash
+# 1. Pre-deploy check (MANDATORY)
+./scripts/deploy-check.sh
+
+# 2. Version bump
+npm version patch && git push origin main --tags
+
+# 3. Build & push image
+./scripts/docker-push.sh
+
+# 4. Deploy on production
+ssh platon 'cd /opt/fossapp && docker compose pull && docker compose up -d'
+```
+
+### E2E Testing on Production
+
+Playwright tests can run against production using secure header bypass:
+
+```bash
+E2E_TEST_SECRET=<secret> npx playwright test --project=chromium
 ```
 
 See [docs/deployment/checklist.md](./docs/deployment/checklist.md) for full workflow.
 
 ---
 
-**Last Updated**: 2025-12-26 (v1.12.4 - Monorepo complete)
+**Last Updated**: 2025-12-26 (v1.12.5 - Docker Registry + E2E Auth)
