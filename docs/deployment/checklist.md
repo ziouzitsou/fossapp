@@ -1,10 +1,11 @@
 # Production Deployment Checklist
 
-**Last Updated**: 2025-12-16
-**Current Version**: v1.9.7
+**Last Updated**: 2025-12-26
+**Current Version**: v1.12.5
 
 This checklist was created after the v1.1.4 deployment to prevent common issues.
 **Updated v1.4.1**: Added automated pre-deployment script with smoke tests.
+**Updated v1.12.5**: Docker Registry workflow - builds locally, pushes to DO registry, deploys in 5 seconds.
 
 > **Note for Claude Code:** Core deployment workflow is also available as a skill (`.claude/skills/deployment-workflow/`) which Claude automatically uses before committing. This document serves as comprehensive reference.
 
@@ -149,14 +150,19 @@ npm version patch  # or minor/major
 git push origin main --tags
 ```
 
-### Step 4: Deploy to Production
+### Step 4: Build & Push to Registry
 ```bash
-# Deploy to platon VPS
-ssh -i ~/.ssh/platon.key sysadmin@platon.titancnc.eu \
-  "cd /opt/fossapp && ./deploy.sh v1.1.4"
+# Build and push image to DigitalOcean Container Registry
+./scripts/docker-push.sh
+```
+
+### Step 5: Deploy to Production
+```bash
+# Pull image and restart (takes ~5 seconds)
+ssh platon 'cd /opt/fossapp && docker compose pull && docker compose up -d'
 
 # Verify deployment
-curl https://app.titancnc.eu/api/health
+curl https://main.fossapp.online/api/health
 ```
 
 ---
@@ -213,11 +219,14 @@ Type error: Object literal may only specify known properties
 
 **Fix**:
 ```bash
-# On VPS: Clear Docker cache
-docker system prune -a --volumes
+# Rebuild locally without cache
+docker build --no-cache -t registry.digitalocean.com/fossapp/fossapp:latest .
 
-# Rebuild from scratch
-./deploy.sh v1.1.4
+# Push fresh image
+./scripts/docker-push.sh
+
+# On VPS: Clear cache and pull
+ssh platon 'docker system prune -a --volumes && cd /opt/fossapp && docker compose pull && docker compose up -d'
 ```
 
 ---
@@ -257,9 +266,9 @@ Before deploying to production:
 
 After deployment:
 
-- [ ] Health check passes: `curl https://app.titancnc.eu/api/health`
+- [ ] Health check passes: `curl https://main.fossapp.online/api/health`
 - [ ] Manually test key features
-- [ ] Check Docker logs for errors: `docker-compose logs -f`
+- [ ] Check Docker logs for errors: `ssh platon 'cd /opt/fossapp && docker compose logs -f'`
 - [ ] Monitor for first 5-10 minutes
 
 ---
@@ -380,32 +389,24 @@ cd /opt/fossapp && docker compose down && docker compose up -d
 
 ### Check VPS Logs
 ```bash
-ssh -i ~/.ssh/platon.key sysadmin@platon.titancnc.eu
-
-# Docker logs
-cd /opt/fossapp
-docker-compose logs -f
-
-# Build logs
-docker-compose build --no-cache
+# Docker logs (from dev machine)
+ssh platon 'cd /opt/fossapp && docker compose logs -f'
 
 # Container status
-docker ps -a
-```
+ssh platon 'docker ps -a'
 
-### Check Git Status on VPS
-```bash
-ssh -i ~/.ssh/platon.key sysadmin@platon.titancnc.eu \
-  "cd /opt/fossapp && git log -1 && git status"
+# Check which image is running
+ssh platon 'docker images | grep fossapp'
 ```
 
 ### Force Clean Deploy
 ```bash
-# On VPS
-cd /opt/fossapp
-docker-compose down
-docker system prune -a --volumes  # CAUTION: Removes all unused data
-./deploy.sh v1.1.4
+# Rebuild locally without cache
+docker build --no-cache -t registry.digitalocean.com/fossapp/fossapp:latest .
+./scripts/docker-push.sh
+
+# On VPS: Clear and redeploy
+ssh platon 'cd /opt/fossapp && docker compose down && docker system prune -a --volumes && docker compose pull && docker compose up -d'
 ```
 
 ---
@@ -464,6 +465,38 @@ npm run build              # Manual
 ./scripts/deploy-check.sh  # Automated
 # Fix any failures
 # Done!
+```
+
+---
+
+## 🚀 v1.12.5 Improvements (Docker Registry)
+
+**What changed**:
+1. ✅ Build images locally instead of on VPS
+2. ✅ Push to DigitalOcean Container Registry (`registry.digitalocean.com/fossapp`)
+3. ✅ VPS just pulls pre-built images (~5 seconds)
+4. ✅ E2E tests can run against production with secure header bypass
+
+**What you get**:
+- **Much faster**: Deploy in 5 seconds vs 4 minutes (no build on VPS)
+- **Consistent**: Same image tested locally runs in production
+- **Reliable**: No build failures on VPS due to resource limits
+- **Testable**: E2E tests verify production behavior
+
+**New workflow**:
+```bash
+# Old way (v1.12.4 and before) - 4 minutes
+ssh platon 'cd /opt/fossapp && git pull && docker compose up -d --build'
+
+# New way (v1.12.5+) - 5 seconds
+./scripts/docker-push.sh    # Build & push locally
+ssh platon 'cd /opt/fossapp && docker compose pull && docker compose up -d'
+```
+
+**E2E Testing on Production**:
+```bash
+# Run Playwright tests against production with auth bypass
+E2E_TEST_SECRET=<secret> npx playwright test --project=chromium
 ```
 
 ---
