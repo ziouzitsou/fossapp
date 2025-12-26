@@ -1,5 +1,8 @@
 'use client'
 
+// Skip static generation - uses useSearchParams which requires Suspense in Next.js 16
+export const dynamic = 'force-dynamic'
+
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'

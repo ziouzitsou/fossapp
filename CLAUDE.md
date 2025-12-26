@@ -4,6 +4,26 @@ Essential guidance for Claude Code. For detailed docs, see [docs/README.md](./do
 
 ---
 
+## 🚨 ACTIVE: Monorepo Migration (Dec 2025)
+
+**READ FIRST**: [MIGRATION_PROGRESS.md](./MIGRATION_PROGRESS.md)
+
+We are converting FOSSAPP to a Turborepo monorepo. Check the progress tracker for:
+- Current phase and next steps
+- Last session summary
+- Files moved/changed
+- Checkpoint tags for rollback
+
+**Recovery Tag**: `pre-monorepo-refactor` → v1.12.3 (safe rollback point)
+
+**Key Docs**:
+- `MIGRATION_PROGRESS.md` - Living progress tracker (UPDATE AT END OF EACH SESSION)
+- `MONOREPO_MIGRATION_PLAN.md` - Full migration plan
+- `COMPREHENSIVE_DUPLICATION_ANALYSIS.md` - Why we're doing this
+- `.claude/monorepo-development-guidelines.md` - Development patterns
+
+---
+
 ## 🤖 Claude Code Skills
 
 Claude Code has access to specialized skills that provide domain knowledge automatically:

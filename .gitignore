@@ -33,8 +33,14 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# playwright screenshots
+# playwright
 .playwright-mcp/
+/playwright-report/
+/playwright/.cache/
+/test-results/
+
+# turborepo
+.turbo/
 
 # security audits (keep docs, exclude reports and logs)
 audits/*_GEMINI_AUDIT.md
