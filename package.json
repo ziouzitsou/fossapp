@@ -1,6 +1,6 @@
 {
   "name": "fossapp",
-  "version": "1.12.3",
+  "version": "1.12.4",
   "private": true,
   "packageManager": "npm@10.9.2",
   "workspaces": [
