@@ -25,6 +25,12 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@fossapp/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@fossapp/core/*": [
+        "./packages/core/src/*"
       ]
     }
   },

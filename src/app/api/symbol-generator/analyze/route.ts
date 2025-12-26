@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
+import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 import { analyzeForSymbol } from '@/lib/symbol-generator/vision-service'
 import { extractDimensions } from '@/lib/symbol-generator/dimension-utils'
 import { ProductInfo } from '@/types/product'

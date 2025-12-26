@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { searchProductsForTilesAction } from '@/lib/actions/tiles'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
+import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 
 export async function GET(request: NextRequest) {
   // Require authentication

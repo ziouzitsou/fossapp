@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prepareForViewing } from '@/lib/tiles/aps-viewer'
 import { getGoogleDriveTileService } from '@/lib/tiles/google-drive-tile-service'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
+import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 
 /**
  * POST /api/viewer/upload

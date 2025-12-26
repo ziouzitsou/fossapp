@@ -8,8 +8,8 @@ import {
   translateToSVF2,
   calculateFileHash
 } from '@/lib/planner/aps-planner-service'
-import { supabaseServer } from '@/lib/supabase-server'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
+import { supabaseServer } from '@fossapp/core/db/server'
+import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 
 /**
  * Check if floor plan with this hash already exists in any area version

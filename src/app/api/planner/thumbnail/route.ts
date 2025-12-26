@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getAccessToken } from '@/lib/planner/aps-planner-service'
-import { supabaseServer } from '@/lib/supabase-server'
+import { supabaseServer } from '@fossapp/core/db/server'
 
 /**
  * GET /api/planner/thumbnail?areaVersionId={uuid}

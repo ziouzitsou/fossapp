@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getTranslationStatus } from '@/lib/tiles/aps-viewer'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
+import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 
 /**
  * GET /api/viewer/status/[urn]

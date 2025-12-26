@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
+import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 import {
   createChatAction,
   getChatAction,
@@ -18,7 +18,7 @@ import {
   getRecentMessagesAction,
 } from '@/lib/actions/feedback'
 import { runFeedbackAgent, type StreamEvent, type AgentMessage } from '@/lib/feedback/agent'
-import { logEvent } from '@/lib/event-logger'
+import { logEvent } from '@fossapp/core/logging'
 import type { Attachment, ToolCall } from '@/types/feedback'
 
 // ============================================================================

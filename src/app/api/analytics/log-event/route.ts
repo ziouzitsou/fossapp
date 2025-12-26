@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { logEvent, type EventType, type EventData } from '@/lib/event-logger'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
+import { logEvent, type EventType, type EventData } from '@fossapp/core/logging'
+import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 
 /**
  * POST /api/analytics/log-event

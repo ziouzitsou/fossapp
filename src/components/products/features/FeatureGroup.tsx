@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { logEventClient } from '@/lib/event-logger-client';
+import { logEventClient } from '@fossapp/core/logging/client';
 import { Feature } from '@/types/product';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

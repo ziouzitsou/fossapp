@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
+import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 import { createJob, addProgress, completeJob, generateJobId } from '@/lib/tiles/progress-store'
 import { generateSymbolScript, retryScriptWithApsError } from '@/lib/symbol-generator/script-service'
 import { symbolApsService } from '@/lib/symbol-generator/symbol-aps-service'

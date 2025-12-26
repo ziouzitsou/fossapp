@@ -1,5 +1,5 @@
 'use server'
-import { supabaseServer } from '@/lib/supabase-server'
+import { supabaseServer } from '@fossapp/core/db/server'
 
 export interface FilterDefinition {
   id: number

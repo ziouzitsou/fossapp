@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
+import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 import { createJob, addProgress, completeJob, generateJobId } from '@/lib/tiles/progress-store'
 import { processTileImages, generateScript, TilePayload } from '@/lib/tiles/actions'
 import { apsService } from '@/lib/tiles/aps-service'

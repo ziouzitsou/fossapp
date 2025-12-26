@@ -26,6 +26,7 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@fossapp/core": "*",
     "@anthropic-ai/sdk": "^0.71.2",
     "@aps_sdk/authentication": "^1.0.0",
     "@aps_sdk/autodesk-sdkmanager": "^1.0.0",

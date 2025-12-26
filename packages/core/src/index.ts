@@ -1,21 +1,31 @@
 /**
  * @fossapp/core - Foundation package
  *
- * This package will contain:
- * - Database clients (supabase-server, supabase)
- * - Auth configuration
- * - Logging utilities
+ * Core utilities shared across the FOSSAPP monorepo:
+ * - Database clients (Supabase server & client)
+ * - Event logging (server & client)
  * - Rate limiting
- * - Shared utilities
- *
- * Currently a placeholder - files will be extracted from src/lib/
  */
 
-export const CORE_VERSION = '0.0.0'
+export const CORE_VERSION = '0.0.1'
 
-// Placeholder exports - will be populated during Phase 1
-// export { supabaseServer } from './db/server'
-// export { supabase } from './db/client'
-// export { authOptions } from './auth'
-// export { logEvent } from './logging/server'
-// export { checkRateLimit } from './ratelimit'
+// Database clients
+export { supabase } from './db/client'
+export { supabaseServer } from './db/server'
+
+// Logging utilities
+export {
+  logEvent,
+  logEventsBatch,
+  generateSessionId,
+  logEventClient,
+} from './logging'
+export type { EventType, EventData } from './logging'
+
+// Rate limiting
+export {
+  checkRateLimit,
+  rateLimitHeaders,
+  RATE_LIMITS,
+} from './ratelimit'
+export type { RateLimitEndpoint } from './ratelimit'

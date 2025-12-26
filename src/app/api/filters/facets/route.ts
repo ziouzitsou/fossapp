@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
-import { supabaseServer } from '@/lib/supabase-server'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/ratelimit'
+import { supabaseServer } from '@fossapp/core/db/server'
+import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 
 /**
  * Validates and sanitizes facet request body
