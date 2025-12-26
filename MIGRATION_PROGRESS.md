@@ -27,35 +27,32 @@ Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 pa
   - [x] 4B: @fossapp/products stubs removed
   - [x] 4C: @fossapp/tiles stubs removed
   - [x] 4D: @fossapp/ui stubs removed (35 components + utils/hooks/theme)
-- [ ] Phase 5: Verify deployment
+- [x] Phase 5: Docker build verification ✅ COMPLETE
 - [ ] Phase 6: Production deployment
 
 ### Last Session Summary
 
-**Date**: 2025-12-26 (Session 7)
+**Date**: 2025-12-26 (Session 8)
 **Completed**:
-- **Phase 4: Full Stub Cleanup** - Removed all re-export stubs and updated imports directly to packages:
-  - Deleted 6 core stubs: constants.ts, ratelimit.ts, supabase-server.ts, event-logger.ts, event-logger-client.ts, validation.ts
-  - Deleted 2 products stubs: product.ts (types), products.ts (actions)
-  - Deleted 3 tiles stubs: progress-store.ts, types.ts, script-generator.ts
-  - Deleted 37 UI stubs: 35 components + use-mobile.tsx + theme-provider.tsx
-  - Updated 56+ source files with direct package imports
-- **Cleanup Total**: ~50 stub files removed, codebase now uses package imports directly
-- **E2E Tests**: 12/18 pass (6 product page timeouts - slow compilation, not bugs)
-- **Dev Server**: Compiles and runs successfully
+- **Phase 5: Docker Build Verification** - Fixed 3 issues discovered during Docker build:
+  1. Stale import in `src/lib/tiles/actions.ts` - imported from deleted `./script-generator` instead of `@fossapp/tiles/scripts`
+  2. Export collision in `packages/tiles/src/index.ts` - `TileMember` exported from both types and scripts modules
+  3. Next.js 16 Suspense requirement in `src/app/planner/page.tsx` - wrapped useSearchParams in Suspense boundary
+- **Docker Build**: Successful (3.8min, 30 static pages)
+- **Container Health Check**: Passes (version 1.12.3, environment production)
+- **Checkpoint Tag**: `monorepo-phase-4` created and pushed
 
 **Key Learning**:
-- sed regex needs both single and double quote patterns: `'...'` and `"..."`
-- Packages importing from app paths (`@/lib/utils`) don't work - use relative paths within packages
-- Products page has slow compilation in dev mode (multiple parallel imports), but functionality works
+- Relative imports (`./script-generator`) aren't caught by sed patterns targeting `@/lib/...` paths
+- Star exports (`export *`) can cause collisions when multiple modules export same-named types
+- Next.js 16 requires Suspense boundaries for useSearchParams even with `dynamic = 'force-dynamic'`
 
 **Next Steps**:
-1. Create checkpoint tag `monorepo-phase-4`
-2. Verify Docker build works
-3. Consider production deployment when ready
+1. Production deployment when ready
+2. Consider cleanup: Dockerfile ENV format warnings (cosmetic)
 
 **Blockers**:
-- None (products page timeout is dev mode issue, not a bug)
+- None! Ready for production deployment
 
 ---
 
@@ -67,7 +64,7 @@ Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 pa
 | `monorepo-phase-0` | Turbo setup + Playwright tests | 2025-12-26 |
 | `monorepo-phase-1` | @fossapp/core extracted, 18 tests passing | 2025-12-26 |
 | `monorepo-phase-2` | @fossapp/ui extracted, 18 tests passing | 2025-12-26 |
-| `monorepo-phase-3` | _TBD - After domain packages_ | |
+| `monorepo-phase-4` | Full stub cleanup + Docker build verified | 2025-12-26 |
 
 ---
 
@@ -293,6 +290,26 @@ Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 pa
 **Files Modified** (updated imports):
 - 56+ source files now import directly from @fossapp/* packages
 
+### Session 8: 2025-12-26
+**Focus**: Phase 5 - Docker Build Verification
+**Accomplished**:
+- Ran `docker build -t fossapp-test .`
+- Fixed 3 issues discovered during build:
+  1. **Stale import**: `src/lib/tiles/actions.ts` still imported from deleted `./script-generator`
+     - Fix: Changed to `@fossapp/tiles/scripts`
+  2. **Export collision**: `packages/tiles/src/index.ts` had `TileMember` from both types and scripts
+     - Fix: Changed to explicit exports to avoid star export collision
+  3. **Next.js 16 Suspense**: `src/app/planner/page.tsx` used `useSearchParams` without Suspense
+     - Fix: Wrapped component in Suspense boundary with loading fallback
+- Docker build successful after fixes (3.8 minutes, 30 static pages)
+- Container health check passes: `{"status":"healthy","version":"1.12.3"}`
+- Created and pushed checkpoint tag `monorepo-phase-4`
+
+**Key Learning**:
+- Relative imports (`./script-generator`) slip through sed pattern updates that only target `@/lib/...`
+- Star exports (`export *`) from multiple modules can collide silently
+- Next.js 16 is stricter about Suspense boundaries for client hooks
+
 ---
 
 ## Files Changed Tracker
@@ -409,4 +426,4 @@ _Document key decisions for future reference_
 
 ---
 
-**Last Updated**: 2025-12-26 (Phase 3D complete - @fossapp/projects extracted) by Claude Code
+**Last Updated**: 2025-12-26 (Phase 5 complete - Docker build verified) by Claude Code
