@@ -14,8 +14,8 @@
 Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 packages to eliminate ~6,840 lines of duplicated code.
 
 ### Current Phase
-- [x] Phase 0: Setup (turbo.json, workspace config) ✅ IN PROGRESS
-- [ ] Phase 1: Extract @fossapp/core
+- [x] Phase 0: Setup (turbo.json, workspace config) ✅ COMPLETE
+- [ ] Phase 1: Extract @fossapp/core ← **NEXT**
 - [ ] Phase 2: Extract @fossapp/ui
 - [ ] Phase 3: Extract domain packages
 - [ ] Phase 4: Update deployment
@@ -51,7 +51,7 @@ Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 pa
 | Tag | Description | Date |
 |-----|-------------|------|
 | `pre-monorepo-refactor` | Clean v1.12.3 before any changes | 2025-12-26 |
-| `monorepo-phase-0` | _TBD - After turbo setup_ | |
+| `monorepo-phase-0` | Turbo setup + Playwright tests | 2025-12-26 |
 | `monorepo-phase-1` | _TBD - After @fossapp/core_ | |
 | `monorepo-phase-2` | _TBD - After @fossapp/ui_ | |
 
