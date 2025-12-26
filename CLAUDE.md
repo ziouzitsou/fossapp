@@ -4,23 +4,46 @@ Essential guidance for Claude Code. For detailed docs, see [docs/README.md](./do
 
 ---
 
-## 🚨 ACTIVE: Monorepo Migration (Dec 2025)
+## Monorepo Architecture (v1.12.4+)
 
-**READ FIRST**: [MIGRATION_PROGRESS.md](./MIGRATION_PROGRESS.md)
+FOSSAPP uses **Turborepo** with shared packages. **ALWAYS check packages first** before writing new code.
 
-We are converting FOSSAPP to a Turborepo monorepo. Check the progress tracker for:
-- Current phase and next steps
-- Last session summary
-- Files moved/changed
-- Checkpoint tags for rollback
+### Package Structure
 
-**Recovery Tag**: `pre-monorepo-refactor` → v1.12.3 (safe rollback point)
+| Package | Contents | Import Pattern |
+|---------|----------|----------------|
+| `@fossapp/core` | DB clients, logging, ratelimit, config, validation | `@fossapp/core`, `@fossapp/core/db`, `@fossapp/core/config` |
+| `@fossapp/ui` | 35 shadcn components, theme, hooks, cn utility | `@fossapp/ui` |
+| `@fossapp/products` | Product types, search actions | `@fossapp/products/types`, `@fossapp/products/actions` |
+| `@fossapp/tiles` | Tile types, progress store, script generator | `@fossapp/tiles/types`, `@fossapp/tiles/progress` |
+| `@fossapp/projects` | Project/area types | `@fossapp/projects`, `@fossapp/projects/types/areas` |
 
-**Key Docs**:
-- `MIGRATION_PROGRESS.md` - Living progress tracker (UPDATE AT END OF EACH SESSION)
-- `MONOREPO_MIGRATION_PLAN.md` - Full migration plan
-- `COMPREHENSIVE_DUPLICATION_ANALYSIS.md` - Why we're doing this
-- `.claude/monorepo-development-guidelines.md` - Development patterns
+### Before Writing New Code - CHECK PACKAGES FIRST
+
+1. **Types**: Check if type already exists in `packages/*/src/types/`
+2. **UI Components**: Check `@fossapp/ui` before creating new components
+3. **Utilities**: Check `@fossapp/core` for logging, validation, config
+4. **Server Actions**: Products/tiles actions are in packages, project actions stay in app
+
+### Import Rules
+
+```typescript
+// CORRECT - Use package imports
+import { supabaseServer } from '@fossapp/core/db'
+import { Button, Card } from '@fossapp/ui'
+import { ProductInfo } from '@fossapp/products/types'
+import { cn } from '@fossapp/ui'
+
+// WRONG - Don't use old paths (these files no longer exist)
+import { supabaseServer } from '@/lib/supabase-server'  // DELETED
+import { Button } from '@/components/ui/button'          // DELETED
+```
+
+### Key Guidelines
+
+- `.claude/monorepo-development-guidelines.md` - Full development patterns
+- `MIGRATION_PROGRESS.md` - Migration history and decisions
+- Recovery tag: `pre-monorepo-refactor` (v1.12.3) if rollback needed
 
 ---
 
@@ -77,9 +100,10 @@ npx shadcn@latest add <name> # Add shadcn component
 ## Tech Stack
 
 - **Framework**: Next.js 16 + App Router + Turbopack
+- **Monorepo**: Turborepo with 5 shared packages
 - **Database**: Supabase PostgreSQL (56K+ products)
 - **Auth**: NextAuth.js v4 (Google OAuth)
-- **UI**: shadcn/ui + Tailwind CSS
+- **UI**: shadcn/ui + Tailwind CSS (via @fossapp/ui)
 - **Deploy**: Docker multi-stage builds
 
 ---
@@ -88,7 +112,7 @@ npx shadcn@latest add <name> # Add shadcn component
 
 ```typescript
 // SERVER-SIDE (API routes, server actions) - NEVER expose!
-import { supabaseServer } from '@/lib/supabase-server'
+import { supabaseServer } from '@fossapp/core/db'
 
 // CLIENT-SIDE (browser components) - use sparingly
 import { supabase } from '@/lib/supabase'
@@ -102,7 +126,8 @@ import { supabase } from '@/lib/supabase'
 
 | File | Purpose |
 |------|---------|
-| `src/lib/supabase-server.ts` | Server DB client (service role) |
+| `packages/core/src/db/server.ts` | Server DB client (service role) |
+| `packages/ui/src/components/` | 35 shadcn UI components |
 | `src/lib/supabase.ts` | Client DB client (anon key) |
 | `src/lib/actions/` | Server actions by domain |
 | `src/lib/auth.ts` | NextAuth configuration |
@@ -135,12 +160,18 @@ See [docs/features/feedback-assistant.md](./docs/features/feedback-assistant.md)
 ## Directory Structure
 
 ```
+packages/                    # Shared monorepo packages
+├── core/                    # DB clients, logging, ratelimit, config, validation
+├── ui/                      # 35 shadcn components, theme, hooks
+├── products/                # Product types + server actions
+├── tiles/                   # Tile types, progress store, script generator
+└── projects/                # Project/area types
+
 src/
-├── app/              # App Router pages + API routes
-├── components/       # React components
-│   └── ui/           # shadcn/ui primitives
-└── lib/              # Utilities, actions, DB clients
-    └── actions/      # Domain-organized server actions
+├── app/                     # App Router pages + API routes
+├── components/              # App-specific React components
+└── lib/                     # App-specific utilities, actions
+    └── actions/             # Domain-organized server actions
 ```
 
 ---
@@ -214,4 +245,4 @@ See [docs/deployment/checklist.md](./docs/deployment/checklist.md) for full work
 
 ---
 
-**Last Updated**: 2025-12-23
+**Last Updated**: 2025-12-26 (v1.12.4 - Monorepo complete)

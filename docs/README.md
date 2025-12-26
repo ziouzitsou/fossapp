@@ -4,6 +4,19 @@
 
 ---
 
+## Monorepo (v1.12.4+)
+
+FOSSAPP uses Turborepo with 5 shared packages. **Always check packages before writing new code.**
+
+| Document | Description |
+|----------|-------------|
+| [CLAUDE.md](../CLAUDE.md) | Package structure, import patterns, key guidelines |
+| [monorepo-development-guidelines.md](../.claude/monorepo-development-guidelines.md) | Full development patterns |
+| [MIGRATION_PROGRESS.md](../MIGRATION_PROGRESS.md) | Migration history and decisions |
+| [monorepo-examples/](./monorepo-examples/) | Example code patterns |
+
+---
+
 ## Architecture
 
 How the code is structured and patterns to follow.
@@ -102,4 +115,4 @@ Historical and completed migration docs.
 
 ---
 
-**Last Updated**: 2025-12-22
+**Last Updated**: 2025-12-26 (v1.12.4 - Monorepo complete)
