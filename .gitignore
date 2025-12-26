@@ -38,6 +38,10 @@ yarn-error.log*
 /playwright-report/
 /playwright/.cache/
 /test-results/
+*-snapshots/
+
+# claude code
+.claude/checkpoints/
 
 # turborepo
 .turbo/
