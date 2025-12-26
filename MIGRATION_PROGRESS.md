@@ -16,8 +16,8 @@ Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 pa
 ### Current Phase
 - [x] Phase 0: Setup (turbo.json, workspace config) ✅ COMPLETE
 - [x] Phase 1: Extract @fossapp/core ✅ COMPLETE
-- [ ] Phase 2: Extract @fossapp/ui ← **NEXT**
-- [ ] Phase 3: Extract domain packages
+- [x] Phase 2: Extract @fossapp/ui ✅ COMPLETE
+- [ ] Phase 3: Extract domain packages ← **NEXT**
 - [ ] Phase 4: Update deployment
 - [ ] Phase 5: E2E tests
 - [ ] Phase 6: Production deployment
@@ -26,31 +26,28 @@ Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 pa
 
 **Date**: 2025-12-26
 **Completed**:
-- Extracted @fossapp/core package with:
-  - `db/server.ts` - Supabase server client (service role)
-  - `db/client.ts` - Supabase client (anon key)
-  - `logging/server.ts` - Server-side event logging
-  - `logging/client.ts` - Client-side event logging
-  - `logging/types.ts` - Shared types (EventType, EventData)
-  - `ratelimit/index.ts` - Rate limiting utilities
-- Updated 30+ files to import from @fossapp/core
-- Original src/lib files now re-export from @fossapp/core (backward compatibility)
+- Extracted @fossapp/ui package with:
+  - 35 shadcn/ui components (accordion, button, card, dialog, sidebar, etc.)
+  - `utils/cn.ts` - Tailwind class merging utility
+  - `hooks/use-mobile.tsx` - Responsive hooks (useIsMobile, useIsTablet)
+  - `theme/theme-provider.tsx` - next-themes wrapper
+- Created re-export stubs in src/ for backward compatibility
+- Fixed flaky E2E test in auth.spec.ts (viewport/timing issues)
 - Verified 18 Playwright tests pass
-- Created checkpoint tag `monorepo-phase-1`
+- Created checkpoint tag `monorepo-phase-2`
 
 **Key Learning**:
-- Client components must import from explicit client paths (`@fossapp/core/logging/client`)
-- Barrel exports that include server modules cause issues when imported in client components
+- shadcn components have internal dependencies (sidebar imports button, sheet, etc.)
+- Re-export stubs pattern continues to work well for incremental migration
+- Test flakiness often comes from timing/viewport issues, not migration
 
 **Next Steps**:
-1. Phase 2: Extract @fossapp/ui
-   - Move `src/components/ui/*` → `packages/ui/src/components/*`
-   - Move `src/lib/utils.ts` (cn function) → `packages/ui/src/utils/`
-   - Move `src/hooks/use-mobile.tsx` → `packages/ui/src/hooks/`
-   - Move `src/components/theme-provider.tsx` → `packages/ui/src/theme/`
+1. Phase 3: Extract domain packages (products, projects, etim, etc.)
+   - Review MONOREPO_MIGRATION_PLAN.md for package structure
+   - Start with most isolated domain (likely etim or tiles)
 
 **Blockers**:
-- None for Phase 2
+- None for Phase 3
 
 ---
 
@@ -61,7 +58,8 @@ Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 pa
 | `pre-monorepo-refactor` | Clean v1.12.3 before any changes | 2025-12-26 |
 | `monorepo-phase-0` | Turbo setup + Playwright tests | 2025-12-26 |
 | `monorepo-phase-1` | @fossapp/core extracted, 18 tests passing | 2025-12-26 |
-| `monorepo-phase-2` | _TBD - After @fossapp/ui_ | |
+| `monorepo-phase-2` | @fossapp/ui extracted, 18 tests passing | 2025-12-26 |
+| `monorepo-phase-3` | _TBD - After domain packages_ | |
 
 ---
 
@@ -125,6 +123,51 @@ Converting FOSSAPP from a single Next.js app to a Turborepo monorepo with ~12 pa
 2. Start Phase 2: Extract @fossapp/ui
 3. Focus on shadcn/ui components first
 
+### Session 3: 2025-12-26
+**Focus**: Phase 2 - Extract @fossapp/ui
+**Accomplished**:
+- Created @fossapp/ui package structure:
+  - `packages/ui/package.json` with all Radix UI dependencies
+  - `packages/ui/tsconfig.json` extending root config
+  - `packages/ui/src/utils/cn.ts` - Tailwind class merging
+  - `packages/ui/src/hooks/use-mobile.tsx` - Responsive hooks
+  - `packages/ui/src/theme/theme-provider.tsx` - Theme context
+  - `packages/ui/src/components/` - 35 shadcn components
+- Updated internal component imports (e.g., sidebar → relative paths)
+- Created re-export stubs in src/components/ui/* → @fossapp/ui
+- Updated src/lib/utils.ts to re-export cn (keeping getThumbnailUrl local)
+- Updated src/hooks/use-mobile.tsx to re-export from @fossapp/ui
+- Updated src/components/theme-provider.tsx to re-export from @fossapp/ui
+- Fixed flaky E2E test (auth.spec.ts:22) - timeout/viewport issues
+- All 18 Playwright tests passing
+- Created checkpoint tag `monorepo-phase-2`
+
+**Files Created**:
+- `packages/ui/package.json`
+- `packages/ui/tsconfig.json`
+- `packages/ui/.gitignore`
+- `packages/ui/src/index.ts`
+- `packages/ui/src/utils/cn.ts`
+- `packages/ui/src/utils/index.ts`
+- `packages/ui/src/hooks/use-mobile.tsx`
+- `packages/ui/src/hooks/index.ts`
+- `packages/ui/src/theme/theme-provider.tsx`
+- `packages/ui/src/theme/index.ts`
+- `packages/ui/src/components/index.ts`
+- `packages/ui/src/components/*.tsx` (35 components)
+
+**Files Modified** (now re-export from @fossapp/ui):
+- `src/components/ui/*.tsx` (35 stubs)
+- `src/lib/utils.ts` (cn re-export, getThumbnailUrl stays)
+- `src/hooks/use-mobile.tsx` (re-export)
+- `src/components/theme-provider.tsx` (re-export)
+- `e2e/auth.spec.ts` (test fix)
+
+**Next Session Should**:
+1. Read this file first
+2. Review MONOREPO_MIGRATION_PLAN.md for Phase 3 structure
+3. Start with most isolated domain package
+
 ---
 
 ## Files Changed Tracker
@@ -140,16 +183,23 @@ _Track which files have been moved/modified for easy debugging_
 - [x] `src/lib/event-logger.ts` → `packages/core/src/logging/server.ts`
 - [x] `src/lib/event-logger-client.ts` → `packages/core/src/logging/client.ts`
 
-### Moved to @fossapp/ui (Phase 2)
-- [ ] `src/components/ui/*` → `packages/ui/src/components/*`
-- [ ] `src/lib/utils.ts` → `packages/ui/src/utils/cn.ts`
-- [ ] `src/hooks/use-mobile.tsx` → `packages/ui/src/hooks/`
-- [ ] `src/components/theme-provider.tsx` → `packages/ui/src/theme/`
+### Moved to @fossapp/ui ✅
+- [x] `src/components/ui/*` → `packages/ui/src/components/*` (35 components)
+- [x] `src/lib/utils.ts` (cn only) → `packages/ui/src/utils/cn.ts`
+- [x] `src/hooks/use-mobile.tsx` → `packages/ui/src/hooks/use-mobile.tsx`
+- [x] `src/components/theme-provider.tsx` → `packages/ui/src/theme/theme-provider.tsx`
+
+### Phase 3: Domain Packages (TODO)
+- [ ] Products/search functionality → @fossapp/products
+- [ ] Projects management → @fossapp/projects
+- [ ] ETIM classification → @fossapp/etim
+- [ ] Tiles/DWG generation → @fossapp/tiles
 
 ### Import Updates Required
 _List files that need import path updates after each extraction_
 
 **Phase 1 Complete** - 30+ files updated to use @fossapp/core
+**Phase 2 Complete** - 180+ UI component imports work via re-export stubs
 
 ---
 
@@ -207,4 +257,4 @@ _Document key decisions for future reference_
 
 ---
 
-**Last Updated**: 2025-12-26 by Claude Code
+**Last Updated**: 2025-12-26 (Phase 2 complete) by Claude Code
