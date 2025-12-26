@@ -1,15 +1,5 @@
-import { cn } from "@/lib/utils"
-
-function Skeleton({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn("animate-pulse rounded-md bg-primary/10", className)}
-      {...props}
-    />
-  )
-}
-
-export { Skeleton }
+/**
+ * @deprecated Import from @fossapp/ui instead
+ * Re-export stub for backward compatibility
+ */
+export * from '@fossapp/ui/components/skeleton'

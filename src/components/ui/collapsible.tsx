@@ -1,11 +1,5 @@
-"use client"
-
-import * as CollapsiblePrimitive from "@radix-ui/react-collapsible"
-
-const Collapsible = CollapsiblePrimitive.Root
-
-const CollapsibleTrigger = CollapsiblePrimitive.CollapsibleTrigger
-
-const CollapsibleContent = CollapsiblePrimitive.CollapsibleContent
-
-export { Collapsible, CollapsibleTrigger, CollapsibleContent }
+/**
+ * @deprecated Import from @fossapp/ui instead
+ * Re-export stub for backward compatibility
+ */
+export * from '@fossapp/ui/components/collapsible'

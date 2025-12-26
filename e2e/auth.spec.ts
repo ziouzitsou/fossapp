@@ -25,18 +25,21 @@ test.describe('Authentication', () => {
     await page.waitForLoadState('networkidle');
 
     // Close any dialogs that may appear (like "What's New")
+    // Use force:true to click even if element is outside viewport
     const closeButton = page.locator('button:has-text("Close")');
     if (await closeButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await closeButton.click();
+      await closeButton.click({ force: true, timeout: 5000 }).catch(() => {});
     }
 
     // In dev mode, there's a dev user auto-login
     // Check that either we see projects page content or login
-    const projectsContent = page.locator('text="Projects"').first();
+    // Wait for page to finish loading (beyond networkidle)
+    const projectsHeading = page.locator('h1:has-text("Projects")');
     const signInButton = page.locator('button:has-text("Sign in with Google")');
 
-    const isOnProjects = await projectsContent.isVisible().catch(() => false);
-    const isOnLogin = await signInButton.isVisible().catch(() => false);
+    // Wait up to 10s for either state
+    const isOnProjects = await projectsHeading.isVisible({ timeout: 10000 }).catch(() => false);
+    const isOnLogin = await signInButton.isVisible({ timeout: 2000 }).catch(() => false);
 
     expect(isOnProjects || isOnLogin).toBeTruthy();
   });

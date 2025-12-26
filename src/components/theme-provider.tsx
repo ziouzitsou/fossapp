@@ -1,11 +1,5 @@
-'use client'
-
-import { ThemeProvider as NextThemesProvider } from 'next-themes'
-import * as React from 'react'
-
-export function ThemeProvider({
-  children,
-  ...props
-}: React.ComponentProps<typeof NextThemesProvider>) {
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
-}
+/**
+ * @deprecated Import from @fossapp/ui instead
+ * Re-export stub for backward compatibility
+ */
+export { ThemeProvider } from '@fossapp/ui/theme'
