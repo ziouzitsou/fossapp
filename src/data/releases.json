@@ -3,6 +3,19 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.12.5",
+      "date": "2025-12-27",
+      "title": "New Theme System",
+      "description": "Choose from 4 beautiful color themes with modern OKLch colors for a personalized look.",
+      "features": [
+        "4 themes: Default (neutral), Minimal (purple), Emerald (green), Ocean (blue)",
+        "Theme selector in user dropdown - access via your avatar",
+        "Works seamlessly with light and dark mode",
+        "Theme preference syncs across all your devices"
+      ],
+      "tagline": "Make FOSSAPP yours."
+    },
+    {
       "version": "1.12.3",
       "date": "2025-12-24",
       "title": "Better Product Search",
