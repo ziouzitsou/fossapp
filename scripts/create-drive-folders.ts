@@ -1,5 +1,5 @@
 /**
- * Create Projects and Archive folders in HUB Shared Drive
+ * Create Projects folder in HUB Shared Drive
  * Run with: npx tsx scripts/create-drive-folders.ts
  */
 
@@ -40,29 +40,11 @@ async function createDriveFolders() {
   console.log(`      ID: ${projectsFolder.data.id}`)
   console.log('')
 
-  // Create Archive folder
-  console.log('📁 Creating "Archive" folder...')
-
-  const archiveFolder = await drive.files.create({
-    requestBody: {
-      name: 'Archive',
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [HUB_DRIVE_ID],
-    },
-    supportsAllDrives: true,
-    fields: 'id, name',
-  })
-
-  console.log(`   ✅ Created: ${archiveFolder.data.name}`)
-  console.log(`      ID: ${archiveFolder.data.id}`)
-  console.log('')
-
   // Output environment variables
   console.log('─'.repeat(50))
-  console.log('Add these to your .env.local:')
+  console.log('Add this to your .env.local:')
   console.log('─'.repeat(50))
   console.log(`GOOGLE_DRIVE_PROJECTS_FOLDER_ID=${projectsFolder.data.id}`)
-  console.log(`GOOGLE_DRIVE_ARCHIVE_FOLDER_ID=${archiveFolder.data.id}`)
   console.log('─'.repeat(50))
   console.log('')
   console.log('✅ Done!')

@@ -215,62 +215,53 @@ UPDATE projects SET
   status = $status,
   -- ... other fields
   updated_at = NOW()
-WHERE id = $project_id
-  AND is_archived = FALSE;  -- Block edit if archived
+WHERE id = $project_id;
 ```
 
 ---
 
-### DELETE Project (Archive)
+### DELETE Project
 
-**Trigger:** User clicks "Delete" and confirms
+**Trigger:** User clicks "Delete" and confirms (types project code)
 
 **Flow:**
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    DELETE (ARCHIVE) PROJECT                  │
+│                    DELETE PROJECT (PERMANENT)                │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
                ┌──────────────────────────┐
-               │ 1. Get project folder ID │
+               │ 1. Delete Google Drive   │
+               │    folder (recursive)    │
                └────────────┬─────────────┘
                             │
                             ▼
                ┌──────────────────────────┐
-               │ 2. Move folder to        │
-               │    Archive/{code}/       │
+               │ 2. Delete OSS bucket     │
+               │    (floor plan files)    │
                └────────────┬─────────────┘
                             │
                             ▼
                ┌──────────────────────────┐
-               │ 3. Set is_archived=TRUE  │
-               │    in database           │
+               │ 3. Delete all DB records │
+               │    (areas, products...)  │
+               └────────────┬─────────────┘
+                            │
+                            ▼
+               ┌──────────────────────────┐
+               │ 4. Delete project record │
                └──────────────────────────┘
 ```
 
-**Google Drive Operation:**
-```typescript
-// Move project folder to Archive
-await driveService.moveFile(
-  projectFolderId,
-  ARCHIVE_FOLDER_ID
-);
-```
-
-**Database Operation:**
-```sql
-UPDATE projects
-SET
-  is_archived = TRUE,
-  updated_at = NOW()
-WHERE id = $project_id;
-```
+**Implementation:** See `deleteProjectAction()` in `src/lib/actions/projects.ts`
 
 **UI Behavior:**
-- Archived projects hidden from main list
-- Can show in "Archived" filter/view
-- All operations blocked for archived projects
+- Confirmation dialog requires typing project code
+- Shows list of what will be deleted
+- Deletion is permanent
+
+> **Future:** ZIP-based archival before deletion planned for later versions.
 
 ---
 

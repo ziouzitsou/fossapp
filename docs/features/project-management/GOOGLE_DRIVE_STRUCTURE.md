@@ -1,7 +1,7 @@
 # Google Drive Structure
 
-**Status**: Design Phase
-**Last Updated**: 2025-12-02
+**Status**: Implemented
+**Last Updated**: 2025-12-27
 
 ---
 
@@ -16,34 +16,41 @@ All project files are stored in the **HUB Shared Drive** with a standardized fol
 ```
 HUB (Shared Drive)
 │
-├── Projects/                           ← Active projects
-│   │
-│   ├── 2511-001/                      ← Project: Nov 2025, #001
-│   │   ├── v1/                        ← Version 1
-│   │   │   ├── 01_Input/              ← Customer original files
-│   │   │   ├── 02_Working/            ← Engineer working files
-│   │   │   ├── 03_Output/             ← Final deliverables
-│   │   │   └── 04_Specs/              ← Product specifications
-│   │   │
-│   │   └── v2/                        ← Version 2 (copy of v1)
-│   │       ├── 01_Input/
-│   │       ├── 02_Working/
-│   │       ├── 03_Output/
-│   │       └── 04_Specs/
-│   │
-│   ├── 2511-002/                      ← Project: Nov 2025, #002
-│   │   └── v1/
-│   │       └── ...
-│   │
-│   └── 2512-001/                      ← Project: Dec 2025, #001
-│       └── v1/
-│           └── ...
-│
-└── Archive/                           ← Deleted/archived projects
-    └── 2510-003/                      ← Archived project
-        └── v1/
-            └── ...
+└── Projects/                           ← All projects
+    │
+    ├── 2511-001/                       ← Project: Nov 2025, #001
+    │   ├── 00_Customer/                ← Customer reference files
+    │   │   ├── Drawings/
+    │   │   ├── Photos/
+    │   │   └── Documents/
+    │   ├── 01_Working/                 ← Engineer work files
+    │   │   ├── CAD/
+    │   │   └── Calculations/
+    │   ├── 02_Areas/                   ← Area-based versioning
+    │   │   ├── GF-LOBBY/               ← Area: Ground Floor Lobby
+    │   │   │   ├── v1/
+    │   │   │   │   ├── Working/
+    │   │   │   │   └── Output/
+    │   │   │   └── v2/
+    │   │   │       ├── Working/
+    │   │   │       └── Output/
+    │   │   └── FF-OFFICE/              ← Area: First Floor Office
+    │   │       └── v1/
+    │   │           ├── Working/
+    │   │           └── Output/
+    │   ├── 03_Output/                  ← Final deliverables
+    │   │   ├── Drawings/
+    │   │   ├── Presentations/
+    │   │   └── Schedules/
+    │   └── 04_Specs/                   ← Product specifications
+    │       ├── Cut_Sheets/
+    │       └── Photometrics/
+    │
+    └── 2512-001/                       ← Project: Dec 2025, #001
+        └── ...
 ```
+
+> **Note:** Archive folder removed in v1.12.6. Projects are permanently deleted. Future versions will implement ZIP-based archival to Google Drive.
 
 ---
 
@@ -71,13 +78,6 @@ HUB (Shared Drive)
 | `02_Working/` | Engineer work in progress | Cleaned DWG, draft layouts |
 | `03_Output/` | Final deliverables | Printed PDFs, final DWG |
 | `04_Specs/` | Product documentation | Cut sheets, data sheets, IES files |
-
-### Archive (`Archive/`)
-
-- Contains deleted/archived projects
-- Projects moved here on "delete" action
-- Marked readonly in FOSSAPP (no modifications allowed)
-- Folder structure preserved
 
 ---
 
@@ -199,14 +199,17 @@ Examples:
 4. Update current_version in projects table
 ```
 
-### Archive Project (Delete)
+### Delete Project
 
 ```
 1. Get project folder ID
-2. Move folder from Projects/ to Archive/
-3. Set projects.is_archived = true
-4. Block further modifications in FOSSAPP
+2. Delete Google Drive folder (recursive)
+3. Delete OSS bucket (floor plan files)
+4. Delete all database records (areas, products, etc.)
+5. Delete project record
 ```
+
+> **Note:** Deletion is permanent. Future versions will implement ZIP-based archival before deletion.
 
 ### Delete Version
 
@@ -242,7 +245,6 @@ All operations require these parameters for Shared Drives:
 # .env.local
 GOOGLE_DRIVE_HUB_ID=0AIqVhsENOYQjUk9PVA    # HUB Shared Drive ID
 GOOGLE_DRIVE_PROJECTS_FOLDER_ID=xxx         # Projects/ folder ID
-GOOGLE_DRIVE_ARCHIVE_FOLDER_ID=xxx          # Archive/ folder ID
 ```
 
 ---

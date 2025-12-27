@@ -88,12 +88,13 @@ export function DeleteProjectDialog({
           <div className="text-sm text-muted-foreground">
             <p className="mb-2">This will permanently delete:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Project versions</li>
+              <li>Project areas and versions</li>
               <li>Project products</li>
               <li>Project contacts</li>
               <li>Project documents</li>
               <li>Project phases</li>
               <li className="text-destructive font-medium">Google Drive folder and all files</li>
+              <li className="text-destructive font-medium">Floor plan files (OSS bucket)</li>
             </ul>
           </div>
 

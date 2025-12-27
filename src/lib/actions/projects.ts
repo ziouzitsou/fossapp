@@ -717,37 +717,6 @@ export async function updateProjectDriveFolderAction(
 }
 
 // ============================================================================
-// ARCHIVE PROJECT
-// ============================================================================
-
-export async function archiveProjectAction(
-  projectId: string
-): Promise<ActionResult> {
-  try {
-    const sanitizedProjectId = validateProjectId(projectId)
-
-    const { error } = await supabaseServer
-      .schema('projects')
-      .from('projects')
-      .update({
-        is_archived: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', sanitizedProjectId)
-
-    if (error) {
-      console.error('Archive project error:', error)
-      return { success: false, error: 'Failed to archive project' }
-    }
-
-    return { success: true }
-  } catch (error) {
-    console.error('Archive project error:', error)
-    return { success: false, error: 'An unexpected error occurred' }
-  }
-}
-
-// ============================================================================
 // ADD PRODUCT TO PROJECT
 // ============================================================================
 

@@ -74,7 +74,6 @@ export {
   deleteProjectAction,
   generateProjectCodeAction,
   updateProjectDriveFolderAction,
-  archiveProjectAction,
   addProductToProjectAction,
   updateProjectProductQuantityAction,
   removeProductFromProjectAction,

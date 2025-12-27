@@ -10,9 +10,6 @@ import * as dotenv from 'dotenv'
 dotenv.config({ path: '.env.local' })
 
 import { getGoogleDriveProjectService } from '../src/lib/google-drive-project-service'
-import { google } from 'googleapis'
-import * as fs from 'fs'
-import * as path from 'path'
 
 async function testProjectService() {
   console.log('🔄 Testing GoogleDriveProjectService...\n')
@@ -109,29 +106,11 @@ async function testProjectService() {
     }
     console.log('')
 
-    // 9. Test archiving
-    console.log('📦 Archiving project...')
-    await service.archiveProject(result.projectFolderId)
-    console.log('   ✅ Project moved to Archive folder')
-    console.log('')
-
-    // 10. Clean up - delete the test project from Archive
+    // 10. Clean up - delete the test project
     console.log('🧹 Cleaning up (deleting test project)...')
 
     try {
-      // Need direct drive access to delete from archive
-      const credentialsPath = path.join(process.cwd(), 'credentials', 'google-service-account.json')
-      const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'))
-      const auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/drive'],
-      })
-      const drive = google.drive({ version: 'v3', auth })
-
-      await drive.files.delete({
-        fileId: result.projectFolderId,
-        supportsAllDrives: true,
-      })
+      await service.deleteProject(result.projectFolderId)
       console.log('   ✅ Test project deleted')
     } catch (cleanupError: unknown) {
       const err = cleanupError as Error

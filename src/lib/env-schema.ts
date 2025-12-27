@@ -135,14 +135,6 @@ export const ENV_SCHEMA: EnvVarDefinition[] = [
     example: '1ABC123...',
   },
   {
-    name: 'GOOGLE_DRIVE_ARCHIVE_FOLDER_ID',
-    required: true,
-    description: 'Archive folder ID for archived projects',
-    context: 'server',
-    environment: 'all',
-    example: '1DEF456...',
-  },
-  {
     name: 'NEXT_PUBLIC_TILES_EXPLORER_PATH',
     required: false,
     description: 'Windows Explorer path for TILES folder',

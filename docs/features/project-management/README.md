@@ -48,8 +48,6 @@ HUB/
 │           │   └── v2/
 │           └── GARDEN/        # Garden
 │               └── v1/
-└── Archive/
-    └── {archived_projects}/
 ```
 
 ### Key Decisions Made
@@ -57,10 +55,12 @@ HUB/
 | Decision | Choice |
 |----------|--------|
 | Version storage | Full folder copy (all files) |
-| Project deletion | Archive to `HUB/Archive/`, mark readonly |
+| Project deletion | Permanent deletion (Drive folder + OSS bucket + DB) |
 | Version deletion | Blocked if only version exists |
 | Version editing | Notes field editable |
 | Serial number | Auto-generated per YYMM |
+
+> **Note:** Archive functionality removed in v1.12.6. Future versions will implement ZIP-based archival to Google Drive before permanent deletion.
 
 ---
 

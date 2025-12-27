@@ -15,11 +15,11 @@ This document outlines the implementation phases for the Project Management modu
 
 Before starting implementation:
 
-- [ ] Google Drive API enabled in Google Cloud Console
-- [ ] OAuth credentials configured with `drive` scope
-- [ ] HUB Shared Drive ID obtained
-- [ ] `Projects/` and `Archive/` folders created in HUB
-- [ ] `googleapis` package installed
+- [x] Google Drive API enabled in Google Cloud Console
+- [x] Service Account credentials configured
+- [x] HUB Shared Drive ID obtained
+- [x] `Projects/` folder created in HUB
+- [x] `googleapis` package installed
 
 ---
 
@@ -92,23 +92,22 @@ templates/project-skeleton/
 
 - [ ] Install `googleapis` package
 - [ ] Create `GoogleDriveProjectService` class
-- [ ] Implement methods:
+- [x] Implement methods:
   - `createProjectFolder(projectCode)`
-  - `createVersionFolder(projectFolderId, versionNumber)`
-  - `copySkeletonFiles(versionFolderId)`
-  - `copyVersionFolder(sourceFolderId, newVersionNumber)`
-  - `moveToArchive(projectFolderId)`
-  - `deleteFolder(folderId)`
+  - `createAreaFolder(areasFolderId, areaCode)`
+  - `createAreaVersionFolder(areaFolderId, versionNumber)`
+  - `deleteProject(projectFolderId)`
+  - `deleteAreaFolder(areaFolderId)`
+  - `deleteAreaVersionFolder(versionFolderId)`
   - `listFiles(folderId)`
-- [ ] Add environment variables
-- [ ] Test each method independently
+- [x] Add environment variables
+- [x] Test each method independently
 
 ### Files to Create/Modify
 
 ```
 src/lib/google-drive-project-service.ts
 .env.local (add GOOGLE_DRIVE_* variables)
-.env.example (document new variables)
 ```
 
 ### Environment Variables
@@ -116,7 +115,6 @@ src/lib/google-drive-project-service.ts
 ```bash
 GOOGLE_DRIVE_HUB_ID=xxx
 GOOGLE_DRIVE_PROJECTS_FOLDER_ID=xxx
-GOOGLE_DRIVE_ARCHIVE_FOLDER_ID=xxx
 ```
 
 ---
@@ -131,9 +129,10 @@ GOOGLE_DRIVE_ARCHIVE_FOLDER_ID=xxx
   - Generate project code
   - Create Drive folders
   - Create version 1 record
-- [ ] Update `deleteProjectAction` to:
-  - Move to Archive
-  - Set is_archived = true
+- [x] Update `deleteProjectAction` to:
+  - Delete Google Drive folder
+  - Delete OSS bucket
+  - Delete all related DB records
 - [ ] Create `createVersionAction`:
   - Copy folder
   - Create version record
@@ -255,10 +254,10 @@ src/components/projects/drive-file-browser.tsx (new)
 - [ ] Handles Drive API errors gracefully
 
 **Project Deletion:**
-- [ ] Moves folder to Archive
-- [ ] Sets is_archived = true
-- [ ] Hides from main list
-- [ ] Blocks further edits
+- [x] Deletes Google Drive folder (recursive)
+- [x] Deletes OSS bucket (floor plans)
+- [x] Deletes all related DB records
+- [x] Confirmation requires typing project code
 
 **Version Creation:**
 - [ ] Copies all files from current version
@@ -335,7 +334,7 @@ src/components/projects/drive-file-browser.tsx (new)
 1. **File upload in FOSSAPP** - Direct upload or always via Google Drive UI?
 2. **Notifications** - Email when new version created?
 3. **Permissions** - Who can create/delete versions?
-4. **Auto-archive** - Archive old projects automatically?
+4. **ZIP Archive** - Create ZIP backup before permanent deletion?
 5. **Search** - Search across project files?
 
 ---

@@ -4,7 +4,6 @@
  * Handles all Google Drive operations for project management:
  * - Create project folder structure
  * - Create new versions (copy folder)
- * - Archive projects
  * - Delete projects
  * - Delete versions
  * - List files
@@ -133,13 +132,11 @@ class GoogleDriveProjectService {
   private drive: drive_v3.Drive
   private hubDriveId: string
   private projectsFolderId: string
-  private archiveFolderId: string
 
   constructor() {
     // Load environment variables
     this.hubDriveId = getEnvVar('GOOGLE_DRIVE_HUB_ID')
     this.projectsFolderId = getEnvVar('GOOGLE_DRIVE_PROJECTS_FOLDER_ID')
-    this.archiveFolderId = getEnvVar('GOOGLE_DRIVE_ARCHIVE_FOLDER_ID')
 
     // Load service account credentials
     // Priority: GOOGLE_SERVICE_ACCOUNT_PATH env var > default path
@@ -343,36 +340,6 @@ class GoogleDriveProjectService {
       versionFolderId: newVersionFolderId,
       versionNumber: newVersionNumber,
     }
-  }
-
-  /**
-   * Archive a project by moving it to the Archive folder (with retry)
-   *
-   * @param projectFolderId - Project folder ID to archive
-   */
-  async archiveProject(projectFolderId: string): Promise<void> {
-    await this.withRetry(
-      async () => {
-        // Get current parents
-        const file = await this.drive.files.get({
-          fileId: projectFolderId,
-          fields: 'parents',
-          supportsAllDrives: true,
-        })
-
-        const previousParents = file.data.parents?.join(',') || ''
-
-        // Move to Archive folder
-        await this.drive.files.update({
-          fileId: projectFolderId,
-          addParents: this.archiveFolderId,
-          removeParents: previousParents,
-          supportsAllDrives: true,
-        })
-      },
-      3,
-      'Archive project'
-    )
   }
 
   /**
