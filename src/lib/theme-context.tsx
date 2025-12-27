@@ -11,7 +11,7 @@
 
 import { useUserSettings } from './user-settings-context'
 
-export type Theme = 'default' | 'supabase' | 'graphite'
+export type Theme = 'default' | 'minimal' | 'emerald' | 'ocean'
 
 /**
  * @deprecated Use useUserSettings() or useTheme() from '@/lib/user-settings-context'

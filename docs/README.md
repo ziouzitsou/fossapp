@@ -62,6 +62,7 @@ Feature-specific documentation.
 
 | Document | Description |
 |----------|-------------|
+| [theming.md](./features/theming.md) | Multi-theme system (OKLch colors, tweakcn) |
 | [tiles.md](./features/tiles.md) | Tile Management System (DWG generation) |
 | [playground.md](./features/playground.md) | DWG from natural language (LLM + APS) |
 | [planner.md](./features/planner.md) | Visual lighting layout planner (upload DWG + place products) |
@@ -115,4 +116,4 @@ Historical and completed migration docs.
 
 ---
 
-**Last Updated**: 2025-12-26 (v1.12.4 - Monorepo complete)
+**Last Updated**: 2025-12-27 (v1.12.5 - Added theming docs)

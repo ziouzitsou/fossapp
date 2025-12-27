@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@fossapp/ui'
 import { Button } from '@fossapp/ui'
+import { useMultiTheme, type Theme } from '@/lib/theme-context'
 
 interface UserDropdownProps {
   user?: {
@@ -26,26 +27,45 @@ interface UserDropdownProps {
 
 export function UserDropdown({ user }: UserDropdownProps) {
   const [mounted, setMounted] = useState(false)
-  const { theme, setTheme } = useTheme()
+  const { theme: modeTheme, setTheme: setModeTheme } = useTheme()
+  const { theme: styleTheme, setTheme: setStyleTheme } = useMultiTheme()
 
   // Hydration pattern - intentional
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const handleThemeChange = useCallback((newTheme: string) => {
-    const previousTheme = theme
-    setTheme(newTheme)
+  const handleModeChange = useCallback((newTheme: string) => {
+    const previousTheme = modeTheme
+    setModeTheme(newTheme)
     logEventClient('theme_toggled', {
+      type: 'mode',
       previous_theme: previousTheme,
       new_theme: newTheme,
     })
-  }, [theme, setTheme])
+  }, [modeTheme, setModeTheme])
 
-  const themes = [
+  const handleStyleChange = useCallback((newStyle: Theme) => {
+    const previousStyle = styleTheme
+    setStyleTheme(newStyle)
+    logEventClient('theme_toggled', {
+      type: 'style',
+      previous_theme: previousStyle,
+      new_theme: newStyle,
+    })
+  }, [styleTheme, setStyleTheme])
+
+  const modeOptions = [
     { name: 'Light', value: 'light', icon: FaSun },
     { name: 'Dark', value: 'dark', icon: FaMoon },
     { name: 'System', value: 'system', icon: FaDesktop },
+  ]
+
+  const styleOptions: { name: string; value: Theme; color: string }[] = [
+    { name: 'Default', value: 'default', color: 'oklch(0.556 0 0)' },
+    { name: 'Minimal', value: 'minimal', color: 'oklch(0.623 0.188 260)' },
+    { name: 'Emerald', value: 'emerald', color: 'oklch(0.835 0.130 161)' },
+    { name: 'Ocean', value: 'ocean', color: 'oklch(0.672 0.161 245)' },
   ]
 
   if (!user) return null
@@ -80,19 +100,41 @@ export function UserDropdown({ user }: UserDropdownProps) {
           <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Theme
+              Mode
             </DropdownMenuLabel>
-            {themes.map((themeOption) => {
-              const Icon = themeOption.icon
-              const isActive = theme === themeOption.value
+            {modeOptions.map((option) => {
+              const Icon = option.icon
+              const isActive = modeTheme === option.value
               return (
                 <DropdownMenuItem
-                  key={themeOption.value}
-                  onClick={() => handleThemeChange(themeOption.value)}
+                  key={option.value}
+                  onClick={() => handleModeChange(option.value)}
                   className="cursor-pointer"
                 >
                   <Icon className="mr-2 h-4 w-4" />
-                  <span>{themeOption.name}</span>
+                  <span>{option.name}</span>
+                  {isActive && <FaCheck className="ml-auto h-3 w-3 text-primary" />}
+                </DropdownMenuItem>
+              )
+            })}
+
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Style
+            </DropdownMenuLabel>
+            {styleOptions.map((option) => {
+              const isActive = styleTheme === option.value
+              return (
+                <DropdownMenuItem
+                  key={option.value}
+                  onClick={() => handleStyleChange(option.value)}
+                  className="cursor-pointer"
+                >
+                  <div
+                    className="mr-2 h-4 w-4 rounded-full border border-border"
+                    style={{ backgroundColor: option.color }}
+                  />
+                  <span>{option.name}</span>
                   {isActive && <FaCheck className="ml-auto h-3 w-3 text-primary" />}
                 </DropdownMenuItem>
               )

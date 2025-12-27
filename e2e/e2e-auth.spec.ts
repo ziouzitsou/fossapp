@@ -119,7 +119,7 @@ test.describe('E2E Auth Bypass', () => {
     test('protected page requires auth without bypass (production only)', async ({ browser, baseURL }) => {
       // Skip in dev mode where NEXT_PUBLIC_BYPASS_AUTH may be active
       // This test is meant for production environment testing
-      const isLocalhost = baseURL?.includes('localhost') || baseURL?.includes('127.0.0.1');
+      const isLocalhost = baseURL?.includes('localhost') || baseURL?.includes('127.0.0.1') || false;
       test.skip(isLocalhost, 'Skipping in dev mode - dev bypass may be active');
 
       // Create a fresh context without the E2E header

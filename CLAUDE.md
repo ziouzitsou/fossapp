@@ -190,6 +190,7 @@ src/
 | Projects | `/projects` | [features/project-management/](./docs/features/project-management/) |
 | Planner | `/planner` | [features/planner.md](./docs/features/planner.md) |
 | Feedback | Sidebar | [features/feedback-assistant.md](./docs/features/feedback-assistant.md) |
+| Theming | User dropdown | [features/theming.md](./docs/features/theming.md) |
 | Dashboard | `/dashboard` | - |
 
 ---
@@ -279,4 +280,4 @@ See [docs/deployment/checklist.md](./docs/deployment/checklist.md) for full work
 
 ---
 
-**Last Updated**: 2025-12-26 (v1.12.5 - Docker Registry + E2E Auth)
+**Last Updated**: 2025-12-27 (v1.12.5 - Theming system with OKLch colors)

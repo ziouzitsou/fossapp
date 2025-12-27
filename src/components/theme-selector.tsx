@@ -24,20 +24,26 @@ export function ThemeSelector() {
       <SelectContent>
         <SelectItem value="default">
           <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded-full bg-[hsl(223.8136,0%,63.0163%)]" />
+            <div className="h-4 w-4 rounded-full bg-[oklch(0.556_0_0)]" />
             <span>Default</span>
           </div>
         </SelectItem>
-        <SelectItem value="supabase">
+        <SelectItem value="minimal">
           <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded-full bg-[hsl(151.3274,66.8639%,66.8627%)]" />
-            <span>Supabase</span>
+            <div className="h-4 w-4 rounded-full bg-[oklch(0.623_0.188_260)]" />
+            <span>Minimal</span>
           </div>
         </SelectItem>
-        <SelectItem value="graphite">
+        <SelectItem value="emerald">
           <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded-full bg-[hsl(0,0%,37.6471%)]" />
-            <span>Graphite</span>
+            <div className="h-4 w-4 rounded-full bg-[oklch(0.835_0.130_161)]" />
+            <span>Emerald</span>
+          </div>
+        </SelectItem>
+        <SelectItem value="ocean">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 rounded-full bg-[oklch(0.672_0.161_245)]" />
+            <span>Ocean</span>
           </div>
         </SelectItem>
       </SelectContent>

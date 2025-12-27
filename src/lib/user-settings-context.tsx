@@ -12,7 +12,7 @@ import {
 // TYPES
 // ============================================================================
 
-type Theme = 'default' | 'supabase' | 'graphite'
+type Theme = 'default' | 'minimal' | 'emerald' | 'ocean'
 
 interface ActiveProject {
   id: string
@@ -104,7 +104,7 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
     try {
       // Theme
       const savedTheme = localStorage.getItem(STORAGE_KEYS.theme) as Theme | null
-      if (savedTheme && ['default', 'supabase', 'graphite'].includes(savedTheme)) {
+      if (savedTheme && ['default', 'minimal', 'emerald', 'ocean'].includes(savedTheme)) {
         setThemeState(savedTheme)
       }
 
@@ -374,12 +374,16 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
     if (!mounted) return
 
     const root = document.documentElement
-    root.classList.remove('theme-supabase', 'theme-graphite')
+    // Remove all theme classes
+    root.classList.remove('theme-minimal', 'theme-emerald', 'theme-ocean')
 
-    if (theme === 'supabase') {
-      root.classList.add('theme-supabase')
-    } else if (theme === 'graphite') {
-      root.classList.add('theme-graphite')
+    // Apply the selected theme class (default uses :root, no class needed)
+    if (theme === 'minimal') {
+      root.classList.add('theme-minimal')
+    } else if (theme === 'emerald') {
+      root.classList.add('theme-emerald')
+    } else if (theme === 'ocean') {
+      root.classList.add('theme-ocean')
     }
   }, [theme, mounted])
 

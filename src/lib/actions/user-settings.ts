@@ -9,7 +9,7 @@ import { supabaseServer } from '@fossapp/core/db/server'
 export interface UserSettings {
   user_id: string
   // UI Preferences
-  theme: 'default' | 'supabase' | 'graphite'
+  theme: 'default' | 'minimal' | 'emerald' | 'ocean'
   sidebar_expanded: boolean
   // Context State
   active_project_id: string | null
@@ -26,7 +26,7 @@ export interface UserSettings {
 }
 
 export interface UpdateSettingsInput {
-  theme?: 'default' | 'supabase' | 'graphite'
+  theme?: 'default' | 'minimal' | 'emerald' | 'ocean'
   sidebar_expanded?: boolean
   active_project_id?: string | null
   active_project_code?: string | null
