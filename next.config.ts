@@ -80,7 +80,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://*.autodesk.com", // Tailwind + APS Viewer
               "img-src 'self' data: https: blob:",
               "font-src 'self' data: https://*.autodesk.com", // APS Viewer fonts
-              "connect-src 'self' https://hyppizgiozyyyelwdius.supabase.co https://*.google.com https://*.googleapis.com https://*.autodesk.com wss://*.supabase.co",
+              "connect-src 'self' https://hyppizgiozyyyelwdius.supabase.co https://*.google.com https://*.googleapis.com https://*.autodesk.com wss://*.supabase.co https://cdn.jsdelivr.net",
               "frame-src 'self' https://*.autodesk.com", // APS Viewer iframe
               "frame-ancestors 'none'",
               "base-uri 'self'",
