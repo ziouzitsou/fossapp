@@ -256,6 +256,7 @@ function ViewerLayout({ state }: { state: ReturnType<typeof usePlannerState> }) 
             theme="dark"
             placementMode={state.placementMode}
             initialPlacements={state.placements}
+            markerMinScreenPx={state.markerMinScreenPx}
             onPlacementAdd={state.handlePlacementAdd}
             onPlacementDelete={state.handlePlacementDelete}
             onExitPlacementMode={state.handleExitPlacementMode}

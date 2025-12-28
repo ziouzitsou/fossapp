@@ -10,6 +10,7 @@ import { cn } from '@fossapp/ui'
 
 const tabs = [
   { name: 'User', href: '/settings/user' },
+  { name: 'View', href: '/settings/view' },
   { name: 'Symbols', href: '/settings/symbols' },
 ]
 

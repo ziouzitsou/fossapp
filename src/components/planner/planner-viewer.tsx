@@ -54,6 +54,8 @@ export interface PlannerViewerProps {
   placementMode?: PlacementModeProduct | null
   /** Initial placements to render when viewer loads (from database) */
   initialPlacements?: Placement[]
+  /** Minimum screen size for markers in pixels (from user preferences) */
+  markerMinScreenPx?: number
   /** Callback when a placement is added via click-to-place (includes generated id) */
   onPlacementAdd?: (placement: Omit<Placement, 'dbId'>) => void
   /** Callback when a placement is deleted */
@@ -127,6 +129,7 @@ export function PlannerViewer({
   theme: initialTheme = 'dark',
   placementMode,
   initialPlacements,
+  markerMinScreenPx = 12,
   onPlacementAdd,
   onPlacementDelete,
   onExitPlacementMode,
@@ -385,7 +388,7 @@ export function PlannerViewer({
               }
 
               // Initialize MarkupMarkers for product placement
-              const markers = new MarkupMarkers(viewer)
+              const markers = new MarkupMarkers(viewer, markerMinScreenPx)
               const markersInitialized = await markers.initialize()
               if (markersInitialized) {
                 markupMarkersRef.current = markers
@@ -526,7 +529,7 @@ export function PlannerViewer({
         )
       })
     })
-  }, [getAccessToken, initialTheme])
+  }, [getAccessToken, initialTheme, markerMinScreenPx])
 
   // Main initialization effect - runs once per file
   useEffect(() => {

@@ -23,7 +23,7 @@ type MarkupsCoreExt = any
 
 // Marker sizing constants
 const REAL_WORLD_RADIUS = 0.05      // 50mm in meters (100mm diameter)
-const MIN_SCREEN_RADIUS = 12        // Minimum pixels on screen
+const DEFAULT_MIN_SCREEN_RADIUS = 12  // Default minimum pixels on screen
 const STROKE_RATIO = 0.2            // Stroke width as ratio of radius
 const FONT_RATIO = 0.8              // Font size as ratio of radius
 
@@ -46,9 +46,11 @@ export class MarkupMarkers {
   private selectedId: string | null = null
   private onSelect: ((id: string | null) => void) | null = null
   private onDelete: ((id: string) => void) | null = null
+  private minScreenRadius: number
 
-  constructor(viewer: ViewerInstance) {
+  constructor(viewer: ViewerInstance, minScreenPx: number = DEFAULT_MIN_SCREEN_RADIUS) {
     this.viewer = viewer
+    this.minScreenRadius = minScreenPx
   }
 
   // Bound handlers for cleanup
@@ -122,9 +124,9 @@ export class MarkupMarkers {
     const pixelsPerMeter = this.getPixelsPerMeter()
     const realWorldScreenSize = REAL_WORLD_RADIUS * pixelsPerMeter
 
-    if (realWorldScreenSize < MIN_SCREEN_RADIUS) {
+    if (realWorldScreenSize < this.minScreenRadius) {
       // Clamp to minimum screen size
-      return MIN_SCREEN_RADIUS / pixelsPerMeter
+      return this.minScreenRadius / pixelsPerMeter
     }
 
     // Use real-world size

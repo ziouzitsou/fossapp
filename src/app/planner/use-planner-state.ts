@@ -9,6 +9,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useActiveProject } from '@/lib/active-project-context'
+import { useDevSession } from '@/lib/use-dev-session'
 import type { Viewer3DInstance, Placement, PlacementModeProduct, DwgUnitInfo } from '@/components/planner'
 import type { AreaRevisionOption } from './types'
 import {
@@ -20,11 +21,14 @@ import {
   type AreaRevisionProduct,
   type PlacementData
 } from '@/lib/actions/project-areas'
+import { getUserPreferencesAction } from '@/lib/actions/user-preferences'
+import { DEFAULT_VIEW_PREFERENCES } from '@/lib/actions/user-preferences-types'
 
 export function usePlannerState() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { activeProject } = useActiveProject()
+  const { data: session } = useDevSession()
 
   // File/viewer state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -78,6 +82,9 @@ export function usePlannerState() {
   // DWG unit info from the viewer
   const [dwgUnitInfo, setDwgUnitInfo] = useState<DwgUnitInfo | null>(null)
 
+  // User view preferences
+  const [markerMinScreenPx, setMarkerMinScreenPx] = useState(DEFAULT_VIEW_PREFERENCES.marker_min_screen_px)
+
   // Counter for generating unique dbIds
   const dbIdCounterRef = useRef(1000)
 
@@ -103,6 +110,20 @@ export function usePlannerState() {
   // ============================================================================
   // Effects
   // ============================================================================
+
+  // Load user view preferences
+  useEffect(() => {
+    async function loadPreferences() {
+      if (!session?.user?.email) return
+
+      const result = await getUserPreferencesAction(session.user.email)
+      if (result.success && result.data) {
+        setMarkerMinScreenPx(result.data.view_preferences.marker_min_screen_px)
+      }
+    }
+
+    loadPreferences()
+  }, [session?.user?.email])
 
   // Load project areas when active project changes
   useEffect(() => {
@@ -589,6 +610,7 @@ export function usePlannerState() {
     viewerRef,
     fileInputRef,
     dwgUnitInfo,
+    markerMinScreenPx,
 
     // Area state
     areaRevisions,
