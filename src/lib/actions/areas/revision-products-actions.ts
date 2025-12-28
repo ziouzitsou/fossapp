@@ -100,6 +100,10 @@ export interface AreaRevisionProduct {
   mounting_height?: number
   status: string
   notes?: string
+  // Symbol classification
+  symbol_code?: string      // Letter code: A, B, C...
+  symbol_sequence?: number  // Sequence: 1, 2, 3...
+  symbol?: string           // Combined: A1, B2, C3...
 }
 
 /**
@@ -143,6 +147,9 @@ export async function listAreaRevisionProductsAction(
       mounting_height?: number
       status?: string
       notes?: string
+      category_code?: string
+      symbol_sequence?: number
+      symbol?: string
     }) => {
       const unitPrice = p.unit_price || 0
       const quantity = p.quantity || 0
@@ -161,7 +168,11 @@ export async function listAreaRevisionProductsAction(
         room_location: p.room_location ?? undefined,
         mounting_height: p.mounting_height ?? undefined,
         status: p.status || 'active',
-        notes: p.notes ?? undefined
+        notes: p.notes ?? undefined,
+        // Symbol classification
+        symbol_code: p.category_code ?? undefined,
+        symbol_sequence: p.symbol_sequence ?? undefined,
+        symbol: p.symbol ?? undefined
       }
     })
 

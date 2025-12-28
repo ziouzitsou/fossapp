@@ -112,6 +112,7 @@ export interface PlacementData {
   projectProductId: string
   productId: string
   productName: string
+  symbol?: string  // Symbol label (e.g., "A1", "B2") for floor plan display
   worldX: number
   worldY: number
   rotation: number
@@ -145,6 +146,7 @@ export async function loadAreaPlacementsAction(
       project_product_id: string
       product_id: string
       product_name: string
+      symbol?: string
       world_x: number
       world_y: number
       rotation: number
@@ -153,6 +155,7 @@ export async function loadAreaPlacementsAction(
       projectProductId: row.project_product_id,
       productId: row.product_id,
       productName: row.product_name,
+      symbol: row.symbol,
       worldX: Number(row.world_x),
       worldY: Number(row.world_y),
       rotation: Number(row.rotation)

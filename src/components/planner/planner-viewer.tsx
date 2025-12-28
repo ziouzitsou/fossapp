@@ -414,6 +414,7 @@ export function PlannerViewer({
                       productId: mode.productId,
                       projectProductId: mode.projectProductId,
                       productName: mode.fossPid || mode.description,
+                      symbol: mode.symbol,  // Symbol label for marker display
                     }
 
                     let markerData
@@ -463,6 +464,7 @@ export function PlannerViewer({
                         productId: mode.productId,
                         projectProductId: mode.projectProductId,
                         productName: mode.fossPid || mode.description,
+                        symbol: mode.symbol,  // Symbol label for persistence
                         worldX: coords.dwgX,  // DWG X coordinate
                         worldY: coords.dwgY,  // DWG Y coordinate
                         rotation: 0,
@@ -500,6 +502,7 @@ export function PlannerViewer({
                       productId: placement.productId,
                       projectProductId: placement.projectProductId,
                       productName: placement.productName,
+                      symbol: placement.symbol,  // Symbol label from database
                     },
                     placement.id
                   )
@@ -721,6 +724,7 @@ export function PlannerViewer({
           productId: placement.productId,
           projectProductId: placement.projectProductId,
           productName: placement.productName,
+          symbol: placement.symbol,  // Symbol label from database
         },
         placement.id
       )

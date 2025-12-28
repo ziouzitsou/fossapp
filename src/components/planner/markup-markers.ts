@@ -21,6 +21,7 @@ export interface MarkerData {
   productId: string
   projectProductId: string
   productName: string
+  symbol?: string  // Symbol label (e.g., "A1", "B2") for display
   // Markup space coordinates (not world coords!)
   markupX: number
   markupY: number
@@ -241,27 +242,39 @@ export class MarkupMarkers {
     group.setAttribute('transform', `translate(${markupX}, ${markupY})`)
     group.style.cursor = 'pointer'
 
+    // Determine label - use symbol if available, otherwise first letter
+    const label = data.symbol || data.productName.charAt(0).toUpperCase()
+
+    // Adjust sizes based on label length
+    const isLongLabel = label.length > 2
+    const radius = isLongLabel ? '16' : '12'
+    const fontSize = isLongLabel ? '8' : '10'
+
     // Main circle
     const circle = document.createElementNS(ns, 'circle')
     circle.setAttribute('cx', '0')
     circle.setAttribute('cy', '0')
-    circle.setAttribute('r', '12')
+    circle.setAttribute('r', radius)
     circle.setAttribute('fill', '#3b82f6')
     circle.setAttribute('stroke', '#ffffff')
     circle.setAttribute('stroke-width', '2')
     circle.style.pointerEvents = 'auto'
 
-    // Label (first letter of product name)
+    // Label (symbol or first letter)
+    // Note: DWG coordinate system has Y pointing up, SVG has Y pointing down
+    // We need to flip the text vertically so it appears right-side up
     const text = document.createElementNS(ns, 'text')
     text.setAttribute('x', '0')
     text.setAttribute('y', '0')
     text.setAttribute('text-anchor', 'middle')
     text.setAttribute('dominant-baseline', 'central')
     text.setAttribute('fill', '#ffffff')
-    text.setAttribute('font-size', '10')
+    text.setAttribute('font-size', fontSize)
     text.setAttribute('font-weight', 'bold')
+    text.setAttribute('font-family', 'ui-monospace, monospace')
+    text.setAttribute('transform', 'scale(1, -1)')  // Mirror Y-axis for DWG coordinate system
     text.style.pointerEvents = 'none'
-    text.textContent = data.productName.charAt(0).toUpperCase()
+    text.textContent = label
 
     group.appendChild(circle)
     group.appendChild(text)
@@ -293,7 +306,9 @@ export class MarkupMarkers {
         const circle = prevMarker.querySelector('circle')
         if (circle) {
           circle.setAttribute('fill', '#3b82f6')
-          circle.setAttribute('r', '12')
+          // Restore original radius (reduce by 2)
+          const currentR = parseFloat(circle.getAttribute('r') || '14')
+          circle.setAttribute('r', String(currentR - 2))
         }
       }
     }
@@ -307,7 +322,9 @@ export class MarkupMarkers {
         const circle = marker.querySelector('circle')
         if (circle) {
           circle.setAttribute('fill', '#f59e0b')
-          circle.setAttribute('r', '14')
+          // Increase radius by 2 for selection
+          const currentR = parseFloat(circle.getAttribute('r') || '12')
+          circle.setAttribute('r', String(currentR + 2))
         }
       }
     }

@@ -77,6 +77,12 @@ function ProductCard({ product, placedCount, isSelected, onSelect }: ProductCard
       {/* Product info */}
       <div className="flex-1 min-w-0 space-y-0.5">
         <div className="flex items-center gap-2">
+          {/* Symbol badge - show letter code */}
+          {product.symbol_code && (
+            <Badge variant="default" className="font-mono font-bold text-xs px-1.5 py-0 flex-shrink-0">
+              {product.symbol || product.symbol_code}
+            </Badge>
+          )}
           <span className="font-mono text-sm font-medium truncate">
             {product.foss_pid}
           </span>
@@ -147,6 +153,7 @@ export function ProductsPanel({
         productId: product.product_id,
         fossPid: product.foss_pid,
         description: product.description_short,
+        symbol: product.symbol,  // Include symbol for marker display
       })
     }
   }

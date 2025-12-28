@@ -67,6 +67,7 @@ Feature-specific documentation.
 | [playground.md](./features/playground.md) | DWG from natural language (LLM + APS) |
 | [planner.md](./features/planner.md) | Visual lighting layout planner (upload DWG + place products) |
 | [symbol-generator.md](./features/symbol-generator.md) | AutoCAD symbol specs via Vision LLM (experimental) |
+| [symbol-classification.md](./features/symbol-classification.md) | Product classification rules (A-P letter codes) |
 | [filters.md](./features/filters.md) | Dynamic filters implementation |
 | [pwa.md](./features/pwa.md) | Progressive Web App setup |
 | [product-search.md](./features/product-search.md) | Product search interface |
@@ -116,4 +117,4 @@ Historical and completed migration docs.
 
 ---
 
-**Last Updated**: 2025-12-27 (v1.12.5 - Added theming docs)
+**Last Updated**: 2025-12-28 (v1.12.5 - Added symbol classification docs)

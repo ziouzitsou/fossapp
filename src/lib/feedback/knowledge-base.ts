@@ -33,7 +33,7 @@ export interface KnowledgeBase {
 export const FOSSAPP_KNOWLEDGE: KnowledgeBase = {
   appName: 'FOSSAPP',
   appDescription: 'Lighting product database for Foss SA lighting designers in Athens, Greece. Contains 56,000+ products from multiple suppliers.',
-  lastUpdated: '2025-12-23',
+  lastUpdated: '2025-12-28',
 
   features: {
     products: {
@@ -156,6 +156,39 @@ export const FOSSAPP_KNOWLEDGE: KnowledgeBase = {
         'Currently in beta - some features still in development',
       ],
     },
+
+    settings: {
+      name: 'Settings',
+      description: 'Application settings and configuration',
+      capabilities: [
+        'View symbol classification rules (A-P letter codes)',
+        'See how products are categorized for drawings',
+        'Understand ETIM class to symbol mappings',
+      ],
+      howTo: {
+        'viewSymbols': 'Go to Settings > Symbols to see the classification rules that assign letter codes to products.',
+        'symbolMeaning': 'Symbols are assigned based on ETIM class and IP rating. A=Interior Spots, B=Suspension, C=Exterior Spots, etc.',
+      },
+    },
+
+    symbolClassification: {
+      name: 'Symbol Classification',
+      description: 'Automatic product classification system using letter codes (A-P) for lighting design drawings',
+      capabilities: [
+        'Automatic symbol assignment based on ETIM class',
+        'IP rating differentiation (indoor vs outdoor)',
+        'Rule priority system for special cases',
+        'View all classification rules in Settings',
+      ],
+      limitations: [
+        'Rules are currently read-only (admin-managed)',
+        'Not all ETIM classes have symbol mappings yet',
+      ],
+      howTo: {
+        'viewRules': 'Go to Settings > Symbols to see all classification rules.',
+        'understand': 'Products get symbols like A (Interior Spots), B (Suspension), C (Exterior Spots) based on their ETIM class and IP rating.',
+      },
+    },
   },
 
   commonQuestions: {
@@ -164,6 +197,8 @@ export const FOSSAPP_KNOWLEDGE: KnowledgeBase = {
     'what is ETIM': 'ETIM (European Technical Information Model) is a standardized classification system for technical products. Each product has an ETIM class and features that describe its specifications.',
     'change product status': 'Currently, product status in projects is fixed at "specified". Status workflow features are planned for a future update.',
     'export project': 'Project export features are available through the project actions menu. You can export product lists and specifications.',
+    'what are symbols': 'Symbols are letter codes (A-P) assigned to products for use in lighting design drawings. A=Interior Spots, B=Suspension, C=Exterior Spots, etc. View all rules at Settings > Symbols.',
+    'symbol classification': 'Products are automatically classified based on their ETIM class and IP rating. For example, downlights with IP<54 get symbol A (Interior), while IP>=54 get symbol C (Exterior).',
   },
 
   // Product vocabulary helps the assistant understand user terminology

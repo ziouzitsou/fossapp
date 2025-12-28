@@ -18,6 +18,7 @@ export interface Placement {
   worldY: number             // DWG world Y coordinate
   dbId: number               // Unique dbId for the marker
   rotation: number           // Rotation in degrees
+  symbol?: string            // Symbol label (e.g., "A1", "B2") for floor plan display
 }
 
 /**
@@ -30,6 +31,8 @@ export interface PanelProduct {
   description: string        // Short description
   quantity: number           // Quantity in project
   placedCount: number        // How many already placed on floor plan
+  symbol?: string            // Symbol label (e.g., "A1") from classification
+  symbolCode?: string        // Symbol letter only (e.g., "A")
 }
 
 /**
@@ -51,6 +54,7 @@ export interface PlacementModeProduct {
   productId: string
   fossPid: string
   description: string
+  symbol?: string            // Symbol label to display on marker (e.g., "A1")
 }
 
 /**

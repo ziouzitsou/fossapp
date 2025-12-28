@@ -254,6 +254,7 @@ export function usePlannerState() {
             productId: p.productId,
             projectProductId: p.projectProductId,
             productName: p.productName,
+            symbol: p.symbol,  // Include symbol for marker display
             worldX: p.worldX,
             worldY: p.worldY,
             rotation: p.rotation,
@@ -376,6 +377,7 @@ export function usePlannerState() {
         projectProductId: p.projectProductId,
         productId: p.productId,
         productName: p.productName,
+        symbol: p.symbol,  // Include symbol for persistence
         worldX: p.worldX,
         worldY: p.worldY,
         rotation: p.rotation
