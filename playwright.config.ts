@@ -13,11 +13,24 @@ import { defineConfig, devices } from '@playwright/test';
  *   Set E2E_TEST_SECRET env var to enable authenticated tests.
  *   See docs/testing/e2e-auth-bypass.md for details.
  *
+ * WSL2 Compatibility:
+ *   GPU acceleration is disabled by default for WSL2/Windows 10 compatibility.
+ *   This enables non-headless mode to work correctly with CPU rendering.
+ *
  * @see https://playwright.dev/docs/test-configuration
  */
 
 // E2E test secret for authenticated tests
 const E2E_TEST_SECRET = process.env.E2E_TEST_SECRET;
+
+// WSL2/Windows 10 compatibility: Disable GPU and force CPU rendering
+// This fixes non-headless mode issues where GPU acceleration doesn't work
+const WSL_CHROMIUM_ARGS = [
+  '--disable-gpu',
+  '--disable-gpu-compositing',
+  '--disable-software-rasterizer',
+  '--use-gl=swiftshader',
+];
 
 export default defineConfig({
   // Test directory
@@ -67,11 +80,26 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: WSL_CHROMIUM_ARGS,
+        },
+      },
     },
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: {
+        ...devices['Desktop Firefox'],
+        launchOptions: {
+          firefoxUserPrefs: {
+            // WSL2 compatibility: Disable GPU acceleration
+            'layers.acceleration.disabled': true,
+            'gfx.webrender.all': false,
+            'gfx.webrender.enabled': false,
+          },
+        },
+      },
     },
     // WebKit disabled - slow and not needed for this project
     // {
@@ -82,7 +110,12 @@ export default defineConfig({
     // Mobile viewports
     {
       name: 'mobile-chrome',
-      use: { ...devices['Pixel 5'] },
+      use: {
+        ...devices['Pixel 5'],
+        launchOptions: {
+          args: WSL_CHROMIUM_ARGS,
+        },
+      },
     },
     // Mobile Safari disabled - uses WebKit
     // {
