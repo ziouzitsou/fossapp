@@ -162,10 +162,13 @@ export {
 // ============================================================================
 
 export {
+  getUserProfileAction,
   getUserSettingsAction,
   updateUserSettingsAction,
   addToSearchHistoryAction,
   clearSearchHistoryAction,
+  type UserProfile,
+  type UserGroup,
   type UserSettings,
   type UpdateSettingsInput,
 } from './user-settings'

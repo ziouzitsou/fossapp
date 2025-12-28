@@ -5,7 +5,8 @@ import { useTheme } from 'next-themes'
 import { useEffect, useState, useCallback } from 'react'
 import { logEventClient } from '@fossapp/core/logging/client'
 import Image from 'next/image'
-import { FaSignOutAlt, FaSun, FaMoon, FaDesktop, FaCheck } from 'react-icons/fa'
+import Link from 'next/link'
+import { FaSignOutAlt, FaSun, FaMoon, FaDesktop, FaCheck, FaCog } from 'react-icons/fa'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -143,6 +144,12 @@ export function UserDropdown({ user }: UserDropdownProps) {
         )}
 
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link href="/settings">
+            <FaCog className="mr-2 h-4 w-4" />
+            <span>Settings</span>
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => signOut({ callbackUrl: '/' })}
           className="cursor-pointer text-destructive focus:text-destructive"

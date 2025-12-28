@@ -25,6 +25,26 @@ export interface UserSettings {
   updated_at: string
 }
 
+export interface UserGroup {
+  id: number
+  name: string
+  display_name: string
+  description: string | null
+}
+
+export interface UserProfile {
+  id: string
+  email: string
+  name: string | null
+  image: string | null
+  group: UserGroup | null
+  is_active: boolean
+  first_login_at: string | null
+  last_login_at: string | null
+  login_count: number
+  created_at: string
+}
+
 export interface UpdateSettingsInput {
   theme?: 'default' | 'minimal' | 'emerald' | 'ocean'
   sidebar_expanded?: boolean
@@ -41,6 +61,74 @@ export interface ActionResult<T = void> {
   success: boolean
   data?: T
   error?: string
+}
+
+// ============================================================================
+// GET USER PROFILE
+// ============================================================================
+
+/**
+ * Fetch user profile by email, including group information
+ */
+export async function getUserProfileAction(
+  email: string
+): Promise<ActionResult<UserProfile>> {
+  try {
+    if (!email?.trim()) {
+      return { success: false, error: 'Email is required' }
+    }
+
+    const normalizedEmail = email.toLowerCase().trim()
+
+    const { data: user, error: userError } = await supabaseServer
+      .schema('analytics')
+      .from('users')
+      .select(`
+        id,
+        email,
+        name,
+        image,
+        is_active,
+        first_login_at,
+        last_login_at,
+        login_count,
+        created_at,
+        user_groups:group_id (
+          id,
+          name,
+          display_name,
+          description
+        )
+      `)
+      .eq('email', normalizedEmail)
+      .single()
+
+    if (userError || !user) {
+      return { success: false, error: 'User not found' }
+    }
+
+    // Transform the response to match UserProfile interface
+    // Supabase returns the joined table as an object (not array) for single foreign key
+    const groupData = user.user_groups as unknown as UserGroup | null
+
+    const profile: UserProfile = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      image: user.image,
+      group: groupData,
+      is_active: user.is_active,
+      first_login_at: user.first_login_at,
+      last_login_at: user.last_login_at,
+      login_count: user.login_count,
+      created_at: user.created_at
+    }
+
+    return { success: true, data: profile }
+  } catch (error) {
+    console.error('Get user profile error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
 }
 
 // ============================================================================
