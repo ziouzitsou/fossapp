@@ -10,14 +10,14 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useActiveProject } from '@/lib/active-project-context'
 import type { Viewer3DInstance, Placement, PlacementModeProduct, DwgUnitInfo } from '@/components/planner'
-import type { AreaVersionOption } from './types'
+import type { AreaRevisionOption } from './types'
 import {
   listProjectAreasAction,
-  listAreaVersionProductsAction,
-  deleteAreaVersionFloorPlanAction,
+  listAreaRevisionProductsAction,
+  deleteAreaRevisionFloorPlanAction,
   loadAreaPlacementsAction,
   saveAreaPlacementsAction,
-  type AreaVersionProduct,
+  type AreaRevisionProduct,
   type PlacementData
 } from '@/lib/actions/project-areas'
 
@@ -33,22 +33,22 @@ export function usePlannerState() {
   const [dragOverAreaId, setDragOverAreaId] = useState<string | null>(null)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
 
-  // Area-version selection
-  const [areaVersions, setAreaVersions] = useState<AreaVersionOption[]>([])
-  const [selectedAreaVersion, setSelectedAreaVersion] = useState<AreaVersionOption | null>(null)
+  // Area-revision selection
+  const [areaRevisions, setAreaRevisions] = useState<AreaRevisionOption[]>([])
+  const [selectedAreaRevision, setSelectedAreaRevision] = useState<AreaRevisionOption | null>(null)
   const [loadingAreas, setLoadingAreas] = useState(false)
 
   // Pending upload area - tracks which area a file input belongs to
   // Use both state and ref: state for React lifecycle, ref for synchronous access in callbacks
-  const [pendingUploadArea, setPendingUploadArea] = useState<AreaVersionOption | null>(null)
-  const pendingUploadAreaRef = useRef<AreaVersionOption | null>(null)
+  const [pendingUploadArea, setPendingUploadArea] = useState<AreaRevisionOption | null>(null)
+  const pendingUploadAreaRef = useRef<AreaRevisionOption | null>(null)
 
   // Deletion state
   const [deletingAreaId, setDeletingAreaId] = useState<string | null>(null)
-  const [deleteConfirmArea, setDeleteConfirmArea] = useState<AreaVersionOption | null>(null)
+  const [deleteConfirmArea, setDeleteConfirmArea] = useState<AreaRevisionOption | null>(null)
 
   // Warnings dialog state
-  const [warningsDialogArea, setWarningsDialogArea] = useState<AreaVersionOption | null>(null)
+  const [warningsDialogArea, setWarningsDialogArea] = useState<AreaRevisionOption | null>(null)
   const [warningsData, setWarningsData] = useState<Array<{ code: string; message: string }> | null>(null)
   const [loadingWarnings, setLoadingWarnings] = useState(false)
 
@@ -61,8 +61,8 @@ export function usePlannerState() {
   // File input ref - for reliable programmatic clicks
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  // Area version products
-  const [products, setProducts] = useState<AreaVersionProduct[]>([])
+  // Area revision products
+  const [products, setProducts] = useState<AreaRevisionProduct[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
 
   // Placements state
@@ -98,7 +98,7 @@ export function usePlannerState() {
   })()
 
   // Determine if we have areas
-  const hasAreas = areaVersions.length > 0
+  const hasAreas = areaRevisions.length > 0
 
   // ============================================================================
   // Effects
@@ -108,8 +108,8 @@ export function usePlannerState() {
   useEffect(() => {
     async function loadAreas() {
       if (!activeProject?.id) {
-        setAreaVersions([])
-        setSelectedAreaVersion(null)
+        setAreaRevisions([])
+        setSelectedAreaRevision(null)
         return
       }
 
@@ -117,28 +117,28 @@ export function usePlannerState() {
       try {
         const result = await listProjectAreasAction(activeProject.id, true)
         if (result.success && result.data) {
-          const options: AreaVersionOption[] = result.data
-            .filter(area => area.current_version_data?.id)
+          const options: AreaRevisionOption[] = result.data
+            .filter(area => area.current_revision_data?.id)
             .map(area => ({
               areaId: area.id,
               areaCode: area.area_code,
               areaName: area.area_name,
-              versionId: area.current_version_data!.id,
-              versionNumber: area.current_version,
-              floorPlanUrn: area.current_version_data!.floor_plan_urn,
-              floorPlanFilename: area.current_version_data!.floor_plan_filename,
-              floorPlanStatus: area.current_version_data!.floor_plan_status,
-              floorPlanWarnings: area.current_version_data!.floor_plan_warnings
+              revisionId: area.current_revision_data!.id,
+              revisionNumber: area.current_revision,
+              floorPlanUrn: area.current_revision_data!.floor_plan_urn,
+              floorPlanFilename: area.current_revision_data!.floor_plan_filename,
+              floorPlanStatus: area.current_revision_data!.floor_plan_status,
+              floorPlanWarnings: area.current_revision_data!.floor_plan_warnings
             }))
 
-          setAreaVersions(options)
+          setAreaRevisions(options)
 
           // Auto-select area from URL param if present
           const areaIdFromUrl = searchParams.get('area')
-          if (areaIdFromUrl && !selectedAreaVersion) {
+          if (areaIdFromUrl && !selectedAreaRevision) {
             const areaFromUrl = options.find(a => a.areaId === areaIdFromUrl)
             if (areaFromUrl && areaFromUrl.floorPlanUrn) {
-              setSelectedAreaVersion(areaFromUrl)
+              setSelectedAreaRevision(areaFromUrl)
             }
           }
 
@@ -148,12 +148,12 @@ export function usePlannerState() {
             const manifestUpdates = await Promise.all(
               inProgressAreas.map(async (area) => {
                 try {
-                  const res = await fetch(`/api/planner/manifest?areaVersionId=${area.versionId}`)
+                  const res = await fetch(`/api/planner/manifest?areaRevisionId=${area.revisionId}`)
                   if (res.ok) {
                     const manifest = await res.json()
                     if (manifest.status === 'success' || manifest.status === 'failed') {
                       return {
-                        versionId: area.versionId,
+                        revisionId: area.revisionId,
                         status: manifest.status,
                         warnings: manifest.warningCount || 0
                       }
@@ -168,9 +168,9 @@ export function usePlannerState() {
 
             const completedUpdates = manifestUpdates.filter(Boolean)
             if (completedUpdates.length > 0) {
-              setAreaVersions(prev =>
+              setAreaRevisions(prev =>
                 prev.map(av => {
-                  const update = completedUpdates.find(u => u?.versionId === av.versionId)
+                  const update = completedUpdates.find(u => u?.revisionId === av.revisionId)
                   if (update) {
                     return {
                       ...av,
@@ -184,13 +184,13 @@ export function usePlannerState() {
             }
           }
         } else {
-          setAreaVersions([])
-          setSelectedAreaVersion(null)
+          setAreaRevisions([])
+          setSelectedAreaRevision(null)
         }
       } catch (err) {
         console.error('Failed to load project areas:', err)
-        setAreaVersions([])
-        setSelectedAreaVersion(null)
+        setAreaRevisions([])
+        setSelectedAreaRevision(null)
       } finally {
         setLoadingAreas(false)
       }
@@ -199,24 +199,24 @@ export function usePlannerState() {
     loadAreas()
   }, [activeProject?.id])
 
-  // Load products for selected area version
+  // Load products for selected area revision
   useEffect(() => {
     async function loadProducts() {
-      if (!selectedAreaVersion?.versionId) {
+      if (!selectedAreaRevision?.revisionId) {
         setProducts([])
         return
       }
 
       setLoadingProducts(true)
       try {
-        const result = await listAreaVersionProductsAction(selectedAreaVersion.versionId)
+        const result = await listAreaRevisionProductsAction(selectedAreaRevision.revisionId)
         if (result.success && result.data) {
           setProducts(result.data)
         } else {
           setProducts([])
         }
       } catch (err) {
-        console.error('Failed to load area version products:', err)
+        console.error('Failed to load area revision products:', err)
         setProducts([])
       } finally {
         setLoadingProducts(false)
@@ -224,30 +224,30 @@ export function usePlannerState() {
     }
 
     loadProducts()
-  }, [selectedAreaVersion?.versionId])
+  }, [selectedAreaRevision?.revisionId])
 
-  // Update viewer when area-version changes
+  // Update viewer when area-revision changes
   useEffect(() => {
     setSelectedFile(null)
-    setSelectedUrn(selectedAreaVersion?.floorPlanUrn || null)
-    setSelectedFileName(selectedAreaVersion?.floorPlanFilename || null)
+    setSelectedUrn(selectedAreaRevision?.floorPlanUrn || null)
+    setSelectedFileName(selectedAreaRevision?.floorPlanFilename || null)
     setPlacements([])
     setSavedPlacements([])
     setSelectedPlacementId(null)
     setDwgUnitInfo(null)
     viewerRef.current = null
-  }, [selectedAreaVersion?.versionId, selectedAreaVersion?.floorPlanUrn, selectedAreaVersion?.floorPlanFilename])
+  }, [selectedAreaRevision?.revisionId, selectedAreaRevision?.floorPlanUrn, selectedAreaRevision?.floorPlanFilename])
 
   // Load placements from database
   useEffect(() => {
     async function loadPlacements() {
-      if (!selectedAreaVersion?.versionId || !selectedAreaVersion?.floorPlanUrn) {
+      if (!selectedAreaRevision?.revisionId || !selectedAreaRevision?.floorPlanUrn) {
         return
       }
 
       setLoadingPlacements(true)
       try {
-        const result = await loadAreaPlacementsAction(selectedAreaVersion.versionId)
+        const result = await loadAreaPlacementsAction(selectedAreaRevision.revisionId)
         if (result.success && result.data) {
           const loadedPlacements: Placement[] = result.data.map((p, index) => ({
             id: p.id,
@@ -271,7 +271,7 @@ export function usePlannerState() {
     }
 
     loadPlacements()
-  }, [selectedAreaVersion?.versionId, selectedAreaVersion?.floorPlanUrn])
+  }, [selectedAreaRevision?.revisionId, selectedAreaRevision?.floorPlanUrn])
 
   // Clear placements when file changes
   useEffect(() => {
@@ -313,7 +313,7 @@ export function usePlannerState() {
     setDragOverAreaId(null)
   }, [])
 
-  const handleCardDrop = useCallback((e: React.DragEvent, area: AreaVersionOption) => {
+  const handleCardDrop = useCallback((e: React.DragEvent, area: AreaRevisionOption) => {
     e.preventDefault()
     e.stopPropagation()
     setDragOverAreaId(null)
@@ -322,7 +322,7 @@ export function usePlannerState() {
     const dwgFile = files.find(f => f.name.toLowerCase().endsWith('.dwg'))
 
     if (dwgFile) {
-      setSelectedAreaVersion(area)
+      setSelectedAreaRevision(area)
       setSelectedFile(dwgFile)
     }
   }, [])
@@ -333,7 +333,7 @@ export function usePlannerState() {
     // opens before React re-renders with updated state
     const area = pendingUploadAreaRef.current
     if (file && file.name.toLowerCase().endsWith('.dwg') && area) {
-      setSelectedAreaVersion(area)
+      setSelectedAreaRevision(area)
       setSelectedFile(file)
     }
     e.target.value = ''
@@ -346,7 +346,7 @@ export function usePlannerState() {
     setSelectedFile(null)
     setSelectedUrn(null)
     setSelectedFileName(null)
-    setSelectedAreaVersion(null)
+    setSelectedAreaRevision(null)
     setPlacements([])
     setSavedPlacements([])
     setSelectedPlacementId(null)
@@ -367,7 +367,7 @@ export function usePlannerState() {
 
   // Save placements to database
   const handleSavePlacements = useCallback(async () => {
-    if (!selectedAreaVersion?.versionId || isSaving) return
+    if (!selectedAreaRevision?.revisionId || isSaving) return
 
     setIsSaving(true)
     try {
@@ -381,7 +381,7 @@ export function usePlannerState() {
         rotation: p.rotation
       }))
 
-      const result = await saveAreaPlacementsAction(selectedAreaVersion.versionId, placementData)
+      const result = await saveAreaPlacementsAction(selectedAreaRevision.revisionId, placementData)
       if (result.success) {
         setSavedPlacements(placementData)
       } else {
@@ -394,12 +394,12 @@ export function usePlannerState() {
     } finally {
       setIsSaving(false)
     }
-  }, [selectedAreaVersion?.versionId, placements, isSaving])
+  }, [selectedAreaRevision?.revisionId, placements, isSaving])
 
   // Handle clicking on an area card
-  const handleAreaCardClick = useCallback((area: AreaVersionOption) => {
+  const handleAreaCardClick = useCallback((area: AreaRevisionOption) => {
     if (area.floorPlanUrn) {
-      setSelectedAreaVersion(area)
+      setSelectedAreaRevision(area)
       const params = new URLSearchParams(searchParams.toString())
       params.set('area', area.areaId)
       router.replace(`?${params.toString()}`, { scroll: false })
@@ -415,7 +415,7 @@ export function usePlannerState() {
   }, [router, searchParams])
 
   // Handle clicking delete button
-  const handleDeleteClick = useCallback((e: React.MouseEvent, area: AreaVersionOption) => {
+  const handleDeleteClick = useCallback((e: React.MouseEvent, area: AreaRevisionOption) => {
     e.stopPropagation()
     if (!area.floorPlanUrn) return
     setDeleteConfirmArea(area)
@@ -429,11 +429,11 @@ export function usePlannerState() {
     setDeleteConfirmArea(null)
 
     try {
-      const result = await deleteAreaVersionFloorPlanAction(deleteConfirmArea.versionId)
+      const result = await deleteAreaRevisionFloorPlanAction(deleteConfirmArea.revisionId)
       if (result.success) {
-        setAreaVersions(prev =>
+        setAreaRevisions(prev =>
           prev.map(av =>
-            av.versionId === deleteConfirmArea.versionId
+            av.revisionId === deleteConfirmArea.revisionId
               ? { ...av, floorPlanUrn: undefined, floorPlanFilename: undefined }
               : av
           )
@@ -450,7 +450,7 @@ export function usePlannerState() {
   }, [deleteConfirmArea])
 
   // Handle clicking warnings badge
-  const handleWarningsClick = useCallback(async (e: React.MouseEvent, area: AreaVersionOption) => {
+  const handleWarningsClick = useCallback(async (e: React.MouseEvent, area: AreaRevisionOption) => {
     e.stopPropagation()
 
     setWarningsDialogArea(area)
@@ -458,7 +458,7 @@ export function usePlannerState() {
     setLoadingWarnings(true)
 
     try {
-      const res = await fetch(`/api/planner/manifest?areaVersionId=${area.versionId}`)
+      const res = await fetch(`/api/planner/manifest?areaRevisionId=${area.revisionId}`)
       if (res.ok) {
         const manifest = await res.json()
         setWarningsData(manifest.warnings || [])
@@ -532,10 +532,10 @@ export function usePlannerState() {
   // Handle upload complete
   const handleUploadComplete = useCallback((urn: string, isNewUpload: boolean, fileName: string) => {
     console.log('Upload complete:', { urn: urn.substring(0, 20) + '...', isNewUpload, fileName })
-    if (selectedAreaVersion) {
-      setAreaVersions(prev =>
+    if (selectedAreaRevision) {
+      setAreaRevisions(prev =>
         prev.map(av =>
-          av.versionId === selectedAreaVersion.versionId
+          av.revisionId === selectedAreaRevision.revisionId
             ? {
                 ...av,
                 floorPlanUrn: urn,
@@ -546,18 +546,18 @@ export function usePlannerState() {
         )
       )
     }
-  }, [selectedAreaVersion])
+  }, [selectedAreaRevision])
 
   // Handle translation complete
   const handleTranslationComplete = useCallback(async () => {
-    if (selectedAreaVersion) {
+    if (selectedAreaRevision) {
       try {
-        const res = await fetch(`/api/planner/manifest?areaVersionId=${selectedAreaVersion.versionId}`)
+        const res = await fetch(`/api/planner/manifest?areaRevisionId=${selectedAreaRevision.revisionId}`)
         if (res.ok) {
           const manifest = await res.json()
-          setAreaVersions(prev =>
+          setAreaRevisions(prev =>
             prev.map(av =>
-              av.versionId === selectedAreaVersion.versionId
+              av.revisionId === selectedAreaRevision.revisionId
                 ? {
                     ...av,
                     floorPlanStatus: 'success',
@@ -571,7 +571,7 @@ export function usePlannerState() {
         console.error('Failed to fetch manifest:', err)
       }
     }
-  }, [selectedAreaVersion])
+  }, [selectedAreaRevision])
 
   return {
     // Context
@@ -589,8 +589,8 @@ export function usePlannerState() {
     dwgUnitInfo,
 
     // Area state
-    areaVersions,
-    selectedAreaVersion,
+    areaRevisions,
+    selectedAreaRevision,
     loadingAreas,
     hasAreas,
 

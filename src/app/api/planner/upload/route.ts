@@ -12,13 +12,13 @@ import { supabaseServer } from '@fossapp/core/db/server'
 import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 
 /**
- * Check if floor plan with this hash already exists in any area version
+ * Check if floor plan with this hash already exists in any area revision
  * Returns existing URN if found (cache hit)
  */
 async function checkFloorPlanCache(hash: string): Promise<string | null> {
   const { data, error } = await supabaseServer
     .schema('projects')
-    .from('project_area_versions')
+    .from('project_area_revisions')
     .select('floor_plan_urn')
     .eq('floor_plan_hash', hash)
     .not('floor_plan_urn', 'is', null)
@@ -35,20 +35,20 @@ async function checkFloorPlanCache(hash: string): Promise<string | null> {
 /**
  * POST /api/planner/upload
  *
- * Upload floor plan DWG for an area version with persistent storage and caching.
+ * Upload floor plan DWG for an area revision with persistent storage and caching.
  *
  * Body: FormData with:
  *   - 'file': DWG file
  *   - 'projectId': Project UUID (for bucket reference)
- *   - 'areaVersionId': Area version UUID
+ *   - 'areaRevisionId': Area revision UUID
  *
  * Returns: { urn: string, isNewUpload: boolean, bucketName: string, fileName: string }
  *
  * Features:
  *   - SHA256 hash caching (same file = instant URN return)
  *   - Persistent OSS bucket per project
- *   - Structured object keys: {areaId}/{versionId}/{filename}
- *   - Database storage of URN in project_area_versions table
+ *   - Structured object keys: {areaId}/{revisionId}/{filename}
+ *   - Database storage of URN in project_area_revisions table
  */
 export async function POST(request: NextRequest) {
   // Security: Require authentication
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const projectId = formData.get('projectId') as string | null
-    const areaVersionId = formData.get('areaVersionId') as string | null
+    const areaRevisionId = formData.get('areaRevisionId') as string | null
 
     // Validate inputs
     if (!file) {
@@ -90,9 +90,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!areaVersionId) {
+    if (!areaRevisionId) {
       return NextResponse.json(
-        { error: 'No areaVersionId provided' },
+        { error: 'No areaRevisionId provided' },
         { status: 400 }
       )
     }
@@ -105,9 +105,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-    if (!uuidRegex.test(areaVersionId)) {
+    if (!uuidRegex.test(areaRevisionId)) {
       return NextResponse.json(
-        { error: 'Invalid area version ID format' },
+        { error: 'Invalid area revision ID format' },
         { status: 400 }
       )
     }
@@ -121,14 +121,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify area version exists and get area info + project's oss_bucket
-    const { data: areaVersion, error: avError } = await supabaseServer
+    // Verify area revision exists and get area info + project's oss_bucket
+    const { data: areaRevision, error: arError } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
+      .from('project_area_revisions')
       .select(`
         id,
         area_id,
-        version_number,
+        revision_number,
         project_areas!inner(
           id,
           project_id,
@@ -139,28 +139,28 @@ export async function POST(request: NextRequest) {
           )
         )
       `)
-      .eq('id', areaVersionId)
+      .eq('id', areaRevisionId)
       .single()
 
-    if (avError || !areaVersion) {
+    if (arError || !areaRevision) {
       return NextResponse.json(
-        { error: 'Area version not found' },
+        { error: 'Area revision not found' },
         { status: 404 }
       )
     }
 
     // Type assertion for nested data (Supabase returns object for !inner join with single())
-    const projectAreas = areaVersion.project_areas as unknown as {
+    const projectAreas = areaRevision.project_areas as unknown as {
       id: string
       project_id: string
       area_code: string
       projects: { id: string; oss_bucket: string | null }
     }
 
-    // Verify the area version belongs to the specified project
+    // Verify the area revision belongs to the specified project
     if (projectAreas.project_id !== projectId) {
       return NextResponse.json(
-        { error: 'Area version does not belong to the specified project' },
+        { error: 'Area revision does not belong to the specified project' },
         { status: 400 }
       )
     }
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    console.log(`[Planner API] Processing ${sanitizedFileName} (${(buffer.length / 1024 / 1024).toFixed(2)} MB) for area version ${areaVersionId}`)
+    console.log(`[Planner API] Processing ${sanitizedFileName} (${(buffer.length / 1024 / 1024).toFixed(2)} MB) for area revision ${areaRevisionId}`)
 
     // Calculate file hash for caching
     const fileHash = calculateFileHash(buffer)
@@ -194,16 +194,16 @@ export async function POST(request: NextRequest) {
     if (cachedUrn) {
       console.log(`[Planner API] Cache hit! Using existing URN`)
 
-      // Save to area version (reusing existing URN)
+      // Save to area revision (reusing existing URN)
       const { error: updateError } = await supabaseServer
         .schema('projects')
-        .from('project_area_versions')
+        .from('project_area_revisions')
         .update({
           floor_plan_urn: cachedUrn,
           floor_plan_filename: sanitizedFileName,
           floor_plan_hash: fileHash
         })
-        .eq('id', areaVersionId)
+        .eq('id', areaRevisionId)
 
       if (updateError) {
         console.error('[Planner API] Database update error:', updateError)
@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
     // No cache hit - upload new file with meaningful object key
     const objectKey = generateObjectKey(
       projectAreas.area_code,
-      areaVersion.version_number,
+      areaRevision.revision_number,
       sanitizedFileName
     )
     const { urn } = await uploadFloorPlan(bucketName, objectKey, buffer)
@@ -232,17 +232,17 @@ export async function POST(request: NextRequest) {
     // Start translation
     await translateToSVF2(urn)
 
-    // Save to area version with status 'inprogress' (translation started)
+    // Save to area revision with status 'inprogress' (translation started)
     const { error: updateError } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
+      .from('project_area_revisions')
       .update({
         floor_plan_urn: urn,
         floor_plan_filename: sanitizedFileName,
         floor_plan_hash: fileHash,
         floor_plan_status: 'inprogress'
       })
-      .eq('id', areaVersionId)
+      .eq('id', areaRevisionId)
 
     if (updateError) {
       console.error('[Planner API] Database update error:', updateError)
@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[Planner API] Floor plan saved for area version ${areaVersionId}`)
+    console.log(`[Planner API] Floor plan saved for area revision ${areaRevisionId}`)
 
     return NextResponse.json({
       urn,
@@ -270,9 +270,9 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/planner/upload?areaVersionId={uuid}
+ * GET /api/planner/upload?areaRevisionId={uuid}
  *
- * Get existing floor plan info for an area version
+ * Get existing floor plan info for an area revision
  */
 export async function GET(request: NextRequest) {
   // Security: Require authentication
@@ -285,11 +285,11 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url)
-  const areaVersionId = searchParams.get('areaVersionId')
+  const areaRevisionId = searchParams.get('areaRevisionId')
 
-  if (!areaVersionId) {
+  if (!areaRevisionId) {
     return NextResponse.json(
-      { error: 'No areaVersionId provided' },
+      { error: 'No areaRevisionId provided' },
       { status: 400 }
     )
   }
@@ -297,7 +297,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
+      .from('project_area_revisions')
       .select(`
         floor_plan_urn,
         floor_plan_filename,
@@ -310,12 +310,12 @@ export async function GET(request: NextRequest) {
           )
         )
       `)
-      .eq('id', areaVersionId)
+      .eq('id', areaRevisionId)
       .single()
 
     if (error) {
       return NextResponse.json(
-        { error: 'Area version not found' },
+        { error: 'Area revision not found' },
         { status: 404 }
       )
     }

@@ -92,7 +92,7 @@ export {
 } from './projects'
 
 // ============================================================================
-// PROJECT AREAS (Multi-area versioning)
+// PROJECT AREAS (Multi-area revisions)
 // ============================================================================
 
 export {
@@ -101,20 +101,24 @@ export {
   createAreaAction,
   updateAreaAction,
   deleteAreaAction,
-  createAreaVersionAction,
-  setAreaCurrentVersionAction,
-  getAreaVersionsAction,
-  deleteAreaVersionAction,
+  createAreaRevisionAction,
+  setAreaCurrentRevisionAction,
+  getAreaRevisionsAction,
+  deleteAreaRevisionAction,
   getProjectAreasForDropdownAction,
-  listAreaVersionProductsAction,
+  listAreaRevisionProductsAction,
+  deleteAreaRevisionFloorPlanAction,
+  loadAreaPlacementsAction,
+  saveAreaPlacementsAction,
   type ProjectArea,
-  type AreaVersion,
-  type AreaVersionSummary,
+  type AreaRevision,
+  type AreaRevisionSummary,
   type AreaDropdownItem,
-  type AreaVersionProduct,
+  type AreaRevisionProduct,
   type CreateAreaInput,
   type UpdateAreaInput,
-  type CreateVersionInput as CreateAreaVersionInput,
+  type CreateRevisionInput as CreateAreaRevisionInput,
+  type PlacementData,
 } from './project-areas'
 
 // ============================================================================

@@ -10,18 +10,18 @@ import { FileIcon, Loader2, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import { Badge } from '@fossapp/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@fossapp/ui'
 import { cn } from '@fossapp/ui'
-import type { AreaVersionOption } from './types'
+import type { AreaRevisionOption } from './types'
 
 interface AreaCardProps {
-  area: AreaVersionOption
+  area: AreaRevisionOption
   isDragOver: boolean
   isDeleting: boolean
   onDragOver: (e: React.DragEvent, areaId: string) => void
   onDragLeave: (e: React.DragEvent) => void
-  onDrop: (e: React.DragEvent, area: AreaVersionOption) => void
-  onClick: (area: AreaVersionOption) => void
-  onDeleteClick: (e: React.MouseEvent, area: AreaVersionOption) => void
-  onWarningsClick: (e: React.MouseEvent, area: AreaVersionOption) => void
+  onDrop: (e: React.DragEvent, area: AreaRevisionOption) => void
+  onClick: (area: AreaRevisionOption) => void
+  onDeleteClick: (e: React.MouseEvent, area: AreaRevisionOption) => void
+  onWarningsClick: (e: React.MouseEvent, area: AreaRevisionOption) => void
 }
 
 export function AreaCard({
@@ -58,7 +58,7 @@ export function AreaCard({
           <div className="flex items-center gap-2">
             <span className="font-semibold text-foreground">{area.areaCode}</span>
             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              v{area.versionNumber}
+              RV{area.revisionNumber}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground truncate mt-0.5">
@@ -74,7 +74,7 @@ export function AreaCard({
           <div className="shrink-0 w-12 h-12 rounded-lg bg-muted overflow-hidden relative">
             {area.floorPlanStatus === 'success' ? (
               <Image
-                src={`/api/planner/thumbnail?areaVersionId=${area.versionId}`}
+                src={`/api/planner/thumbnail?areaRevisionId=${area.revisionId}`}
                 alt={area.floorPlanFilename || 'Floor plan thumbnail'}
                 fill
                 className="object-cover pointer-events-none"

@@ -1,11 +1,11 @@
 'use server'
 
 /**
- * Area Version Products Actions
+ * Area Revision Products Actions
  *
- * Product-related operations for area versions:
+ * Product-related operations for area revisions:
  * - Dropdown items for area selection
- * - List products within an area version
+ * - List products within an area revision
  */
 
 import { supabaseServer } from '@fossapp/core/db/server'
@@ -22,8 +22,8 @@ export interface AreaDropdownItem {
   area_code: string
   area_name: string
   floor_level: number | null
-  current_version_id: string
-  version_number: number
+  current_revision_id: string
+  revision_number: number
 }
 
 /**
@@ -44,8 +44,8 @@ export async function getProjectAreasForDropdownAction(
         area_code,
         area_name,
         floor_level,
-        current_version,
-        project_area_versions!inner (id, version_number)
+        current_revision,
+        project_area_revisions!inner (id, revision_number)
       `)
       .eq('project_id', sanitizedProjectId)
       .eq('is_active', true)
@@ -61,18 +61,18 @@ export async function getProjectAreasForDropdownAction(
       return { success: true, data: [] }
     }
 
-    // Map to dropdown items, finding the current version ID
+    // Map to dropdown items, finding the current revision ID
     const dropdownItems: AreaDropdownItem[] = areas.map(area => {
-      const versions = area.project_area_versions as Array<{ id: string; version_number: number }>
-      const currentVersion = versions.find(v => v.version_number === area.current_version)
+      const revisions = area.project_area_revisions as Array<{ id: string; revision_number: number }>
+      const currentRevision = revisions.find(r => r.revision_number === area.current_revision)
 
       return {
         area_id: area.id,
         area_code: area.area_code,
         area_name: area.area_name,
         floor_level: area.floor_level,
-        current_version_id: currentVersion?.id || '',
-        version_number: area.current_version
+        current_revision_id: currentRevision?.id || '',
+        revision_number: area.current_revision
       }
     })
 
@@ -84,10 +84,10 @@ export async function getProjectAreasForDropdownAction(
 }
 
 // ============================================================================
-// LIST AREA VERSION PRODUCTS
+// LIST AREA REVISION PRODUCTS
 // ============================================================================
 
-export interface AreaVersionProduct {
+export interface AreaRevisionProduct {
   id: string
   product_id: string
   foss_pid: string
@@ -103,26 +103,26 @@ export interface AreaVersionProduct {
 }
 
 /**
- * Get products for a specific area version
+ * Get products for a specific area revision
  * Used by Planner to display available products for placement
  */
-export async function listAreaVersionProductsAction(
-  areaVersionId: string
-): Promise<ActionResult<AreaVersionProduct[]>> {
+export async function listAreaRevisionProductsAction(
+  areaRevisionId: string
+): Promise<ActionResult<AreaRevisionProduct[]>> {
   try {
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    if (!uuidRegex.test(areaVersionId)) {
-      return { success: false, error: 'Invalid area version ID format' }
+    if (!uuidRegex.test(areaRevisionId)) {
+      return { success: false, error: 'Invalid area revision ID format' }
     }
 
     // Use PostgreSQL function in projects schema to join across schemas
     const { data: products, error } = await supabaseServer
       .schema('projects')
-      .rpc('get_area_version_products', { p_area_version_id: areaVersionId })
+      .rpc('get_area_revision_products', { p_area_revision_id: areaRevisionId })
 
     if (error) {
-      console.error('List area version products error:', error)
+      console.error('List area revision products error:', error)
       return { success: false, error: 'Failed to fetch products' }
     }
 
@@ -130,8 +130,8 @@ export async function listAreaVersionProductsAction(
       return { success: true, data: [] }
     }
 
-    // Map RPC results to AreaVersionProduct format
-    const mappedProducts: AreaVersionProduct[] = products.map((p: {
+    // Map RPC results to AreaRevisionProduct format
+    const mappedProducts: AreaRevisionProduct[] = products.map((p: {
       id: string
       product_id: string
       foss_pid: string
@@ -167,7 +167,7 @@ export async function listAreaVersionProductsAction(
 
     return { success: true, data: mappedProducts }
   } catch (error) {
-    console.error('List area version products error:', error)
+    console.error('List area revision products error:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }

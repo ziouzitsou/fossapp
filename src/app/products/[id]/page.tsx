@@ -82,7 +82,7 @@ export default function ProductDetailPage() {
       const result = await addProductToProjectAction({
         project_id: activeProject.id,
         product_id: product.product_id,
-        area_version_id: area.current_version_id,
+        area_revision_id: area.current_revision_id,
       })
 
       if (result.success) {
@@ -344,7 +344,7 @@ export default function ProductDetailPage() {
                             {area.area_name}
                           </span>
                           <span className="text-xs text-muted-foreground ml-1">
-                            (v{area.version_number})
+                            (RV{area.revision_number})
                           </span>
                         </button>
                       ))}

@@ -179,8 +179,8 @@ export function AreaFormDialog({
           <DialogTitle>{isEditing ? 'Edit Area' : 'Create New Area'}</DialogTitle>
           <DialogDescription>
             {isEditing
-              ? 'Update area details. Version 1 will be created automatically for new areas.'
-              : 'Define a new area (floor, garden, zone, etc.). Version 1 will be created automatically.'}
+              ? 'Update area details.'
+              : 'Define a new area (floor, garden, zone, etc.). Revision 1 will be created automatically.'}
           </DialogDescription>
         </DialogHeader>
 

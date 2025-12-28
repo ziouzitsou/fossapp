@@ -17,12 +17,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@fossapp/ui'
-import type { AreaVersionProduct } from '@/lib/actions/project-areas'
+import type { AreaRevisionProduct } from '@/lib/actions/project-areas'
 import type { Placement, PlacementModeProduct } from './types'
 
 interface ProductsPanelProps {
   /** Products from the selected area version */
-  products: AreaVersionProduct[]
+  products: AreaRevisionProduct[]
   /** Current placements (to show placed count) */
   placements: Placement[]
   /** Currently selected product for placement */
@@ -40,7 +40,7 @@ interface ProductsPanelProps {
 }
 
 interface ProductCardProps {
-  product: AreaVersionProduct
+  product: AreaRevisionProduct
   placedCount: number
   isSelected: boolean
   onSelect: () => void
@@ -124,7 +124,7 @@ export function ProductsPanel({
 
   // Group products by room_location (if available)
   const groupedProducts = useMemo(() => {
-    const groups = new Map<string, AreaVersionProduct[]>()
+    const groups = new Map<string, AreaRevisionProduct[]>()
 
     for (const product of products) {
       const location = product.room_location || 'Unassigned'
@@ -137,7 +137,7 @@ export function ProductsPanel({
   }, [products])
 
   // Handler for clicking a product
-  const handleProductClick = (product: AreaVersionProduct) => {
+  const handleProductClick = (product: AreaRevisionProduct) => {
     // If same product clicked, toggle off
     if (placementMode?.projectProductId === product.id) {
       onExitPlacementMode()

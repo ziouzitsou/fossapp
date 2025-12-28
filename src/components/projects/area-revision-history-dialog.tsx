@@ -26,31 +26,31 @@ import { Spinner } from '@fossapp/ui'
 import { CheckCircle2, Circle, FileText, Trash2 } from 'lucide-react'
 import {
   getAreaByIdAction,
-  getAreaVersionsAction,
-  setAreaCurrentVersionAction,
-  deleteAreaVersionAction,
-  type AreaVersion,
+  getAreaRevisionsAction,
+  setAreaCurrentRevisionAction,
+  deleteAreaRevisionAction,
+  type AreaRevision,
   type ProjectArea,
 } from '@/lib/actions'
 
-interface AreaVersionHistoryDialogProps {
+interface AreaRevisionHistoryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   areaId: string
-  onVersionChange?: () => void
+  onRevisionChange?: () => void
 }
 
-export function AreaVersionHistoryDialog({
+export function AreaRevisionHistoryDialog({
   open,
   onOpenChange,
   areaId,
-  onVersionChange,
-}: AreaVersionHistoryDialogProps) {
+  onRevisionChange,
+}: AreaRevisionHistoryDialogProps) {
   const [area, setArea] = useState<ProjectArea | null>(null)
-  const [versions, setVersions] = useState<AreaVersion[]>([])
+  const [revisions, setRevisions] = useState<AreaRevision[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [processingVersions, setProcessingVersions] = useState<Set<string>>(new Set())
-  const [deleteConfirmVersion, setDeleteConfirmVersion] = useState<AreaVersion | null>(null)
+  const [processingRevisions, setProcessingRevisions] = useState<Set<string>>(new Set())
+  const [deleteConfirmRevision, setDeleteConfirmRevision] = useState<AreaRevision | null>(null)
 
   const formatCurrency = (amount: number | undefined, currency = 'EUR') => {
     if (!amount) return '€0.00'
@@ -73,20 +73,20 @@ export function AreaVersionHistoryDialog({
   const loadData = async () => {
     setIsLoading(true)
     try {
-      const [areaResult, versionsResult] = await Promise.all([
+      const [areaResult, revisionsResult] = await Promise.all([
         getAreaByIdAction(areaId),
-        getAreaVersionsAction(areaId),
+        getAreaRevisionsAction(areaId),
       ])
 
       if (areaResult.success && areaResult.data) {
         setArea(areaResult.data)
       }
 
-      if (versionsResult.success && versionsResult.data) {
-        setVersions(versionsResult.data)
+      if (revisionsResult.success && revisionsResult.data) {
+        setRevisions(revisionsResult.data)
       }
     } catch (error) {
-      console.error('Error loading version history:', error)
+      console.error('Error loading revision history:', error)
     } finally {
       setIsLoading(false)
     }
@@ -98,60 +98,60 @@ export function AreaVersionHistoryDialog({
     }
   }, [open, areaId])
 
-  const handleSetCurrent = async (versionNumber: number) => {
-    const versionId = versions.find(v => v.version_number === versionNumber)?.id
-    if (!versionId) return
+  const handleSetCurrent = async (revisionNumber: number) => {
+    const revisionId = revisions.find(r => r.revision_number === revisionNumber)?.id
+    if (!revisionId) return
 
-    setProcessingVersions(prev => new Set(prev).add(versionId))
+    setProcessingRevisions(prev => new Set(prev).add(revisionId))
     try {
-      const result = await setAreaCurrentVersionAction(areaId, versionNumber)
+      const result = await setAreaCurrentRevisionAction(areaId, revisionNumber)
       if (result.success) {
         await loadData()
-        onVersionChange?.()
+        onRevisionChange?.()
       } else {
-        toast.error(result.error || 'Failed to set current version')
+        toast.error(result.error || 'Failed to set current revision')
       }
     } catch (error) {
-      console.error('Error setting current version:', error)
+      console.error('Error setting current revision:', error)
       toast.error('An unexpected error occurred')
     } finally {
-      setProcessingVersions(prev => {
+      setProcessingRevisions(prev => {
         const next = new Set(prev)
-        next.delete(versionId)
+        next.delete(revisionId)
         return next
       })
     }
   }
 
-  const handleDeleteClick = (version: AreaVersion) => {
-    if (area && version.version_number === area.current_version) {
-      toast.error('Cannot delete the current active version')
+  const handleDeleteClick = (revision: AreaRevision) => {
+    if (area && revision.revision_number === area.current_revision) {
+      toast.error('Cannot delete the current active revision')
       return
     }
-    setDeleteConfirmVersion(version)
+    setDeleteConfirmRevision(revision)
   }
 
   const handleConfirmDelete = async () => {
-    if (!deleteConfirmVersion) return
-    const version = deleteConfirmVersion
-    setDeleteConfirmVersion(null)
+    if (!deleteConfirmRevision) return
+    const revision = deleteConfirmRevision
+    setDeleteConfirmRevision(null)
 
-    setProcessingVersions(prev => new Set(prev).add(version.id))
+    setProcessingRevisions(prev => new Set(prev).add(revision.id))
     try {
-      const result = await deleteAreaVersionAction(version.id)
+      const result = await deleteAreaRevisionAction(revision.id)
       if (result.success) {
         await loadData()
-        onVersionChange?.()
+        onRevisionChange?.()
       } else {
-        toast.error(result.error || 'Failed to delete version')
+        toast.error(result.error || 'Failed to delete revision')
       }
     } catch (error) {
-      console.error('Error deleting version:', error)
+      console.error('Error deleting revision:', error)
       toast.error('An unexpected error occurred')
     } finally {
-      setProcessingVersions(prev => {
+      setProcessingRevisions(prev => {
         const next = new Set(prev)
-        next.delete(version.id)
+        next.delete(revision.id)
         return next
       })
     }
@@ -162,13 +162,13 @@ export function AreaVersionHistoryDialog({
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            {area ? `${area.area_name} - Version History` : 'Version History'}
+            {area ? `${area.area_name} - Revision History` : 'Revision History'}
           </DialogTitle>
           <DialogDescription>
             {area && (
               <>
-                Area: <strong>{area.area_code}</strong> • Current version:{' '}
-                <strong>v{area.current_version}</strong>
+                Area: <strong>{area.area_code}</strong> • Current revision:{' '}
+                <strong>RV{area.current_revision}</strong>
               </>
             )}
           </DialogDescription>
@@ -179,19 +179,19 @@ export function AreaVersionHistoryDialog({
             <div className="flex justify-center items-center py-12">
               <Spinner size="lg" />
             </div>
-          ) : versions.length === 0 ? (
+          ) : revisions.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              No versions found
+              No revisions found
             </div>
           ) : (
             <div className="space-y-3">
-              {versions.map((version) => {
-                const isCurrent = area && version.version_number === area.current_version
-                const isProcessing = processingVersions.has(version.id)
+              {revisions.map((revision) => {
+                const isCurrent = area && revision.revision_number === area.current_revision
+                const isProcessing = processingRevisions.has(revision.id)
 
                 return (
                   <Card
-                    key={version.id}
+                    key={revision.id}
                     className={`${isCurrent ? 'border-primary' : ''} ${
                       isProcessing ? 'opacity-50' : ''
                     }`}
@@ -206,56 +206,56 @@ export function AreaVersionHistoryDialog({
                               <Circle className="h-5 w-5 text-muted-foreground" />
                             )}
                             <h4 className="font-semibold text-base">
-                              Version {version.version_number}
-                              {version.version_name && ` - ${version.version_name}`}
+                              Revision {revision.revision_number}
+                              {revision.revision_name && ` - ${revision.revision_name}`}
                             </h4>
                             {isCurrent && (
                               <Badge variant="default">Current</Badge>
                             )}
                             <Badge
                               variant={
-                                version.status === 'approved'
+                                revision.status === 'approved'
                                   ? 'default'
-                                  : version.status === 'draft'
+                                  : revision.status === 'draft'
                                   ? 'outline'
                                   : 'secondary'
                               }
                               className="capitalize"
                             >
-                              {version.status}
+                              {revision.status}
                             </Badge>
                           </div>
 
-                          {version.notes && (
+                          {revision.notes && (
                             <p className="text-sm text-muted-foreground mb-2">
-                              {version.notes}
+                              {revision.notes}
                             </p>
                           )}
 
                           <div className="flex gap-4 text-sm text-muted-foreground">
                             <span>
                               <strong className="text-foreground">
-                                {version.product_count || 0}
+                                {revision.product_count || 0}
                               </strong>{' '}
                               products
                             </span>
                             <span>•</span>
                             <span>
                               <strong className="text-foreground">
-                                {formatCurrency(version.total_cost)}
+                                {formatCurrency(revision.total_cost)}
                               </strong>
                             </span>
                           </div>
 
                           <div className="mt-2 text-xs text-muted-foreground">
-                            Created: {formatDate(version.created_at)}
-                            {version.created_by && ` by ${version.created_by}`}
+                            Created: {formatDate(revision.created_at)}
+                            {revision.created_by && ` by ${revision.created_by}`}
                           </div>
 
-                          {version.approved_at && (
+                          {revision.approved_at && (
                             <div className="mt-1 text-xs text-muted-foreground">
-                              Approved: {formatDate(version.approved_at)}
-                              {version.approved_by && ` by ${version.approved_by}`}
+                              Approved: {formatDate(revision.approved_at)}
+                              {revision.approved_by && ` by ${revision.approved_by}`}
                             </div>
                           )}
                         </div>
@@ -265,9 +265,9 @@ export function AreaVersionHistoryDialog({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleSetCurrent(version.version_number)}
+                              onClick={() => handleSetCurrent(revision.revision_number)}
                               disabled={isProcessing}
-                              title="Set as current version"
+                              title="Set as current revision"
                             >
                               <FileText className="h-4 w-4 mr-1" />
                               Set Current
@@ -277,10 +277,10 @@ export function AreaVersionHistoryDialog({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleDeleteClick(version)}
+                              onClick={() => handleDeleteClick(revision)}
                               disabled={isProcessing}
                               className="text-destructive hover:text-destructive"
-                              title="Delete this version"
+                              title="Delete this revision"
                             >
                               {isProcessing ? (
                                 <Spinner size="sm" />
@@ -306,13 +306,13 @@ export function AreaVersionHistoryDialog({
         </div>
       </DialogContent>
 
-      {/* Delete Version Confirmation Dialog */}
-      <AlertDialog open={!!deleteConfirmVersion} onOpenChange={() => setDeleteConfirmVersion(null)}>
+      {/* Delete Revision Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmRevision} onOpenChange={() => setDeleteConfirmRevision(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Version?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Revision?</AlertDialogTitle>
             <AlertDialogDescription>
-              Delete version {deleteConfirmVersion?.version_number}? This will also delete all products in this version.
+              Delete revision {deleteConfirmRevision?.revision_number}? This will also delete all products in this revision.
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -14,10 +14,15 @@
 
 export type {
   ProjectArea,
-  AreaVersion,
-  AreaVersionSummary,
+  AreaRevision,
+  AreaRevisionSummary,
   CreateAreaInput,
   UpdateAreaInput,
+  CreateRevisionInput,
+  UpdateRevisionInput,
+  // Deprecated aliases
+  AreaVersion,
+  AreaVersionSummary,
   CreateVersionInput,
   UpdateVersionInput,
 } from '@fossapp/projects/types/areas'
@@ -37,36 +42,36 @@ export {
 } from './area-crud-actions'
 
 // ============================================================================
-// VERSION ACTIONS
+// REVISION ACTIONS
 // ============================================================================
 
 export {
-  createAreaVersionAction,
-  setAreaCurrentVersionAction,
-  getAreaVersionsAction,
-  deleteAreaVersionAction,
-} from './version-actions'
+  createAreaRevisionAction,
+  setAreaCurrentRevisionAction,
+  getAreaRevisionsAction,
+  deleteAreaRevisionAction,
+} from './revision-actions'
 
 // ============================================================================
-// VERSION PRODUCTS ACTIONS
+// REVISION PRODUCTS ACTIONS
 // ============================================================================
 
 export {
   getProjectAreasForDropdownAction,
-  listAreaVersionProductsAction,
-} from './version-products-actions'
+  listAreaRevisionProductsAction,
+} from './revision-products-actions'
 
 export type {
   AreaDropdownItem,
-  AreaVersionProduct,
-} from './version-products-actions'
+  AreaRevisionProduct,
+} from './revision-products-actions'
 
 // ============================================================================
 // FLOOR PLAN ACTIONS
 // ============================================================================
 
 export {
-  deleteAreaVersionFloorPlanAction,
+  deleteAreaRevisionFloorPlanAction,
   loadAreaPlacementsAction,
   saveAreaPlacementsAction,
 } from './floorplan-actions'

@@ -19,8 +19,8 @@ import {
 import { Plus, History, FileText, Pencil, Trash2, FolderOpen } from 'lucide-react'
 import { ProjectArea } from '@/lib/actions'
 import { AreaFormDialog } from './area-form-dialog'
-import { AreaVersionHistoryDialog } from './area-version-history-dialog'
-import { deleteAreaAction, createAreaVersionAction } from '@/lib/actions'
+import { AreaRevisionHistoryDialog } from './area-revision-history-dialog'
+import { deleteAreaAction, createAreaRevisionAction } from '@/lib/actions'
 import { useDevSession } from '@/lib/use-dev-session'
 
 interface ProjectAreasCardProps {
@@ -64,23 +64,23 @@ export function ProjectAreasCard({
     return type ? types[type] || type : 'Area'
   }
 
-  const handleCreateVersion = async (areaId: string, copyFrom?: number) => {
+  const handleCreateRevision = async (areaId: string, copyFrom?: number) => {
     setProcessingAreas(prev => new Set(prev).add(areaId))
     try {
-      const result = await createAreaVersionAction({
+      const result = await createAreaRevisionAction({
         area_id: areaId,
-        copy_from_version: copyFrom,
-        notes: `Version created from v${copyFrom || 'scratch'}`,
+        copy_from_revision: copyFrom,
+        notes: `Revision created from RV${copyFrom || 'scratch'}`,
         created_by: session?.user?.email || undefined
       })
 
       if (result.success) {
         onAreaChange()
       } else {
-        toast.error(result.error || 'Failed to create version')
+        toast.error(result.error || 'Failed to create revision')
       }
     } catch (error) {
-      console.error('Error creating version:', error)
+      console.error('Error creating revision:', error)
       toast.error('An unexpected error occurred')
     } finally {
       setProcessingAreas(prev => {
@@ -153,7 +153,7 @@ export function ProjectAreasCard({
             <div>
               <CardTitle>Project Areas</CardTitle>
               <CardDescription>
-                Manage areas with independent versioning for {projectCode}
+                Manage areas with independent revisions for {projectCode}
               </CardDescription>
             </div>
             <Button onClick={() => setIsFormOpen(true)}>
@@ -168,7 +168,7 @@ export function ProjectAreasCard({
               <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground mb-4">No areas defined yet</p>
               <p className="text-sm text-muted-foreground mb-6">
-                Create areas like floors, gardens, or zones to organize products with independent versioning
+                Create areas like floors, gardens, or zones to organize products with independent revisions
               </p>
               <Button onClick={() => setIsFormOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -179,7 +179,7 @@ export function ProjectAreasCard({
             <div className="space-y-4">
               {sortedAreas.map((area) => {
                 const isProcessing = processingAreas.has(area.id)
-                const currentVersion = area.current_version_data
+                const currentRevision = area.current_revision_data
 
                 return (
                   <Card key={area.id} className={isProcessing ? 'opacity-50' : ''}>
@@ -209,17 +209,17 @@ export function ProjectAreasCard({
                           )}
                           <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                             <span>
-                              Current: <strong className="text-foreground">v{area.current_version}</strong>
+                              Current: <strong className="text-foreground">RV{area.current_revision}</strong>
                             </span>
-                            {currentVersion && (
+                            {currentRevision && (
                               <>
                                 <span>•</span>
                                 <span>
-                                  <strong className="text-foreground">{currentVersion.product_count}</strong> products
+                                  <strong className="text-foreground">{currentRevision.product_count}</strong> products
                                 </span>
                                 <span>•</span>
                                 <span>
-                                  <strong className="text-foreground">{formatCurrency(currentVersion.total_cost)}</strong>
+                                  <strong className="text-foreground">{formatCurrency(currentRevision.total_cost)}</strong>
                                 </span>
                               </>
                             )}
@@ -231,19 +231,19 @@ export function ProjectAreasCard({
                             size="sm"
                             onClick={() => setHistoryAreaId(area.id)}
                             disabled={isProcessing}
-                            title="Version History"
+                            title="Revision History"
                           >
                             <History className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleCreateVersion(area.id, area.current_version)}
+                            onClick={() => handleCreateRevision(area.id, area.current_revision)}
                             disabled={isProcessing}
-                            title="New Version (copy from current)"
+                            title="New Revision (copy from current)"
                           >
                             <FileText className="h-4 w-4 mr-1" />
-                            New Version
+                            New Revision
                           </Button>
                           <Button
                             variant="outline"
@@ -271,11 +271,11 @@ export function ProjectAreasCard({
                         </div>
                       </div>
                     </CardHeader>
-                    {currentVersion && currentVersion.notes && (
+                    {currentRevision && currentRevision.notes && (
                       <CardContent>
                         <div className="text-sm">
                           <p className="text-muted-foreground">
-                            <strong>v{currentVersion.version_number} Notes:</strong> {currentVersion.notes}
+                            <strong>RV{currentRevision.revision_number} Notes:</strong> {currentRevision.notes}
                           </p>
                         </div>
                       </CardContent>
@@ -297,13 +297,13 @@ export function ProjectAreasCard({
         onSuccess={handleFormSuccess}
       />
 
-      {/* Version History Dialog */}
+      {/* Revision History Dialog */}
       {historyAreaId && (
-        <AreaVersionHistoryDialog
+        <AreaRevisionHistoryDialog
           open={!!historyAreaId}
           onOpenChange={(open) => !open && setHistoryAreaId(null)}
           areaId={historyAreaId}
-          onVersionChange={onAreaChange}
+          onRevisionChange={onAreaChange}
         />
       )}
 
@@ -313,7 +313,7 @@ export function ProjectAreasCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Area?</AlertDialogTitle>
             <AlertDialogDescription>
-              Delete area &quot;{deleteConfirmArea?.area_name}&quot;? This will delete all versions and products in this area.
+              Delete area &quot;{deleteConfirmArea?.area_name}&quot;? This will delete all revisions and products in this area.
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

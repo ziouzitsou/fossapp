@@ -229,7 +229,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       const result = await addProductToProjectAction({
         project_id: activeProject.id,
         product_id: product.product_id,
-        area_version_id: area.current_version_id,
+        area_revision_id: area.current_revision_id,
         quantity: 1,
       })
 

@@ -49,11 +49,11 @@ export interface ProjectProduct {
   mounting_height?: number
   status: string
   notes?: string
-  // Area version information (for multi-area projects)
-  area_version_id?: string
+  // Area revision information (for multi-area projects)
+  area_revision_id?: string
   area_code?: string
   area_name?: string
-  area_version_number?: number
+  area_revision_number?: number
 }
 
 /**
@@ -226,7 +226,7 @@ export interface UpdateProjectInput extends Partial<CreateProjectInput> {
 export interface AddProductToProjectInput {
   project_id: string
   product_id: string
-  area_version_id?: string
+  area_revision_id?: string
   quantity?: number
   room_location?: string
   notes?: string

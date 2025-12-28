@@ -319,17 +319,17 @@ export async function getProjectAreasFolderIdAction(
 export interface CreateAreaFolderResult {
   areaFolderId: string
   areaCode: string
-  versionFolderId: string // ID of the v1 folder
+  revisionFolderId: string // ID of the RV1 folder
 }
 
-export interface CreateAreaVersionFolderResult {
-  versionFolderId: string
-  versionNumber: number
+export interface CreateAreaRevisionFolderResult {
+  revisionFolderId: string
+  revisionNumber: number
 }
 
 /**
  * Create a folder for an area in the project's 02_Areas folder
- * Creates: 02_Areas/{areaCode}/v1/[Working, Output]
+ * Creates: 02_Areas/{areaCode}/RV1/[Working, Output]
  */
 export async function createAreaFolderAction(
   projectId: string,
@@ -342,7 +342,7 @@ export async function createAreaFolderAction(
       return { success: false, error: areasFolderResult.error || 'Failed to get areas folder' }
     }
 
-    // Create the area folder with v1 subfolder
+    // Create the area folder with RV1 subfolder
     const driveService = getGoogleDriveProjectService()
     const result = await driveService.createAreaFolder(areasFolderResult.data, areaCode)
 
@@ -351,7 +351,7 @@ export async function createAreaFolderAction(
       data: {
         areaFolderId: result.areaFolderId,
         areaCode: result.areaCode,
-        versionFolderId: result.versionFolderId,
+        revisionFolderId: result.versionFolderId,
       },
     }
   } catch (error) {
@@ -361,44 +361,44 @@ export async function createAreaFolderAction(
 }
 
 /**
- * Create a version folder inside an area folder
- * Creates: {areaFolder}/v{N}/[Working, Output]
+ * Create a revision folder inside an area folder
+ * Creates: {areaFolder}/RV{N}/[Working, Output]
  */
-export async function createAreaVersionFolderAction(
+export async function createAreaRevisionFolderAction(
   areaFolderId: string,
-  versionNumber: number
-): Promise<ActionResult<CreateAreaVersionFolderResult>> {
+  revisionNumber: number
+): Promise<ActionResult<CreateAreaRevisionFolderResult>> {
   try {
     const driveService = getGoogleDriveProjectService()
-    const result = await driveService.createAreaVersionFolder(areaFolderId, versionNumber)
+    const result = await driveService.createAreaVersionFolder(areaFolderId, revisionNumber)
 
     return {
       success: true,
       data: {
-        versionFolderId: result.versionFolderId,
-        versionNumber: result.versionNumber,
+        revisionFolderId: result.versionFolderId,
+        revisionNumber: result.versionNumber,
       },
     }
   } catch (error) {
-    console.error('Create area version folder error:', error)
-    return { success: false, error: 'Failed to create version folder' }
+    console.error('Create area revision folder error:', error)
+    return { success: false, error: 'Failed to create revision folder' }
   }
 }
 
 /**
- * Delete a version folder from an area
+ * Delete a revision folder from an area
  */
-export async function deleteAreaVersionFolderAction(
-  versionFolderId: string
+export async function deleteAreaRevisionFolderAction(
+  revisionFolderId: string
 ): Promise<ActionResult> {
   try {
     const driveService = getGoogleDriveProjectService()
-    await driveService.deleteAreaVersionFolder(versionFolderId)
+    await driveService.deleteAreaVersionFolder(revisionFolderId)
 
     return { success: true }
   } catch (error) {
-    console.error('Delete area version folder error:', error)
-    return { success: false, error: 'Failed to delete version folder' }
+    console.error('Delete area revision folder error:', error)
+    return { success: false, error: 'Failed to delete revision folder' }
   }
 }
 

@@ -16,14 +16,14 @@ import {
 
 import type {
   ProjectArea,
-  AreaVersion,
+  AreaRevision,
   CreateAreaInput,
   UpdateAreaInput,
   ActionResult,
 } from '@fossapp/projects'
 
 // Type for the RPC function return
-type VersionSummary = {
+type RevisionSummary = {
   product_count: number
   total_cost: number
 }
@@ -34,7 +34,7 @@ type VersionSummary = {
 
 export async function listProjectAreasAction(
   projectId: string,
-  includeVersions = false
+  includeRevisions = false
 ): Promise<ActionResult<ProjectArea[]>> {
   try {
     const sanitizedProjectId = validateProjectId(projectId)
@@ -58,28 +58,28 @@ export async function listProjectAreasAction(
       return { success: true, data: [] }
     }
 
-    // Fetch current version data for each area
-    const areasWithVersions: ProjectArea[] = await Promise.all(
+    // Fetch current revision data for each area
+    const areasWithRevisions: ProjectArea[] = await Promise.all(
       areas.map(async (area) => {
-        // Get current version data
-        const { data: currentVersion } = await supabaseServer
+        // Get current revision data
+        const { data: currentRevision } = await supabaseServer
           .schema('projects')
-          .from('project_area_versions')
+          .from('project_area_revisions')
           .select('*')
           .eq('area_id', area.id)
-          .eq('version_number', area.current_version)
+          .eq('revision_number', area.current_revision)
           .single()
 
-        // Get product count and total cost for current version
+        // Get product count and total cost for current revision
         let productCount = 0
         let totalCost = 0
-        if (currentVersion) {
+        if (currentRevision) {
           const { data: summary } = await supabaseServer
             .schema('projects')
-            .rpc('get_area_version_summary', { p_area_version_id: currentVersion.id })
+            .rpc('get_area_revision_summary', { p_area_revision_id: currentRevision.id })
             .single()
 
-          const typedSummary = summary as VersionSummary | null
+          const typedSummary = summary as RevisionSummary | null
           if (typedSummary) {
             productCount = typedSummary.product_count || 0
             totalCost = typedSummary.total_cost || 0
@@ -88,42 +88,42 @@ export async function listProjectAreasAction(
 
         const areaData: ProjectArea = {
           ...area,
-          current_version_data: currentVersion ? {
-            id: currentVersion.id,
-            version_number: currentVersion.version_number,
-            version_name: currentVersion.version_name,
-            notes: currentVersion.notes,
-            created_at: currentVersion.created_at,
-            created_by: currentVersion.created_by,
+          current_revision_data: currentRevision ? {
+            id: currentRevision.id,
+            revision_number: currentRevision.revision_number,
+            revision_name: currentRevision.revision_name,
+            notes: currentRevision.notes,
+            created_at: currentRevision.created_at,
+            created_by: currentRevision.created_by,
             product_count: productCount,
             total_cost: totalCost,
-            floor_plan_urn: currentVersion.floor_plan_urn,
-            floor_plan_filename: currentVersion.floor_plan_filename,
-            floor_plan_status: currentVersion.floor_plan_status,
-            floor_plan_warnings: currentVersion.floor_plan_warnings
+            floor_plan_urn: currentRevision.floor_plan_urn,
+            floor_plan_filename: currentRevision.floor_plan_filename,
+            floor_plan_status: currentRevision.floor_plan_status,
+            floor_plan_warnings: currentRevision.floor_plan_warnings
           } : undefined
         }
 
-        // Optionally fetch all versions
-        if (includeVersions) {
-          const { data: versions } = await supabaseServer
+        // Optionally fetch all revisions
+        if (includeRevisions) {
+          const { data: revisions } = await supabaseServer
             .schema('projects')
-            .from('project_area_versions')
+            .from('project_area_revisions')
             .select('*')
             .eq('area_id', area.id)
-            .order('version_number', { ascending: false })
+            .order('revision_number', { ascending: false })
 
-          if (versions) {
-            areaData.all_versions = await Promise.all(
-              versions.map(async (v) => {
-                const { data: versionSummary } = await supabaseServer
+          if (revisions) {
+            areaData.all_revisions = await Promise.all(
+              revisions.map(async (r) => {
+                const { data: revisionSummary } = await supabaseServer
                   .schema('projects')
-                  .rpc('get_area_version_summary', { p_area_version_id: v.id })
+                  .rpc('get_area_revision_summary', { p_area_revision_id: r.id })
                   .single()
 
-                const typedSummary = versionSummary as VersionSummary | null
+                const typedSummary = revisionSummary as RevisionSummary | null
                 return {
-                  ...v,
+                  ...r,
                   product_count: typedSummary?.product_count || 0,
                   total_cost: typedSummary?.total_cost || 0
                 }
@@ -136,7 +136,7 @@ export async function listProjectAreasAction(
       })
     )
 
-    return { success: true, data: areasWithVersions }
+    return { success: true, data: areasWithRevisions }
   } catch (error) {
     console.error('List areas error:', error)
     return { success: false, error: 'An unexpected error occurred' }
@@ -161,25 +161,25 @@ export async function getAreaByIdAction(areaId: string): Promise<ActionResult<Pr
       return { success: false, error: 'Area not found' }
     }
 
-    // Get current version data
-    const { data: currentVersion } = await supabaseServer
+    // Get current revision data
+    const { data: currentRevision } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
+      .from('project_area_revisions')
       .select('*')
       .eq('area_id', area.id)
-      .eq('version_number', area.current_version)
+      .eq('revision_number', area.current_revision)
       .single()
 
     // Get product summary
     let productCount = 0
     let totalCost = 0
-    if (currentVersion) {
+    if (currentRevision) {
       const { data: summary } = await supabaseServer
         .schema('projects')
-        .rpc('get_area_version_summary', { p_area_version_id: currentVersion.id })
+        .rpc('get_area_revision_summary', { p_area_revision_id: currentRevision.id })
         .single()
 
-      const typedSummary = summary as VersionSummary | null
+      const typedSummary = summary as RevisionSummary | null
       if (typedSummary) {
         productCount = typedSummary.product_count || 0
         totalCost = typedSummary.total_cost || 0
@@ -190,13 +190,13 @@ export async function getAreaByIdAction(areaId: string): Promise<ActionResult<Pr
       success: true,
       data: {
         ...area,
-        current_version_data: currentVersion ? {
-          id: currentVersion.id,
-          version_number: currentVersion.version_number,
-          version_name: currentVersion.version_name,
-          notes: currentVersion.notes,
-          created_at: currentVersion.created_at,
-          created_by: currentVersion.created_by,
+        current_revision_data: currentRevision ? {
+          id: currentRevision.id,
+          revision_number: currentRevision.revision_number,
+          revision_name: currentRevision.revision_name,
+          notes: currentRevision.notes,
+          created_at: currentRevision.created_at,
+          created_by: currentRevision.created_by,
           product_count: productCount,
           total_cost: totalCost
         } : undefined
@@ -214,7 +214,7 @@ export async function getAreaByIdAction(areaId: string): Promise<ActionResult<Pr
 
 export async function createAreaAction(
   input: CreateAreaInput
-): Promise<ActionResult<{ id: string; version_id: string; google_drive_folder_id?: string }>> {
+): Promise<ActionResult<{ id: string; revision_id: string; google_drive_folder_id?: string }>> {
   try {
     const sanitizedProjectId = validateProjectId(input.project_id)
 
@@ -228,7 +228,7 @@ export async function createAreaAction(
 
     const areaCode = input.area_code.trim().toUpperCase()
 
-    // Create the area (trigger will create initial version)
+    // Create the area (trigger will create initial revision)
     const { data, error } = await supabaseServer
       .schema('projects')
       .from('project_areas')
@@ -256,23 +256,23 @@ export async function createAreaAction(
       return { success: false, error: 'Failed to create area' }
     }
 
-    // Get the auto-created version
-    const { data: version } = await supabaseServer
+    // Get the auto-created revision
+    const { data: revision } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
+      .from('project_area_revisions')
       .select('id')
       .eq('area_id', data.id)
-      .eq('version_number', 1)
+      .eq('revision_number', 1)
       .single()
 
     // Try to create Google Drive folder for this area
     let driveFolderId: string | undefined
-    let versionFolderId: string | undefined
+    let revisionFolderId: string | undefined
     try {
       const driveResult = await createAreaFolderAction(sanitizedProjectId, areaCode)
       if (driveResult.success && driveResult.data) {
         driveFolderId = driveResult.data.areaFolderId
-        versionFolderId = driveResult.data.versionFolderId
+        revisionFolderId = driveResult.data.revisionFolderId
 
         // Update area with Drive folder ID
         await supabaseServer
@@ -281,13 +281,13 @@ export async function createAreaAction(
           .update({ google_drive_folder_id: driveFolderId })
           .eq('id', data.id)
 
-        // Update v1 version with its Drive folder ID
-        if (version?.id && versionFolderId) {
+        // Update RV1 revision with its Drive folder ID
+        if (revision?.id && revisionFolderId) {
           await supabaseServer
             .schema('projects')
-            .from('project_area_versions')
-            .update({ google_drive_folder_id: versionFolderId })
-            .eq('id', version.id)
+            .from('project_area_revisions')
+            .update({ google_drive_folder_id: revisionFolderId })
+            .eq('id', revision.id)
         }
       }
     } catch (driveError) {
@@ -299,7 +299,7 @@ export async function createAreaAction(
       success: true,
       data: {
         id: data.id,
-        version_id: version?.id || '',
+        revision_id: revision?.id || '',
         google_drive_folder_id: driveFolderId
       }
     }
@@ -381,7 +381,7 @@ export async function deleteAreaAction(areaId: string): Promise<ActionResult> {
 
     const driveFolderId = area?.google_drive_folder_id
 
-    // Delete the area from DB (cascade deletes versions, products)
+    // Delete the area from DB (cascade deletes revisions, products)
     const { error } = await supabaseServer
       .schema('projects')
       .from('project_areas')

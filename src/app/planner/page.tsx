@@ -166,7 +166,7 @@ function AreaSelectionView({ state }: { state: ReturnType<typeof usePlannerState
             Create an area first
           </p>
           <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-            Floor plans are organized by area and version.
+            Floor plans are organized by area and revision.
             <br />
             Create at least one area in your project to upload floor plans.
           </p>
@@ -195,9 +195,9 @@ function AreaSelectionView({ state }: { state: ReturnType<typeof usePlannerState
 
         {/* Area Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {state.areaVersions.map((area) => (
+          {state.areaRevisions.map((area) => (
             <AreaCard
-              key={area.versionId}
+              key={area.revisionId}
               area={area}
               isDragOver={state.dragOverAreaId === area.areaId}
               isDeleting={state.deletingAreaId === area.areaId}
@@ -233,7 +233,7 @@ function ViewerLayout({ state }: { state: ReturnType<typeof usePlannerState> }) 
             file={state.selectedFile || undefined}
             urn={state.selectedUrn || undefined}
             projectId={state.activeProject?.id}
-            areaVersionId={state.selectedAreaVersion?.versionId}
+            areaRevisionId={state.selectedAreaRevision?.revisionId}
             theme="dark"
             placementMode={state.placementMode}
             initialPlacements={state.placements}
@@ -293,9 +293,9 @@ function FileInfoBar({ state }: { state: ReturnType<typeof usePlannerState> }) {
             {state.selectedFile && (
               <span>{(state.selectedFile.size / 1024 / 1024).toFixed(2)} MB</span>
             )}
-            {state.selectedAreaVersion && (
+            {state.selectedAreaRevision && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-                {state.selectedAreaVersion.areaCode} v{state.selectedAreaVersion.versionNumber}
+                {state.selectedAreaRevision.areaCode} RV{state.selectedAreaRevision.revisionNumber}
               </Badge>
             )}
             {state.selectedUrn && !state.selectedFile && (
@@ -317,7 +317,7 @@ function FileInfoBar({ state }: { state: ReturnType<typeof usePlannerState> }) {
                 variant={state.isDirty ? 'default' : 'ghost'}
                 size="sm"
                 onClick={state.handleSavePlacements}
-                disabled={!state.isDirty || state.isSaving || !state.selectedAreaVersion?.versionId}
+                disabled={!state.isDirty || state.isSaving || !state.selectedAreaRevision?.revisionId}
                 className={cn(
                   state.isDirty
                     ? 'bg-primary text-primary-foreground hover:bg-primary/90'

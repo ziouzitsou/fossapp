@@ -37,19 +37,19 @@ export async function addProductToProjectAction(
       return { success: false, error: 'Invalid product ID format' }
     }
 
-    // Determine area_version_id - required since products must belong to an area version
-    let areaVersionId = input.area_version_id
+    // Determine area_revision_id - required since products must belong to an area revision
+    let areaRevisionId = input.area_revision_id
 
-    if (!areaVersionId) {
-      // No area specified - get the first area's current version for this project
+    if (!areaRevisionId) {
+      // No area specified - get the first area's current revision for this project
       const { data: firstArea, error: areaError } = await supabaseServer
         .schema('projects')
         .from('project_areas')
         .select(`
           id,
           area_code,
-          current_version,
-          project_area_versions!inner (id, version_number)
+          current_revision,
+          project_area_revisions!inner (id, revision_number)
         `)
         .eq('project_id', input.project_id)
         .eq('is_active', true)
@@ -65,15 +65,15 @@ export async function addProductToProjectAction(
         }
       }
 
-      // Get the current version ID
-      const versions = firstArea.project_area_versions as Array<{ id: string; version_number: number }>
-      const currentVersion = versions.find(v => v.version_number === firstArea.current_version)
+      // Get the current revision ID
+      const revisions = firstArea.project_area_revisions as Array<{ id: string; revision_number: number }>
+      const currentRevision = revisions.find(r => r.revision_number === firstArea.current_revision)
 
-      if (!currentVersion) {
-        return { success: false, error: 'Could not find current version for area' }
+      if (!currentRevision) {
+        return { success: false, error: 'Could not find current revision for area' }
       }
 
-      areaVersionId = currentVersion.id
+      areaRevisionId = currentRevision.id
     }
 
     // Fetch product price from product_info
@@ -104,14 +104,14 @@ export async function addProductToProjectAction(
       discountPercent = priceEntry.disc1 || 0
     }
 
-    // Check if product already exists in this area version
+    // Check if product already exists in this area revision
     const { data: existing, error: checkError } = await supabaseServer
       .schema('projects')
       .from('project_products')
       .select('id, quantity')
       .eq('project_id', input.project_id)
       .eq('product_id', input.product_id)
-      .eq('area_version_id', areaVersionId)
+      .eq('area_revision_id', areaRevisionId)
       .single()
 
     if (checkError && checkError.code !== 'PGRST116') {
@@ -148,7 +148,7 @@ export async function addProductToProjectAction(
       .insert({
         project_id: input.project_id,
         product_id: input.product_id,
-        area_version_id: areaVersionId,  // Required - links to area version
+        area_revision_id: areaRevisionId,  // Required - links to area revision
         quantity: quantity,
         unit_price: unitPrice,
         discount_percent: discountPercent,

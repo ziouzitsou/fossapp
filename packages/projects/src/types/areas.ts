@@ -1,6 +1,6 @@
 /**
  * @fossapp/projects/types/areas
- * Project area and version types
+ * Project area and revision types
  */
 
 // ============================================================================
@@ -20,7 +20,7 @@ export interface ProjectArea {
   floor_level?: number
   area_sqm?: number
   ceiling_height_m?: number
-  current_version: number
+  current_revision: number
   display_order: number
   is_active: boolean
   description?: string
@@ -28,19 +28,19 @@ export interface ProjectArea {
   google_drive_folder_id?: string
   created_at: string
   updated_at: string
-  // Populated when fetching with version data
-  current_version_data?: AreaVersionSummary
-  all_versions?: AreaVersion[]
+  // Populated when fetching with revision data
+  current_revision_data?: AreaRevisionSummary
+  all_revisions?: AreaRevision[]
 }
 
 /**
- * Area version (snapshot of area at a point in time)
+ * Area revision (snapshot of area at a point in time)
  */
-export interface AreaVersion {
+export interface AreaRevision {
   id: string
   area_id: string
-  version_number: number
-  version_name?: string
+  revision_number: number
+  revision_name?: string
   notes?: string
   google_drive_folder_id?: string
   status: string
@@ -54,12 +54,12 @@ export interface AreaVersion {
 }
 
 /**
- * Area version summary (with calculated fields)
+ * Area revision summary (with calculated fields)
  */
-export interface AreaVersionSummary {
+export interface AreaRevisionSummary {
   id: string
-  version_number: number
-  version_name?: string
+  revision_number: number
+  revision_name?: string
   notes?: string
   created_at: string
   created_by?: string
@@ -112,21 +112,34 @@ export interface UpdateAreaInput {
 }
 
 /**
- * Input for creating an area version
+ * Input for creating an area revision
  */
-export interface CreateVersionInput {
+export interface CreateRevisionInput {
   area_id: string
-  copy_from_version?: number
-  version_name?: string
+  copy_from_revision?: number
+  revision_name?: string
   notes?: string
   created_by?: string
 }
 
 /**
- * Input for updating an area version
+ * Input for updating an area revision
  */
-export interface UpdateVersionInput {
-  version_name?: string
+export interface UpdateRevisionInput {
+  revision_name?: string
   notes?: string
   status?: string
 }
+
+// ============================================================================
+// DEPRECATED - kept for backwards compatibility during migration
+// ============================================================================
+
+/** @deprecated Use AreaRevision instead */
+export type AreaVersion = AreaRevision
+/** @deprecated Use AreaRevisionSummary instead */
+export type AreaVersionSummary = AreaRevisionSummary
+/** @deprecated Use CreateRevisionInput instead */
+export type CreateVersionInput = CreateRevisionInput
+/** @deprecated Use UpdateRevisionInput instead */
+export type UpdateVersionInput = UpdateRevisionInput

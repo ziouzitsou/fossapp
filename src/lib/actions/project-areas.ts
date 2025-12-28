@@ -6,8 +6,8 @@
  *
  * The actual implementations are now in:
  * - areas/area-crud-actions.ts - list, get, create, update, delete areas
- * - areas/version-actions.ts - version management
- * - areas/version-products-actions.ts - dropdown items, version products
+ * - areas/revision-actions.ts - revision management
+ * - areas/revision-products-actions.ts - dropdown items, revision products
  * - areas/floorplan-actions.ts - floor plan and placement management
  *
  * Note: 'use server' is declared in each action file, not here.

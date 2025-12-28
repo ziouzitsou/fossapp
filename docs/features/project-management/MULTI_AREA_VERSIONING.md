@@ -1,27 +1,27 @@
-# Multi-Area Project Versioning
+# Multi-Area Project Revisioning
 
 **Status**: ✅ Implemented
-**Last Updated**: 2025-12-19
-**Migration**: `20251219_add_project_area_versioning.sql`
+**Last Updated**: 2025-12-28
+**Migration**: `20251228120000_rename_version_to_revision.sql`
 
 ---
 
 ## Overview
 
-This feature implements **independent versioning for project areas**, allowing each area within a project (floors, gardens, zones, etc.) to maintain its own version history. This is essential for lighting design workflows where different areas of a project iterate at different rates.
+This feature implements **independent revisioning for project areas**, allowing each area within a project (floors, gardens, zones, etc.) to maintain its own revision history. This is essential for lighting design workflows where different areas of a project iterate at different rates.
 
 ### Key Concept
 
-Instead of versioning the entire project, we version individual **areas**:
+Instead of revisioning the entire project, we revision individual **areas**:
 
 ```
 Project: Luxury Villa
-├─ Ground Floor (GF)  → v1, v2, v3 (current)
-├─ First Floor (F1)   → v1, v2 (current)
-└─ Garden (GARDEN)    → v1 (current)
+├─ Ground Floor (GF)  → RV1, RV2, RV3 (current)
+├─ First Floor (F1)   → RV1, RV2 (current)
+└─ Garden (GARDEN)    → RV1 (current)
 ```
 
-Each version contains its own set of products, allowing designers to iterate on specific areas without affecting others.
+Each revision contains its own set of products, allowing designers to iterate on specific areas without affecting others.
 
 ---
 
@@ -31,19 +31,19 @@ Each version contains its own set of products, allowing designers to iterate on 
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    MULTI-AREA VERSIONING MODEL                   │
+│                    MULTI-AREA REVISIONING MODEL                   │
 └─────────────────────────────────────────────────────────────────┘
 
 projects
   └─ project_areas (logical areas)
       ├─ id
       ├─ area_code (GF, F1, GARDEN)
-      ├─ current_version (active version number)
-      └─ project_area_versions (version history)
-          ├─ version_number (1, 2, 3...)
+      ├─ current_revision (active revision number)
+      └─ project_area_revisions (revision history)
+          ├─ revision_number (1, 2, 3...)
           ├─ google_drive_folder_id
-          └─ project_products (products for this version)
-              └─ area_version_id → links to specific version
+          └─ project_products (products for this revision)
+              └─ area_revision_id → links to specific revision
 ```
 
 ### Database Schema
@@ -60,66 +60,66 @@ Represents a logical area within a project.
 | `area_name` | VARCHAR(255) | Display name (e.g., "Ground Floor") |
 | `area_type` | VARCHAR(50) | Type: floor, outdoor, room, etc. |
 | `floor_level` | INTEGER | Floor number (-1=basement, 0=ground, 1+) |
-| `current_version` | INTEGER | Currently active version number |
+| `current_revision` | INTEGER | Currently active revision number |
 | `display_order` | INTEGER | Custom ordering |
 
 **Constraints**:
 - `UNIQUE(project_id, area_code)` - Area codes unique per project
-- `CHECK(current_version > 0)` - Version numbers start at 1
+- `CHECK(current_revision > 0)` - Revision numbers start at 1
 
-#### `projects.project_area_versions`
+#### `projects.project_area_revisions`
 
-Represents a specific version of an area.
+Represents a specific revision of an area.
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUID | Primary key |
 | `area_id` | UUID | Reference to area |
-| `version_number` | INTEGER | Version number (1, 2, 3...) |
-| `version_name` | VARCHAR(255) | Optional name ("Initial", "Revision A") |
-| `notes` | TEXT | Version description/changes |
-| `google_drive_folder_id` | TEXT | Drive folder for this version |
+| `revision_number` | INTEGER | Revision number (1, 2, 3...) |
+| `revision_name` | VARCHAR(255) | Optional name ("Initial", "Rev A") |
+| `notes` | TEXT | Revision description/changes |
+| `google_drive_folder_id` | TEXT | Drive folder for this revision |
 | `status` | VARCHAR(50) | draft, submitted, approved, archived |
 | `created_at` | TIMESTAMPTZ | Creation timestamp |
 | `created_by` | TEXT | Creator email |
 
 **Constraints**:
-- `UNIQUE(area_id, version_number)` - Version numbers unique per area
-- `CHECK(version_number > 0)` - Version numbers start at 1
+- `UNIQUE(area_id, revision_number)` - Revision numbers unique per area
+- `CHECK(revision_number > 0)` - Revision numbers start at 1
 
 #### `projects.project_products` (Modified)
 
-Links products to specific area versions.
+Links products to specific area revisions.
 
 | Column (New) | Type | Description |
 |--------------|------|-------------|
-| `area_version_id` | UUID | Reference to area version (nullable) |
+| `area_revision_id` | UUID | Reference to area revision (nullable) |
 
-**Relationship**: `NULL` = unassigned product, otherwise links to specific version.
+**Relationship**: `NULL` = unassigned product, otherwise links to specific revision.
 
 ---
 
 ## Automatic Behaviors
 
-### Trigger: Create Initial Version
+### Trigger: Create Initial Revision
 
-When a new area is created, **version 1 is automatically created**:
+When a new area is created, **revision 1 is automatically created**:
 
 ```sql
-CREATE TRIGGER create_initial_version
+CREATE TRIGGER create_initial_revision
   AFTER INSERT ON projects.project_areas
   FOR EACH ROW
-  EXECUTE FUNCTION projects.create_initial_area_version();
+  EXECUTE FUNCTION projects.create_initial_area_revision();
 ```
 
-This ensures every area always has at least one version.
+This ensures every area always has at least one revision.
 
-### Helper Function: Version Summary
+### Helper Function: Revision Summary
 
-Get product count and total cost for a version:
+Get product count and total cost for a revision:
 
 ```sql
-SELECT * FROM projects.get_area_version_summary('area-version-uuid');
+SELECT * FROM projects.get_area_revision_summary('area-revision-uuid');
 -- Returns: { product_count: 18, total_cost: 2450.00 }
 ```
 
@@ -129,7 +129,7 @@ SELECT * FROM projects.get_area_version_summary('area-version-uuid');
 
 ### Area Management
 
-Located in: `src/lib/actions/project-areas.ts`
+Located in: `src/lib/actions/areas/`
 
 #### Create Area
 
@@ -146,8 +146,8 @@ const result = await createAreaAction({
   ceiling_height_m: 3.2,
   created_by: 'user@example.com'
 })
-// Returns: { success: true, data: { id: 'area-uuid', version_id: 'v1-uuid' } }
-// Note: Version 1 is auto-created!
+// Returns: { success: true, data: { id: 'area-uuid', revision_id: 'rv1-uuid' } }
+// Note: Revision 1 is auto-created!
 ```
 
 #### Update Area
@@ -162,68 +162,68 @@ const result = await updateAreaAction('area-uuid', {
 #### Delete Area
 
 ```typescript
-// Deletes area and ALL versions (CASCADE)
+// Deletes area and ALL revisions (CASCADE)
 const result = await deleteAreaAction('area-uuid')
 ```
 
-### Version Management
+### Revision Management
 
-#### Create New Version
+#### Create New Revision
 
 ```typescript
-import { createAreaVersionAction } from '@/lib/actions'
+import { createAreaRevisionAction } from '@/lib/actions'
 
-// Create v2 by copying products from v1
-const result = await createAreaVersionAction({
+// Create RV2 by copying products from RV1
+const result = await createAreaRevisionAction({
   area_id: 'area-uuid',
-  copy_from_version: 1,  // Copy products from v1
-  version_name: 'Client Revision',
+  copy_from_revision: 1,  // Copy products from RV1
+  revision_name: 'Client Revision',
   notes: 'Added dimmer controls per client request',
   created_by: 'designer@example.com'
 })
-// Returns: { success: true, data: { id: 'v2-uuid', version_number: 2 } }
-// area.current_version is automatically updated to 2
+// Returns: { success: true, data: { id: 'rv2-uuid', revision_number: 2 } }
+// area.current_revision is automatically updated to 2
 ```
 
-#### Switch Current Version
+#### Switch Current Revision
 
 ```typescript
-import { setAreaCurrentVersionAction } from '@/lib/actions'
+import { setAreaCurrentRevisionAction } from '@/lib/actions'
 
-// Make v1 the current version
-const result = await setAreaCurrentVersionAction('area-uuid', 1)
-// Updates area.current_version = 1
+// Make RV1 the current revision
+const result = await setAreaCurrentRevisionAction('area-uuid', 1)
+// Updates area.current_revision = 1
 ```
 
-#### Get Version History
+#### Get Revision History
 
 ```typescript
-import { getAreaVersionsAction } from '@/lib/actions'
+import { getAreaRevisionsAction } from '@/lib/actions'
 
-const result = await getAreaVersionsAction('area-uuid')
+const result = await getAreaRevisionsAction('area-uuid')
 // Returns: {
 //   success: true,
 //   data: [
-//     { version_number: 3, product_count: 18, total_cost: 2450, ... },
-//     { version_number: 2, product_count: 16, total_cost: 2200, ... },
-//     { version_number: 1, product_count: 12, total_cost: 1800, ... }
+//     { revision_number: 3, product_count: 18, total_cost: 2450, ... },
+//     { revision_number: 2, product_count: 16, total_cost: 2200, ... },
+//     { revision_number: 1, product_count: 12, total_cost: 1800, ... }
 //   ]
 // }
 ```
 
-#### Delete Version
+#### Delete Revision
 
 ```typescript
-import { deleteAreaVersionAction } from '@/lib/actions'
+import { deleteAreaRevisionAction } from '@/lib/actions'
 
-// Can only delete non-current versions
-const result = await deleteAreaVersionAction('version-uuid')
-// Error if version is current: "Cannot delete the current active version"
+// Can only delete non-current revisions
+const result = await deleteAreaRevisionAction('revision-uuid')
+// Error if revision is current: "Cannot delete the current active revision"
 ```
 
 ### Product-Area Assignment
 
-#### Add Product to Area Version
+#### Add Product to Area Revision
 
 ```typescript
 import { addProductToProjectAction } from '@/lib/actions'
@@ -231,7 +231,7 @@ import { addProductToProjectAction } from '@/lib/actions'
 const result = await addProductToProjectAction({
   project_id: 'project-uuid',
   product_id: 'product-uuid',
-  area_version_id: 'v2-uuid',  // NEW: Assign to specific version
+  area_revision_id: 'rv2-uuid',  // Assign to specific revision
   quantity: 10,
   room_location: 'Living Room'  // Optional sub-area detail
 })
@@ -248,12 +248,12 @@ Main interface for managing areas.
 **Location**: `src/components/projects/project-areas-card.tsx`
 
 **Features**:
-- List all areas with current version info
+- List all areas with current revision info
 - Show product count and cost per area
 - Create new area (opens `AreaFormDialog`)
 - Edit area metadata
-- Create new version (with product copy option)
-- View version history (opens `AreaVersionHistoryDialog`)
+- Create new revision (with product copy option)
+- View revision history (opens `AreaRevisionHistoryDialog`)
 - Delete area
 
 **Usage**:
@@ -293,28 +293,28 @@ Dialog for creating/editing areas.
 />
 ```
 
-### `AreaVersionHistoryDialog`
+### `AreaRevisionHistoryDialog`
 
-Timeline view of all versions for an area.
+Timeline view of all revisions for an area.
 
-**Location**: `src/components/projects/area-version-history-dialog.tsx`
+**Location**: `src/components/projects/area-revision-history-dialog.tsx`
 
 **Features**:
-- Shows all versions in descending order
-- Current version highlighted
-- Product count and cost per version
+- Shows all revisions in descending order
+- Current revision highlighted
+- Product count and cost per revision
 - Creation date and creator
 - Actions:
-  - Set as current (for non-current versions)
-  - Delete (for non-current versions only)
+  - Set as current (for non-current revisions)
+  - Delete (for non-current revisions only)
 
 **Usage**:
 ```tsx
-<AreaVersionHistoryDialog
+<AreaRevisionHistoryDialog
   open={isOpen}
   onOpenChange={setIsOpen}
   areaId={area.id}
-  onVersionChange={loadProject}
+  onRevisionChange={loadProject}
 />
 ```
 
@@ -331,26 +331,26 @@ HUB/
         ├─ General/              # Project-level documents
         └─ Areas/
             ├─ GF/               # Ground Floor
-            │   ├─ v1/
-            │   │   ├─ BOM_GF_v1.xlsx
-            │   │   └─ Layout_GF_v1.pdf
-            │   ├─ v2/
-            │   │   ├─ BOM_GF_v2.xlsx
-            │   │   └─ Layout_GF_v2.pdf
-            │   └─ v3/           # Current version
-            │       ├─ BOM_GF_v3.xlsx
-            │       └─ Layout_GF_v3.pdf
+            │   ├─ RV1/
+            │   │   ├─ BOM_GF_RV1.xlsx
+            │   │   └─ Layout_GF_RV1.pdf
+            │   ├─ RV2/
+            │   │   ├─ BOM_GF_RV2.xlsx
+            │   │   └─ Layout_GF_RV2.pdf
+            │   └─ RV3/           # Current revision
+            │       ├─ BOM_GF_RV3.xlsx
+            │       └─ Layout_GF_RV3.pdf
             ├─ F1/               # First Floor
-            │   ├─ v1/
-            │   └─ v2/           # Current version
+            │   ├─ RV1/
+            │   └─ RV2/           # Current revision
             └─ GARDEN/
-                └─ v1/           # Current version
+                └─ RV1/           # Current revision
 ```
 
 ### Folder IDs
 
 - `project_areas.google_drive_folder_id` - NOT used (can be removed)
-- `project_area_versions.google_drive_folder_id` - Stores folder ID for each version
+- `project_area_revisions.google_drive_folder_id` - Stores folder ID for each revision
 
 ---
 
@@ -373,7 +373,7 @@ const gf = await createAreaAction({
   area_name: 'Ground Floor',
   floor_level: 0
 })
-// Auto-creates v1 for GF
+// Auto-creates RV1 for GF
 
 const f1 = await createAreaAction({
   project_id: project.id,
@@ -381,20 +381,20 @@ const f1 = await createAreaAction({
   area_name: 'First Floor',
   floor_level: 1
 })
-// Auto-creates v1 for F1
+// Auto-creates RV1 for F1
 
-// 3. Add products to versions
+// 3. Add products to revisions
 await addProductToProjectAction({
   project_id: project.id,
   product_id: 'downlight-uuid',
-  area_version_id: gf.version_id,  // GF v1
+  area_revision_id: gf.revision_id,  // GF RV1
   quantity: 10
 })
 
 await addProductToProjectAction({
   project_id: project.id,
   product_id: 'wall-light-uuid',
-  area_version_id: f1.version_id,  // F1 v1
+  area_revision_id: f1.revision_id,  // F1 RV1
   quantity: 6
 })
 ```
@@ -404,46 +404,46 @@ await addProductToProjectAction({
 ```typescript
 // Client requests changes to Ground Floor only
 
-// 1. Create new version, copy products from v1
-const v2 = await createAreaVersionAction({
+// 1. Create new revision, copy products from RV1
+const rv2 = await createAreaRevisionAction({
   area_id: gf.id,
-  copy_from_version: 1,
+  copy_from_revision: 1,
   notes: 'Client requested dimmer controls',
   created_by: 'designer@example.com'
 })
-// GF is now at v2 (current_version = 2)
-// F1 is still at v1 (unaffected)
+// GF is now at RV2 (current_revision = 2)
+// F1 is still at RV1 (unaffected)
 
-// 2. Modify products in v2
+// 2. Modify products in RV2
 await addProductToProjectAction({
   project_id: project.id,
   product_id: 'dimmer-uuid',
-  area_version_id: v2.data.id,  // GF v2
+  area_revision_id: rv2.data.id,  // GF RV2
   quantity: 5
 })
 
-// 3. View project: shows GF v2 + F1 v1
+// 3. View project: shows GF RV2 + F1 RV1
 ```
 
-### Comparing Versions
+### Comparing Revisions
 
 ```typescript
-// Get all versions for Ground Floor
-const versions = await getAreaVersionsAction(gf.id)
+// Get all revisions for Ground Floor
+const revisions = await getAreaRevisionsAction(gf.id)
 
-// versions.data:
+// revisions.data:
 // [
-//   { version_number: 2, product_count: 15, total_cost: 2200 },
-//   { version_number: 1, product_count: 10, total_cost: 1800 }
+//   { revision_number: 2, product_count: 15, total_cost: 2200 },
+//   { revision_number: 1, product_count: 10, total_cost: 1800 }
 // ]
 
-// Switch to v1 to compare
-await setAreaCurrentVersionAction(gf.id, 1)
-// Now viewing GF v1 + F1 v1
+// Switch to RV1 to compare
+await setAreaCurrentRevisionAction(gf.id, 1)
+// Now viewing GF RV1 + F1 RV1
 
-// Switch back to v2
-await setAreaCurrentVersionAction(gf.id, 2)
-// Back to GF v2 + F1 v1
+// Switch back to RV2
+await setAreaCurrentRevisionAction(gf.id, 2)
+// Back to GF RV2 + F1 RV1
 ```
 
 ---
@@ -452,11 +452,11 @@ await setAreaCurrentVersionAction(gf.id, 2)
 
 ### Safety Constraints
 
-1. **Cannot delete current version**
+1. **Cannot delete current revision**
    ```typescript
-   // If GF current_version = 2
-   await deleteAreaVersionAction(v2_id)
-   // Error: "Cannot delete the current active version"
+   // If GF current_revision = 2
+   await deleteAreaRevisionAction(rv2_id)
+   // Error: "Cannot delete the current active revision"
    ```
 
 2. **Area codes are unique per project**
@@ -466,20 +466,20 @@ await setAreaCurrentVersionAction(gf.id, 2)
    // Error: "An area with this code already exists in this project"
    ```
 
-3. **Version numbers are immutable**
-   - Once created, version numbers never change
-   - No renumbering when versions are deleted
+3. **Revision numbers are immutable**
+   - Once created, revision numbers never change
+   - No renumbering when revisions are deleted
 
 ### Cascade Delete
 
-1. **Deleting an area** → Deletes all versions → Deletes all products in those versions
-2. **Deleting a version** → Deletes all products in that version
+1. **Deleting an area** → Deletes all revisions → Deletes all products in those revisions
+2. **Deleting a revision** → Deletes all products in that revision
 
 ---
 
 ## Database Queries
 
-### Get Project with Current Versions
+### Get Project with Current Revisions
 
 ```sql
 SELECT
@@ -488,61 +488,61 @@ SELECT
   pa.id AS area_id,
   pa.area_code,
   pa.area_name,
-  pa.current_version,
-  pav.id AS current_version_id,
-  pav.version_name,
-  pav.notes,
+  pa.current_revision,
+  par.id AS current_revision_id,
+  par.revision_name,
+  par.notes,
   COUNT(pp.id) AS product_count,
   SUM(pp.total_price) AS total_cost
 FROM projects.projects p
 JOIN projects.project_areas pa ON p.id = pa.project_id
-JOIN projects.project_area_versions pav
-  ON pa.id = pav.area_id AND pa.current_version = pav.version_number
-LEFT JOIN projects.project_products pp ON pav.id = pp.area_version_id
+JOIN projects.project_area_revisions par
+  ON pa.id = par.area_id AND pa.current_revision = par.revision_number
+LEFT JOIN projects.project_products pp ON par.id = pp.area_revision_id
 WHERE p.id = $1
-GROUP BY p.id, pa.id, pav.id
+GROUP BY p.id, pa.id, par.id
 ORDER BY pa.display_order, pa.floor_level;
 ```
 
-### Get All Products for Current Versions
+### Get All Products for Current Revisions
 
 ```sql
 SELECT
   pp.*,
   pa.area_code,
   pa.area_name,
-  pav.version_number
+  par.revision_number
 FROM projects.project_products pp
-JOIN projects.project_area_versions pav ON pp.area_version_id = pav.id
-JOIN projects.project_areas pa ON pav.area_id = pa.id
+JOIN projects.project_area_revisions par ON pp.area_revision_id = par.id
+JOIN projects.project_areas pa ON par.area_id = pa.id
 WHERE pa.project_id = $1
-  AND pa.current_version = pav.version_number
+  AND pa.current_revision = par.revision_number
 ORDER BY pa.display_order, pp.room_location;
 ```
 
-### Compare Two Versions of an Area
+### Compare Two Revisions of an Area
 
 ```sql
--- Get products in v1 vs v2
-WITH v1_products AS (
+-- Get products in RV1 vs RV2
+WITH rv1_products AS (
   SELECT product_id, quantity
   FROM projects.project_products pp
-  JOIN projects.project_area_versions pav ON pp.area_version_id = pav.id
-  WHERE pav.area_id = $1 AND pav.version_number = 1
+  JOIN projects.project_area_revisions par ON pp.area_revision_id = par.id
+  WHERE par.area_id = $1 AND par.revision_number = 1
 ),
-v2_products AS (
+rv2_products AS (
   SELECT product_id, quantity
   FROM projects.project_products pp
-  JOIN projects.project_area_versions pav ON pp.area_version_id = pav.id
-  WHERE pav.area_id = $1 AND pav.version_number = 2
+  JOIN projects.project_area_revisions par ON pp.area_revision_id = par.id
+  WHERE par.area_id = $1 AND par.revision_number = 2
 )
 SELECT
-  COALESCE(v1.product_id, v2.product_id) AS product_id,
-  v1.quantity AS v1_qty,
-  v2.quantity AS v2_qty,
-  COALESCE(v2.quantity, 0) - COALESCE(v1.quantity, 0) AS diff
-FROM v1_products v1
-FULL OUTER JOIN v2_products v2 ON v1.product_id = v2.product_id;
+  COALESCE(rv1.product_id, rv2.product_id) AS product_id,
+  rv1.quantity AS rv1_qty,
+  rv2.quantity AS rv2_qty,
+  COALESCE(rv2.quantity, 0) - COALESCE(rv1.quantity, 0) AS diff
+FROM rv1_products rv1
+FULL OUTER JOIN rv2_products rv2 ON rv1.product_id = rv2.product_id;
 ```
 
 ---
@@ -553,22 +553,16 @@ FULL OUTER JOIN v2_products v2 ON v1.product_id = v2.product_id;
 
 ```bash
 # Connect to Supabase database
-psql $DATABASE_URL -f supabase/migrations/20251219_add_project_area_versioning.sql
+psql $DATABASE_URL -f supabase/migrations/20251228120000_rename_version_to_revision.sql
 ```
 
 ### Migration Contents
 
-1. Creates `project_areas` table
-2. Creates `project_area_versions` table
-3. Adds `area_version_id` column to `project_products`
-4. Creates indexes for performance
-5. Creates trigger for auto-creating v1
-6. Creates helper function `get_area_version_summary()`
-7. Grants permissions to `authenticated` role
-
-### No Data Migration Required
-
-Since this is a new feature with no existing data to migrate, the migration simply adds the new schema. Existing projects will have `areas = []`.
+1. Renames `project_area_versions` table to `project_area_revisions`
+2. Renames columns: `version_number` → `revision_number`, `version_name` → `revision_name`
+3. Renames `current_version` → `current_revision` in `project_areas`
+4. Renames `area_version_id` → `area_revision_id` in `project_products`
+5. Updates trigger and helper function names
 
 ---
 
@@ -577,35 +571,35 @@ Since this is a new feature with no existing data to migrate, the migration simp
 ### Basic Operations
 
 - [ ] Create project
-- [ ] Add area (verify v1 auto-created)
+- [ ] Add area (verify RV1 auto-created)
 - [ ] Edit area metadata
 - [ ] Delete empty area
 - [ ] Try to create duplicate area code (should fail)
 
-### Versioning
+### Revisioning
 
-- [ ] Add products to area v1
-- [ ] Create v2 without copying products
-- [ ] Create v3 by copying from v2
-- [ ] View version history
-- [ ] Switch to v1 (verify products change)
-- [ ] Delete v1 (should work if not current)
-- [ ] Try to delete current version (should fail)
+- [ ] Add products to area RV1
+- [ ] Create RV2 without copying products
+- [ ] Create RV3 by copying from RV2
+- [ ] View revision history
+- [ ] Switch to RV1 (verify products change)
+- [ ] Delete RV1 (should work if not current)
+- [ ] Try to delete current revision (should fail)
 
 ### Products
 
-- [ ] Add product to area version
-- [ ] Add same product to different version (should create separate entries)
-- [ ] Remove product from version
+- [ ] Add product to area revision
+- [ ] Add same product to different revision (should create separate entries)
+- [ ] Remove product from revision
 - [ ] Verify area summaries update (count, cost)
 
 ### Edge Cases
 
 - [ ] Create area with special characters in code
 - [ ] Create area with negative floor level (basement)
-- [ ] Delete area with multiple versions and products
-- [ ] Switch version back and forth rapidly
-- [ ] Create many versions (10+) for an area
+- [ ] Delete area with multiple revisions and products
+- [ ] Switch revision back and forth rapidly
+- [ ] Create many revisions (10+) for an area
 
 ---
 
@@ -619,18 +613,18 @@ All critical paths are indexed:
 -- Fast area lookup by project
 CREATE INDEX idx_project_areas_project_id ON project_areas(project_id);
 
--- Fast version lookup by area
-CREATE INDEX idx_area_versions_area_id ON project_area_versions(area_id);
+-- Fast revision lookup by area
+CREATE INDEX idx_area_revisions_area_id ON project_area_revisions(area_id);
 
--- Fast product lookup by version
-CREATE INDEX idx_project_products_area_version ON project_products(area_version_id);
+-- Fast product lookup by revision
+CREATE INDEX idx_project_products_area_revision ON project_products(area_revision_id);
 ```
 
 ### Query Optimization
 
-- Use `get_area_version_summary()` function instead of manual aggregation
-- Fetch areas with versions in single query (see `listProjectAreasAction`)
-- Use `includeVersions` parameter wisely (only fetch when needed)
+- Use `get_area_revision_summary()` function instead of manual aggregation
+- Fetch areas with revisions in single query (see `listProjectAreasAction`)
+- Use `includeRevisions` parameter wisely (only fetch when needed)
 
 ---
 
@@ -638,21 +632,21 @@ CREATE INDEX idx_project_products_area_version ON project_products(area_version_
 
 ### Planned Features
 
-1. **Version Comparison UI**
-   - Side-by-side comparison of two versions
+1. **Revision Comparison UI**
+   - Side-by-side comparison of two revisions
    - Highlight added/removed/changed products
 
-2. **Version Approval Workflow**
-   - Set version status to "submitted"
+2. **Revision Approval Workflow**
+   - Set revision status to "submitted"
    - Manager approves → status "approved"
-   - Lock approved versions (no edits)
+   - Lock approved revisions (no edits)
 
-3. **Version Branching**
-   - Create multiple versions from same parent
-   - Merge versions (reconcile products)
+3. **Revision Branching**
+   - Create multiple revisions from same parent
+   - Merge revisions (reconcile products)
 
 4. **Export Area BOM**
-   - Generate Excel BOM per area version
+   - Generate Excel BOM per area revision
    - Include drawings, specifications
 
 5. **Area Templates**
@@ -674,32 +668,32 @@ CREATE INDEX idx_project_products_area_version ON project_products(area_version_
 
 **Problem**: Added products but they don't appear in area.
 
-**Solution**: Verify `area_version_id` matches the **current version**:
+**Solution**: Verify `area_revision_id` matches the **current revision**:
 
 ```sql
-SELECT pa.current_version, pav.version_number, pp.*
+SELECT pa.current_revision, par.revision_number, pp.*
 FROM project_products pp
-JOIN project_area_versions pav ON pp.area_version_id = pav.id
-JOIN project_areas pa ON pav.area_id = pa.id
+JOIN project_area_revisions par ON pp.area_revision_id = par.id
+JOIN project_areas pa ON par.area_id = pa.id
 WHERE pa.id = 'area-uuid';
 ```
 
-### Cannot Delete Version
+### Cannot Delete Revision
 
-**Problem**: "Cannot delete the current active version" error.
+**Problem**: "Cannot delete the current active revision" error.
 
-**Solution**: Switch to different version first:
+**Solution**: Switch to different revision first:
 
 ```typescript
-await setAreaCurrentVersionAction(area.id, 2)  // Switch to v2
-await deleteAreaVersionAction(v1_id)  // Now can delete v1
+await setAreaCurrentRevisionAction(area.id, 2)  // Switch to RV2
+await deleteAreaRevisionAction(rv1_id)  // Now can delete RV1
 ```
 
-### Version Numbers Skipped
+### Revision Numbers Skipped
 
-**Problem**: Area has v1 and v3, but no v2.
+**Problem**: Area has RV1 and RV3, but no RV2.
 
-**Explanation**: v2 was deleted. This is by design - version numbers are never reused or renumbered.
+**Explanation**: RV2 was deleted. This is by design - revision numbers are never reused or renumbered.
 
 ---
 
@@ -713,11 +707,18 @@ await deleteAreaVersionAction(v1_id)  // Now can delete v1
 
 ## Changelog
 
+### 2025-12-28 - Terminology Update
+
+- Renamed all "version" terminology to "revision" (RV)
+- Database migration: `20251228120000_rename_version_to_revision.sql`
+- Updated table: `project_area_versions` → `project_area_revisions`
+- Updated columns: `version_number` → `revision_number`, etc.
+- Updated UI to display "RV1", "RV2" instead of "v1", "v2"
+
 ### 2025-12-19 - Initial Implementation
 
-- Created `project_areas` and `project_area_versions` tables
-- Modified `project_products` to link to area versions
+- Created `project_areas` and `project_area_revisions` tables
+- Modified `project_products` to link to area revisions
 - Implemented server actions for CRUD operations
-- Created UI components (ProjectAreasCard, AreaFormDialog, AreaVersionHistoryDialog)
+- Created UI components (ProjectAreasCard, AreaFormDialog, AreaRevisionHistoryDialog)
 - Added "Areas" tab to project detail page
-- Migration: `20251219_add_project_area_versioning.sql`

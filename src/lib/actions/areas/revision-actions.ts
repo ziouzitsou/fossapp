@@ -1,43 +1,43 @@
 'use server'
 
 /**
- * Area Version Actions
+ * Area Revision Actions
  *
- * Version management for project areas: create, set current, get all, delete.
- * Each area can have multiple versions, allowing iteration on designs.
+ * Revision management for project areas: create, set current, get all, delete.
+ * Each area can have multiple revisions, allowing iteration on designs.
  */
 
 import { supabaseServer } from '@fossapp/core/db/server'
 import {
-  createAreaVersionFolderAction,
-  deleteAreaVersionFolderAction,
+  createAreaRevisionFolderAction,
+  deleteAreaRevisionFolderAction,
 } from '../project-drive'
 
 import type {
-  AreaVersion,
-  CreateVersionInput,
+  AreaRevision,
+  CreateRevisionInput,
   ActionResult,
 } from '@fossapp/projects'
 
 // Type for the RPC function return
-type VersionSummary = {
+type RevisionSummary = {
   product_count: number
   total_cost: number
 }
 
 // ============================================================================
-// CREATE NEW VERSION
+// CREATE NEW REVISION
 // ============================================================================
 
-export async function createAreaVersionAction(
-  input: CreateVersionInput
-): Promise<ActionResult<{ id: string; version_number: number; google_drive_folder_id?: string }>> {
+export async function createAreaRevisionAction(
+  input: CreateRevisionInput
+): Promise<ActionResult<{ id: string; revision_number: number; google_drive_folder_id?: string }>> {
   try {
-    // Get the area to find next version number and Drive folder ID
+    // Get the area to find next revision number and Drive folder ID
     const { data: area, error: areaError } = await supabaseServer
       .schema('projects')
       .from('project_areas')
-      .select('current_version, google_drive_folder_id')
+      .select('current_revision, google_drive_folder_id')
       .eq('id', input.area_id)
       .single()
 
@@ -45,16 +45,16 @@ export async function createAreaVersionAction(
       return { success: false, error: 'Area not found' }
     }
 
-    const newVersionNumber = area.current_version + 1
+    const newRevisionNumber = area.current_revision + 1
 
-    // Create new version
-    const { data: newVersion, error: versionError } = await supabaseServer
+    // Create new revision
+    const { data: newRevision, error: revisionError } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
+      .from('project_area_revisions')
       .insert({
         area_id: input.area_id,
-        version_number: newVersionNumber,
-        version_name: input.version_name?.trim() || `Version ${newVersionNumber}`,
+        revision_number: newRevisionNumber,
+        revision_name: input.revision_name?.trim() || `Revision ${newRevisionNumber}`,
         notes: input.notes?.trim() || null,
         created_by: input.created_by || null,
         status: 'draft'
@@ -62,59 +62,59 @@ export async function createAreaVersionAction(
       .select('id')
       .single()
 
-    if (versionError) {
-      console.error('Create version error:', versionError)
-      return { success: false, error: 'Failed to create new version' }
+    if (revisionError) {
+      console.error('Create revision error:', revisionError)
+      return { success: false, error: 'Failed to create new revision' }
     }
 
-    // Try to create Google Drive folder for this version
+    // Try to create Google Drive folder for this revision
     let driveFolderId: string | undefined
     if (area.google_drive_folder_id) {
       try {
-        const driveResult = await createAreaVersionFolderAction(
+        const driveResult = await createAreaRevisionFolderAction(
           area.google_drive_folder_id,
-          newVersionNumber
+          newRevisionNumber
         )
         if (driveResult.success && driveResult.data) {
-          driveFolderId = driveResult.data.versionFolderId
+          driveFolderId = driveResult.data.revisionFolderId
 
-          // Update version with Drive folder ID
+          // Update revision with Drive folder ID
           await supabaseServer
             .schema('projects')
-            .from('project_area_versions')
+            .from('project_area_revisions')
             .update({ google_drive_folder_id: driveFolderId })
-            .eq('id', newVersion.id)
+            .eq('id', newRevision.id)
         }
       } catch (driveError) {
         // Log but don't fail - Drive folder is optional
-        console.warn('Failed to create Drive folder for version:', driveError)
+        console.warn('Failed to create Drive folder for revision:', driveError)
       }
     }
 
-    // If copy_from_version is specified, copy products and floor plan
-    if (input.copy_from_version) {
-      const { data: sourceVersion } = await supabaseServer
+    // If copy_from_revision is specified, copy products and floor plan
+    if (input.copy_from_revision) {
+      const { data: sourceRevision } = await supabaseServer
         .schema('projects')
-        .from('project_area_versions')
+        .from('project_area_revisions')
         .select('id, floor_plan_urn, floor_plan_filename, floor_plan_hash')
         .eq('area_id', input.area_id)
-        .eq('version_number', input.copy_from_version)
+        .eq('revision_number', input.copy_from_revision)
         .single()
 
-      if (sourceVersion) {
-        // Get products from source version
+      if (sourceRevision) {
+        // Get products from source revision
         const { data: products } = await supabaseServer
           .schema('projects')
           .from('project_products')
           .select('*')
-          .eq('area_version_id', sourceVersion.id)
+          .eq('area_revision_id', sourceRevision.id)
 
         if (products && products.length > 0) {
-          // Copy products to new version
+          // Copy products to new revision
           const newProducts = products.map(p => ({
             project_id: p.project_id,
             product_id: p.product_id,
-            area_version_id: newVersion.id,
+            area_revision_id: newRevision.id,
             quantity: p.quantity,
             unit_price: p.unit_price,
             discount_percent: p.discount_percent,
@@ -130,8 +130,8 @@ export async function createAreaVersionAction(
             .insert(newProducts)
         }
 
-        // Copy floor plan if source version has one
-        if (sourceVersion.floor_plan_urn && sourceVersion.floor_plan_filename) {
+        // Copy floor plan if source revision has one
+        if (sourceRevision.floor_plan_urn && sourceRevision.floor_plan_filename) {
           try {
             // Get project's OSS bucket
             const { data: areaWithProject } = await supabaseServer
@@ -155,13 +155,13 @@ export async function createAreaVersionAction(
               // Build source and target object keys
               const sourceObjectKey = generateObjectKey(
                 input.area_id,
-                sourceVersion.id,
-                sourceVersion.floor_plan_filename
+                sourceRevision.id,
+                sourceRevision.floor_plan_filename
               )
               const targetObjectKey = generateObjectKey(
                 input.area_id,
-                newVersion.id,
-                sourceVersion.floor_plan_filename
+                newRevision.id,
+                sourceRevision.floor_plan_filename
               )
 
               // Copy the DWG file in OSS bucket
@@ -174,33 +174,33 @@ export async function createAreaVersionAction(
               // Start translation for the copied file
               await translateToSVF2(newUrn)
 
-              // Update new version with floor plan info
+              // Update new revision with floor plan info
               await supabaseServer
                 .schema('projects')
-                .from('project_area_versions')
+                .from('project_area_revisions')
                 .update({
                   floor_plan_urn: newUrn,
-                  floor_plan_filename: sourceVersion.floor_plan_filename,
-                  floor_plan_hash: sourceVersion.floor_plan_hash
+                  floor_plan_filename: sourceRevision.floor_plan_filename,
+                  floor_plan_hash: sourceRevision.floor_plan_hash
                 })
-                .eq('id', newVersion.id)
+                .eq('id', newRevision.id)
 
-              console.log(`[Areas] Copied floor plan to new version ${newVersionNumber}`)
+              console.log(`[Areas] Copied floor plan to new revision ${newRevisionNumber}`)
             }
           } catch (floorPlanError) {
             // Log but don't fail - floor plan copy is optional
-            console.warn('Failed to copy floor plan to new version:', floorPlanError)
+            console.warn('Failed to copy floor plan to new revision:', floorPlanError)
           }
         }
       }
     }
 
-    // Update area's current_version
+    // Update area's current_revision
     await supabaseServer
       .schema('projects')
       .from('project_areas')
       .update({
-        current_version: newVersionNumber,
+        current_revision: newRevisionNumber,
         updated_at: new Date().toISOString()
       })
       .eq('id', input.area_id)
@@ -208,164 +208,164 @@ export async function createAreaVersionAction(
     return {
       success: true,
       data: {
-        id: newVersion.id,
-        version_number: newVersionNumber,
+        id: newRevision.id,
+        revision_number: newRevisionNumber,
         google_drive_folder_id: driveFolderId
       }
     }
   } catch (error) {
-    console.error('Create version error:', error)
+    console.error('Create revision error:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }
 
 // ============================================================================
-// SET CURRENT VERSION
+// SET CURRENT REVISION
 // ============================================================================
 
-export async function setAreaCurrentVersionAction(
+export async function setAreaCurrentRevisionAction(
   areaId: string,
-  versionNumber: number
+  revisionNumber: number
 ): Promise<ActionResult> {
   try {
-    // Verify version exists
-    const { data: version, error: versionError } = await supabaseServer
+    // Verify revision exists
+    const { data: revision, error: revisionError } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
+      .from('project_area_revisions')
       .select('id')
       .eq('area_id', areaId)
-      .eq('version_number', versionNumber)
+      .eq('revision_number', revisionNumber)
       .single()
 
-    if (versionError || !version) {
-      return { success: false, error: 'Version not found' }
+    if (revisionError || !revision) {
+      return { success: false, error: 'Revision not found' }
     }
 
-    // Update current_version
+    // Update current_revision
     const { error } = await supabaseServer
       .schema('projects')
       .from('project_areas')
       .update({
-        current_version: versionNumber,
+        current_revision: revisionNumber,
         updated_at: new Date().toISOString()
       })
       .eq('id', areaId)
 
     if (error) {
-      console.error('Set current version error:', error)
-      return { success: false, error: 'Failed to set current version' }
+      console.error('Set current revision error:', error)
+      return { success: false, error: 'Failed to set current revision' }
     }
 
     return { success: true }
   } catch (error) {
-    console.error('Set current version error:', error)
+    console.error('Set current revision error:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }
 
 // ============================================================================
-// GET ALL VERSIONS FOR AREA
+// GET ALL REVISIONS FOR AREA
 // ============================================================================
 
-export async function getAreaVersionsAction(
+export async function getAreaRevisionsAction(
   areaId: string
-): Promise<ActionResult<AreaVersion[]>> {
+): Promise<ActionResult<AreaRevision[]>> {
   try {
-    const { data: versions, error } = await supabaseServer
+    const { data: revisions, error } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
+      .from('project_area_revisions')
       .select('*')
       .eq('area_id', areaId)
-      .order('version_number', { ascending: false })
+      .order('revision_number', { ascending: false })
 
     if (error) {
-      console.error('Get versions error:', error)
-      return { success: false, error: 'Failed to fetch versions' }
+      console.error('Get revisions error:', error)
+      return { success: false, error: 'Failed to fetch revisions' }
     }
 
-    // Get product count and cost for each version
-    const versionsWithSummary = await Promise.all(
-      (versions || []).map(async (v) => {
+    // Get product count and cost for each revision
+    const revisionsWithSummary = await Promise.all(
+      (revisions || []).map(async (r) => {
         const { data: summary } = await supabaseServer
           .schema('projects')
-          .rpc('get_area_version_summary', { p_area_version_id: v.id })
+          .rpc('get_area_revision_summary', { p_area_revision_id: r.id })
           .single()
 
-        const typedSummary = summary as VersionSummary | null
+        const typedSummary = summary as RevisionSummary | null
         return {
-          ...v,
+          ...r,
           product_count: typedSummary?.product_count || 0,
           total_cost: typedSummary?.total_cost || 0
         }
       })
     )
 
-    return { success: true, data: versionsWithSummary }
+    return { success: true, data: revisionsWithSummary }
   } catch (error) {
-    console.error('Get versions error:', error)
+    console.error('Get revisions error:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }
 
 // ============================================================================
-// DELETE VERSION (only if not current)
+// DELETE REVISION (only if not current)
 // ============================================================================
 
-export async function deleteAreaVersionAction(
-  areaVersionId: string
+export async function deleteAreaRevisionAction(
+  areaRevisionId: string
 ): Promise<ActionResult> {
   try {
-    // Get version info including Drive folder ID
-    const { data: version, error: versionError } = await supabaseServer
+    // Get revision info including Drive folder ID
+    const { data: revision, error: revisionError } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
-      .select('area_id, version_number, google_drive_folder_id')
-      .eq('id', areaVersionId)
+      .from('project_area_revisions')
+      .select('area_id, revision_number, google_drive_folder_id')
+      .eq('id', areaRevisionId)
       .single()
 
-    if (versionError || !version) {
-      return { success: false, error: 'Version not found' }
+    if (revisionError || !revision) {
+      return { success: false, error: 'Revision not found' }
     }
 
-    // Check if it's the current version
+    // Check if it's the current revision
     const { data: area } = await supabaseServer
       .schema('projects')
       .from('project_areas')
-      .select('current_version')
-      .eq('id', version.area_id)
+      .select('current_revision')
+      .eq('id', revision.area_id)
       .single()
 
-    if (area && area.current_version === version.version_number) {
-      return { success: false, error: 'Cannot delete the current active version' }
+    if (area && area.current_revision === revision.revision_number) {
+      return { success: false, error: 'Cannot delete the current active revision' }
     }
 
-    const driveFolderId = version.google_drive_folder_id
+    const driveFolderId = revision.google_drive_folder_id
 
-    // Delete the version (cascade will delete associated products)
+    // Delete the revision (cascade will delete associated products)
     const { error } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
+      .from('project_area_revisions')
       .delete()
-      .eq('id', areaVersionId)
+      .eq('id', areaRevisionId)
 
     if (error) {
-      console.error('Delete version error:', error)
-      return { success: false, error: 'Failed to delete version' }
+      console.error('Delete revision error:', error)
+      return { success: false, error: 'Failed to delete revision' }
     }
 
     // Try to delete the Drive folder if it exists
     if (driveFolderId) {
       try {
-        await deleteAreaVersionFolderAction(driveFolderId)
+        await deleteAreaRevisionFolderAction(driveFolderId)
       } catch (driveError) {
         // Log but don't fail - manual cleanup may be needed
-        console.warn('Failed to delete Drive folder for version:', driveError)
+        console.warn('Failed to delete Drive folder for revision:', driveError)
       }
     }
 
     return { success: true }
   } catch (error) {
-    console.error('Delete version error:', error)
+    console.error('Delete revision error:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }

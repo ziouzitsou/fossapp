@@ -3,8 +3,8 @@
 /**
  * Floor Plan Actions
  *
- * Floor plan and placement management for area versions:
- * - Delete floor plans from area versions
+ * Floor plan and placement management for area revisions:
+ * - Delete floor plans from area revisions
  * - Load and save fixture placements on floor plans
  */
 
@@ -14,32 +14,32 @@ import { deleteFloorPlanObject, generateObjectKey } from '../../planner/aps-plan
 import type { ActionResult } from '@fossapp/projects'
 
 // ============================================================================
-// DELETE FLOOR PLAN FROM AREA VERSION
+// DELETE FLOOR PLAN FROM AREA REVISION
 // ============================================================================
 
 /**
- * Remove floor plan from an area version
+ * Remove floor plan from an area revision
  *
  * This deletes both the database reference AND the OSS file.
- * If other versions need the file, use copyTo() when creating them.
+ * If other revisions need the file, use copyTo() when creating them.
  */
-export async function deleteAreaVersionFloorPlanAction(
-  areaVersionId: string
+export async function deleteAreaRevisionFloorPlanAction(
+  areaRevisionId: string
 ): Promise<ActionResult> {
   try {
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    if (!uuidRegex.test(areaVersionId)) {
-      return { success: false, error: 'Invalid area version ID format' }
+    if (!uuidRegex.test(areaRevisionId)) {
+      return { success: false, error: 'Invalid area revision ID format' }
     }
 
-    // Get the area version with its floor plan info and area details
-    const { data: areaVersion, error: fetchError } = await supabaseServer
+    // Get the area revision with its floor plan info and area details
+    const { data: areaRevision, error: fetchError } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
+      .from('project_area_revisions')
       .select(`
         id,
-        version_number,
+        revision_number,
         floor_plan_filename,
         floor_plan_urn,
         project_areas!inner (
@@ -47,22 +47,22 @@ export async function deleteAreaVersionFloorPlanAction(
           area_code
         )
       `)
-      .eq('id', areaVersionId)
+      .eq('id', areaRevisionId)
       .single()
 
-    if (fetchError || !areaVersion) {
-      console.error('Fetch area version error:', fetchError)
-      return { success: false, error: 'Area version not found' }
+    if (fetchError || !areaRevision) {
+      console.error('Fetch area revision error:', fetchError)
+      return { success: false, error: 'Area revision not found' }
     }
 
     // Delete from OSS if file exists
-    if (areaVersion.floor_plan_filename && areaVersion.floor_plan_urn) {
+    if (areaRevision.floor_plan_filename && areaRevision.floor_plan_urn) {
       // Type assertion for nested join data (Supabase returns object for !inner with single())
-      const projectAreas = areaVersion.project_areas as unknown as { project_id: string; area_code: string }
+      const projectAreas = areaRevision.project_areas as unknown as { project_id: string; area_code: string }
       const objectKey = generateObjectKey(
         projectAreas.area_code,
-        areaVersion.version_number,
-        areaVersion.floor_plan_filename
+        areaRevision.revision_number,
+        areaRevision.floor_plan_filename
       )
 
       try {
@@ -76,7 +76,7 @@ export async function deleteAreaVersionFloorPlanAction(
     // Clear all floor plan fields from database
     const { error } = await supabaseServer
       .schema('projects')
-      .from('project_area_versions')
+      .from('project_area_revisions')
       .update({
         floor_plan_urn: null,
         floor_plan_filename: null,
@@ -86,7 +86,7 @@ export async function deleteAreaVersionFloorPlanAction(
         floor_plan_warnings: null,
         floor_plan_manifest: null
       })
-      .eq('id', areaVersionId)
+      .eq('id', areaRevisionId)
 
     if (error) {
       console.error('Delete floor plan error:', error)
@@ -95,7 +95,7 @@ export async function deleteAreaVersionFloorPlanAction(
 
     return { success: true }
   } catch (error) {
-    console.error('Delete area version floor plan error:', error)
+    console.error('Delete area revision floor plan error:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }
@@ -118,21 +118,21 @@ export interface PlacementData {
 }
 
 /**
- * Load all placements for an area version
+ * Load all placements for an area revision
  */
 export async function loadAreaPlacementsAction(
-  areaVersionId: string
+  areaRevisionId: string
 ): Promise<ActionResult<PlacementData[]>> {
   try {
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    if (!uuidRegex.test(areaVersionId)) {
-      return { success: false, error: 'Invalid area version ID format' }
+    if (!uuidRegex.test(areaRevisionId)) {
+      return { success: false, error: 'Invalid area revision ID format' }
     }
 
     const { data, error } = await supabaseServer
       .schema('projects')
-      .rpc('get_area_placements', { p_area_version_id: areaVersionId })
+      .rpc('get_area_placements', { p_area_revision_id: areaRevisionId })
 
     if (error) {
       console.error('Load placements error:', error)
@@ -166,25 +166,25 @@ export async function loadAreaPlacementsAction(
 }
 
 /**
- * Save all placements for an area version (atomic replace)
+ * Save all placements for an area revision (atomic replace)
  * Deletes existing placements and inserts new ones in a transaction
  */
 export async function saveAreaPlacementsAction(
-  areaVersionId: string,
+  areaRevisionId: string,
   placements: PlacementData[]
 ): Promise<ActionResult> {
   try {
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    if (!uuidRegex.test(areaVersionId)) {
-      return { success: false, error: 'Invalid area version ID format' }
+    if (!uuidRegex.test(areaRevisionId)) {
+      return { success: false, error: 'Invalid area revision ID format' }
     }
 
     // Call RPC function for atomic save
     const { error } = await supabaseServer
       .schema('projects')
       .rpc('save_area_placements', {
-        p_area_version_id: areaVersionId,
+        p_area_revision_id: areaRevisionId,
         p_placements: placements
       })
 

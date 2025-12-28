@@ -211,10 +211,10 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
         mounting_height,
         status,
         notes,
-        area_version_id,
-        project_area_versions!inner (
+        area_revision_id,
+        project_area_revisions!inner (
           id,
-          version_number,
+          revision_number,
           project_areas!inner (
             id,
             area_code,
@@ -255,9 +255,9 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
       for (const pp of projectProducts) {
         const productDetail = productMap.get(pp.product_id)
         // Extract area info from joined data (it's a single object due to !inner join on FK)
-        const areaVersionData = pp.project_area_versions as unknown as {
+        const areaRevisionData = pp.project_area_revisions as unknown as {
           id: string
-          version_number: number
+          revision_number: number
           project_areas: {
             id: string
             area_code: string
@@ -280,10 +280,10 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
           notes: pp.notes,
           foss_pid: productDetail?.foss_pid || '',
           description_short: productDetail?.description_short || '',
-          area_version_id: pp.area_version_id,
-          area_code: areaVersionData?.project_areas?.area_code,
-          area_name: areaVersionData?.project_areas?.area_name,
-          area_version_number: areaVersionData?.version_number,
+          area_revision_id: pp.area_revision_id,
+          area_code: areaRevisionData?.project_areas?.area_code,
+          area_name: areaRevisionData?.project_areas?.area_name,
+          area_revision_number: areaRevisionData?.revision_number,
         })
       }
     }
