@@ -15,15 +15,13 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Loader2, AlertCircle, CheckCircle2, Ruler, Trash2, Square, MousePointer2 } from 'lucide-react'
-import { Progress } from '@fossapp/ui'
-import { Button } from '@fossapp/ui'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@fossapp/ui'
 import { cn } from '@fossapp/ui'
 import type { Viewer3DInstance, WorldCoordinates as WorldCoordsType, ViewerInitOptions } from '@/types/autodesk-viewer'
 import type { PlacementModeProduct, Placement, DwgUnitInfo } from './types'
 import { PlacementTool, dwgToViewerCoords, type PageDimensions } from './placement-tool'
 import { MarkupMarkers } from './markup-markers'
+import { PlannerViewerToolbar, type MeasureMode } from './viewer-toolbar'
+import { ViewerLoadingOverlay, ViewerErrorOverlay, type LoadingStage } from './viewer-overlays'
 
 // Re-export the Viewer3DInstance type for consumers
 export type { Viewer3DInstance }
@@ -183,13 +181,13 @@ export function PlannerViewer({
   const renderedPlacementIdsRef = useRef<Set<string>>(new Set())
 
   const [isLoading, setIsLoading] = useState(true)
-  const [loadingStage, setLoadingStage] = useState<'scripts' | 'upload' | 'translation' | 'viewer' | 'cache-hit'>('scripts')
+  const [loadingStage, setLoadingStage] = useState<LoadingStage>('scripts')
   const [translationProgress, setTranslationProgress] = useState(0)
   const [isIndeterminate, setIsIndeterminate] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [urn, setUrn] = useState<string | undefined>(initialUrn)
   const [isCacheHit, setIsCacheHit] = useState(false)
-  const [measureMode, setMeasureMode] = useState<'none' | 'distance' | 'area'>('none')
+  const [measureMode, setMeasureMode] = useState<MeasureMode>('none')
   const [hasMeasurement, setHasMeasurement] = useState(false)
   const [hasSelectedMarker, setHasSelectedMarker] = useState(false)
 
@@ -806,26 +804,6 @@ export function PlannerViewer({
     return () => clearInterval(interval)
   }, [measureMode])
 
-  const getLoadingMessage = () => {
-    switch (loadingStage) {
-      case 'scripts':
-        return 'Loading viewer...'
-      case 'upload':
-        return projectId ? 'Uploading to persistent storage...' : 'Uploading floor plan...'
-      case 'cache-hit':
-        return 'Using cached translation...'
-      case 'translation':
-        // Show percentage only if APS provides real progress, otherwise just "Converting..."
-        return isIndeterminate
-          ? 'Converting DWG...'
-          : `Converting DWG (${translationProgress}%)...`
-      case 'viewer':
-        return 'Initializing viewer...'
-      default:
-        return 'Loading...'
-    }
-  }
-
   const showToolbar = !isLoading && !error
 
   return (
@@ -842,132 +820,30 @@ export function PlannerViewer({
 
         {/* Loading overlay */}
         {isLoading && !error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-xs z-10">
-            {loadingStage === 'cache-hit' ? (
-              <CheckCircle2 className="h-8 w-8 text-green-500 mb-4" />
-            ) : (
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-            )}
-            <p className="text-sm text-muted-foreground mb-2">{getLoadingMessage()}</p>
-            {loadingStage === 'cache-hit' && (
-              <p className="text-xs text-green-600">
-                Same file detected - no re-translation needed!
-              </p>
-            )}
-            {loadingStage === 'translation' && (
-              <div className="w-48">
-                {isIndeterminate ? (
-                  /* Indeterminate progress bar - sliding animation */
-                  <div className="h-2 w-full bg-secondary rounded-full overflow-hidden relative">
-                    <div className="absolute h-full w-1/3 bg-primary rounded-full animate-slide" />
-                  </div>
-                ) : (
-                  <Progress value={translationProgress} className="h-2" />
-                )}
-                <p className="text-xs text-muted-foreground text-center mt-1">
-                  DWG conversion can take 30-60 seconds
-                </p>
-              </div>
-            )}
-          </div>
+          <ViewerLoadingOverlay
+            loadingStage={loadingStage}
+            translationProgress={translationProgress}
+            isIndeterminate={isIndeterminate}
+            projectId={projectId}
+          />
         )}
 
         {/* Error overlay */}
-        {error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-xs z-10">
-            <AlertCircle className="h-8 w-8 text-destructive mb-4" />
-            <p className="text-sm text-destructive text-center max-w-md px-4">{error}</p>
-          </div>
-        )}
+        {error && <ViewerErrorOverlay error={error} />}
       </div>
 
       {/* Custom Toolbar - OUTSIDE the canvas */}
       {showToolbar && (
-        <div className="flex-none border-t bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
-          <div className="flex items-center justify-center gap-1 p-2">
-            {/* Placement mode indicator - styled like active measure button */}
-            {placementMode && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => onExitPlacementMode?.()}
-                    >
-                      <MousePointer2 className="h-4 w-4" />
-                      <span className="text-xs font-medium">
-                        {placementMode.fossPid}
-                      </span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Click to exit placement mode (or press ESC)</TooltipContent>
-                </Tooltip>
-                <div className="w-px h-6 bg-border mx-1" />
-              </>
-            )}
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={measureMode === 'distance' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => handleToggleMeasure('distance')}
-                >
-                  <Ruler className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Measure Distance</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={measureMode === 'area' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => handleToggleMeasure('area')}
-                >
-                  <Square className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Measure Area</TooltipContent>
-            </Tooltip>
-
-            {hasMeasurement && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleClearMeasurements}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Clear Measurement</TooltipContent>
-              </Tooltip>
-            )}
-
-            {hasSelectedMarker && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleDeleteSelectedMarker}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Delete Marker (or press Delete key)</TooltipContent>
-              </Tooltip>
-            )}
-
-          </div>
-        </div>
+        <PlannerViewerToolbar
+          measureMode={measureMode}
+          hasMeasurement={hasMeasurement}
+          hasSelectedMarker={hasSelectedMarker}
+          placementMode={placementMode}
+          onToggleMeasure={handleToggleMeasure}
+          onClearMeasurements={handleClearMeasurements}
+          onDeleteSelectedMarker={handleDeleteSelectedMarker}
+          onExitPlacementMode={onExitPlacementMode}
+        />
       )}
     </div>
   )
