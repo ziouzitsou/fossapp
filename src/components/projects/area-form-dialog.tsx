@@ -149,7 +149,7 @@ export function AreaFormDialog({
           area_name: formData.area_name,
           area_name_en: formData.area_name_en || undefined,
           area_type: formData.area_type || undefined,
-          floor_level: formData.floor_level ? parseInt(formData.floor_level, 10) : undefined,
+          floor_level: parseInt(formData.floor_level, 10),  // Required field
           area_sqm: formData.area_sqm ? parseFloat(formData.area_sqm) : undefined,
           ceiling_height_m: formData.ceiling_height_m ? parseFloat(formData.ceiling_height_m) : undefined,
           description: formData.description || undefined,
@@ -250,7 +250,7 @@ export function AreaFormDialog({
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="floor_level">Floor Level</Label>
+              <Label htmlFor="floor_level">Floor Level *</Label>
               <Input
                 id="floor_level"
                 name="floor_level"
@@ -258,6 +258,7 @@ export function AreaFormDialog({
                 value={formData.floor_level}
                 onChange={handleInputChange}
                 placeholder="0"
+                required
               />
               <p className="text-xs text-muted-foreground">
                 -1=basement, 0=ground, 1, 2...
