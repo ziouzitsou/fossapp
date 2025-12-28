@@ -60,3 +60,18 @@ export {
   validateSupplierId,
   validateUUID,
 } from './validation'
+
+// Text transformation utilities
+export {
+  transformText,
+  titleCase,
+  requiresLLM,
+  anyRequiresLLM,
+  LLM_TRANSFORMS,
+  LOCAL_TRANSFORMS,
+} from './text'
+export type {
+  TextTransform,
+  TransformOptions,
+  TransformResult,
+} from './text'

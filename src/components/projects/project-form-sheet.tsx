@@ -35,6 +35,8 @@ import {
 } from '@/lib/actions/project-drive'
 import { CustomerCombobox } from '@/components/customer-combobox'
 import { useDevSession } from '@/lib/use-dev-session'
+import { useTextTransform } from '@/hooks/use-text-transform'
+import { Sparkles } from 'lucide-react'
 
 // Project status options
 const PROJECT_STATUSES = [
@@ -89,6 +91,20 @@ export function ProjectFormSheet({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { data: session } = useDevSession()
+  const { transformProjectName, transformDescription, isLoading: isTransforming } = useTextTransform()
+
+  // Transform handlers
+  const handleTransformName = async () => {
+    if (!formData.name.trim()) return
+    const result = await transformProjectName(formData.name)
+    setFormData((prev) => ({ ...prev, name: result.transformed }))
+  }
+
+  const handleTransformDescription = async () => {
+    if (!formData.description?.trim()) return
+    const result = await transformDescription(formData.description)
+    setFormData((prev) => ({ ...prev, description: result.transformed }))
+  }
 
   // Helper to get today's date in YYYY-MM-DD format
   const getTodayDate = () => new Date().toISOString().split('T')[0]
@@ -344,14 +360,27 @@ export function ProjectFormSheet({
 
                 <div className="space-y-2">
                   <Label htmlFor="name">Project Name *</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    placeholder="Enter project name"
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      placeholder="Enter project name"
+                      required
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleTransformName}
+                      disabled={isTransforming || !formData.name.trim()}
+                      title="Transform: Title Case + English"
+                    >
+                      <Sparkles className={`h-4 w-4 ${isTransforming ? 'animate-pulse' : ''}`} />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -371,7 +400,21 @@ export function ProjectFormSheet({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="description">Description</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleTransformDescription}
+                      disabled={isTransforming || !formData.description?.trim()}
+                      title="Transform: Title Case + English"
+                      className="h-6 px-2 text-xs"
+                    >
+                      <Sparkles className={`h-3 w-3 mr-1 ${isTransforming ? 'animate-pulse' : ''}`} />
+                      Transform
+                    </Button>
+                  </div>
                   <Textarea
                     id="description"
                     name="description"

@@ -14,7 +14,8 @@
     "./logging/client": "./src/logging/client.ts",
     "./ratelimit": "./src/ratelimit/index.ts",
     "./config": "./src/config/index.ts",
-    "./validation": "./src/validation/index.ts"
+    "./validation": "./src/validation/index.ts",
+    "./text": "./src/text/index.ts"
   },
   "scripts": {
     "build": "echo 'No build needed - TypeScript paths'",
