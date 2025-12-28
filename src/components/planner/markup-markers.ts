@@ -9,12 +9,23 @@
  * 2. clientToMarkups() converts to markup space coordinates
  * 3. SVG circle is placed at markup coordinates
  * 4. MarkupsCore handles all zoom/pan transformations
+ *
+ * Marker sizing:
+ * - Real-world size: 50mm radius (100mm diameter)
+ * - Minimum screen size: 12px radius (so markers stay visible when zoomed out)
+ * - Dynamic adjustment on zoom changes via CAMERA_CHANGE_EVENT
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ViewerInstance = any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MarkupsCoreExt = any
+
+// Marker sizing constants
+const REAL_WORLD_RADIUS = 0.05      // 50mm in meters (100mm diameter)
+const MIN_SCREEN_RADIUS = 12        // Minimum pixels on screen
+const STROKE_RATIO = 0.2            // Stroke width as ratio of radius
+const FONT_RATIO = 0.8              // Font size as ratio of radius
 
 export interface MarkerData {
   id: string
@@ -40,8 +51,9 @@ export class MarkupMarkers {
     this.viewer = viewer
   }
 
-  // Bound keyboard handler for cleanup
+  // Bound handlers for cleanup
   private boundKeyHandler: ((e: KeyboardEvent) => void) | null = null
+  private boundCameraHandler: (() => void) | null = null
 
   /**
    * Initialize - must be called after viewer is ready
@@ -66,11 +78,83 @@ export class MarkupMarkers {
       this.boundKeyHandler = this.handleKeyDown.bind(this)
       window.addEventListener('keydown', this.boundKeyHandler)
 
+      // Add camera change listener for dynamic marker sizing
+      this.boundCameraHandler = this.handleCameraChange.bind(this)
+      this.viewer.addEventListener(
+        window.Autodesk.Viewing.CAMERA_CHANGE_EVENT,
+        this.boundCameraHandler
+      )
+
       console.log('[MarkupMarkers] Initialized successfully')
       return true
     } catch (err) {
       console.error('[MarkupMarkers] Failed to initialize:', err)
       return false
+    }
+  }
+
+  /**
+   * Handle camera/zoom changes - update marker sizes
+   */
+  private handleCameraChange() {
+    this.updateMarkerSizes()
+  }
+
+  /**
+   * Get current pixels-per-meter scale from SVG CTM
+   */
+  private getPixelsPerMeter(): number {
+    if (!this.markupsExt?.svg) return 1
+
+    const svg = this.markupsExt.svg as SVGSVGElement
+    const ctm = svg.getScreenCTM()
+    if (!ctm) return 1
+
+    // CTM.a is the scale factor (pixels per SVG unit, which is meters)
+    return Math.abs(ctm.a)
+  }
+
+  /**
+   * Calculate the display radius based on current zoom level
+   * Returns radius in SVG/world units (meters)
+   */
+  private calculateDisplayRadius(): number {
+    const pixelsPerMeter = this.getPixelsPerMeter()
+    const realWorldScreenSize = REAL_WORLD_RADIUS * pixelsPerMeter
+
+    if (realWorldScreenSize < MIN_SCREEN_RADIUS) {
+      // Clamp to minimum screen size
+      return MIN_SCREEN_RADIUS / pixelsPerMeter
+    }
+
+    // Use real-world size
+    return REAL_WORLD_RADIUS
+  }
+
+  /**
+   * Update all marker sizes based on current zoom level
+   */
+  private updateMarkerSizes() {
+    const radius = this.calculateDisplayRadius()
+    const strokeWidth = radius * STROKE_RATIO
+    const fontSize = radius * FONT_RATIO
+
+    for (const [id, group] of this.markers) {
+      const circle = group.querySelector('circle')
+      const text = group.querySelector('text')
+
+      if (circle) {
+        // Adjust for selected state
+        const isSelected = id === this.selectedId
+        const displayRadius = isSelected ? radius * 1.4 : radius
+
+        circle.setAttribute('r', String(displayRadius))
+        circle.setAttribute('stroke-width', String(strokeWidth))
+      }
+
+      if (text) {
+        text.setAttribute('font-size', String(fontSize))
+      }
     }
   }
 
@@ -245,19 +329,19 @@ export class MarkupMarkers {
     // Determine label - use symbol if available, otherwise first letter
     const label = data.symbol || data.productName.charAt(0).toUpperCase()
 
-    // Adjust sizes based on label length
-    const isLongLabel = label.length > 2
-    const radius = isLongLabel ? '16' : '12'
-    const fontSize = isLongLabel ? '8' : '10'
+    // Calculate display radius based on current zoom level
+    const radius = this.calculateDisplayRadius()
+    const strokeWidth = radius * STROKE_RATIO
+    const fontSize = radius * FONT_RATIO
 
     // Main circle
     const circle = document.createElementNS(ns, 'circle')
     circle.setAttribute('cx', '0')
     circle.setAttribute('cy', '0')
-    circle.setAttribute('r', radius)
+    circle.setAttribute('r', String(radius))
     circle.setAttribute('fill', '#3b82f6')
     circle.setAttribute('stroke', '#ffffff')
-    circle.setAttribute('stroke-width', '2')
+    circle.setAttribute('stroke-width', String(strokeWidth))
     circle.style.pointerEvents = 'auto'
 
     // Label (symbol or first letter)
@@ -269,7 +353,7 @@ export class MarkupMarkers {
     text.setAttribute('text-anchor', 'middle')
     text.setAttribute('dominant-baseline', 'central')
     text.setAttribute('fill', '#ffffff')
-    text.setAttribute('font-size', fontSize)
+    text.setAttribute('font-size', String(fontSize))
     text.setAttribute('font-weight', 'bold')
     text.setAttribute('font-family', 'ui-monospace, monospace')
     text.setAttribute('transform', 'scale(1, -1)')  // Mirror Y-axis for DWG coordinate system
@@ -299,6 +383,8 @@ export class MarkupMarkers {
    * Select a marker
    */
   selectMarker(id: string | null) {
+    const radius = this.calculateDisplayRadius()
+
     // Deselect previous
     if (this.selectedId) {
       const prevMarker = this.markers.get(this.selectedId)
@@ -306,9 +392,7 @@ export class MarkupMarkers {
         const circle = prevMarker.querySelector('circle')
         if (circle) {
           circle.setAttribute('fill', '#3b82f6')
-          // Restore original radius (reduce by 2)
-          const currentR = parseFloat(circle.getAttribute('r') || '14')
-          circle.setAttribute('r', String(currentR - 2))
+          circle.setAttribute('r', String(radius))
         }
       }
     }
@@ -322,9 +406,8 @@ export class MarkupMarkers {
         const circle = marker.querySelector('circle')
         if (circle) {
           circle.setAttribute('fill', '#f59e0b')
-          // Increase radius by 2 for selection
-          const currentR = parseFloat(circle.getAttribute('r') || '12')
-          circle.setAttribute('r', String(currentR + 2))
+          // Increase radius by 40% for selection highlight
+          circle.setAttribute('r', String(radius * 1.4))
         }
       }
     }
@@ -389,6 +472,16 @@ export class MarkupMarkers {
       window.removeEventListener('keydown', this.boundKeyHandler)
       this.boundKeyHandler = null
     }
+
+    // Remove camera change listener
+    if (this.boundCameraHandler && this.viewer) {
+      this.viewer.removeEventListener(
+        window.Autodesk.Viewing.CAMERA_CHANGE_EVENT,
+        this.boundCameraHandler
+      )
+      this.boundCameraHandler = null
+    }
+
     this.clearAll()
     this.markupsExt = null
   }
