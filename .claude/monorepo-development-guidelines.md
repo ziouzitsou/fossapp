@@ -98,6 +98,121 @@ import type { TranslationStatus } from '@fossapp/viewer/core/types'
 
 ---
 
+## 📐 Module Splitting Strategy (MANDATORY)
+
+**Large files MUST be split** into focused, single-responsibility modules. This is a core architectural principle, not optional.
+
+### When to Split
+
+| Trigger | Action |
+|---------|--------|
+| File > 500 lines | Consider splitting |
+| File > 800 lines | **MUST split** |
+| Multiple distinct responsibilities | Split by domain |
+| Repeated patterns across file | Extract shared utilities |
+
+### Splitting Patterns
+
+#### Pattern A: Server Actions (Domain-Based)
+
+For large action files, create a subdirectory with focused modules:
+
+```
+src/lib/actions/
+├── project-areas.ts          # Backward-compat re-export (17 lines)
+└── areas/                    # New focused modules
+    ├── index.ts              # Barrel export (NO 'use server')
+    ├── area-crud-actions.ts  # CRUD ops (has 'use server')
+    ├── version-actions.ts    # Version management
+    ├── floorplan-actions.ts  # Floorplan ops
+    └── version-products-actions.ts
+```
+
+**Key Rules**:
+- Each action file has `'use server'` at the top
+- Barrel exports (`index.ts`) must NOT have `'use server'`
+- Original file becomes a re-export for backward compatibility
+
+#### Pattern B: Page Components (Co-located)
+
+For large page files, create a `components/` directory alongside:
+
+```
+src/app/projects/[id]/
+├── page.tsx                  # Main page (reduced to ~500 lines)
+└── components/               # Co-located components
+    ├── index.ts              # Barrel export
+    ├── project-overview-tab.tsx
+    ├── project-products-tab.tsx
+    └── utils.tsx             # Shared utilities
+```
+
+**Key Rules**:
+- Components directory is co-located with `page.tsx`
+- Each component is focused on one tab/section
+- Shared utilities live in `utils.tsx`
+- Use barrel exports for clean imports
+
+#### Pattern C: Complex Components
+
+For large React components, extract sub-components and hooks:
+
+```
+src/components/planner/
+├── planner-viewer.tsx        # Main component (reduced)
+├── viewer-toolbar.tsx        # Extracted toolbar
+├── viewer-overlays.tsx       # Loading/error overlays
+└── hooks/
+    └── use-viewer-state.ts   # Complex state logic
+```
+
+### Barrel Export Pattern
+
+Always use `index.ts` for clean imports:
+
+```typescript
+// src/app/projects/[id]/components/index.ts
+export { ProjectOverviewTab } from './project-overview-tab'
+export { ProjectProductsTab } from './project-products-tab'
+export { formatDate, formatCurrency, getStatusBadge } from './utils'
+export type { ProductTotals } from './utils'
+```
+
+Usage:
+```typescript
+// Clean import from barrel
+import {
+  ProjectOverviewTab,
+  ProjectProductsTab,
+  formatDate
+} from './components'
+```
+
+### Backward Compatibility
+
+When splitting existing files, maintain backward compatibility via re-exports:
+
+```typescript
+// src/lib/actions/project-areas.ts (original location)
+// Re-export everything from new location for backward compatibility
+export * from './areas'
+```
+
+**DO NOT** add `'use server'` to re-export files - only actual action files.
+
+### Recent Examples (v1.13.0)
+
+| Original File | Lines | Result |
+|---------------|-------|--------|
+| `project-areas.ts` | 1,117 | 5 modules in `areas/` |
+| `projects.ts` | 954 | 4 modules in `projects/` |
+| `planner-viewer.tsx` | 974 | 850 + 2 extracted components |
+| `projects/[id]/page.tsx` | 914 | 479 + 3 component files |
+
+**Total reduction**: ~50% in main files, with cleaner separation of concerns.
+
+---
+
 ## 🔧 Development Patterns
 
 ### Pattern #1: API Routes (Use Middleware)

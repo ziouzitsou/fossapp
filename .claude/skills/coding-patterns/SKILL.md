@@ -9,6 +9,58 @@ Essential patterns and conventions for writing code in FOSSAPP. Follow these pat
 
 ---
 
+## Module Splitting (MANDATORY)
+
+**Large files MUST be split** into focused, single-responsibility modules.
+
+### Thresholds
+
+| File Size | Action |
+|-----------|--------|
+| > 500 lines | Consider splitting |
+| > 800 lines | **MUST split** |
+
+### Patterns
+
+**Server Actions** → Create subdirectory with focused modules:
+```
+src/lib/actions/
+├── projects.ts           # Re-export (backward compat)
+└── projects/             # Focused modules
+    ├── index.ts          # Barrel export (NO 'use server')
+    ├── project-crud-actions.ts   # Has 'use server'
+    └── project-product-actions.ts
+```
+
+**Page Components** → Co-locate with page.tsx:
+```
+src/app/projects/[id]/
+├── page.tsx              # Main (reduced to ~500 lines)
+└── components/
+    ├── index.ts          # Barrel export
+    ├── project-overview-tab.tsx
+    └── utils.tsx
+```
+
+**Complex Components** → Extract sub-components:
+```
+src/components/planner/
+├── planner-viewer.tsx    # Main component
+├── viewer-toolbar.tsx    # Extracted
+└── viewer-overlays.tsx   # Extracted
+```
+
+### Key Rules
+
+1. **Barrel exports** (`index.ts`) must NOT have `'use server'`
+2. Each action file has `'use server'` at top
+3. Original files become re-exports for backward compatibility
+4. Use descriptive names: `*-crud-actions.ts`, `*-tab.tsx`
+
+**Full details**: `.claude/monorepo-development-guidelines.md`
+
+---
+
 ## Server Actions (Domain Organization)
 
 ### Structure

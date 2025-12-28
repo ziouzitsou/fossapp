@@ -47,6 +47,36 @@ import { Button } from '@/components/ui/button'          // DELETED
 
 ---
 
+## Module Splitting (MANDATORY)
+
+**Large files MUST be split** into focused, single-responsibility modules.
+
+| Trigger | Action |
+|---------|--------|
+| File > 500 lines | Consider splitting |
+| File > 800 lines | **MUST split** |
+
+### Quick Patterns
+
+```
+# Server Actions → Create subdirectory
+src/lib/actions/areas/
+├── index.ts              # Barrel (NO 'use server')
+├── area-crud-actions.ts  # Has 'use server'
+└── version-actions.ts
+
+# Page Components → Co-locate
+src/app/projects/[id]/
+├── page.tsx
+└── components/
+    ├── index.ts
+    └── project-overview-tab.tsx
+```
+
+**Full details**: `.claude/monorepo-development-guidelines.md` → "Module Splitting Strategy"
+
+---
+
 ## 🤖 Claude Code Skills
 
 Claude Code has access to specialized skills that provide domain knowledge automatically:
