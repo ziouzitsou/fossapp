@@ -186,11 +186,11 @@ function AreaSelectionView({ state }: { state: ReturnType<typeof usePlannerState
       <div className="h-full flex flex-col">
         {/* Hidden file input */}
         <input
+          ref={state.fileInputRef}
           type="file"
           accept=".dwg"
           onChange={state.handleFileChange}
           className="hidden"
-          id="dwg-upload"
         />
 
         {/* Area Cards Grid */}

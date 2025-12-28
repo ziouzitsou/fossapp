@@ -39,7 +39,9 @@ export function usePlannerState() {
   const [loadingAreas, setLoadingAreas] = useState(false)
 
   // Pending upload area - tracks which area a file input belongs to
+  // Use both state and ref: state for React lifecycle, ref for synchronous access in callbacks
   const [pendingUploadArea, setPendingUploadArea] = useState<AreaVersionOption | null>(null)
+  const pendingUploadAreaRef = useRef<AreaVersionOption | null>(null)
 
   // Deletion state
   const [deletingAreaId, setDeletingAreaId] = useState<string | null>(null)
@@ -55,6 +57,9 @@ export function usePlannerState() {
 
   // Viewer reference
   const viewerRef = useRef<Viewer3DInstance | null>(null)
+
+  // File input ref - for reliable programmatic clicks
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Area version products
   const [products, setProducts] = useState<AreaVersionProduct[]>([])
@@ -324,13 +329,17 @@ export function usePlannerState() {
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file && file.name.toLowerCase().endsWith('.dwg') && pendingUploadArea) {
-      setSelectedAreaVersion(pendingUploadArea)
+    // Use ref for synchronous access - avoids stale closure issue when file dialog
+    // opens before React re-renders with updated state
+    const area = pendingUploadAreaRef.current
+    if (file && file.name.toLowerCase().endsWith('.dwg') && area) {
+      setSelectedAreaVersion(area)
       setSelectedFile(file)
     }
     e.target.value = ''
+    pendingUploadAreaRef.current = null
     setPendingUploadArea(null)
-  }, [pendingUploadArea])
+  }, [])
 
   // Clear file (actual implementation)
   const doClearFile = useCallback(() => {
@@ -395,8 +404,13 @@ export function usePlannerState() {
       params.set('area', area.areaId)
       router.replace(`?${params.toString()}`, { scroll: false })
     } else {
+      // Set ref immediately for synchronous access in handleFileChange
+      pendingUploadAreaRef.current = area
+      // Click file input FIRST, before any state updates
+      // This ensures the click happens in the same user-gesture context
+      fileInputRef.current?.click()
+      // Then update state (for UI feedback if needed)
       setPendingUploadArea(area)
-      document.getElementById('dwg-upload')?.click()
     }
   }, [router, searchParams])
 
@@ -571,6 +585,7 @@ export function usePlannerState() {
     isPanelCollapsed,
     setIsPanelCollapsed,
     viewerRef,
+    fileInputRef,
     dwgUnitInfo,
 
     // Area state
