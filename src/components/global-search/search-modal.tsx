@@ -207,14 +207,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
         return
       }
 
-      // If only one area, add directly
-      if (areas.length === 1) {
-        setLoadingAreas(false)
-        await addProductToArea(product, areas[0])
-        return
-      }
-
-      // Multiple areas - show popover for selection
+      // Always show area popover so user can see/confirm which area
       setProjectAreas(areas)
       setAreaPopoverProduct(product.product_id)
       setLoadingAreas(false)
