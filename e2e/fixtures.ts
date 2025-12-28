@@ -78,6 +78,7 @@ export const test = base.extend({
       await setupSessionMocking(page)
     }
 
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright fixture 'use', not React hook
     await use(page)
   },
 })

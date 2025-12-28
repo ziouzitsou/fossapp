@@ -144,7 +144,8 @@ export class MarkupMarkers {
 
     try {
       // Convert world to client (viewport-relative) coordinates
-      // THREE.js is loaded by the Autodesk viewer
+      // THREE.js is loaded globally by the Autodesk viewer at runtime
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const THREE = (window as any).THREE
       const worldPoint = new THREE.Vector3(worldX, worldY, worldZ)
       const clientPoint = this.viewer.worldToClient(worldPoint)

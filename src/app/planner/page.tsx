@@ -122,7 +122,26 @@ function PlannerContent() {
 // ============================================================================
 
 function AreaSelectionView({ state }: { state: ReturnType<typeof usePlannerState> }) {
-  if (!state.activeProject) {
+  // Destructure to avoid ESLint false positives about ref access during render
+  // (ESLint's react-hooks/refs rule gets confused by the state.someRef pattern)
+  const {
+    activeProject,
+    loadingAreas,
+    hasAreas,
+    fileInputRef,
+    handleFileChange,
+    areaRevisions,
+    dragOverAreaId,
+    deletingAreaId,
+    handleCardDragOver,
+    handleCardDragLeave,
+    handleCardDrop,
+    handleAreaCardClick,
+    handleDeleteClick,
+    handleWarningsClick,
+  } = state
+
+  if (!activeProject) {
     return (
       <div className="h-full p-6">
         <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30">
@@ -146,7 +165,7 @@ function AreaSelectionView({ state }: { state: ReturnType<typeof usePlannerState
     )
   }
 
-  if (state.loadingAreas) {
+  if (loadingAreas) {
     return (
       <div className="h-full p-6">
         <div className="h-full flex items-center justify-center">
@@ -157,7 +176,7 @@ function AreaSelectionView({ state }: { state: ReturnType<typeof usePlannerState
     )
   }
 
-  if (!state.hasAreas) {
+  if (!hasAreas) {
     return (
       <div className="h-full p-6">
         <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-500/30 bg-amber-500/5">
@@ -170,7 +189,7 @@ function AreaSelectionView({ state }: { state: ReturnType<typeof usePlannerState
             <br />
             Create at least one area in your project to upload floor plans.
           </p>
-          <Link href={`/projects/${state.activeProject.id}`}>
+          <Link href={`/projects/${activeProject.id}`}>
             <Button variant="default">
               <MapPin className="h-4 w-4 mr-2" />
               Go to Project Details
@@ -186,27 +205,27 @@ function AreaSelectionView({ state }: { state: ReturnType<typeof usePlannerState
       <div className="h-full flex flex-col">
         {/* Hidden file input */}
         <input
-          ref={state.fileInputRef}
+          ref={fileInputRef}
           type="file"
           accept=".dwg"
-          onChange={state.handleFileChange}
+          onChange={handleFileChange}
           className="hidden"
         />
 
         {/* Area Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {state.areaRevisions.map((area) => (
+          {areaRevisions.map((area) => (
             <AreaCard
               key={area.revisionId}
               area={area}
-              isDragOver={state.dragOverAreaId === area.areaId}
-              isDeleting={state.deletingAreaId === area.areaId}
-              onDragOver={state.handleCardDragOver}
-              onDragLeave={state.handleCardDragLeave}
-              onDrop={state.handleCardDrop}
-              onClick={state.handleAreaCardClick}
-              onDeleteClick={state.handleDeleteClick}
-              onWarningsClick={state.handleWarningsClick}
+              isDragOver={dragOverAreaId === area.areaId}
+              isDeleting={deletingAreaId === area.areaId}
+              onDragOver={handleCardDragOver}
+              onDragLeave={handleCardDragLeave}
+              onDrop={handleCardDrop}
+              onClick={handleAreaCardClick}
+              onDeleteClick={handleDeleteClick}
+              onWarningsClick={handleWarningsClick}
             />
           ))}
         </div>
