@@ -164,7 +164,7 @@ export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
           <>
             {/* Main Carousel Display - Improved aspect ratio with max-height */}
             <div className="relative group">
-              <div className="aspect-[4/3] max-h-[500px] relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900">
+              <div className="aspect-4/3 max-h-[500px] relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900">
                 <Image
                   src={currentMedia.media.mime_source}
                   alt={currentMedia.label}
@@ -177,7 +177,7 @@ export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
 
                 {/* Media Type Badge */}
                 <div className="absolute top-3 left-3">
-                  <Badge className="flex items-center gap-1.5 !bg-background/90 !text-foreground !border !border-border/50 backdrop-blur-sm shadow-sm">
+                  <Badge className="flex items-center gap-1.5 bg-background/90! text-foreground! border! border-border/50! backdrop-blur-xs shadow-xs">
                     {React.createElement(getMediaIcon(currentMedia.type), { className: 'h-3 w-3' })}
                     {currentMedia.label}
                   </Badge>
@@ -221,7 +221,7 @@ export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
                   <button
                     key={idx}
                     onClick={() => handleThumbnailClick(idx)}
-                    className={`flex-shrink-0 w-20 h-20 border-2 rounded overflow-hidden transition-all ${
+                    className={`shrink-0 w-20 h-20 border-2 rounded overflow-hidden transition-all ${
                       currentSlide === idx
                         ? 'border-primary ring-2 ring-primary/20'
                         : 'border-border hover:border-primary/50'
@@ -252,7 +252,7 @@ export function MediaGallery({ multimedia, productName }: MediaGalleryProps) {
             )}
           </>
         ) : (
-          <div className="aspect-[4/3] max-h-[500px] flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-900">
+          <div className="aspect-4/3 max-h-[500px] flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-900">
             <span className="text-muted-foreground">No media available</span>
           </div>
         )}

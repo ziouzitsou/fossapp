@@ -65,7 +65,7 @@ export function ProductBucket() {
 
   return (
     <Card className="flex flex-col">
-      <CardHeader className="flex-shrink-0 py-2 px-4">
+      <CardHeader className="shrink-0 py-2 px-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
             <Package className="h-4 w-4" />
@@ -101,7 +101,7 @@ export function ProductBucket() {
           <div className="overflow-x-auto">
             <div className="flex gap-2 pb-2">
               {bucketItems.map((item) => (
-                <div key={item.product.product_id} className="flex-shrink-0 w-28">
+                <div key={item.product.product_id} className="shrink-0 w-28">
                   <DraggableBucketItem
                     item={item}
                     onRemove={() => removeFromBucket(item.product.product_id)}

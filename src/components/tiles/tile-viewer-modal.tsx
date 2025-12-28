@@ -64,7 +64,7 @@ export function TileViewerModal({
         }}
         onEscapeKeyDown={() => onOpenChange(false)}
       >
-        <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
+        <DialogHeader className="px-4 py-3 border-b shrink-0">
           <DialogTitle className="text-base">
             {tileName ? `${tileName} - DWG Viewer` : 'DWG Viewer'}
           </DialogTitle>

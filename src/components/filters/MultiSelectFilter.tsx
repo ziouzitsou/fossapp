@@ -134,7 +134,7 @@ export default function MultiSelectFilter({
                 {/* Color swatch (if enabled) */}
                 {colorSwatches && (
                   <span
-                    className="w-4 h-4 rounded border border-border flex-shrink-0"
+                    className="w-4 h-4 rounded border border-border shrink-0"
                     style={{ backgroundColor: getColorSwatch(facet.filter_value) }}
                     title={facet.filter_value}
                   />

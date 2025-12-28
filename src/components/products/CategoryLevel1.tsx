@@ -19,7 +19,7 @@ export function CategoryLevel1({
   onCategoryChange
 }: CategoryLevel1Props) {
   return (
-    <div className="border-b bg-gradient-to-b from-muted/30 to-background">
+    <div className="border-b bg-linear-to-b from-muted/30 to-background">
       <div className="mx-auto max-w-[1800px] 3xl:max-w-[2200px] 4xl:max-w-[2560px] px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -49,12 +49,12 @@ export function CategoryLevel1({
                   aria-label={`Select ${category.name} category`}
                   aria-pressed={isActive}
                   className={cn(
-                    "flex-shrink-0 min-w-[220px] p-4 rounded-xl border bg-card text-card-foreground transition-all duration-200",
+                    "shrink-0 min-w-[220px] p-4 rounded-xl border bg-card text-card-foreground transition-all duration-200",
                     "hover:shadow-md hover:border-primary/40 hover:bg-accent/50",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     isActive
                       ? "border-primary shadow-md ring-1 ring-primary/20 bg-primary/5"
-                      : "shadow-sm"
+                      : "shadow-xs"
                   )}
                 >
                   <div className="flex items-start gap-3">

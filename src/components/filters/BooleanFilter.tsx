@@ -59,7 +59,7 @@ export default function BooleanFilter({
           value="all"
           className="px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition-all
             data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground data-[state=off]:hover:bg-muted
-            data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:font-medium data-[state=on]:shadow-sm"
+            data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:font-medium data-[state=on]:shadow-xs"
         >
           <CircleDashed className="h-3.5 w-3.5" />
           All
@@ -68,7 +68,7 @@ export default function BooleanFilter({
           value="yes"
           className="px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition-all
             data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground data-[state=off]:hover:bg-muted
-            data-[state=on]:bg-emerald-600 data-[state=on]:text-white data-[state=on]:font-medium data-[state=on]:shadow-sm"
+            data-[state=on]:bg-emerald-600 data-[state=on]:text-white data-[state=on]:font-medium data-[state=on]:shadow-xs"
         >
           <Check className="h-3.5 w-3.5" />
           Yes{showCount && yesCount > 0 && (
@@ -79,7 +79,7 @@ export default function BooleanFilter({
           value="no"
           className="px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition-all
             data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground data-[state=off]:hover:bg-muted
-            data-[state=on]:bg-rose-600 data-[state=on]:text-white data-[state=on]:font-medium data-[state=on]:shadow-sm"
+            data-[state=on]:bg-rose-600 data-[state=on]:text-white data-[state=on]:font-medium data-[state=on]:shadow-xs"
         >
           <X className="h-3.5 w-3.5" />
           No{showCount && noCount > 0 && (

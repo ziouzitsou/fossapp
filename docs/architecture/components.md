@@ -427,8 +427,8 @@ const customButtonVariants = cva({
   extend: buttonVariants,
   variants: {
     gradient: {
-      blue: "bg-gradient-to-r from-blue-500 to-cyan-500",
-      purple: "bg-gradient-to-r from-purple-500 to-pink-500",
+      blue: "bg-linear-to-r from-blue-500 to-cyan-500",
+      purple: "bg-linear-to-r from-purple-500 to-pink-500",
     }
   }
 })

@@ -57,9 +57,9 @@ export default function SettingsLayout({
                     key={tab.href}
                     href={tab.href}
                     className={cn(
-                      'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                      'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                       isActive
-                        ? 'bg-background text-foreground shadow'
+                        ? 'bg-background text-foreground shadow-sm'
                         : 'hover:bg-background/50'
                     )}
                   >

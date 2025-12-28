@@ -131,7 +131,7 @@ function ChatMessageComponent({ message, userImage, userName }: ChatMessageProps
         </div>
 
         {/* Message content */}
-        <div className="prose prose-sm dark:prose-invert max-w-none break-words text-foreground">
+        <div className="prose prose-sm dark:prose-invert max-w-none wrap-break-word text-foreground">
           <ReactMarkdown
             components={{
               // Render links safely

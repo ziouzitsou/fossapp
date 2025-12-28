@@ -331,7 +331,7 @@ export function DwgViewer({
 
       {/* Loading overlay */}
       {isLoading && !error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-xs z-10">
           <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
           <p className="text-sm text-muted-foreground mb-2">{getLoadingMessage()}</p>
           {loadingStage === 'translation' && (
@@ -347,7 +347,7 @@ export function DwgViewer({
 
       {/* Error overlay */}
       {error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-xs z-10">
           <AlertCircle className="h-8 w-8 text-destructive mb-4" />
           <p className="text-sm text-destructive text-center max-w-md px-4">{error}</p>
         </div>

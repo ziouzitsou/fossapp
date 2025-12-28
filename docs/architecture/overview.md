@@ -623,7 +623,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 className={cn(
                   'rounded-md px-3 py-1 text-sm font-medium',
                   pathname === tab.href
-                    ? 'bg-background text-foreground shadow'
+                    ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:bg-background/50'
                 )}
               >

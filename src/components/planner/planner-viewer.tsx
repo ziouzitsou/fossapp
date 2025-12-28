@@ -842,7 +842,7 @@ export function PlannerViewer({
 
         {/* Loading overlay */}
         {isLoading && !error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-xs z-10">
             {loadingStage === 'cache-hit' ? (
               <CheckCircle2 className="h-8 w-8 text-green-500 mb-4" />
             ) : (
@@ -874,7 +874,7 @@ export function PlannerViewer({
 
         {/* Error overlay */}
         {error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-xs z-10">
             <AlertCircle className="h-8 w-8 text-destructive mb-4" />
             <p className="text-sm text-destructive text-center max-w-md px-4">{error}</p>
           </div>
@@ -883,7 +883,7 @@ export function PlannerViewer({
 
       {/* Custom Toolbar - OUTSIDE the canvas */}
       {showToolbar && (
-        <div className="flex-none border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex-none border-t bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
           <div className="flex items-center justify-center gap-1 p-2">
             {/* Placement mode indicator - styled like active measure button */}
             {placementMode && (

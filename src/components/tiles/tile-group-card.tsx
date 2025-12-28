@@ -102,7 +102,7 @@ function SortableMember({ item, groupId, customText, onTextChange, onRemove }: S
 
       {/* Images stack - each with red border, only show if exists */}
       {(drawingUrl || imageUrl) && (
-        <div className="flex flex-col gap-1 flex-shrink-0 ml-4">
+        <div className="flex flex-col gap-1 shrink-0 ml-4">
           {/* Drawing (MD64/MD12) on top */}
           {drawingUrl && (
             <div className="border border-red-500 rounded p-0.5">

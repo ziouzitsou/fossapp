@@ -7,13 +7,8 @@ module.exports = {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
     "./packages/ui/src/**/*.{js,ts,jsx,tsx}",
   ],
-  // Safelist theme classes that are added dynamically via JavaScript
-  // Without this, Tailwind's JIT will purge them since they don't appear in templates
-  safelist: [
-    'theme-minimal',
-    'theme-emerald',
-    'theme-ocean',
-  ],
+  // Note: safelist is deprecated in v4. Theme classes are explicitly defined
+  // in @layer base in globals.css, so they won't be purged.
   darkMode: ['class', "class"],
   theme: {
   	screens: {
@@ -128,5 +123,6 @@ module.exports = {
   		}
   	}
   },
-  plugins: [require('@tailwindcss/typography')],
+  // Note: plugins are now loaded via @plugin directive in globals.css (v4 approach)
+  plugins: [],
 };

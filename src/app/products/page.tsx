@@ -522,7 +522,7 @@ function ProductsPageContent() {
                       >
                         <div className="flex">
                           {/* Thumbnail */}
-                          <div className="w-24 h-24 flex-shrink-0 bg-muted/30 flex items-center justify-center">
+                          <div className="w-24 h-24 shrink-0 bg-muted/30 flex items-center justify-center">
                             {thumbnailUrl ? (
                               <Image
                                 src={thumbnailUrl}

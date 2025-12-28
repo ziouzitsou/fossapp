@@ -104,7 +104,7 @@ export function SupplierFilter({
             >
               {/* Supplier Logo */}
               {logoUrl && (
-                <div className="flex-shrink-0 w-12 h-8 flex items-center justify-center">
+                <div className="shrink-0 w-12 h-8 flex items-center justify-center">
                   <img
                     src={logoUrl}
                     alt={supplier.supplier_name}

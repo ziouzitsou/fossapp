@@ -106,7 +106,7 @@ export function FeatureGroup({
                   </span>
                 )}
               </span>
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <FeatureValueRenderer feature={feature} variant="default" />
               </div>
             </div>

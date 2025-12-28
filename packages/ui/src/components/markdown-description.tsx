@@ -24,7 +24,7 @@ export function MarkdownDescription({ content, className }: MarkdownDescriptionP
         'prose-strong:text-foreground prose-strong:font-semibold',
         'prose-ul:text-muted-foreground prose-ol:text-muted-foreground',
         'prose-li:marker:text-muted-foreground',
-        'prose-a:text-primary prose-a:no-underline hover:prose-a:underline',
+        'prose-a:text-primary prose-a:no-underline prose-a:hover:underline',
         className
       )}
     >

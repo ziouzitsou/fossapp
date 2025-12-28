@@ -709,7 +709,7 @@ function PlannerContent() {
                           {hasFloorPlan ? (
                             <div className="flex items-center gap-3">
                               {/* Thumbnail or fallback icon */}
-                              <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-muted overflow-hidden relative">
+                              <div className="shrink-0 w-12 h-12 rounded-lg bg-muted overflow-hidden relative">
                                 {area.floorPlanStatus === 'success' ? (
                                   <Image
                                     src={`/api/planner/thumbnail?areaVersionId=${area.versionId}`}
@@ -762,7 +762,7 @@ function PlannerContent() {
                                 onClick={(e) => handleDeleteClick(e, area)}
                                 disabled={deletingAreaId === area.areaId}
                                 className={cn(
-                                  'flex-shrink-0 p-2 rounded-lg transition-colors',
+                                  'shrink-0 p-2 rounded-lg transition-colors',
                                   'hover:bg-destructive/10 hover:text-destructive',
                                   'text-muted-foreground',
                                   deletingAreaId === area.areaId && 'opacity-50 cursor-not-allowed'
@@ -779,7 +779,7 @@ function PlannerContent() {
                           ) : (
                             <div className="flex items-center gap-3">
                               <div className={cn(
-                                'flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors',
+                                'shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors',
                                 isDragOver ? 'bg-primary/20' : 'bg-muted'
                               )}>
                                 <Plus className={cn(
@@ -1086,7 +1086,7 @@ function PlannerContent() {
                   className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20"
                 >
                   <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-1">
                         {warning.code}

@@ -75,7 +75,7 @@ export default function UserSettingsPage() {
         <CardContent>
           <div className="flex items-start gap-6">
             {/* Avatar */}
-            <div className="relative w-20 h-20 flex-shrink-0">
+            <div className="relative w-20 h-20 shrink-0">
               <Image
                 src={profile.image || session?.user?.image || '/default-avatar.png'}
                 alt="Profile"

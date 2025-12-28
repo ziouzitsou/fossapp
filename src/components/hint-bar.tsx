@@ -85,7 +85,7 @@ export function HintBar() {
       'animate-in fade-in slide-in-from-top-2 duration-300'
     )}>
       <div className="flex items-center gap-3 min-w-0">
-        <div className="flex-shrink-0 p-1.5 rounded-md bg-primary/10">
+        <div className="shrink-0 p-1.5 rounded-md bg-primary/10">
           {currentHint.icon === 'keyboard' ? (
             <Command className="h-4 w-4 text-primary" />
           ) : (
@@ -97,7 +97,7 @@ export function HintBar() {
         </p>
       </div>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         {/* Progress dots - clickable */}
         <div className="hidden sm:flex items-center gap-1">
           {orderedHints.slice(0, 5).map((hint, idx) => (

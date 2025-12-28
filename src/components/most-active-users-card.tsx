@@ -75,7 +75,7 @@ export function MostActiveUsersCard({ users, loading }: MostActiveUsersCardProps
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   {/* Rank Badge */}
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-medium text-sm flex-shrink-0">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-medium text-sm shrink-0">
                     {index + 1}
                   </div>
 
@@ -115,7 +115,7 @@ export function MostActiveUsersCard({ users, loading }: MostActiveUsersCardProps
                 </div>
 
                 {/* Total Events Badge */}
-                <Badge className="flex-shrink-0">
+                <Badge className="shrink-0">
                   {user.event_count} event{user.event_count !== 1 ? 's' : ''}
                 </Badge>
               </div>

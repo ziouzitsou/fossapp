@@ -50,7 +50,7 @@ export function AppSidebar() {
             alt="Company Logo"
             width={180}
             height={60}
-            className="w-full h-auto max-h-12 object-contain hidden dark:block group-data-[collapsible=icon]:!hidden"
+            className="w-full h-auto max-h-12 object-contain hidden dark:block group-data-[collapsible=icon]:hidden!"
             priority
           />
           {/* Icon logo - shown when collapsed, inverts in dark mode */}

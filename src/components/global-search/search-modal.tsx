@@ -272,11 +272,11 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       <DialogContent className="overflow-hidden p-0 max-w-2xl">
         <DialogTitle className="sr-only">Search products</DialogTitle>
 
-        <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+        <Command className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 **:[[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 **:[[cmdk-input]]:h-12 **:[[cmdk-item]]:px-2 **:[[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
           <div className="flex items-center border-b px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <input
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="Search products by foss_pid or name..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -317,7 +317,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                           src={imageUrl}
                           alt={product.description_short}
                           size="sm"
-                          className="flex-shrink-0 mt-0.5"
+                          className="shrink-0 mt-0.5"
                         />
 
                         {/* Product Info */}
@@ -332,7 +332,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                               </div>
                             </div>
                             <ChevronRight
-                              className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
+                              className={`h-4 w-4 text-muted-foreground transition-transform shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
                             />
                           </div>
                           <div className="flex flex-wrap gap-1 mt-1.5">

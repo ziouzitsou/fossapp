@@ -222,7 +222,7 @@ export function ProductSearch({
                       src={imageUrl}
                       alt={product.description_short}
                       size="md"
-                      className="flex-shrink-0"
+                      className="shrink-0"
                     />
                   )}
 
@@ -244,7 +244,7 @@ export function ProductSearch({
                         variant={disabled ? 'secondary' : 'default'}
                         onClick={() => handleAction(product)}
                         disabled={disabled}
-                        className="flex-shrink-0"
+                        className="shrink-0"
                       >
                         {disabled ? (
                           <>

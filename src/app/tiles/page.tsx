@@ -37,7 +37,7 @@ function TilesContent() {
       {/* Main Content Area - Stacked layout for mobile */}
       <div className="flex flex-col flex-1 gap-4 overflow-hidden">
         {/* Top: Product Bucket (horizontal scroll) */}
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           <ProductBucket />
         </div>
 

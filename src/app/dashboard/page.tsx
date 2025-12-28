@@ -159,7 +159,7 @@ export default function Dashboard() {
                             ? catalog.supplier_logo_dark
                             : catalog.supplier_logo
                           return (
-                            <div className="relative w-16 h-16 flex-shrink-0">
+                            <div className="relative w-16 h-16 shrink-0">
                               <Image
                                 src={logoUrl}
                                 alt={catalog.supplier_name}
@@ -179,7 +179,7 @@ export default function Dashboard() {
                               <div className="flex items-center gap-2 mt-1">
                                 {/* Country Flag */}
                                 {catalog.country_flag && (
-                                  <div className="relative w-5 h-4 flex-shrink-0">
+                                  <div className="relative w-5 h-4 shrink-0">
                                     <Image
                                       src={catalog.country_flag}
                                       alt={catalog.country}
@@ -195,7 +195,7 @@ export default function Dashboard() {
                                 </span>
                               </div>
                             </div>
-                            <Badge variant="secondary" className="ml-2 flex-shrink-0">
+                            <Badge variant="secondary" className="ml-2 shrink-0">
                               {catalog.product_count.toLocaleString()} products
                             </Badge>
                           </div>
