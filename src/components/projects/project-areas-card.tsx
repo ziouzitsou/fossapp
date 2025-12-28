@@ -1,10 +1,21 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@fossapp/ui'
 import { Button } from '@fossapp/ui'
 import { Badge } from '@fossapp/ui'
 import { Spinner } from '@fossapp/ui'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@fossapp/ui'
 import { Plus, History, FileText, Pencil, Trash2, FolderOpen } from 'lucide-react'
 import { ProjectArea } from '@/lib/actions'
 import { AreaFormDialog } from './area-form-dialog'
@@ -30,6 +41,7 @@ export function ProjectAreasCard({
   const [editingArea, setEditingArea] = useState<ProjectArea | null>(null)
   const [historyAreaId, setHistoryAreaId] = useState<string | null>(null)
   const [processingAreas, setProcessingAreas] = useState<Set<string>>(new Set())
+  const [deleteConfirmArea, setDeleteConfirmArea] = useState<ProjectArea | null>(null)
 
   const formatCurrency = (amount: number | undefined, currency = 'EUR') => {
     if (!amount) return '€0.00'
@@ -65,11 +77,11 @@ export function ProjectAreasCard({
       if (result.success) {
         onAreaChange()
       } else {
-        alert(result.error || 'Failed to create version')
+        toast.error(result.error || 'Failed to create version')
       }
     } catch (error) {
       console.error('Error creating version:', error)
-      alert('An unexpected error occurred')
+      toast.error('An unexpected error occurred')
     } finally {
       setProcessingAreas(prev => {
         const next = new Set(prev)
@@ -79,10 +91,14 @@ export function ProjectAreasCard({
     }
   }
 
-  const handleDeleteArea = async (area: ProjectArea) => {
-    if (!confirm(`Delete area "${area.area_name}"? This will delete all versions and products in this area.`)) {
-      return
-    }
+  const handleDeleteClick = (area: ProjectArea) => {
+    setDeleteConfirmArea(area)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmArea) return
+    const area = deleteConfirmArea
+    setDeleteConfirmArea(null)
 
     setProcessingAreas(prev => new Set(prev).add(area.id))
     try {
@@ -90,11 +106,11 @@ export function ProjectAreasCard({
       if (result.success) {
         onAreaChange()
       } else {
-        alert(result.error || 'Failed to delete area')
+        toast.error(result.error || 'Failed to delete area')
       }
     } catch (error) {
       console.error('Error deleting area:', error)
-      alert('An unexpected error occurred')
+      toast.error('An unexpected error occurred')
     } finally {
       setProcessingAreas(prev => {
         const next = new Set(prev)
@@ -241,7 +257,7 @@ export function ProjectAreasCard({
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDeleteArea(area)}
+                            onClick={() => handleDeleteClick(area)}
                             disabled={isProcessing}
                             className="text-destructive hover:text-destructive"
                             title="Delete Area"
@@ -290,6 +306,28 @@ export function ProjectAreasCard({
           onVersionChange={onAreaChange}
         />
       )}
+
+      {/* Delete Area Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmArea} onOpenChange={() => setDeleteConfirmArea(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Area?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete area &quot;{deleteConfirmArea?.area_name}&quot;? This will delete all versions and products in this area.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

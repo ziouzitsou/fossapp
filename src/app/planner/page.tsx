@@ -4,6 +4,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useCallback, useEffect, useRef, Suspense } from 'react'
+import { toast } from 'sonner'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { useActiveProject } from '@/lib/active-project-context'
@@ -424,11 +425,11 @@ function PlannerContent() {
         setSavedPlacements(placementData)
       } else {
         console.error('Save failed:', result.error)
-        alert('Failed to save placements: ' + (result.error || 'Unknown error'))
+        toast.error('Failed to save placements: ' + (result.error || 'Unknown error'))
       }
     } catch (err) {
       console.error('Save placements error:', err)
-      alert('Failed to save placements')
+      toast.error('Failed to save placements')
     } finally {
       setIsSaving(false)
     }
@@ -476,11 +477,11 @@ function PlannerContent() {
           )
         )
       } else {
-        alert(result.error || 'Failed to delete floor plan')
+        toast.error(result.error || 'Failed to delete floor plan')
       }
     } catch (err) {
       console.error('Delete floor plan error:', err)
-      alert('Failed to delete floor plan')
+      toast.error('Failed to delete floor plan')
     } finally {
       setDeletingAreaId(null)
     }

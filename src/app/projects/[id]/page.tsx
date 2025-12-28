@@ -18,6 +18,16 @@ import { Button } from '@fossapp/ui'
 import { Spinner } from '@fossapp/ui'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@fossapp/ui'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@fossapp/ui'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@fossapp/ui'
 import { ProjectFormSheet, DeleteProjectDialog, ProjectAreasCard } from '@/components/projects'
 import { useActiveProject } from '@/lib/active-project-context'
 import { ArrowLeft, Plus, Minus, Trash2, ChevronDown, ChevronRight, Layers } from 'lucide-react'
@@ -46,6 +56,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   // Expanded areas state for collapsible sections
   const [expandedAreas, setExpandedAreas] = useState<Set<string>>(new Set(['all']))
+
+  // Remove product confirmation
+  const [removeProductId, setRemoveProductId] = useState<string | null>(null)
 
   // Tab state from URL
   const validTabs = ['overview', 'areas', 'products', 'contacts', 'documents', 'phases']
@@ -100,8 +113,14 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     }
   }
 
-  const handleRemoveProduct = async (productId: string) => {
-    if (!confirm('Remove this product from the project?')) return
+  const handleRemoveProductClick = (productId: string) => {
+    setRemoveProductId(productId)
+  }
+
+  const handleConfirmRemoveProduct = async () => {
+    if (!removeProductId) return
+    const productId = removeProductId
+    setRemoveProductId(null)
 
     setUpdatingProducts(prev => new Set(prev).add(productId))
     try {
@@ -654,7 +673,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                                             size="sm"
                                             className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                                             disabled={isUpdating}
-                                            onClick={() => handleRemoveProduct(product.id)}
+                                            onClick={() => handleRemoveProductClick(product.id)}
                                             title="Remove from project"
                                           >
                                             <Trash2 className="h-4 w-4" />
@@ -869,6 +888,27 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         projectCode={project.project_code}
         onSuccess={handleDeleteSuccess}
       />
+
+      {/* Remove Product Confirmation Dialog */}
+      <AlertDialog open={!!removeProductId} onOpenChange={() => setRemoveProductId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove this product from the project? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmRemoveProduct}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   )
 }

@@ -1,12 +1,23 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+} from '@fossapp/ui'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '@fossapp/ui'
 import { Button } from '@fossapp/ui'
 import { Badge } from '@fossapp/ui'
@@ -39,6 +50,7 @@ export function AreaVersionHistoryDialog({
   const [versions, setVersions] = useState<AreaVersion[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [processingVersions, setProcessingVersions] = useState<Set<string>>(new Set())
+  const [deleteConfirmVersion, setDeleteConfirmVersion] = useState<AreaVersion | null>(null)
 
   const formatCurrency = (amount: number | undefined, currency = 'EUR') => {
     if (!amount) return '€0.00'
@@ -97,11 +109,11 @@ export function AreaVersionHistoryDialog({
         await loadData()
         onVersionChange?.()
       } else {
-        alert(result.error || 'Failed to set current version')
+        toast.error(result.error || 'Failed to set current version')
       }
     } catch (error) {
       console.error('Error setting current version:', error)
-      alert('An unexpected error occurred')
+      toast.error('An unexpected error occurred')
     } finally {
       setProcessingVersions(prev => {
         const next = new Set(prev)
@@ -111,15 +123,18 @@ export function AreaVersionHistoryDialog({
     }
   }
 
-  const handleDeleteVersion = async (version: AreaVersion) => {
+  const handleDeleteClick = (version: AreaVersion) => {
     if (area && version.version_number === area.current_version) {
-      alert('Cannot delete the current active version')
+      toast.error('Cannot delete the current active version')
       return
     }
+    setDeleteConfirmVersion(version)
+  }
 
-    if (!confirm(`Delete version ${version.version_number}? This will also delete all products in this version.`)) {
-      return
-    }
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmVersion) return
+    const version = deleteConfirmVersion
+    setDeleteConfirmVersion(null)
 
     setProcessingVersions(prev => new Set(prev).add(version.id))
     try {
@@ -128,11 +143,11 @@ export function AreaVersionHistoryDialog({
         await loadData()
         onVersionChange?.()
       } else {
-        alert(result.error || 'Failed to delete version')
+        toast.error(result.error || 'Failed to delete version')
       }
     } catch (error) {
       console.error('Error deleting version:', error)
-      alert('An unexpected error occurred')
+      toast.error('An unexpected error occurred')
     } finally {
       setProcessingVersions(prev => {
         const next = new Set(prev)
@@ -262,7 +277,7 @@ export function AreaVersionHistoryDialog({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleDeleteVersion(version)}
+                              onClick={() => handleDeleteClick(version)}
                               disabled={isProcessing}
                               className="text-destructive hover:text-destructive"
                               title="Delete this version"
@@ -290,6 +305,28 @@ export function AreaVersionHistoryDialog({
           </Button>
         </div>
       </DialogContent>
+
+      {/* Delete Version Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmVersion} onOpenChange={() => setDeleteConfirmVersion(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Version?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete version {deleteConfirmVersion?.version_number}? This will also delete all products in this version.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }
