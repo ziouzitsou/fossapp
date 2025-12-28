@@ -9,6 +9,7 @@
  * - Remove product from project
  */
 
+import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@fossapp/core/db/server'
 
 import type {
@@ -137,6 +138,9 @@ export async function addProductToProjectAction(
         return { success: false, error: 'Failed to update product quantity' }
       }
 
+      // Revalidate project page to show updated product
+      revalidatePath(`/projects/${input.project_id}`)
+
       return { success: true, data: { id: existing.id } }
     }
 
@@ -164,6 +168,9 @@ export async function addProductToProjectAction(
       console.error('Add product to project error:', error)
       return { success: false, error: 'Failed to add product to project' }
     }
+
+    // Revalidate project page to show new product
+    revalidatePath(`/projects/${input.project_id}`)
 
     return { success: true, data: { id: data.id } }
   } catch (error) {
