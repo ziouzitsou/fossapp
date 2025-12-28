@@ -1,6 +1,6 @@
 # FOSSAPP Architecture Guide
 
-**Last Updated**: 2025-12-24
+**Last Updated**: 2025-12-28
 
 This document defines coding patterns and architectural decisions for FOSSAPP. Follow these guidelines for all new features.
 
@@ -571,6 +571,102 @@ export default function PageWithState() {
 
 - `/projects/[id]` - `?tab=` for tab selection
 - `/planner` - `?area=` for selected area/DWG
+
+---
+
+## URL-Based Routing for Sub-Pages
+
+**Policy (as of 2025-12)**: When a page has multiple tabs or sections, use URL paths (not client-side tabs) for proper browser navigation.
+
+### Pattern: Layout + Sub-Pages
+
+```
+src/app/settings/
+├── layout.tsx          # Shared layout with tab navigation
+├── page.tsx            # Redirects to default sub-page
+├── user/
+│   └── page.tsx        # User settings content
+└── symbols/
+    └── page.tsx        # Symbols settings content
+```
+
+### Layout Component
+
+```typescript
+// src/app/settings/layout.tsx
+'use client'
+
+import { usePathname } from 'next/navigation'
+import Link from 'next/link'
+import { cn } from '@fossapp/ui'
+
+const tabs = [
+  { name: 'User', href: '/settings/user' },
+  { name: 'Symbols', href: '/settings/symbols' },
+]
+
+export default function SettingsLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+
+  return (
+    <ProtectedPageLayout>
+      <div className="p-6">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-2xl font-bold">Settings</h1>
+
+          {/* Tab Navigation */}
+          <div className="inline-flex h-9 items-center rounded-lg bg-muted p-1 mb-6">
+            {tabs.map((tab) => (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={cn(
+                  'rounded-md px-3 py-1 text-sm font-medium',
+                  pathname === tab.href
+                    ? 'bg-background text-foreground shadow'
+                    : 'text-muted-foreground hover:bg-background/50'
+                )}
+              >
+                {tab.name}
+              </Link>
+            ))}
+          </div>
+
+          {children}
+        </div>
+      </div>
+    </ProtectedPageLayout>
+  )
+}
+```
+
+### Redirect for Base Path
+
+```typescript
+// src/app/settings/page.tsx
+import { redirect } from 'next/navigation'
+
+export default function SettingsPage() {
+  redirect('/settings/user')
+}
+```
+
+### Why URL Paths vs Query Params
+
+| Approach | Use Case | Example |
+|----------|----------|---------|
+| **URL Paths** | Distinct sections with different content | `/settings/user`, `/settings/symbols` |
+| **Query Params** | State within same content structure | `/projects/123?tab=products` |
+
+**URL Paths Benefits:**
+- Each section can have its own loading states
+- Code splitting per section (smaller bundles)
+- Clear URL structure for users
+- Better for SEO (if applicable)
+
+### Implemented Pages
+
+- `/settings/user`, `/settings/symbols` - Settings sub-pages
 
 ---
 
