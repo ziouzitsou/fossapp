@@ -1,63 +1,27 @@
 'use client'
 
+/**
+ * Planner Page
+ * Floor plan viewer with product placement functionality
+ */
+
 // Skip static generation - uses useSearchParams which requires Suspense in Next.js 16
 export const dynamic = 'force-dynamic'
 
-import { useState, useCallback, useEffect, useRef, Suspense } from 'react'
-import { toast } from 'sonner'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { ProtectedPageLayout } from '@/components/protected-page-layout'
-import { useActiveProject } from '@/lib/active-project-context'
-import { PlannerViewer, ProductsPanel } from '@/components/planner'
-import type { Viewer3DInstance, Placement, PlacementModeProduct, DwgUnitInfo } from '@/components/planner'
-
-import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Plus, Trash2, AlertTriangle, Info, Save } from 'lucide-react'
+import { Suspense } from 'react'
+import Link from 'next/link'
+import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Info, Save } from 'lucide-react'
 import { Button } from '@fossapp/ui'
 import { Badge } from '@fossapp/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@fossapp/ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@fossapp/ui'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@fossapp/ui'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@fossapp/ui'
 import { cn } from '@fossapp/ui'
-import Link from 'next/link'
-import Image from 'next/image'
-import {
-  listProjectAreasAction,
-  listAreaVersionProductsAction,
-  deleteAreaVersionFloorPlanAction,
-  loadAreaPlacementsAction,
-  saveAreaPlacementsAction,
-  type AreaVersionProduct,
-  type PlacementData
-} from '@/lib/actions/project-areas'
 
-// Type for area-version selection
-interface AreaVersionOption {
-  areaId: string
-  areaCode: string
-  areaName: string
-  versionId: string
-  versionNumber: number
-  floorPlanUrn?: string
-  floorPlanFilename?: string
-  floorPlanStatus?: string
-  floorPlanWarnings?: number
-}
+import { ProtectedPageLayout } from '@/components/protected-page-layout'
+import { PlannerViewer, ProductsPanel } from '@/components/planner'
+import { usePlannerState } from './use-planner-state'
+import { AreaCard } from './area-card'
+import { DeleteConfirmDialog, WarningsDialog, UnsavedChangesDialog } from './planner-dialogs'
 
 // Loading fallback for Suspense
 function PlannerLoading() {
@@ -71,508 +35,9 @@ function PlannerLoading() {
   )
 }
 
-// Main planner content - uses useSearchParams which requires Suspense
+// Main planner content
 function PlannerContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { activeProject } = useActiveProject()
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [selectedUrn, setSelectedUrn] = useState<string | null>(null)
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
-  const [dragOverAreaId, setDragOverAreaId] = useState<string | null>(null)
-  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
-
-  // Area-version selection
-  const [areaVersions, setAreaVersions] = useState<AreaVersionOption[]>([])
-  const [selectedAreaVersion, setSelectedAreaVersion] = useState<AreaVersionOption | null>(null)
-  const [loadingAreas, setLoadingAreas] = useState(false)
-
-  // Pending upload area - tracks which area a file input belongs to
-  const [pendingUploadArea, setPendingUploadArea] = useState<AreaVersionOption | null>(null)
-
-  // Deletion state
-  const [deletingAreaId, setDeletingAreaId] = useState<string | null>(null)
-  const [deleteConfirmArea, setDeleteConfirmArea] = useState<AreaVersionOption | null>(null)
-
-  // Warnings dialog state
-  const [warningsDialogArea, setWarningsDialogArea] = useState<AreaVersionOption | null>(null)
-  const [warningsData, setWarningsData] = useState<Array<{ code: string; message: string }> | null>(null)
-  const [loadingWarnings, setLoadingWarnings] = useState(false)
-
-  // Unsaved changes dialog state
-  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
-
-  // Viewer reference
-  const viewerRef = useRef<Viewer3DInstance | null>(null)
-
-  // Area version products
-  const [products, setProducts] = useState<AreaVersionProduct[]>([])
-  const [_loadingProducts, setLoadingProducts] = useState(false)
-
-  // Placements state
-  const [placements, setPlacements] = useState<Placement[]>([])
-  const [selectedPlacementId, setSelectedPlacementId] = useState<string | null>(null)
-  const [savedPlacements, setSavedPlacements] = useState<PlacementData[]>([]) // Last saved state
-  const [isSaving, setIsSaving] = useState(false)
-  const [_loadingPlacements, setLoadingPlacements] = useState(false)
-
-  // Placement mode state - which product is being placed
-  const [placementMode, setPlacementMode] = useState<PlacementModeProduct | null>(null)
-
-  // DWG unit info from the viewer
-  const [dwgUnitInfo, setDwgUnitInfo] = useState<DwgUnitInfo | null>(null)
-
-  // Compute dirty state by comparing current placements with saved state
-  const isDirty = (() => {
-    if (placements.length !== savedPlacements.length) return true
-    // Compare each placement (order matters)
-    return placements.some((p, i) => {
-      const saved = savedPlacements[i]
-      if (!saved) return true
-      return (
-        p.id !== saved.id ||
-        p.worldX !== saved.worldX ||
-        p.worldY !== saved.worldY ||
-        p.rotation !== saved.rotation ||
-        p.projectProductId !== saved.projectProductId
-      )
-    })
-  })()
-
-  // Load project areas when active project changes
-  useEffect(() => {
-    async function loadAreas() {
-      if (!activeProject?.id) {
-        setAreaVersions([])
-        setSelectedAreaVersion(null)
-        return
-      }
-
-      setLoadingAreas(true)
-      try {
-        const result = await listProjectAreasAction(activeProject.id, true) // Include versions
-        if (result.success && result.data) {
-          // Map areas to area-version options (using current version)
-          const options: AreaVersionOption[] = result.data
-            .filter(area => area.current_version_data?.id) // Only areas with version data
-            .map(area => ({
-              areaId: area.id,
-              areaCode: area.area_code,
-              areaName: area.area_name,
-              versionId: area.current_version_data!.id,
-              versionNumber: area.current_version,
-              floorPlanUrn: area.current_version_data!.floor_plan_urn,
-              floorPlanFilename: area.current_version_data!.floor_plan_filename,
-              floorPlanStatus: area.current_version_data!.floor_plan_status,
-              floorPlanWarnings: area.current_version_data!.floor_plan_warnings
-            }))
-
-          setAreaVersions(options)
-
-          // Auto-select area from URL param if present
-          const areaIdFromUrl = searchParams.get('area')
-          if (areaIdFromUrl && !selectedAreaVersion) {
-            const areaFromUrl = options.find(a => a.areaId === areaIdFromUrl)
-            if (areaFromUrl && areaFromUrl.floorPlanUrn) {
-              setSelectedAreaVersion(areaFromUrl)
-            }
-          }
-
-          // Check for stale "inprogress" translations and update their status
-          const inProgressAreas = options.filter(av => av.floorPlanStatus === 'inprogress')
-          if (inProgressAreas.length > 0) {
-            // Check each inprogress area's manifest (in parallel)
-            const manifestUpdates = await Promise.all(
-              inProgressAreas.map(async (area) => {
-                try {
-                  const res = await fetch(`/api/planner/manifest?areaVersionId=${area.versionId}`)
-                  if (res.ok) {
-                    const manifest = await res.json()
-                    if (manifest.status === 'success' || manifest.status === 'failed') {
-                      return {
-                        versionId: area.versionId,
-                        status: manifest.status,
-                        warnings: manifest.warningCount || 0
-                      }
-                    }
-                  }
-                } catch (err) {
-                  console.error(`Failed to check manifest for ${area.areaCode}:`, err)
-                }
-                return null
-              })
-            )
-
-            // Update local state with any completed translations
-            const completedUpdates = manifestUpdates.filter(Boolean)
-            if (completedUpdates.length > 0) {
-              setAreaVersions(prev =>
-                prev.map(av => {
-                  const update = completedUpdates.find(u => u?.versionId === av.versionId)
-                  if (update) {
-                    return {
-                      ...av,
-                      floorPlanStatus: update.status,
-                      floorPlanWarnings: update.warnings
-                    }
-                  }
-                  return av
-                })
-              )
-            }
-          }
-        } else {
-          setAreaVersions([])
-          setSelectedAreaVersion(null)
-        }
-      } catch (err) {
-        console.error('Failed to load project areas:', err)
-        setAreaVersions([])
-        setSelectedAreaVersion(null)
-      } finally {
-        setLoadingAreas(false)
-      }
-    }
-
-    loadAreas()
-  }, [activeProject?.id])
-
-  // Load products for selected area version
-  useEffect(() => {
-    async function loadProducts() {
-      if (!selectedAreaVersion?.versionId) {
-        setProducts([])
-        return
-      }
-
-      setLoadingProducts(true)
-      try {
-        const result = await listAreaVersionProductsAction(selectedAreaVersion.versionId)
-        if (result.success && result.data) {
-          setProducts(result.data)
-        } else {
-          setProducts([])
-        }
-      } catch (err) {
-        console.error('Failed to load area version products:', err)
-        setProducts([])
-      } finally {
-        setLoadingProducts(false)
-      }
-    }
-
-    loadProducts()
-  }, [selectedAreaVersion?.versionId])
-
-  // Update viewer when area-version changes
-  useEffect(() => {
-    setSelectedFile(null)
-    // Set URN from selected area (don't clear - this caused double-click bug)
-    setSelectedUrn(selectedAreaVersion?.floorPlanUrn || null)
-    setSelectedFileName(selectedAreaVersion?.floorPlanFilename || null)
-    setPlacements([])
-    setSavedPlacements([])
-    setSelectedPlacementId(null)
-    setDwgUnitInfo(null)
-    viewerRef.current = null
-  }, [selectedAreaVersion?.versionId, selectedAreaVersion?.floorPlanUrn, selectedAreaVersion?.floorPlanFilename])
-
-  // Load placements from database when area version has a floor plan
-  useEffect(() => {
-    async function loadPlacements() {
-      if (!selectedAreaVersion?.versionId || !selectedAreaVersion?.floorPlanUrn) {
-        return
-      }
-
-      setLoadingPlacements(true)
-      try {
-        const result = await loadAreaPlacementsAction(selectedAreaVersion.versionId)
-        if (result.success && result.data) {
-          // Convert PlacementData to Placement (add dbId)
-          const loadedPlacements: Placement[] = result.data.map((p, index) => ({
-            id: p.id,
-            productId: p.productId,
-            projectProductId: p.projectProductId,
-            productName: p.productName,
-            worldX: p.worldX,
-            worldY: p.worldY,
-            rotation: p.rotation,
-            dbId: dbIdCounterRef.current + index
-          }))
-          // Update counter to avoid conflicts
-          dbIdCounterRef.current += result.data.length + 1
-
-          setPlacements(loadedPlacements)
-          setSavedPlacements(result.data)
-        }
-      } catch (err) {
-        console.error('Failed to load placements:', err)
-      } finally {
-        setLoadingPlacements(false)
-      }
-    }
-
-    loadPlacements()
-  }, [selectedAreaVersion?.versionId, selectedAreaVersion?.floorPlanUrn])
-
-  // Clear placements when file changes (new upload)
-  useEffect(() => {
-    setPlacements([])
-    setSavedPlacements([])
-    setSelectedPlacementId(null)
-  }, [selectedFile])
-
-  // Navigation guard - warn user about unsaved changes
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
-        e.preventDefault()
-        // Modern browsers ignore custom messages, but this is required
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
-        return e.returnValue
-      }
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [isDirty])
-
-  // Per-card drag handlers
-  const handleCardDragOver = useCallback((e: React.DragEvent, areaId: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.dataTransfer.types.includes('Files')) {
-      setDragOverAreaId(areaId)
-    }
-  }, [])
-
-  const handleCardDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragOverAreaId(null)
-  }, [])
-
-  const handleCardDrop = useCallback((e: React.DragEvent, area: AreaVersionOption) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragOverAreaId(null)
-
-    const files = Array.from(e.dataTransfer.files)
-    const dwgFile = files.find(f => f.name.toLowerCase().endsWith('.dwg'))
-
-    if (dwgFile) {
-      // Set the area for this file upload
-      setSelectedAreaVersion(area)
-      setSelectedFile(dwgFile)
-    }
-  }, [])
-
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file && file.name.toLowerCase().endsWith('.dwg') && pendingUploadArea) {
-      setSelectedAreaVersion(pendingUploadArea)
-      setSelectedFile(file)
-    }
-    // Reset input and pending area
-    e.target.value = ''
-    setPendingUploadArea(null)
-  }, [pendingUploadArea])
-
-  // Actually clear the file (called after confirmation if dirty)
-  const doClearFile = useCallback(() => {
-    setSelectedFile(null)
-    setSelectedUrn(null)
-    setSelectedFileName(null)
-    setSelectedAreaVersion(null) // Clear selection so same area can be clicked again
-    setPlacements([])
-    setSavedPlacements([])
-    setSelectedPlacementId(null)
-    viewerRef.current = null
-    // Clear URL param
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete('area')
-    router.replace(params.toString() ? `?${params.toString()}` : '/planner', { scroll: false })
-  }, [router, searchParams])
-
-  // Clear file with unsaved changes check
-  const clearFile = useCallback(() => {
-    if (isDirty) {
-      setShowUnsavedDialog(true)
-    } else {
-      doClearFile()
-    }
-  }, [isDirty, doClearFile])
-
-  // Save placements to database
-  const handleSavePlacements = useCallback(async () => {
-    if (!selectedAreaVersion?.versionId || isSaving) return
-
-    setIsSaving(true)
-    try {
-      // Convert Placement to PlacementData (remove dbId)
-      const placementData: PlacementData[] = placements.map(p => ({
-        id: p.id,
-        projectProductId: p.projectProductId,
-        productId: p.productId,
-        productName: p.productName,
-        worldX: p.worldX,
-        worldY: p.worldY,
-        rotation: p.rotation
-      }))
-
-      const result = await saveAreaPlacementsAction(selectedAreaVersion.versionId, placementData)
-      if (result.success) {
-        setSavedPlacements(placementData)
-      } else {
-        console.error('Save failed:', result.error)
-        toast.error('Failed to save placements: ' + (result.error || 'Unknown error'))
-      }
-    } catch (err) {
-      console.error('Save placements error:', err)
-      toast.error('Failed to save placements')
-    } finally {
-      setIsSaving(false)
-    }
-  }, [selectedAreaVersion?.versionId, placements, isSaving])
-
-  // Handle clicking on an area card with existing DWG
-  const handleAreaCardClick = useCallback((area: AreaVersionOption) => {
-    if (area.floorPlanUrn) {
-      // Area has a floor plan - select it (useEffect will set URN)
-      setSelectedAreaVersion(area)
-      // Update URL with selected area
-      const params = new URLSearchParams(searchParams.toString())
-      params.set('area', area.areaId)
-      router.replace(`?${params.toString()}`, { scroll: false })
-    } else {
-      // Area has no floor plan - open file picker
-      setPendingUploadArea(area)
-      document.getElementById('dwg-upload')?.click()
-    }
-  }, [router, searchParams])
-
-  // Handle clicking delete button - opens confirmation dialog
-  const handleDeleteClick = useCallback((e: React.MouseEvent, area: AreaVersionOption) => {
-    e.stopPropagation() // Prevent card click
-    if (!area.floorPlanUrn) return
-    setDeleteConfirmArea(area)
-  }, [])
-
-  // Handle confirming deletion from dialog
-  const handleConfirmDelete = useCallback(async () => {
-    if (!deleteConfirmArea) return
-
-    setDeletingAreaId(deleteConfirmArea.areaId)
-    setDeleteConfirmArea(null) // Close dialog immediately
-
-    try {
-      const result = await deleteAreaVersionFloorPlanAction(deleteConfirmArea.versionId)
-      if (result.success) {
-        // Update local state to remove floor plan info
-        setAreaVersions(prev =>
-          prev.map(av =>
-            av.versionId === deleteConfirmArea.versionId
-              ? { ...av, floorPlanUrn: undefined, floorPlanFilename: undefined }
-              : av
-          )
-        )
-      } else {
-        toast.error(result.error || 'Failed to delete floor plan')
-      }
-    } catch (err) {
-      console.error('Delete floor plan error:', err)
-      toast.error('Failed to delete floor plan')
-    } finally {
-      setDeletingAreaId(null)
-    }
-  }, [deleteConfirmArea])
-
-  // Handle clicking warnings badge - opens warnings dialog
-  const handleWarningsClick = useCallback(async (e: React.MouseEvent, area: AreaVersionOption) => {
-    e.stopPropagation() // Prevent card click
-
-    setWarningsDialogArea(area)
-    setWarningsData(null)
-    setLoadingWarnings(true)
-
-    try {
-      const res = await fetch(`/api/planner/manifest?areaVersionId=${area.versionId}`)
-      if (res.ok) {
-        const manifest = await res.json()
-        setWarningsData(manifest.warnings || [])
-      } else {
-        setWarningsData([])
-      }
-    } catch (err) {
-      console.error('Failed to fetch warnings:', err)
-      setWarningsData([])
-    } finally {
-      setLoadingWarnings(false)
-    }
-  }, [])
-
-  // Viewer ready callback
-  const handleViewerReady = useCallback((viewer: Viewer3DInstance) => {
-    viewerRef.current = viewer
-  }, [])
-
-  // DWG unit info callback
-  const handleUnitInfoAvailable = useCallback((info: DwgUnitInfo) => {
-    setDwgUnitInfo(info)
-  }, [])
-
-  // Counter for generating unique dbIds (DataVisualization sprites need numeric IDs)
-  const dbIdCounterRef = useRef(1000) // Start at 1000 to avoid conflicts with model dbIds
-
-  // Placement handlers
-  const handlePlacementAdd = useCallback((placement: Omit<Placement, 'dbId'>) => {
-    console.log('[PlannerPage] handlePlacementAdd called:', placement)
-    const newPlacement: Placement = {
-      ...placement,
-      dbId: dbIdCounterRef.current++,
-    }
-    setPlacements(prev => {
-      console.log('[PlannerPage] Updating placements:', prev.length, '->', prev.length + 1)
-      return [...prev, newPlacement]
-    })
-    setSelectedPlacementId(newPlacement.id)
-
-    // Check if product quantity is now exhausted and exit placement mode
-    // Count is: current placements + 1 (the new one we just added)
-    if (placementMode) {
-      const currentCount = placements.filter(p => p.projectProductId === placementMode.projectProductId).length
-      const product = products.find(p => p.id === placementMode.projectProductId)
-
-      if (product && currentCount + 1 >= product.quantity) {
-        setPlacementMode(null)
-      }
-    }
-  }, [placements, placementMode, products])
-
-  const _handlePlacementSelect = useCallback((id: string | null) => {
-    setSelectedPlacementId(id)
-  }, [])
-
-  const handlePlacementDelete = useCallback((id: string) => {
-    setPlacements(prev => prev.filter(p => p.id !== id))
-    if (selectedPlacementId === id) {
-      setSelectedPlacementId(null)
-    }
-  }, [selectedPlacementId])
-
-  // Enter placement mode - user clicked on a product to place
-  const handleEnterPlacementMode = useCallback((product: PlacementModeProduct) => {
-    setPlacementMode(product)
-    setSelectedPlacementId(null) // Deselect any selected placement
-  }, [])
-
-  // Exit placement mode - ESC pressed or placement completed
-  const handleExitPlacementMode = useCallback(() => {
-    setPlacementMode(null)
-  }, [])
-
-  // Determine if we have areas
-  const hasAreas = areaVersions.length > 0
+  const state = usePlannerState()
 
   return (
     <ProtectedPageLayout>
@@ -587,13 +52,13 @@ function PlannerContent() {
 
             <div className="flex items-center gap-3">
               {/* Active Project Badge */}
-              {activeProject ? (
+              {state.activeProject ? (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
                   <FolderOpen className="h-4 w-4 text-primary" />
                   <div className="text-sm">
                     <span className="text-muted-foreground">Project: </span>
-                    <span className="font-medium text-foreground">{activeProject.name}</span>
-                    <span className="text-muted-foreground ml-1">({activeProject.project_code})</span>
+                    <span className="font-medium text-foreground">{state.activeProject.name}</span>
+                    <span className="text-muted-foreground ml-1">({state.activeProject.project_code})</span>
                   </div>
                 </div>
               ) : (
@@ -610,555 +75,349 @@ function PlannerContent() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-hidden">
-          {!selectedFile && !selectedUrn ? (
-            /* File Upload Area */
-            <div className="h-full p-6">
-              {!activeProject ? (
-                /* No Project Selected */
-                <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30">
-                  <FolderOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-                  <p className="text-lg font-medium text-muted-foreground mb-2">
-                    Please select a project first
-                  </p>
-                  <p className="text-sm text-muted-foreground/70 mb-4 text-center max-w-md">
-                    Floor plans are saved to your project for persistent storage.
-                    <br />
-                    The same file won&apos;t need re-translation next time.
-                  </p>
-                  <Link href="/projects">
-                    <Button variant="default">
-                      <FolderOpen className="h-4 w-4 mr-2" />
-                      Go to Projects
-                    </Button>
-                  </Link>
-                </div>
-              ) : loadingAreas ? (
-                /* Loading Areas */
-                <div className="h-full flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  <span className="ml-3 text-muted-foreground">Loading project areas...</span>
-                </div>
-              ) : !hasAreas ? (
-                /* No Areas - Block with prompt */
-                <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-500/30 bg-amber-500/5">
-                  <AlertCircle className="h-16 w-16 mx-auto mb-4 text-amber-500/50" />
-                  <p className="text-lg font-medium text-foreground mb-2">
-                    Create an area first
-                  </p>
-                  <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-                    Floor plans are organized by area and version.
-                    <br />
-                    Create at least one area in your project to upload floor plans.
-                  </p>
-                  <Link href={`/projects/${activeProject.id}`}>
-                    <Button variant="default">
-                      <MapPin className="h-4 w-4 mr-2" />
-                      Go to Project Details
-                    </Button>
-                  </Link>
-                </div>
-              ) : hasAreas ? (
-                /* Area Cards Grid */
-                <div className="h-full flex flex-col">
-                  {/* Hidden file input */}
-                  <input
-                    type="file"
-                    accept=".dwg"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="dwg-upload"
-                  />
-
-                  {/* Area Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {areaVersions.map((area) => {
-                      const hasFloorPlan = !!area.floorPlanUrn
-                      const isDragOver = dragOverAreaId === area.areaId
-
-                      return (
-                        <div
-                          key={area.versionId}
-                          onClick={() => handleAreaCardClick(area)}
-                          onDragOver={(e) => !hasFloorPlan && handleCardDragOver(e, area.areaId)}
-                          onDragLeave={handleCardDragLeave}
-                          onDrop={(e) => !hasFloorPlan && handleCardDrop(e, area)}
-                          className={cn(
-                            'relative p-4 rounded-xl border-2 cursor-pointer transition-all',
-                            hasFloorPlan
-                              ? 'bg-card hover:bg-accent border-border hover:border-primary/50'
-                              : isDragOver
-                                ? 'bg-primary/10 border-primary border-dashed'
-                                : 'bg-muted/30 border-dashed border-muted-foreground/30 hover:border-muted-foreground/50 hover:bg-muted/50'
-                          )}
-                        >
-                          {/* Area Header */}
-                          <div className="flex items-start justify-between gap-2 mb-3">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-foreground">{area.areaCode}</span>
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                                  v{area.versionNumber}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground truncate mt-0.5">
-                                {area.areaName}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Content based on floor plan status */}
-                          {hasFloorPlan ? (
-                            <div className="flex items-center gap-3">
-                              {/* Thumbnail or fallback icon */}
-                              <div className="shrink-0 w-12 h-12 rounded-lg bg-muted overflow-hidden relative">
-                                {area.floorPlanStatus === 'success' ? (
-                                  <Image
-                                    src={`/api/planner/thumbnail?areaVersionId=${area.versionId}`}
-                                    alt={area.floorPlanFilename || 'Floor plan thumbnail'}
-                                    fill
-                                    className="object-cover pointer-events-none"
-                                    unoptimized
-                                  />
-                                ) : area.floorPlanStatus === 'inprogress' ? (
-                                  <div className="w-full h-full flex items-center justify-center bg-primary/10">
-                                    <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                                  </div>
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-primary/10">
-                                    <FileIcon className="h-5 w-5 text-primary" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5">
-                                  <p className="text-sm font-medium truncate">
-                                    {area.floorPlanFilename || 'Floor Plan'}
-                                  </p>
-                                  {/* Warning badge - clickable to show details (only when warnings > 0) */}
-                                  {(area.floorPlanWarnings ?? 0) > 0 && (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <button
-                                            onClick={(e) => handleWarningsClick(e, area)}
-                                            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 transition-colors cursor-pointer"
-                                          >
-                                            <AlertTriangle className="h-3 w-3" />
-                                            <span className="text-[10px] font-medium">{area.floorPlanWarnings}</span>
-                                          </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Click to view {area.floorPlanWarnings} warning{area.floorPlanWarnings! > 1 ? 's' : ''}</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  {area.floorPlanStatus === 'inprogress' ? 'Processing...' : 'Click to open'}
-                                </p>
-                              </div>
-                              {/* Delete button */}
-                              <button
-                                onClick={(e) => handleDeleteClick(e, area)}
-                                disabled={deletingAreaId === area.areaId}
-                                className={cn(
-                                  'shrink-0 p-2 rounded-lg transition-colors',
-                                  'hover:bg-destructive/10 hover:text-destructive',
-                                  'text-muted-foreground',
-                                  deletingAreaId === area.areaId && 'opacity-50 cursor-not-allowed'
-                                )}
-                                title="Delete floor plan"
-                              >
-                                {deletingAreaId === area.areaId ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-3">
-                              <div className={cn(
-                                'shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors',
-                                isDragOver ? 'bg-primary/20' : 'bg-muted'
-                              )}>
-                                <Plus className={cn(
-                                  'h-5 w-5',
-                                  isDragOver ? 'text-primary' : 'text-muted-foreground'
-                                )} />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className={cn(
-                                  'text-sm font-medium',
-                                  isDragOver ? 'text-primary' : 'text-muted-foreground'
-                                )}>
-                                  {isDragOver ? 'Drop to upload' : 'Upload DWG'}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Click or drop file
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ) : null}
-            </div>
+          {!state.selectedFile && !state.selectedUrn ? (
+            /* Area Selection View */
+            <AreaSelectionView state={state} />
           ) : (
-            /* Viewer + Products Panel Layout */
-            <div className="h-full flex">
-              {/* Viewer Area */}
-              <div className="flex-1 flex flex-col pt-6 pl-6 pb-6">
-                {/* File Info Bar */}
-                <div className="flex-none flex items-center justify-between mb-4 mr-4 px-4 py-3 rounded-xl bg-muted/50 border">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                      <FileIcon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-medium">
-                          {selectedFile?.name || selectedFileName || 'Floor Plan'}
-                        </p>
-                        {dwgUnitInfo && (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button className="p-0.5 rounded hover:bg-muted transition-colors">
-                                <Info className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-72" align="start">
-                              <div className="space-y-3">
-                                <h4 className="font-medium text-sm">DWG Unit Information</h4>
-                                <div className="space-y-2 text-sm">
-                                  {dwgUnitInfo.unitString && (
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Unit String:</span>
-                                      <span className="font-mono">{dwgUnitInfo.unitString}</span>
-                                    </div>
-                                  )}
-                                  {dwgUnitInfo.displayUnit && (
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Display Unit:</span>
-                                      <span className="font-mono">{dwgUnitInfo.displayUnit}</span>
-                                    </div>
-                                  )}
-                                  {dwgUnitInfo.unitScale !== null && (
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Scale to Meters:</span>
-                                      <span className="font-mono">{dwgUnitInfo.unitScale}</span>
-                                    </div>
-                                  )}
-                                  {dwgUnitInfo.modelUnits && (
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Model Units:</span>
-                                      <span className="font-mono">{dwgUnitInfo.modelUnits}</span>
-                                    </div>
-                                  )}
-                                  {dwgUnitInfo.pageUnits && (
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Page Units:</span>
-                                      <span className="font-mono">{dwgUnitInfo.pageUnits}</span>
-                                    </div>
-                                  )}
-                                  {!dwgUnitInfo.unitString && !dwgUnitInfo.displayUnit && !dwgUnitInfo.modelUnits && !dwgUnitInfo.pageUnits && (
-                                    <p className="text-muted-foreground italic">No unit information available</p>
-                                  )}
-                                </div>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        {selectedFile && (
-                          <span>{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</span>
-                        )}
-                        {selectedAreaVersion && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-                            {selectedAreaVersion.areaCode} v{selectedAreaVersion.versionNumber}
-                          </Badge>
-                        )}
-                        {selectedUrn && !selectedFile && (
-                          <span className="text-muted-foreground/70">From project storage</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* Dirty indicator */}
-                    {isDirty && (
-                      <span className="text-xs text-amber-500 font-medium">● Unsaved</span>
-                    )}
-                    {/* Save button */}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant={isDirty ? 'default' : 'ghost'}
-                            size="sm"
-                            onClick={handleSavePlacements}
-                            disabled={!isDirty || isSaving || !selectedAreaVersion?.versionId}
-                            className={cn(
-                              isDirty
-                                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                                : 'text-muted-foreground'
-                            )}
-                          >
-                            {isSaving ? (
-                              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                            ) : (
-                              <Save className="h-4 w-4 mr-1.5" />
-                            )}
-                            Save
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{isDirty ? 'Save placements to database' : 'No changes to save'}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <div className="h-6 w-px bg-border mx-1" /> {/* Separator */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
-                      className="text-muted-foreground h-9 w-9"
-                      title={isPanelCollapsed ? 'Show products panel' : 'Hide products panel'}
-                    >
-                      {isPanelCollapsed ? (
-                        <PanelRight className="h-4 w-4" />
-                      ) : (
-                        <PanelRightClose className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearFile}
-                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <X className="h-4 w-4 mr-1.5" />
-                      Close
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Planner Viewer */}
-                <div className="flex-1 rounded-lg overflow-hidden border mr-4">
-                  <PlannerViewer
-                    file={selectedFile || undefined}
-                    urn={selectedUrn || undefined}
-                    projectId={activeProject?.id}
-                    areaVersionId={selectedAreaVersion?.versionId}
-                    theme="dark"
-                    placementMode={placementMode}
-                    initialPlacements={placements}
-                    onPlacementAdd={handlePlacementAdd}
-                    onPlacementDelete={handlePlacementDelete}
-                    onExitPlacementMode={handleExitPlacementMode}
-                    onReady={handleViewerReady}
-                    onUnitInfoAvailable={handleUnitInfoAvailable}
-                    onError={(error) => console.error('Viewer error:', error)}
-                    onUploadComplete={(urn, isNewUpload, fileName) => {
-                      console.log('Upload complete:', { urn: urn.substring(0, 20) + '...', isNewUpload, fileName })
-                      // Update local state with new floor plan info
-                      if (selectedAreaVersion) {
-                        setAreaVersions(prev =>
-                          prev.map(av =>
-                            av.versionId === selectedAreaVersion.versionId
-                              ? {
-                                  ...av,
-                                  floorPlanUrn: urn,
-                                  floorPlanFilename: fileName,
-                                  floorPlanStatus: isNewUpload ? 'inprogress' : 'success'
-                                }
-                              : av
-                          )
-                        )
-                      }
-                    }}
-                    onTranslationComplete={async () => {
-                      // Fetch manifest to update DB and get warnings/thumbnail
-                      if (selectedAreaVersion) {
-                        try {
-                          const res = await fetch(`/api/planner/manifest?areaVersionId=${selectedAreaVersion.versionId}`)
-                          if (res.ok) {
-                            const manifest = await res.json()
-                            // Update local state with success status and warnings
-                            setAreaVersions(prev =>
-                              prev.map(av =>
-                                av.versionId === selectedAreaVersion.versionId
-                                  ? {
-                                      ...av,
-                                      floorPlanStatus: 'success',
-                                      floorPlanWarnings: manifest.warningCount || 0
-                                    }
-                                  : av
-                              )
-                            )
-                          }
-                        } catch (err) {
-                          console.error('Failed to fetch manifest:', err)
-                        }
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Products Panel */}
-              <div
-                className={cn(
-                  'flex-none border-l bg-background transition-all duration-300',
-                  isPanelCollapsed ? 'w-0 overflow-hidden' : 'w-72'
-                )}
-              >
-                {!isPanelCollapsed && (
-                  <ProductsPanel
-                    products={products}
-                    placements={placements}
-                    placementMode={placementMode}
-                    onEnterPlacementMode={handleEnterPlacementMode}
-                    onExitPlacementMode={handleExitPlacementMode}
-                    className="h-full"
-                  />
-                )}
-              </div>
-            </div>
+            /* Viewer Layout */
+            <ViewerLayout state={state} />
           )}
         </div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteConfirmArea} onOpenChange={(open) => !open && setDeleteConfirmArea(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Floor Plan</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove the floor plan from <strong>{deleteConfirmArea?.areaCode}</strong>?
-              {deleteConfirmArea?.floorPlanFilename && (
-                <span className="block mt-2 text-sm">
-                  File: <span className="font-mono text-foreground/80">{deleteConfirmArea.floorPlanFilename}</span>
-                </span>
-              )}
-              <span className="block mt-2 text-muted-foreground">
-                This will delete the DWG file from storage. You can upload a new one anytime.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Dialogs */}
+      <DeleteConfirmDialog
+        area={state.deleteConfirmArea}
+        onOpenChange={() => state.setDeleteConfirmArea(null)}
+        onConfirm={state.handleConfirmDelete}
+      />
 
-      {/* Translation Warnings Dialog */}
-      <Dialog open={!!warningsDialogArea} onOpenChange={(open) => !open && setWarningsDialogArea(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Translation Warnings
-            </DialogTitle>
-            <DialogDescription>
-              {warningsDialogArea?.areaCode} - {warningsDialogArea?.floorPlanFilename}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 max-h-[300px] overflow-y-auto">
-            {loadingWarnings ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : warningsData && warningsData.length > 0 ? (
-              warningsData.map((warning, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20"
-                >
-                  <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-1">
-                        {warning.code}
-                      </p>
-                      <p className="text-sm text-foreground/80">
-                        {warning.message || 'No additional details available'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No warning details available</p>
-              </div>
+      <WarningsDialog
+        area={state.warningsDialogArea}
+        warnings={state.warningsData}
+        isLoading={state.loadingWarnings}
+        onOpenChange={() => state.setWarningsDialogArea(null)}
+      />
+
+      <UnsavedChangesDialog
+        open={state.showUnsavedDialog}
+        isSaving={state.isSaving}
+        onOpenChange={state.setShowUnsavedDialog}
+        onDiscard={() => {
+          state.setShowUnsavedDialog(false)
+          state.doClearFile()
+        }}
+        onSaveAndClose={async () => {
+          await state.handleSavePlacements()
+          state.setShowUnsavedDialog(false)
+          state.doClearFile()
+        }}
+      />
+    </ProtectedPageLayout>
+  )
+}
+
+// ============================================================================
+// Area Selection View
+// ============================================================================
+
+function AreaSelectionView({ state }: { state: ReturnType<typeof usePlannerState> }) {
+  if (!state.activeProject) {
+    return (
+      <div className="h-full p-6">
+        <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30">
+          <FolderOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
+          <p className="text-lg font-medium text-muted-foreground mb-2">
+            Please select a project first
+          </p>
+          <p className="text-sm text-muted-foreground/70 mb-4 text-center max-w-md">
+            Floor plans are saved to your project for persistent storage.
+            <br />
+            The same file won&apos;t need re-translation next time.
+          </p>
+          <Link href="/projects">
+            <Button variant="default">
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Go to Projects
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (state.loadingAreas) {
+    return (
+      <div className="h-full p-6">
+        <div className="h-full flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="ml-3 text-muted-foreground">Loading project areas...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!state.hasAreas) {
+    return (
+      <div className="h-full p-6">
+        <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-500/30 bg-amber-500/5">
+          <AlertCircle className="h-16 w-16 mx-auto mb-4 text-amber-500/50" />
+          <p className="text-lg font-medium text-foreground mb-2">
+            Create an area first
+          </p>
+          <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
+            Floor plans are organized by area and version.
+            <br />
+            Create at least one area in your project to upload floor plans.
+          </p>
+          <Link href={`/projects/${state.activeProject.id}`}>
+            <Button variant="default">
+              <MapPin className="h-4 w-4 mr-2" />
+              Go to Project Details
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-full p-6">
+      <div className="h-full flex flex-col">
+        {/* Hidden file input */}
+        <input
+          type="file"
+          accept=".dwg"
+          onChange={state.handleFileChange}
+          className="hidden"
+          id="dwg-upload"
+        />
+
+        {/* Area Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {state.areaVersions.map((area) => (
+            <AreaCard
+              key={area.versionId}
+              area={area}
+              isDragOver={state.dragOverAreaId === area.areaId}
+              isDeleting={state.deletingAreaId === area.areaId}
+              onDragOver={state.handleCardDragOver}
+              onDragLeave={state.handleCardDragLeave}
+              onDrop={state.handleCardDrop}
+              onClick={state.handleAreaCardClick}
+              onDeleteClick={state.handleDeleteClick}
+              onWarningsClick={state.handleWarningsClick}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// Viewer Layout
+// ============================================================================
+
+function ViewerLayout({ state }: { state: ReturnType<typeof usePlannerState> }) {
+  return (
+    <div className="h-full flex">
+      {/* Viewer Area */}
+      <div className="flex-1 flex flex-col pt-6 pl-6 pb-6">
+        {/* File Info Bar */}
+        <FileInfoBar state={state} />
+
+        {/* Planner Viewer */}
+        <div className="flex-1 rounded-lg overflow-hidden border mr-4">
+          <PlannerViewer
+            file={state.selectedFile || undefined}
+            urn={state.selectedUrn || undefined}
+            projectId={state.activeProject?.id}
+            areaVersionId={state.selectedAreaVersion?.versionId}
+            theme="dark"
+            placementMode={state.placementMode}
+            initialPlacements={state.placements}
+            onPlacementAdd={state.handlePlacementAdd}
+            onPlacementDelete={state.handlePlacementDelete}
+            onExitPlacementMode={state.handleExitPlacementMode}
+            onReady={state.handleViewerReady}
+            onUnitInfoAvailable={state.handleUnitInfoAvailable}
+            onError={(error) => console.error('Viewer error:', error)}
+            onUploadComplete={state.handleUploadComplete}
+            onTranslationComplete={state.handleTranslationComplete}
+          />
+        </div>
+      </div>
+
+      {/* Products Panel */}
+      <div
+        className={cn(
+          'flex-none border-l bg-background transition-all duration-300',
+          state.isPanelCollapsed ? 'w-0 overflow-hidden' : 'w-72'
+        )}
+      >
+        {!state.isPanelCollapsed && (
+          <ProductsPanel
+            products={state.products}
+            placements={state.placements}
+            placementMode={state.placementMode}
+            onEnterPlacementMode={state.handleEnterPlacementMode}
+            onExitPlacementMode={state.handleExitPlacementMode}
+            className="h-full"
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// File Info Bar
+// ============================================================================
+
+function FileInfoBar({ state }: { state: ReturnType<typeof usePlannerState> }) {
+  return (
+    <div className="flex-none flex items-center justify-between mb-4 mr-4 px-4 py-3 rounded-xl bg-muted/50 border">
+      <div className="flex items-center gap-4">
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+          <FileIcon className="h-5 w-5 text-primary" />
+        </div>
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5">
+            <p className="font-medium">
+              {state.selectedFile?.name || state.selectedFileName || 'Floor Plan'}
+            </p>
+            {state.dwgUnitInfo && <DwgUnitInfoPopover info={state.dwgUnitInfo} />}
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {state.selectedFile && (
+              <span>{(state.selectedFile.size / 1024 / 1024).toFixed(2)} MB</span>
+            )}
+            {state.selectedAreaVersion && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                {state.selectedAreaVersion.areaCode} v{state.selectedAreaVersion.versionNumber}
+              </Badge>
+            )}
+            {state.selectedUrn && !state.selectedFile && (
+              <span className="text-muted-foreground/70">From project storage</span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            These warnings are from Autodesk&apos;s translation service. They typically indicate minor issues
-            that may affect how certain elements are displayed.
-          </p>
-        </DialogContent>
-      </Dialog>
-
-      {/* Unsaved Changes Dialog */}
-      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have unsaved placement changes. What would you like to do?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel onClick={() => setShowUnsavedDialog(false)}>
-              Cancel
-            </AlertDialogCancel>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowUnsavedDialog(false)
-                doClearFile()
-              }}
-            >
-              Discard Changes
-            </Button>
-            <Button
-              onClick={async () => {
-                await handleSavePlacements()
-                setShowUnsavedDialog(false)
-                doClearFile()
-              }}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {/* Dirty indicator */}
+        {state.isDirty && (
+          <span className="text-xs text-amber-500 font-medium">● Unsaved</span>
+        )}
+        {/* Save button */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={state.isDirty ? 'default' : 'ghost'}
+                size="sm"
+                onClick={state.handleSavePlacements}
+                disabled={!state.isDirty || state.isSaving || !state.selectedAreaVersion?.versionId}
+                className={cn(
+                  state.isDirty
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'text-muted-foreground'
+                )}
+              >
+                {state.isSaving ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
+                ) : (
                   <Save className="h-4 w-4 mr-1.5" />
-                  Save & Close
-                </>
-              )}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </ProtectedPageLayout>
+                )}
+                Save
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{state.isDirty ? 'Save placements to database' : 'No changes to save'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <div className="h-6 w-px bg-border mx-1" />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => state.setIsPanelCollapsed(!state.isPanelCollapsed)}
+          className="text-muted-foreground h-9 w-9"
+          title={state.isPanelCollapsed ? 'Show products panel' : 'Hide products panel'}
+        >
+          {state.isPanelCollapsed ? (
+            <PanelRight className="h-4 w-4" />
+          ) : (
+            <PanelRightClose className="h-4 w-4" />
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={state.clearFile}
+          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+        >
+          <X className="h-4 w-4 mr-1.5" />
+          Close
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// DWG Unit Info Popover
+// ============================================================================
+
+function DwgUnitInfoPopover({ info }: { info: NonNullable<ReturnType<typeof usePlannerState>['dwgUnitInfo']> }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="p-0.5 rounded hover:bg-muted transition-colors">
+          <Info className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72" align="start">
+        <div className="space-y-3">
+          <h4 className="font-medium text-sm">DWG Unit Information</h4>
+          <div className="space-y-2 text-sm">
+            {info.unitString && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Unit String:</span>
+                <span className="font-mono">{info.unitString}</span>
+              </div>
+            )}
+            {info.displayUnit && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Display Unit:</span>
+                <span className="font-mono">{info.displayUnit}</span>
+              </div>
+            )}
+            {info.unitScale !== null && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Scale to Meters:</span>
+                <span className="font-mono">{info.unitScale}</span>
+              </div>
+            )}
+            {info.modelUnits && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Model Units:</span>
+                <span className="font-mono">{info.modelUnits}</span>
+              </div>
+            )}
+            {info.pageUnits && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Page Units:</span>
+                <span className="font-mono">{info.pageUnits}</span>
+              </div>
+            )}
+            {!info.unitString && !info.displayUnit && !info.modelUnits && !info.pageUnits && (
+              <p className="text-muted-foreground italic">No unit information available</p>
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
