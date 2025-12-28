@@ -7,7 +7,7 @@
 
 import { convertImage, convertImages, base64ToBuffer } from './image-processor'
 import { generateTileScript, previewTileScript, type TileData } from '@fossapp/tiles/scripts'
-import { apsService } from './aps-service'
+import { apsService } from './aps'
 import { getGoogleDriveTileService, type TileUploadResult } from './google-drive-tile-service'
 
 export interface TilePayload {

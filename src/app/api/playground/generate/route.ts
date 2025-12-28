@@ -16,7 +16,7 @@ import { authOptions } from '@/lib/auth'
 import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 import { createJob, addProgress, completeJob, generateJobId } from '@fossapp/tiles/progress'
 import { generateScript, retryWithError, extractErrorContext, LLMMessage } from '@/lib/playground/llm-service'
-import { apsService } from '@/lib/tiles/aps-service'
+import { apsService } from '@/lib/tiles/aps'
 import { usdToEur } from '@/lib/currency'
 
 export const dynamic = 'force-dynamic'

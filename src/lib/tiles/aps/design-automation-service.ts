@@ -1,473 +1,17 @@
 /**
- * APS Design Automation Service for Tiles
- * Ported from gendwg (Node.js/Express) to TypeScript
+ * APS Design Automation Service
+ * Main orchestrator for tile processing using Autodesk Platform Services
  *
  * Handles:
- * - 2-legged OAuth authentication
- * - Temporary bucket creation/deletion (OSS)
- * - File upload via Direct-to-S3
+ * - Activity creation/deletion
  * - WorkItem submission and monitoring
- * - DWG download
+ * - DWG generation workflow
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-import { SdkManagerBuilder } from '@aps_sdk/autodesk-sdkmanager'
-import { AuthenticationClient, Scopes } from '@aps_sdk/authentication'
-import { BucketsApi, ObjectsApi, Region } from '@aps_sdk/oss'
-
-// Configuration
-// NOTE: Design Automation activities are in us-east region.
-// OSS buckets can be in EMEA but are accessible via signed URLs.
-const APS_CONFIG = {
-  clientId: process.env.APS_CLIENT_ID || '',
-  clientSecret: process.env.APS_CLIENT_SECRET || '',
-  region: 'US', // Design Automation is in US region
-  ossRegion: process.env.APS_REGION || 'EMEA', // OSS can be in EMEA
-  scopes: [
-    Scopes.BucketCreate,
-    Scopes.BucketRead,
-    Scopes.BucketDelete,
-    Scopes.DataRead,
-    Scopes.DataWrite,
-    Scopes.DataCreate,
-    Scopes.CodeAll,
-  ],
-  // Design Automation settings
-  nickname: 'fossapp',
-  appBundleName: 'tilebundle', // The existing permanent bundle
-  activityName: 'fossappTileAct2',
-  engineVersion: 'Autodesk.AutoCAD+25_1',
-  // Processing limits
-  processingTimeoutMinutes: 8,
-  maxPollingAttempts: 240, // 8 minutes at 2-second intervals
-}
-
-// Get OSS region enum - must match the SDK's expected values
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function getOSSRegion(): Region {
-  // The SDK uses lowercase region strings
-  return APS_CONFIG.region === 'EMEA' ? Region.Emea : Region.Us
-}
-
-// Direct region string for API calls that don't use the enum
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function getOSSRegionString(): string {
-  return APS_CONFIG.region === 'EMEA' ? 'EMEA' : 'US'
-}
-
-// Types
-export interface ProcessingLog {
-  timestamp: string
-  step: string
-  status: 'started' | 'completed' | 'error' | 'info'
-  details?: Record<string, unknown>
-}
-
-export interface FileUploadResult {
-  type: 'script' | 'image'
-  objectKey: string
-  bucketKey: string
-  size: number
-  downloadUrl: string
-  originalName?: string
-  index?: number
-}
-
-export interface WorkItemResult {
-  workItemId: string
-  status: string
-  reportUrl: string | null
-}
-
-export interface DWGResult {
-  dwgUrl: string
-  dwgBuffer?: Buffer
-  report?: string
-  message: string
-  size?: number
-}
-
-export interface TileProcessingResult {
-  success: boolean
-  tileName: string
-  workItemId: string
-  dwgUrl: string
-  dwgBuffer?: Buffer
-  /** URN for Autodesk Viewer (SVF translation started automatically) */
-  viewerUrn?: string
-  processingLogs: ProcessingLog[]
-  workItemReport?: string
-  message: string
-  errors: string[]
-}
-
-// ============================================================================
-// APS Authentication Service
-// ============================================================================
-
-class APSAuthService {
-  private sdkManager = SdkManagerBuilder.create().build()
-  private authClient: AuthenticationClient
-  private tokenCache: string | null = null
-  private tokenExpiry: number | null = null
-
-  constructor() {
-    // Pass sdkManager as options object
-    this.authClient = new AuthenticationClient({ sdkManager: this.sdkManager })
-  }
-
-  getSdkManager() {
-    return this.sdkManager
-  }
-
-  async getAccessToken(): Promise<string> {
-    // Check cached token
-    if (this.tokenCache && this.tokenExpiry && Date.now() < this.tokenExpiry) {
-      return this.tokenCache
-    }
-
-    if (!APS_CONFIG.clientId || !APS_CONFIG.clientSecret) {
-      throw new Error('APS credentials not configured. Check APS_CLIENT_ID and APS_CLIENT_SECRET')
-    }
-
-    const credentials = await this.authClient.getTwoLeggedToken(
-      APS_CONFIG.clientId,
-      APS_CONFIG.clientSecret,
-      APS_CONFIG.scopes
-    )
-
-    // Cache token with 5-minute buffer before expiry
-    this.tokenCache = credentials.access_token
-    this.tokenExpiry = Date.now() + (credentials.expires_in - 300) * 1000
-
-    return this.tokenCache
-  }
-
-  clearCache(): void {
-    this.tokenCache = null
-    this.tokenExpiry = null
-  }
-}
-
-// ============================================================================
-// OSS Service
-// ============================================================================
-
-class OSSService {
-  private bucketsApi: BucketsApi
-  private objectsApi: ObjectsApi
-  private authService: APSAuthService
-
-  constructor(authService: APSAuthService) {
-    this.authService = authService
-    // Use the shared sdkManager from auth service, pass directly (not as options)
-    const sdkManager = authService.getSdkManager()
-    this.bucketsApi = new BucketsApi(sdkManager)
-    this.objectsApi = new ObjectsApi(sdkManager)
-  }
-
-  /**
-   * Generate unique bucket name
-   */
-  generateBucketName(): string {
-    return `tile-processing-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`
-  }
-
-  /**
-   * Create temporary bucket for tile processing
-   * Using REST API directly to avoid SDK region issues
-   */
-  async createTempBucket(tileName: string): Promise<string> {
-    const accessToken = await this.authService.getAccessToken()
-    const bucketName = this.generateBucketName()
-
-    try {
-      const response = await fetch(
-        'https://developer.api.autodesk.com/oss/v2/buckets',
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            'x-ads-region': 'EMEA',
-          },
-          body: JSON.stringify({
-            bucketKey: bucketName,
-            policyKey: 'transient',
-          }),
-        }
-      )
-
-      if (!response.ok) {
-        if (response.status === 409) {
-          // Bucket name conflict - retry with new name
-          return this.createTempBucket(tileName)
-        }
-        const errorText = await response.text()
-        throw new Error(`Bucket creation failed (${response.status}): ${errorText}`)
-      }
-
-      return bucketName
-    } catch (error: any) {
-      throw new Error(`Failed to create bucket: ${error.message}`)
-    }
-  }
-
-  /**
-   * Upload file buffer to OSS using Direct-to-S3
-   */
-  async uploadBuffer(
-    bucketName: string,
-    fileName: string,
-    buffer: Buffer
-  ): Promise<FileUploadResult> {
-    const accessToken = await this.authService.getAccessToken()
-
-    // Step 1: Get signed S3 upload URL
-    const signedUrlResponse = await fetch(
-      `https://developer.api.autodesk.com/oss/v2/buckets/${bucketName}/objects/${encodeURIComponent(fileName)}/signeds3upload?parts=1`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
-    )
-
-    if (!signedUrlResponse.ok) {
-      throw new Error(`Failed to get signed upload URL: ${signedUrlResponse.statusText}`)
-    }
-
-    const { uploadKey, urls } = (await signedUrlResponse.json()) as {
-      uploadKey: string
-      urls: string[]
-    }
-    const uploadUrl = urls[0]
-
-    // Step 2: Upload to S3 (convert Buffer to Uint8Array for fetch compatibility)
-    const s3Response = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/octet-stream' },
-      body: new Uint8Array(buffer),
-    })
-
-    if (!s3Response.ok) {
-      throw new Error(`S3 upload failed: ${s3Response.statusText}`)
-    }
-
-    const etag = s3Response.headers.get('etag') || ''
-
-    // Step 3: Complete upload
-    const completeResponse = await fetch(
-      `https://developer.api.autodesk.com/oss/v2/buckets/${bucketName}/objects/${encodeURIComponent(fileName)}/signeds3upload`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uploadKey,
-          parts: [{ partNumber: 1, etag }],
-        }),
-      }
-    )
-
-    if (!completeResponse.ok) {
-      throw new Error(`Failed to complete upload: ${completeResponse.statusText}`)
-    }
-
-    const completeData = (await completeResponse.json()) as { objectId: string; size: number }
-
-    // Generate signed download URL for DA access
-    const downloadUrl = await this.generateSignedDownloadUrl(bucketName, fileName)
-
-    return {
-      type: 'image',
-      objectKey: fileName,
-      bucketKey: bucketName,
-      size: completeData.size,
-      downloadUrl,
-    }
-  }
-
-  /**
-   * Generate signed download URL for Design Automation
-   */
-  async generateSignedDownloadUrl(
-    bucketKey: string,
-    fileName: string,
-    expiryMinutes: number = 60
-  ): Promise<string> {
-    const accessToken = await this.authService.getAccessToken()
-
-    const response = await fetch(
-      `https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(fileName)}/signed`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ minutesExpiration: expiryMinutes }),
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error(`Failed to generate signed URL: ${response.statusText}`)
-    }
-
-    const data = (await response.json()) as { signedUrl: string }
-    return data.signedUrl
-  }
-
-  /**
-   * Generate signed URL for output files (supports both PUT and GET)
-   * Uses OSS signed URL with readwrite access so file is accessible after upload
-   */
-  async generateOutputUrl(bucketKey: string, fileName: string, expiryMinutes: number = 60): Promise<string> {
-    const accessToken = await this.authService.getAccessToken()
-
-    const response = await fetch(
-      `https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(fileName)}/signed?access=readwrite`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ minutesExpiration: expiryMinutes }),
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error(`Failed to generate output URL: ${response.statusText}`)
-    }
-
-    const data = (await response.json()) as { signedUrl: string }
-    return data.signedUrl
-  }
-
-  /**
-   * Delete temporary bucket and all its contents
-   * NOTE: Currently not used - transient buckets auto-delete after 24h
-   */
-  async deleteTempBucket(bucketName: string): Promise<void> {
-    try {
-      const accessToken = await this.authService.getAccessToken()
-
-      // List and delete objects first
-      try {
-        const objects: any = await this.objectsApi.getObjects(accessToken, bucketName)
-        const items = objects.items || objects.content?.items
-        if (items && items.length > 0) {
-          for (const obj of items) {
-            await this.objectsApi.deleteObject(accessToken, bucketName, obj.objectKey)
-          }
-        }
-      } catch {
-        // Ignore errors listing/deleting objects
-      }
-
-      // Delete bucket
-      await this.bucketsApi.deleteBucket(accessToken, bucketName)
-    } catch {
-      // Non-blocking cleanup - don't throw
-    }
-  }
-
-  /**
-   * Create URN from bucket and object key
-   */
-  createUrn(bucketKey: string, objectKey: string): string {
-    const objectId = `urn:adsk.objects:os.object:${bucketKey}/${objectKey}`
-    return Buffer.from(objectId).toString('base64').replace(/=/g, '')
-  }
-
-  /**
-   * Start SVF2 translation for viewer
-   * Translation runs in background, viewer will poll for status
-   * Uses EMEA endpoint since our buckets are in EMEA region
-   */
-  async startSvfTranslation(urn: string): Promise<void> {
-    const accessToken = await this.authService.getAccessToken()
-
-    // Use EMEA endpoint since bucket is in EMEA region
-    // US: https://developer.api.autodesk.com/modelderivative/v2/designdata/job
-    // EMEA: https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/job
-    const response = await fetch(
-      'https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/job',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'x-ads-force': 'true', // Force re-translation if exists
-        },
-        body: JSON.stringify({
-          input: { urn },
-          output: {
-            formats: [{
-              type: 'svf2',
-              views: ['2d', '3d']
-            }]
-          }
-        }),
-      }
-    )
-
-    if (!response.ok && response.status !== 409) {
-      // 409 = already translating, that's fine
-      const errorText = await response.text()
-      console.warn(`SVF translation warning: ${response.status} - ${errorText}`)
-    }
-  }
-
-  /**
-   * Start SVF2 translation for a ZIP bundle with rootFilename
-   * Used when DWG has external references (images) bundled in a ZIP
-   * Uses EMEA endpoint since our buckets are in EMEA region
-   */
-  async startSvfTranslationWithRoot(urn: string, rootFilename: string): Promise<void> {
-    const accessToken = await this.authService.getAccessToken()
-
-    const response = await fetch(
-      'https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/job',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'x-ads-force': 'true', // Force re-translation if exists
-        },
-        body: JSON.stringify({
-          input: {
-            urn,
-            compressedUrn: true,
-            rootFilename
-          },
-          output: {
-            formats: [{
-              type: 'svf2',
-              views: ['2d', '3d']
-            }]
-          }
-        }),
-      }
-    )
-
-    if (!response.ok && response.status !== 409) {
-      // 409 = already translating, that's fine
-      const errorText = await response.text()
-      console.warn(`SVF translation warning: ${response.status} - ${errorText}`)
-    }
-  }
-}
-
-// ============================================================================
-// Design Automation Service
-// ============================================================================
-
-// Design Automation base URL
-const DA_BASE_URL = 'https://developer.api.autodesk.com/da/us-east/v3'
+import { APS_CONFIG, DA_BASE_URL } from './config'
+import { APSAuthService } from './auth-service'
+import { OSSService } from './oss-service'
+import type { ProcessingLog, FileUploadResult, WorkItemResult, TileProcessingResult } from './types'
 
 export class APSDesignAutomationService {
   private authService = new APSAuthService()
@@ -772,7 +316,6 @@ export class APSDesignAutomationService {
     tileName: string
   ): Promise<WorkItemResult & { outputUrl: string }> {
     const accessToken = await this.authService.getAccessToken()
-    const baseUrl = DA_BASE_URL
 
     // Use actual tile name from the app (e.g., "Tile Q321.dwg")
     const outputFilename = `${tileName}.dwg`
@@ -785,7 +328,6 @@ export class APSDesignAutomationService {
     const imageFiles = uploadResults.filter((r) => r.type === 'image')
 
     // Use our custom activity (fossapp.fossappTileAct2+production)
-    // Parameters: script (input), tile (output), image1-N (inputs)
     const activityId = `${APS_CONFIG.nickname}.${APS_CONFIG.activityName}+production`
 
     const workItemSpec: {
@@ -800,12 +342,12 @@ export class APSDesignAutomationService {
     }
 
     // First try to get activity parameters to use correct image param names
-    const activityInfo = await this.getActivityParameters(accessToken, baseUrl)
+    const activityInfo = await this.getActivityParameters(accessToken)
 
     // Add image arguments based on activity parameters or fallback to generic names
     this.addImageArguments(workItemSpec, imageFiles, activityInfo)
 
-    const response = await fetch(`${baseUrl}/workitems`, {
+    const response = await fetch(`${DA_BASE_URL}/workitems`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -833,12 +375,11 @@ export class APSDesignAutomationService {
    * Get Activity parameter definitions
    */
   private async getActivityParameters(
-    accessToken: string,
-    baseUrl: string
+    accessToken: string
   ): Promise<{ parameters?: Record<string, unknown> } | null> {
     try {
       const activityId = `${APS_CONFIG.nickname}.${APS_CONFIG.activityName}+production`
-      const response = await fetch(`${baseUrl}/activities/${activityId}`, {
+      const response = await fetch(`${DA_BASE_URL}/activities/${activityId}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
 
@@ -892,13 +433,12 @@ export class APSDesignAutomationService {
    */
   private async monitorWorkItem(workItemId: string): Promise<{ report?: string }> {
     const accessToken = await this.authService.getAccessToken()
-    const baseUrl = DA_BASE_URL
 
     let attempts = 0
     const maxAttempts = APS_CONFIG.maxPollingAttempts
 
     while (attempts < maxAttempts) {
-      const response = await fetch(`${baseUrl}/workitems/${workItemId}`, {
+      const response = await fetch(`${DA_BASE_URL}/workitems/${workItemId}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
 
@@ -947,31 +487,6 @@ export class APSDesignAutomationService {
     }
 
     throw new Error(`WorkItem processing timeout (${APS_CONFIG.processingTimeoutMinutes} minutes)`)
-  }
-
-  /**
-   * Extract DWG download URL from WorkItem report
-   */
-  private extractDwgUrl(report: string | undefined): string | null {
-    if (!report) return null
-
-    // Look for tile pattern with "put" verb and any .dwg filename
-    const tilePattern =
-      /"tile":\s*\{[^}]*"localName":\s*"[^"]+\.dwg"[^}]*"url":\s*"([^"]+)"[^}]*"verb":\s*"put"[^}]*\}/
-    const tileMatch = report.match(tilePattern)
-    if (tileMatch) return tileMatch[1]
-
-    // Fallback: any S3 URL with put verb
-    const s3PutPattern = /"url":\s*"(https:\/\/[^"]*direct-upload[^"]*)"[^}]*"verb":\s*"put"/
-    const s3PutMatch = report.match(s3PutPattern)
-    if (s3PutMatch) return s3PutMatch[1]
-
-    // Broader fallback
-    const putPattern = /"url":\s*"(https:\/\/[^"]+)"[^}]*"verb":\s*"put"/
-    const putMatch = report.match(putPattern)
-    if (putMatch) return putMatch[1]
-
-    return null
   }
 
   /**
@@ -1087,13 +602,12 @@ export class APSDesignAutomationService {
       logStep('DWG downloaded', `${(dwgBuffer.length / 1024).toFixed(0)} KB`)
 
       // Step 8: Prepare for viewer using dedicated viewer bucket
-      // Use aps-viewer service which has proper bucket setup for Model Derivative
       logStep('Preparing for viewer...', `${imageBuffers.length} images`)
       this.addLog('viewer_prep', 'started')
 
       let viewerUrn: string | undefined
       try {
-        const { prepareForViewing } = await import('./aps-viewer')
+        const { prepareForViewing } = await import('../aps-viewer')
 
         // Convert image buffers to the format expected by prepareForViewing
         const images = imageBuffers.map(img => ({
@@ -1163,14 +677,13 @@ export class APSDesignAutomationService {
     onProgress: (step: string, detail?: string) => void
   ): Promise<{ report?: string }> {
     const accessToken = await this.authService.getAccessToken()
-    const baseUrl = DA_BASE_URL
 
     let attempts = 0
     const maxAttempts = APS_CONFIG.maxPollingAttempts
     const startTime = Date.now()
 
     while (attempts < maxAttempts) {
-      const response = await fetch(`${baseUrl}/workitems/${workItemId}`, {
+      const response = await fetch(`${DA_BASE_URL}/workitems/${workItemId}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
 
@@ -1223,6 +736,3 @@ export class APSDesignAutomationService {
     throw new Error(`WorkItem processing timeout (${APS_CONFIG.processingTimeoutMinutes} minutes)`)
   }
 }
-
-// Export singleton instance
-export const apsService = new APSDesignAutomationService()

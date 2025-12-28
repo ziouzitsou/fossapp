@@ -11,7 +11,7 @@ import { authOptions } from '@/lib/auth'
 import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 import { createJob, addProgress, completeJob, generateJobId } from '@fossapp/tiles/progress'
 import { processTileImages, generateScript, TilePayload } from '@/lib/tiles/actions'
-import { apsService } from '@/lib/tiles/aps-service'
+import { apsService } from '@/lib/tiles/aps'
 import { getGoogleDriveTileService } from '@/lib/tiles/google-drive-tile-service'
 import { base64ToBuffer } from '@/lib/tiles/image-processor'
 
