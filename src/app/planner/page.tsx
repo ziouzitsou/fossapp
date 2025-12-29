@@ -240,8 +240,13 @@ function AreaOverview({ state }: { state: ReturnType<typeof usePlannerState> }) 
     placements,
     loadingProducts,
     fileInputRef,
+    pendingUploadAreaRef,
     handleFileChange,
     deletingAreaId,
+    dragOverAreaId,
+    handleCardDragOver,
+    handleCardDragLeave,
+    handleCardDrop,
     handleOpenPlanner,
   } = state
 
@@ -283,13 +288,20 @@ function AreaOverview({ state }: { state: ReturnType<typeof usePlannerState> }) 
           <FloorPlanCard
             area={selectedAreaRevision}
             isDeleting={deletingAreaId === selectedAreaRevision.areaId}
-            onUploadClick={() => fileInputRef.current?.click()}
+            isDragOver={dragOverAreaId === selectedAreaRevision.areaId}
+            onUploadClick={() => {
+              pendingUploadAreaRef.current = selectedAreaRevision
+              fileInputRef.current?.click()
+            }}
             onDeleteClick={() => state.setDeleteConfirmArea(selectedAreaRevision)}
             onWarningsClick={() => state.handleWarningsClick(
               { stopPropagation: () => {} } as React.MouseEvent,
               selectedAreaRevision
             )}
             onOpenPlanner={handleOpenPlanner}
+            onDragOver={(e) => handleCardDragOver(e, selectedAreaRevision.areaId)}
+            onDragLeave={handleCardDragLeave}
+            onDrop={(e) => handleCardDrop(e, selectedAreaRevision)}
           />
         </div>
 

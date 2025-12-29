@@ -16,19 +16,27 @@ import type { AreaRevisionOption } from '../types'
 interface FloorPlanCardProps {
   area: AreaRevisionOption
   isDeleting: boolean
+  isDragOver?: boolean
   onUploadClick: () => void
   onDeleteClick: () => void
   onWarningsClick: () => void
   onOpenPlanner: () => void
+  onDragOver?: (e: React.DragEvent) => void
+  onDragLeave?: (e: React.DragEvent) => void
+  onDrop?: (e: React.DragEvent) => void
 }
 
 export function FloorPlanCard({
   area,
   isDeleting,
+  isDragOver,
   onUploadClick,
   onDeleteClick,
   onWarningsClick,
   onOpenPlanner,
+  onDragOver,
+  onDragLeave,
+  onDrop,
 }: FloorPlanCardProps) {
   const hasFloorPlan = !!area.floorPlanUrn
   const isProcessing = area.floorPlanStatus === 'inprogress'
@@ -37,16 +45,32 @@ export function FloorPlanCard({
     return (
       <div
         onClick={onUploadClick}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
         className={cn(
           'flex items-center gap-4 p-4 rounded-xl border-2 border-dashed cursor-pointer transition-all',
-          'bg-muted/30 border-muted-foreground/30 hover:border-primary hover:bg-primary/5'
+          isDragOver
+            ? 'bg-primary/10 border-primary'
+            : 'bg-muted/30 border-muted-foreground/30 hover:border-primary hover:bg-primary/5'
         )}
       >
-        <div className="shrink-0 w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
-          <Plus className="h-6 w-6 text-muted-foreground" />
+        <div className={cn(
+          'shrink-0 w-16 h-16 rounded-lg flex items-center justify-center transition-colors',
+          isDragOver ? 'bg-primary/20' : 'bg-muted'
+        )}>
+          <Plus className={cn(
+            'h-6 w-6 transition-colors',
+            isDragOver ? 'text-primary' : 'text-muted-foreground'
+          )} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-muted-foreground">Upload Floor Plan</p>
+          <p className={cn(
+            'font-medium transition-colors',
+            isDragOver ? 'text-primary' : 'text-muted-foreground'
+          )}>
+            {isDragOver ? 'Drop DWG file here' : 'Upload Floor Plan'}
+          </p>
           <p className="text-sm text-muted-foreground/70">
             Click to upload or drag & drop a DWG file
           </p>

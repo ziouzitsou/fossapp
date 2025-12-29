@@ -668,6 +668,7 @@ export function usePlannerState() {
     setIsPanelCollapsed,
     viewerRef,
     fileInputRef,
+    pendingUploadAreaRef,
     dwgUnitInfo,
     markerMinScreenPx,
     viewerBgTopColor,
