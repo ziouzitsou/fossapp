@@ -10,17 +10,19 @@ export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Info, Save } from 'lucide-react'
+import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Info, Save, ArrowLeft, ChevronDown } from 'lucide-react'
 import { Button } from '@fossapp/ui'
 import { Badge } from '@fossapp/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@fossapp/ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@fossapp/ui'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@fossapp/ui'
 import { cn } from '@fossapp/ui'
 
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { PlannerViewer, ProductsPanel } from '@/components/planner'
 import { usePlannerState } from './use-planner-state'
 import { AreaCard } from './area-card'
+import { ProductsGrid, FloorPlanCard } from './components'
 import { DeleteConfirmDialog, WarningsDialog, UnsavedChangesDialog } from './planner-dialogs'
 
 // Loading fallback for Suspense
@@ -45,9 +47,47 @@ function PlannerContent() {
         {/* Header */}
         <div className="flex-none p-6 pb-4 border-b">
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-foreground">Planner</h1>
-              <Badge variant="secondary" className="text-xs">Beta</Badge>
+            <div className="flex items-center gap-4">
+              {/* Back button in planner mode */}
+              {state.viewMode === 'planner' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={state.handleBackToOverview}
+                  className="text-muted-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1.5" />
+                  Back
+                </Button>
+              )}
+
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-foreground">Planner</h1>
+                <Badge variant="secondary" className="text-xs">Beta</Badge>
+              </div>
+
+              {/* Area Dropdown - only show when project has areas */}
+              {state.activeProject && state.hasAreas && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Area:</span>
+                  <Select
+                    value={state.selectedAreaRevision?.areaId || ''}
+                    onValueChange={state.handleAreaSelect}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Select area" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {state.areaRevisions.map((area) => (
+                        <SelectItem key={area.areaId} value={area.areaId}>
+                          <span className="font-medium">{area.areaCode}</span>
+                          <span className="text-muted-foreground ml-2">{area.areaName}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -75,12 +115,21 @@ function PlannerContent() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-hidden">
-          {!state.selectedFile && !state.selectedUrn ? (
-            /* Area Selection View */
-            <AreaSelectionView state={state} />
-          ) : (
-            /* Viewer Layout */
+          {!state.activeProject ? (
+            /* No project selected */
+            <NoProjectView />
+          ) : !state.hasAreas ? (
+            /* No areas in project */
+            <NoAreasView projectId={state.activeProject.id} />
+          ) : state.loadingAreas ? (
+            /* Loading areas */
+            <LoadingView message="Loading project areas..." />
+          ) : state.viewMode === 'planner' && (state.selectedAreaRevision?.floorPlanUrn || state.selectedFile) ? (
+            /* Planner Mode - Floor plan viewer */
             <ViewerLayout state={state} />
+          ) : (
+            /* Overview Mode - Floor plan card + Products grid */
+            <AreaOverview state={state} />
           )}
         </div>
       </div>
@@ -118,116 +167,145 @@ function PlannerContent() {
 }
 
 // ============================================================================
-// Area Selection View
+// Helper Views
 // ============================================================================
 
-function AreaSelectionView({ state }: { state: ReturnType<typeof usePlannerState> }) {
-  // Destructure to avoid ESLint false positives about ref access during render
-  // (ESLint's react-hooks/refs rule gets confused by the state.someRef pattern)
+function NoProjectView() {
+  return (
+    <div className="h-full p-6">
+      <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30">
+        <FolderOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
+        <p className="text-lg font-medium text-muted-foreground mb-2">
+          Please select a project first
+        </p>
+        <p className="text-sm text-muted-foreground/70 mb-4 text-center max-w-md">
+          Floor plans are saved to your project for persistent storage.
+          <br />
+          The same file won&apos;t need re-translation next time.
+        </p>
+        <Link href="/projects">
+          <Button variant="default">
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Go to Projects
+          </Button>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function NoAreasView({ projectId }: { projectId: string }) {
+  return (
+    <div className="h-full p-6">
+      <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-500/30 bg-amber-500/5">
+        <AlertCircle className="h-16 w-16 mx-auto mb-4 text-amber-500/50" />
+        <p className="text-lg font-medium text-foreground mb-2">
+          Create an area first
+        </p>
+        <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
+          Floor plans are organized by area and revision.
+          <br />
+          Create at least one area in your project to upload floor plans.
+        </p>
+        <Link href={`/projects/${projectId}`}>
+          <Button variant="default">
+            <MapPin className="h-4 w-4 mr-2" />
+            Go to Project Details
+          </Button>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function LoadingView({ message }: { message: string }) {
+  return (
+    <div className="h-full p-6">
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-3 text-muted-foreground">{message}</span>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// Area Overview - Shows floor plan card + products grid
+// ============================================================================
+
+function AreaOverview({ state }: { state: ReturnType<typeof usePlannerState> }) {
   const {
-    activeProject,
-    loadingAreas,
-    hasAreas,
+    selectedAreaRevision,
+    products,
+    placements,
+    loadingProducts,
     fileInputRef,
     handleFileChange,
-    areaRevisions,
-    dragOverAreaId,
     deletingAreaId,
-    handleCardDragOver,
-    handleCardDragLeave,
-    handleCardDrop,
-    handleAreaCardClick,
-    handleDeleteClick,
-    handleWarningsClick,
+    handleOpenPlanner,
   } = state
 
-  if (!activeProject) {
+  if (!selectedAreaRevision) {
     return (
       <div className="h-full p-6">
-        <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30">
-          <FolderOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-          <p className="text-lg font-medium text-muted-foreground mb-2">
-            Please select a project first
-          </p>
-          <p className="text-sm text-muted-foreground/70 mb-4 text-center max-w-md">
-            Floor plans are saved to your project for persistent storage.
-            <br />
-            The same file won&apos;t need re-translation next time.
-          </p>
-          <Link href="/projects">
-            <Button variant="default">
-              <FolderOpen className="h-4 w-4 mr-2" />
-              Go to Projects
-            </Button>
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
-  if (loadingAreas) {
-    return (
-      <div className="h-full p-6">
-        <div className="h-full flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <span className="ml-3 text-muted-foreground">Loading project areas...</span>
-        </div>
-      </div>
-    )
-  }
-
-  if (!hasAreas) {
-    return (
-      <div className="h-full p-6">
-        <div className="h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-500/30 bg-amber-500/5">
-          <AlertCircle className="h-16 w-16 mx-auto mb-4 text-amber-500/50" />
-          <p className="text-lg font-medium text-foreground mb-2">
-            Create an area first
-          </p>
-          <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-            Floor plans are organized by area and revision.
-            <br />
-            Create at least one area in your project to upload floor plans.
-          </p>
-          <Link href={`/projects/${activeProject.id}`}>
-            <Button variant="default">
-              <MapPin className="h-4 w-4 mr-2" />
-              Go to Project Details
-            </Button>
-          </Link>
+        <div className="h-full flex items-center justify-center text-muted-foreground">
+          Select an area from the dropdown above
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-full p-6">
-      <div className="h-full flex flex-col">
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".dwg"
-          onChange={handleFileChange}
-          className="hidden"
-        />
+    <div className="h-full p-6 overflow-auto">
+      {/* Hidden file input for upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".dwg"
+        onChange={handleFileChange}
+        className="hidden"
+      />
 
-        {/* Area Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {areaRevisions.map((area) => (
-            <AreaCard
-              key={area.revisionId}
-              area={area}
-              isDragOver={dragOverAreaId === area.areaId}
-              isDeleting={deletingAreaId === area.areaId}
-              onDragOver={handleCardDragOver}
-              onDragLeave={handleCardDragLeave}
-              onDrop={handleCardDrop}
-              onClick={handleAreaCardClick}
-              onDeleteClick={handleDeleteClick}
-              onWarningsClick={handleWarningsClick}
-            />
-          ))}
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Area Header */}
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold">{selectedAreaRevision.areaName}</h2>
+          <Badge variant="outline" className="text-xs">
+            {selectedAreaRevision.areaCode} RV{selectedAreaRevision.revisionNumber}
+          </Badge>
+        </div>
+
+        {/* Floor Plan Section */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            Floor Plan
+          </h3>
+          <FloorPlanCard
+            area={selectedAreaRevision}
+            isDeleting={deletingAreaId === selectedAreaRevision.areaId}
+            onUploadClick={() => fileInputRef.current?.click()}
+            onDeleteClick={() => state.setDeleteConfirmArea(selectedAreaRevision)}
+            onWarningsClick={() => state.handleWarningsClick(
+              { stopPropagation: () => {} } as React.MouseEvent,
+              selectedAreaRevision
+            )}
+            onOpenPlanner={handleOpenPlanner}
+          />
+        </div>
+
+        {/* Products Section */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            Products ({products.length})
+          </h3>
+          {loadingProducts ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Loading products...</span>
+            </div>
+          ) : (
+            <ProductsGrid products={products} placements={placements} />
+          )}
         </div>
       </div>
     </div>

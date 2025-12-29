@@ -42,6 +42,9 @@ export function usePlannerState() {
   const [selectedAreaRevision, setSelectedAreaRevision] = useState<AreaRevisionOption | null>(null)
   const [loadingAreas, setLoadingAreas] = useState(false)
 
+  // View mode: 'overview' shows products grid, 'planner' shows floor plan viewer
+  const [viewMode, setViewMode] = useState<'overview' | 'planner'>('overview')
+
   // Pending upload area - tracks which area a file input belongs to
   // Use both state and ref: state for React lifecycle, ref for synchronous access in callbacks
   const [pendingUploadArea, setPendingUploadArea] = useState<AreaRevisionOption | null>(null)
@@ -75,6 +78,7 @@ export function usePlannerState() {
   const [savedPlacements, setSavedPlacements] = useState<PlacementData[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [loadingPlacements, setLoadingPlacements] = useState(false)
+  const [placementsRefreshKey, setPlacementsRefreshKey] = useState(0)
 
   // Placement mode state
   const [placementMode, setPlacementMode] = useState<PlacementModeProduct | null>(null)
@@ -163,13 +167,20 @@ export function usePlannerState() {
 
           setAreaRevisions(options)
 
-          // Auto-select area from URL param if present
+          // Auto-select area from URL param if present, otherwise select first area
           const areaIdFromUrl = searchParams.get('area')
-          if (areaIdFromUrl && !selectedAreaRevision) {
+          if (areaIdFromUrl) {
             const areaFromUrl = options.find(a => a.areaId === areaIdFromUrl)
-            if (areaFromUrl && areaFromUrl.floorPlanUrn) {
+            if (areaFromUrl) {
               setSelectedAreaRevision(areaFromUrl)
+              // If area has floor plan and URL indicates planner mode, open it
+              if (areaFromUrl.floorPlanUrn && searchParams.get('mode') === 'planner') {
+                setViewMode('planner')
+              }
             }
+          } else if (options.length > 0 && !selectedAreaRevision) {
+            // Auto-select first area if none selected
+            setSelectedAreaRevision(options[0])
           }
 
           // Check for stale "inprogress" translations
@@ -302,7 +313,8 @@ export function usePlannerState() {
     }
 
     loadPlacements()
-  }, [selectedAreaRevision?.revisionId, selectedAreaRevision?.floorPlanUrn])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- placementsRefreshKey intentionally triggers refetch
+  }, [selectedAreaRevision?.revisionId, selectedAreaRevision?.floorPlanUrn, placementsRefreshKey])
 
   // Clear placements when file changes
   useEffect(() => {
@@ -355,6 +367,7 @@ export function usePlannerState() {
     if (dwgFile) {
       setSelectedAreaRevision(area)
       setSelectedFile(dwgFile)
+      setViewMode('planner')  // Enter planner mode for upload
     }
   }, [])
 
@@ -366,6 +379,7 @@ export function usePlannerState() {
     if (file && file.name.toLowerCase().endsWith('.dwg') && area) {
       setSelectedAreaRevision(area)
       setSelectedFile(file)
+      setViewMode('planner')  // Enter planner mode for upload
     }
     e.target.value = ''
     pendingUploadAreaRef.current = null
@@ -377,13 +391,15 @@ export function usePlannerState() {
     setSelectedFile(null)
     setSelectedUrn(null)
     setSelectedFileName(null)
-    setSelectedAreaRevision(null)
+    // Don't clear selectedAreaRevision - keep area selected, just exit planner mode
     setPlacements([])
     setSavedPlacements([])
     setSelectedPlacementId(null)
+    setViewMode('overview')  // Return to overview mode
+    setPlacementMode(null)
     viewerRef.current = null
     const params = new URLSearchParams(searchParams.toString())
-    params.delete('area')
+    params.delete('mode')  // Clear mode param, keep area
     router.replace(params.toString() ? `?${params.toString()}` : '/planner', { scroll: false })
   }, [router, searchParams])
 
@@ -428,7 +444,41 @@ export function usePlannerState() {
     }
   }, [selectedAreaRevision?.revisionId, placements, isSaving])
 
-  // Handle clicking on an area card
+  // Handle selecting an area from dropdown
+  const handleAreaSelect = useCallback((areaId: string) => {
+    const area = areaRevisions.find(a => a.areaId === areaId)
+    if (area) {
+      setSelectedAreaRevision(area)
+      setViewMode('overview')  // Always go to overview when switching areas
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('area', area.areaId)
+      params.delete('mode')  // Clear mode param
+      router.replace(`?${params.toString()}`, { scroll: false })
+    }
+  }, [areaRevisions, router, searchParams])
+
+  // Handle opening planner mode (floor plan viewer)
+  const handleOpenPlanner = useCallback(() => {
+    if (selectedAreaRevision?.floorPlanUrn) {
+      setViewMode('planner')
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('mode', 'planner')
+      router.replace(`?${params.toString()}`, { scroll: false })
+    }
+  }, [selectedAreaRevision, router, searchParams])
+
+  // Handle going back to overview mode
+  const handleBackToOverview = useCallback(() => {
+    setViewMode('overview')
+    setPlacementMode(null)  // Exit placement mode
+    // Trigger a refetch of placements to reflect any saved changes
+    setPlacementsRefreshKey(prev => prev + 1)
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('mode')
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }, [router, searchParams])
+
+  // Handle clicking on an area card (legacy - kept for compatibility)
   const handleAreaCardClick = useCallback((area: AreaRevisionOption) => {
     if (area.floorPlanUrn) {
       setSelectedAreaRevision(area)
@@ -630,6 +680,10 @@ export function usePlannerState() {
     loadingAreas,
     hasAreas,
 
+    // View mode
+    viewMode,
+    setViewMode,
+
     // Deletion state
     deletingAreaId,
     deleteConfirmArea,
@@ -667,6 +721,9 @@ export function usePlannerState() {
     clearFile,
     doClearFile,
     handleSavePlacements,
+    handleAreaSelect,
+    handleOpenPlanner,
+    handleBackToOverview,
     handleAreaCardClick,
     handleDeleteClick,
     handleConfirmDelete,
