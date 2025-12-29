@@ -51,6 +51,16 @@ interface WorldCoordinates {
 }
 
 /**
+ * Result from clientToWorld ray cast
+ */
+interface ClientToWorldResult {
+  point: WorldCoordinates
+  face?: unknown
+  fragId?: number
+  dbId?: number
+}
+
+/**
  * Viewer Model - provides access to model metadata and units
  */
 interface ViewerModel {
@@ -96,7 +106,7 @@ interface Viewer3DInstance {
   navigation: ViewerNavigation
   toolController: ToolController
   fitToView: (objectIds?: number[], model?: unknown, immediate?: boolean) => void
-  clientToWorld: (clientX: number, clientY: number) => WorldCoordinates | null
+  clientToWorld: (clientX: number, clientY: number) => ClientToWorldResult | null
   worldToClient: (point: WorldCoordinates) => { x: number; y: number } | null
   addEventListener: (event: string, callback: (e: unknown) => void) => void
   removeEventListener: (event: string, callback: (e: unknown) => void) => void
@@ -111,6 +121,7 @@ interface Viewer3DInstance {
     clearOverlay: (sceneName: string) => void
     invalidate: (needsClear?: boolean) => void
     intersectGround: (clientX: number, clientY: number) => WorldCoordinates | null
+    getVisibleBounds?: () => { min: WorldCoordinates; max: WorldCoordinates } | null
     camera?: unknown
   }
 }
@@ -145,6 +156,7 @@ export {
   BubbleNode,
   Viewable,
   WorldCoordinates,
+  ClientToWorldResult,
   ViewerModel,
   GuiViewer3DInstance,
   Viewer3DInstance

@@ -18,10 +18,10 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { cn } from '@fossapp/ui'
 import type { Viewer3DInstance, WorldCoordinates as WorldCoordsType, ViewerInitOptions } from '@/types/autodesk-viewer'
 import type { PlacementModeProduct, Placement, DwgUnitInfo } from './types'
-import { PlacementTool, dwgToViewerCoords, type PageDimensions } from './placement-tool'
+import { PlacementTool, dwgToViewerCoords, viewerToDwgCoords, type PageDimensions, type DwgCoordinates } from './placement-tool'
 import { MarkupMarkers } from './markup-markers'
 import { PlannerViewerToolbar, type MeasureMode } from './viewer-toolbar'
-import { ViewerLoadingOverlay, ViewerErrorOverlay, type LoadingStage } from './viewer-overlays'
+import { ViewerLoadingOverlay, ViewerErrorOverlay, CoordinateOverlay, type LoadingStage } from './viewer-overlays'
 
 // Re-export the Viewer3DInstance type for consumers
 export type { Viewer3DInstance }
@@ -212,6 +212,8 @@ export function PlannerViewer({
   const [measureMode, setMeasureMode] = useState<MeasureMode>('none')
   const [hasMeasurement, setHasMeasurement] = useState(false)
   const [hasSelectedMarker, setHasSelectedMarker] = useState(false)
+  const [dwgCoordinates, setDwgCoordinates] = useState<DwgCoordinates | null>(null)
+  const [dwgUnitString, setDwgUnitString] = useState<string | null>(null)
 
   // Get viewer token from API
   const getAccessToken = useCallback(async (): Promise<{ access_token: string; expires_in: number }> => {
@@ -410,7 +412,7 @@ export function PlannerViewer({
 
               // Extract DWG unit information from the model
               const model = viewer.model
-              if (model && onUnitInfoAvailableRef.current) {
+              if (model) {
                 const unitInfo: DwgUnitInfo = {
                   unitString: model.getUnitString?.() ?? null,
                   displayUnit: model.getDisplayUnit?.() ?? null,
@@ -419,7 +421,9 @@ export function PlannerViewer({
                   modelUnits: (model.getMetadata?.('page_dimensions', 'model_units', null) as string | null) ?? null,
                 }
                 console.log('[PlannerViewer] DWG unit info:', unitInfo)
-                onUnitInfoAvailableRef.current(unitInfo)
+                // Store unit string for coordinate display
+                setDwgUnitString(unitInfo.modelUnits || unitInfo.unitString)
+                onUnitInfoAvailableRef.current?.(unitInfo)
               }
 
               // Initialize MarkupMarkers for product placement
@@ -441,7 +445,7 @@ export function PlannerViewer({
                 console.warn('[PlannerViewer] MarkupMarkers failed to initialize')
               }
 
-              // Register the placement tool with snapping support
+              // Register the placement tool with snapping support and coordinate tracking
               const tool = new PlacementTool(
                 viewer,
                 (coords) => {
@@ -511,7 +515,9 @@ export function PlannerViewer({
                       console.warn('[PlannerViewer] markerData is null - marker not placed')
                     }
                   }
-                }
+                },
+                undefined, // onSnapChange - not used currently
+                setDwgCoordinates // onCoordinateChange - updates coordinate display
               )
               viewer.toolController.registerTool(tool)
               placementToolRef.current = tool
@@ -646,8 +652,8 @@ export function PlannerViewer({
       let worldCoords: WorldCoordinates | null = null
       if (viewer.clientToWorld) {
         const result = viewer.clientToWorld(e.clientX, e.clientY)
-        if (result) {
-          worldCoords = { x: result.x, y: result.y, z: result.z }
+        if (result?.point) {
+          worldCoords = { x: result.point.x, y: result.point.y, z: result.point.z }
         }
       }
 
@@ -699,6 +705,64 @@ export function PlannerViewer({
     container.addEventListener('wheel', preventScroll, { passive: false })
     return () => container.removeEventListener('wheel', preventScroll)
   }, [])
+
+  // Track mouse position for coordinate display (when not in placement mode)
+  // In placement mode, PlacementTool handles this with snapping
+  useEffect(() => {
+    const container = containerRef.current
+    const viewer = viewerRef.current
+    if (!container || !viewer || isLoading) return
+
+    // Skip if placement mode is active (PlacementTool handles coordinates with snapping)
+    if (placementMode) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      let viewerX: number | undefined
+      let viewerY: number | undefined
+
+      // Try clientToWorld first
+      const clientToWorldResult = viewer.clientToWorld?.(e.clientX, e.clientY)
+      if (clientToWorldResult?.point?.x !== undefined) {
+        viewerX = clientToWorldResult.point.x
+        viewerY = clientToWorldResult.point.y
+      } else {
+        // Fallback: use visible bounds conversion for 2D
+        const impl = viewer.impl
+        const visibleBounds = impl?.getVisibleBounds?.()
+        if (visibleBounds) {
+          const rect = container.getBoundingClientRect()
+          const localX = e.clientX - rect.left
+          const localY = e.clientY - rect.top
+          const visWidth = visibleBounds.max.x - visibleBounds.min.x
+          const visHeight = visibleBounds.max.y - visibleBounds.min.y
+          viewerX = visibleBounds.min.x + (localX / rect.width) * visWidth
+          viewerY = visibleBounds.max.y - (localY / rect.height) * visHeight
+        }
+      }
+
+      // Convert to DWG coordinates
+      if (viewerX !== undefined && viewerY !== undefined) {
+        const pageDim = pageDimensionsRef.current
+        if (pageDim) {
+          const { dwgX, dwgY } = viewerToDwgCoords(viewerX, viewerY, pageDim)
+          setDwgCoordinates({ x: dwgX, y: dwgY, isSnapped: false })
+        } else {
+          setDwgCoordinates({ x: viewerX, y: viewerY, isSnapped: false })
+        }
+      }
+    }
+
+    const handleMouseLeave = () => {
+      setDwgCoordinates(null)
+    }
+
+    container.addEventListener('mousemove', handleMouseMove)
+    container.addEventListener('mouseleave', handleMouseLeave)
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove)
+      container.removeEventListener('mouseleave', handleMouseLeave)
+    }
+  }, [isLoading, placementMode])
 
   // ESC key to exit placement mode
   useEffect(() => {
@@ -872,6 +936,14 @@ export function PlannerViewer({
 
         {/* Error overlay */}
         {error && <ViewerErrorOverlay error={error} />}
+
+        {/* Coordinate display overlay - top left corner */}
+        {showToolbar && (
+          <CoordinateOverlay
+            coordinates={dwgCoordinates}
+            unitString={dwgUnitString}
+          />
+        )}
       </div>
 
       {/* Custom Toolbar - OUTSIDE the canvas */}

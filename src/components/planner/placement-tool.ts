@@ -55,7 +55,7 @@ export interface PageDimensions {
  * 1. Viewer to logical: logicalX = viewerX * (logicalWidth / pageWidth)
  * 2. Logical to DWG: dwgX = (logicalX - translateX) / scaleX
  */
-function viewerToDwgCoords(
+export function viewerToDwgCoords(
   viewerX: number,
   viewerY: number,
   pageDim: PageDimensions
@@ -120,6 +120,16 @@ export interface SnapState {
   snapType?: string // 'vertex', 'edge', 'midpoint', 'intersection', etc.
 }
 
+/**
+ * Real-time DWG coordinates for display (like AutoCAD status bar)
+ */
+export interface DwgCoordinates {
+  x: number
+  y: number
+  isSnapped: boolean
+  snapType?: string
+}
+
 // Snap type constants from Autodesk.Viewing.MeasureCommon.SnapType
 const SnapType = {
   SNAP_VERTEX: 1,
@@ -150,6 +160,7 @@ export class PlacementTool {
   private viewer: ViewerInstance
   private onPlacement: (coords: PlacementCoords) => void
   private onSnapChange?: (state: SnapState | null) => void
+  private onCoordinateChange?: (coords: DwgCoordinates | null) => void
   private names: string[] = ['placement-tool']
   private snapper: Snapper | null = null
   private snapperRegistered: boolean = false
@@ -160,11 +171,13 @@ export class PlacementTool {
   constructor(
     viewer: ViewerInstance,
     onPlacement: (coords: PlacementCoords) => void,
-    onSnapChange?: (state: SnapState | null) => void
+    onSnapChange?: (state: SnapState | null) => void,
+    onCoordinateChange?: (coords: DwgCoordinates | null) => void
   ) {
     this.viewer = viewer
     this.onPlacement = onPlacement
     this.onSnapChange = onSnapChange
+    this.onCoordinateChange = onCoordinateChange
 
     // Cache page dimensions for coordinate transformation
     this.cachePageDimensions()
@@ -312,65 +325,113 @@ export class PlacementTool {
   }
 
   /**
-   * handleMouseMove - detect snap points as mouse moves
-   * The snapper handles detection internally; we just need to check isSnapped
-   * and render the indicator for visual feedback.
+   * handleMouseMove - detect snap points and report DWG coordinates as mouse moves
+   * The snapper handles detection internally; we check isSnapped and render the indicator.
+   * Also reports real-time DWG coordinates for the coordinate display overlay.
    * Returns false to allow pan/zoom tools to also receive the event.
    */
   handleMouseMove(event: MouseEvent): boolean {
-    if (!this.snapper || !this.snappingEnabled) {
-      if (this.lastSnapState) {
-        this.lastSnapState = null
-        this.onSnapChange?.(null)
+    let viewerX: number | undefined
+    let viewerY: number | undefined
+    let isSnapped = false
+    let snapType: string | undefined
+
+    // Handle snapping if enabled
+    if (this.snapper && this.snappingEnabled) {
+      // Clear previous indicator
+      this.snapper.indicator?.clearOverlays()
+
+      // Check if snapper detected a snap point
+      if (this.snapper.isSnapped()) {
+        const result = this.snapper.getSnapResult()
+
+        // Render visual indicator for the snap
+        this.snapper.indicator?.render()
+
+        if (result?.geomVertex) {
+          const snapX = result.geomVertex.x
+          const snapY = result.geomVertex.y
+          viewerX = snapX
+          viewerY = snapY
+          isSnapped = true
+          snapType = getSnapTypeName(result.geomType)
+
+          const snapState: SnapState = {
+            isSnapped: true,
+            worldX: snapX,
+            worldY: snapY,
+            snapType,
+          }
+
+          // Only notify if snap state changed
+          if (!this.lastSnapState ||
+              this.lastSnapState.worldX !== snapState.worldX ||
+              this.lastSnapState.worldY !== snapState.worldY) {
+            this.lastSnapState = snapState
+            this.onSnapChange?.(snapState)
+          }
+        } else if (result?.intersectPoint) {
+          const snapX = result.intersectPoint.x
+          const snapY = result.intersectPoint.y
+          viewerX = snapX
+          viewerY = snapY
+          isSnapped = true
+          snapType = 'intersection'
+
+          const snapState: SnapState = {
+            isSnapped: true,
+            worldX: snapX,
+            worldY: snapY,
+            snapType,
+          }
+
+          if (!this.lastSnapState ||
+              this.lastSnapState.worldX !== snapState.worldX ||
+              this.lastSnapState.worldY !== snapState.worldY) {
+            this.lastSnapState = snapState
+            this.onSnapChange?.(snapState)
+          }
+        }
+      } else {
+        // No snap - clear snap state
+        if (this.lastSnapState) {
+          this.lastSnapState = null
+          this.onSnapChange?.(null)
+        }
       }
-      return false
     }
 
-    // Clear previous indicator
-    this.snapper.indicator?.clearOverlays()
-
-    // Check if snapper detected a snap point
-    if (this.snapper.isSnapped()) {
-      const result = this.snapper.getSnapResult()
-
-      // Render visual indicator for the snap
-      this.snapper.indicator?.render()
-
-      if (result?.geomVertex) {
-        const snapState: SnapState = {
-          isSnapped: true,
-          worldX: result.geomVertex.x,
-          worldY: result.geomVertex.y,
-          snapType: getSnapTypeName(result.geomType),
-        }
-
-        // Only notify if snap state changed
-        if (!this.lastSnapState ||
-            this.lastSnapState.worldX !== snapState.worldX ||
-            this.lastSnapState.worldY !== snapState.worldY) {
-          this.lastSnapState = snapState
-          this.onSnapChange?.(snapState)
-        }
-      } else if (result?.intersectPoint) {
-        const snapState: SnapState = {
-          isSnapped: true,
-          worldX: result.intersectPoint.x,
-          worldY: result.intersectPoint.y,
-          snapType: 'intersection',
-        }
-
-        if (!this.lastSnapState ||
-            this.lastSnapState.worldX !== snapState.worldX ||
-            this.lastSnapState.worldY !== snapState.worldY) {
-          this.lastSnapState = snapState
-          this.onSnapChange?.(snapState)
+    // If no snap, calculate viewer coordinates from mouse position
+    if (viewerX === undefined || viewerY === undefined) {
+      const clientToWorldResult = this.viewer.clientToWorld(event.clientX, event.clientY)
+      if (clientToWorldResult?.point?.x !== undefined) {
+        viewerX = clientToWorldResult.point.x
+        viewerY = clientToWorldResult.point.y
+      } else {
+        // Fallback: use visible bounds conversion for 2D
+        const impl = this.viewer.impl
+        const visibleBounds = impl?.getVisibleBounds?.()
+        if (visibleBounds) {
+          const container = this.viewer.container
+          const rect = container.getBoundingClientRect()
+          const localX = event.clientX - rect.left
+          const localY = event.clientY - rect.top
+          const visWidth = visibleBounds.max.x - visibleBounds.min.x
+          const visHeight = visibleBounds.max.y - visibleBounds.min.y
+          viewerX = visibleBounds.min.x + (localX / rect.width) * visWidth
+          viewerY = visibleBounds.max.y - (localY / rect.height) * visHeight
         }
       }
-    } else {
-      // No snap - clear state
-      if (this.lastSnapState) {
-        this.lastSnapState = null
-        this.onSnapChange?.(null)
+    }
+
+    // Report DWG coordinates if we have valid viewer coordinates
+    if (viewerX !== undefined && viewerY !== undefined && this.onCoordinateChange) {
+      if (this.pageDimensions) {
+        const { dwgX, dwgY } = viewerToDwgCoords(viewerX, viewerY, this.pageDimensions)
+        this.onCoordinateChange({ x: dwgX, y: dwgY, isSnapped, snapType })
+      } else {
+        // No page dimensions - use viewer coords directly
+        this.onCoordinateChange({ x: viewerX, y: viewerY, isSnapped, snapType })
       }
     }
 
