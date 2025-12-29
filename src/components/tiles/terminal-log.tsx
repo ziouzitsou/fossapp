@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@fossapp/ui'
-import { CheckCircle2, Circle, Loader2, XCircle, Terminal as TerminalIcon, X, Camera, FileText, Settings, Cloud, Bot } from 'lucide-react'
+import { CheckCircle2, Circle, Loader2, XCircle, Terminal as TerminalIcon, X, Camera, FileText, Settings, Cloud, Database, Bot } from 'lucide-react'
 
 export interface LogMessage {
   timestamp: number
   elapsed: string
-  phase: 'images' | 'script' | 'aps' | 'drive' | 'complete' | 'error' | 'llm'
+  phase: 'images' | 'script' | 'aps' | 'drive' | 'storage' | 'complete' | 'error' | 'llm'
   step?: string
   message: string
   detail?: string
@@ -24,12 +24,14 @@ export interface LogMessage {
     llmModel?: string
     tokensIn?: number
     tokensOut?: number
+    savedToSupabase?: boolean
+    pngPath?: string
   }
 }
 
 interface TerminalLogProps {
   jobId: string | null
-  onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; hasDwgBuffer?: boolean; hasPngBuffer?: boolean; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number }) => void
+  onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; hasDwgBuffer?: boolean; hasPngBuffer?: boolean; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number; savedToSupabase?: boolean; pngPath?: string }) => void
   onClose?: () => void
   className?: string
 }
@@ -41,6 +43,7 @@ const PhaseIcon = ({ phase }: { phase: keyof typeof PHASE_COLORS }) => {
     case 'script': return <FileText className={iconClass} />
     case 'aps': return <Settings className={iconClass} />
     case 'drive': return <Cloud className={iconClass} />
+    case 'storage': return <Database className={iconClass} />
     case 'complete': return <CheckCircle2 className={iconClass} />
     case 'error': return <XCircle className={iconClass} />
     case 'llm': return <Bot className={iconClass} />
@@ -53,6 +56,7 @@ const PHASE_COLORS = {
   script: 'text-yellow-400',
   aps: 'text-purple-400',
   drive: 'text-green-400',
+  storage: 'text-cyan-400',
   complete: 'text-emerald-400',
   error: 'text-red-400',
   llm: 'text-violet-400',
@@ -121,6 +125,8 @@ export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalL
                 llmModel: msg.result.llmModel,
                 tokensIn: msg.result.tokensIn,
                 tokensOut: msg.result.tokensOut,
+                savedToSupabase: msg.result.savedToSupabase,
+                pngPath: msg.result.pngPath,
               })
             } else {
               // Fallback: parse drive link from all messages

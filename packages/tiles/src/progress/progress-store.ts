@@ -7,7 +7,7 @@
 export interface ProgressMessage {
   timestamp: number
   elapsed: string
-  phase: 'images' | 'script' | 'aps' | 'drive' | 'complete' | 'error' | 'llm'
+  phase: 'images' | 'script' | 'aps' | 'drive' | 'storage' | 'complete' | 'error' | 'llm'
   step?: string
   message: string
   detail?: string
@@ -24,6 +24,8 @@ export interface ProgressMessage {
     llmModel?: string // Model used (e.g., "anthropic/claude-sonnet-4")
     tokensIn?: number // Input tokens used
     tokensOut?: number // Output tokens used
+    savedToSupabase?: boolean // Indicates PNG was saved to Supabase storage
+    pngPath?: string // Path in product-symbols bucket (symbol generator)
   }
 }
 
@@ -46,6 +48,8 @@ export interface JobProgress {
     llmModel?: string
     tokensIn?: number
     tokensOut?: number
+    savedToSupabase?: boolean
+    pngPath?: string
   }
   dwgBuffer?: Buffer // Temporary storage for playground downloads
   pngBuffer?: Buffer // Temporary storage for symbol PNG downloads
@@ -122,7 +126,7 @@ export function addProgress(
 export function completeJob(
   jobId: string,
   success: boolean,
-  result?: { dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; errors?: string[]; dwgBuffer?: Buffer; pngBuffer?: Buffer; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number },
+  result?: { dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; errors?: string[]; dwgBuffer?: Buffer; pngBuffer?: Buffer; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number; savedToSupabase?: boolean; pngPath?: string },
   customDetail?: string
 ): void {
   const job = jobs.get(jobId)

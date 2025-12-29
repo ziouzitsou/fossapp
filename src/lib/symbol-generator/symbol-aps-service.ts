@@ -113,6 +113,23 @@ class SymbolAPSService {
   }
 
   /**
+   * Delete a bucket (cleanup)
+   */
+  private async deleteBucket(bucketName: string): Promise<void> {
+    try {
+      const accessToken = await this.authService.getAccessToken()
+      await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketName}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      })
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
+  /**
    * Upload buffer to OSS using Direct-to-S3
    */
   private async uploadBuffer(bucketName: string, fileName: string, buffer: Buffer): Promise<string> {
@@ -437,11 +454,14 @@ class SymbolAPSService {
         errors,
       }
     } finally {
-      // Cleanup
+      // Cleanup: delete activity and transient bucket
       try {
         await this.deleteActivity()
+        if (bucketName) {
+          await this.deleteBucket(bucketName)
+        }
       } catch {
-        // Ignore
+        // Ignore cleanup errors
       }
     }
   }

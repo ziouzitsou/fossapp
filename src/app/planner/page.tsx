@@ -361,6 +361,7 @@ function AreaOverview({ state }: { state: ReturnType<typeof usePlannerState> }) 
         product={symbolModalProduct}
         open={symbolModalOpen}
         onOpenChange={setSymbolModalOpen}
+        onSymbolGenerated={refreshProducts}
       />
     </div>
   )

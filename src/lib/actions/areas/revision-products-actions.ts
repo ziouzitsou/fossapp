@@ -139,19 +139,19 @@ export async function listAreaRevisionProductsAction(
     // Get unique foss_pids to look up symbol drawings
     const fossPids = [...new Set(products.map((p: { foss_pid: string }) => p.foss_pid).filter(Boolean))]
 
-    // Fetch symbol drawings for these products
+    // Fetch symbol drawings for these products (PNG from product-symbols bucket)
     let symbolDrawings: Record<string, string> = {}
     if (fossPids.length > 0) {
       const { data: symbols } = await supabaseServer
         .schema('items')
         .from('product_symbols')
-        .select('foss_pid, svg_path')
+        .select('foss_pid, png_path')
         .in('foss_pid', fossPids)
-        .not('svg_path', 'is', null)
+        .not('png_path', 'is', null)
 
       if (symbols) {
         symbolDrawings = Object.fromEntries(
-          symbols.map((s: { foss_pid: string; svg_path: string }) => [s.foss_pid, s.svg_path])
+          symbols.map((s: { foss_pid: string; png_path: string }) => [s.foss_pid, s.png_path])
         )
       }
     }

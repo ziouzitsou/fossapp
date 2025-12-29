@@ -19,14 +19,16 @@ import { symbolApsService } from '@/lib/symbol-generator/symbol-aps-service'
 import { usdToEur } from '@/lib/currency'
 import { LuminaireDimensions } from '@/lib/symbol-generator/types'
 import { ProductInfo } from '@fossapp/products/types'
+import { supabaseServer } from '@fossapp/core/db/server'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 180 // 3 minutes max (LLM + APS)
 
 interface GeneratePayload {
   product: ProductInfo
-  spec: string           // Symbol specification from vision analysis
+  spec: string              // Symbol specification from vision analysis
   dimensions: LuminaireDimensions
+  saveToSupabase?: boolean  // If true, save PNG to Supabase bucket + metadata
 }
 
 export async function POST(request: NextRequest) {
@@ -190,6 +192,54 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
         const dwgSizeKb = (apsResult.dwgBuffer.length / 1024).toFixed(1)
         const pngSizeKb = apsResult.pngBuffer ? (apsResult.pngBuffer.length / 1024).toFixed(1) : 'N/A'
 
+        // Save to Supabase if requested
+        let savedToSupabase = false
+        let pngPath: string | undefined
+
+        if (payload.saveToSupabase && apsResult.pngBuffer) {
+          addProgress(jobId, 'storage', 'Saving to Supabase...', fossPid)
+
+          try {
+            // Upload PNG to Supabase storage
+            pngPath = `${fossPid}/symbol.png`
+            const { error: uploadError } = await supabaseServer
+              .storage
+              .from('product-symbols')
+              .upload(pngPath, apsResult.pngBuffer, {
+                contentType: 'image/png',
+                upsert: true,
+              })
+
+            if (uploadError) {
+              throw new Error(`Upload failed: ${uploadError.message}`)
+            }
+
+            // Save metadata to product_symbols table
+            const { error: dbError } = await supabaseServer
+              .schema('items')
+              .from('product_symbols')
+              .upsert({
+                foss_pid: fossPid,
+                png_path: pngPath,
+                generated_at: new Date().toISOString(),
+                generation_model: llmResult.model,
+              }, {
+                onConflict: 'foss_pid',
+              })
+
+            if (dbError) {
+              throw new Error(`DB save failed: ${dbError.message}`)
+            }
+
+            savedToSupabase = true
+            addProgress(jobId, 'storage', 'Saved to Supabase', pngPath)
+          } catch (storageError) {
+            const msg = storageError instanceof Error ? storageError.message : 'Unknown error'
+            addProgress(jobId, 'error', 'Supabase save failed', msg)
+            // Continue - the generation succeeded, just storage failed
+          }
+        }
+
         completeJob(jobId, true, {
           dwgBuffer: apsResult.dwgBuffer,
           pngBuffer: apsResult.pngBuffer,
@@ -198,7 +248,9 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
           llmModel: llmResult.model,
           tokensIn: llmResult.tokensIn,
           tokensOut: llmResult.tokensOut,
-        }, `DWG: ${dwgSizeKb} KB, PNG: ${pngSizeKb} KB, ${totalAttempts} attempt(s), cost: €${eurCost.toFixed(4)}`)
+          savedToSupabase,
+          pngPath,
+        }, `DWG: ${dwgSizeKb} KB, PNG: ${pngSizeKb} KB, ${totalAttempts} attempt(s), cost: €${eurCost.toFixed(4)}${savedToSupabase ? ', saved to Supabase' : ''}`)
         return
       }
 
