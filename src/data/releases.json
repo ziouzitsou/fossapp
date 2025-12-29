@@ -3,6 +3,19 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.13.1",
+      "date": "2025-12-29",
+      "title": "Planner Navigation & Viewer Controls",
+      "description": "New quick actions and navigation preferences for a more comfortable planning experience.",
+      "features": [
+        "Fit All button - reset view to show entire floor plan (top-right corner)",
+        "Reverse zoom direction - scroll like AutoCAD (Settings → View)",
+        "Real-time DWG coordinates - see cursor position in drawing units (top-left)",
+        "Customizable viewer background - choose gradient colors in Settings → View"
+      ],
+      "tagline": "Navigate your floor plans your way."
+    },
+    {
       "version": "1.13.0",
       "date": "2025-12-28",
       "title": "Smarter Marker Sizing & User Preferences",
