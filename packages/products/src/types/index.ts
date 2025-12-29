@@ -102,6 +102,7 @@ export interface Feature {
   feature_name: string        // Human-readable name
   FEATUREGROUPID: string      // ETIM feature group (e.g., "EFG00007")
   FEATUREGROUPDESC: string    // Group description (e.g., "Electrical")
+  SORTNR: number | null       // ETIM importance ranking (lower = more important)
 
   // Value fields (only ONE will be populated based on feature type)
   fvalueC: string | null      // Alphanumeric ETIM value ID

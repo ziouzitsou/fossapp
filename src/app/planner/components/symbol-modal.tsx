@@ -124,11 +124,17 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
 
   const mediaSlides = fullProduct ? buildMediaSlides() : []
 
-  // Get dimensions (EFG00011 features)
+  // Get dimensions (EFG00011 features) sorted by ETIM importance (SORTNR)
   const getDimensions = (): Feature[] => {
     if (!fullProduct?.features) return []
     return fullProduct.features
       .filter(f => f.FEATUREGROUPID === 'EFG00011' && hasDisplayableValue(f))
+      .sort((a, b) => {
+        // Sort by SORTNR (lower = more important), nulls last
+        const sortA = a.SORTNR ?? 9999
+        const sortB = b.SORTNR ?? 9999
+        return sortA - sortB
+      })
   }
 
   const dimensions = fullProduct ? getDimensions() : []
