@@ -3,6 +3,19 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.13.0",
+      "date": "2025-12-28",
+      "title": "Smarter Marker Sizing & User Preferences",
+      "description": "Planner markers now scale like CAD annotations, and you can customize view settings.",
+      "features": [
+        "Real-world marker sizing - markers are 100mm diameter, scale with drawing zoom",
+        "Minimum screen threshold - markers stay visible when zoomed out (never smaller than your setting)",
+        "New View settings page - adjust marker minimum size (8-32px) for your display",
+        "User preferences system - foundation for more personalization options"
+      ],
+      "tagline": "4K monitor? Adjust your marker size in Settings → View."
+    },
+    {
       "version": "1.12.5",
       "date": "2025-12-27",
       "title": "New Theme System",
