@@ -84,6 +84,8 @@ export function usePlannerState() {
 
   // User view preferences
   const [markerMinScreenPx, setMarkerMinScreenPx] = useState(DEFAULT_VIEW_PREFERENCES.marker_min_screen_px)
+  const [viewerBgTopColor, setViewerBgTopColor] = useState(DEFAULT_VIEW_PREFERENCES.viewer_bg_top_color || '#2a2a2a')
+  const [viewerBgBottomColor, setViewerBgBottomColor] = useState(DEFAULT_VIEW_PREFERENCES.viewer_bg_bottom_color || '#0a0a0a')
 
   // Counter for generating unique dbIds
   const dbIdCounterRef = useRef(1000)
@@ -118,7 +120,11 @@ export function usePlannerState() {
 
       const result = await getUserPreferencesAction(session.user.email)
       if (result.success && result.data) {
-        setMarkerMinScreenPx(result.data.view_preferences.marker_min_screen_px)
+        const prefs = result.data.view_preferences
+        setMarkerMinScreenPx(prefs.marker_min_screen_px)
+        // Load background colors with fallback to defaults
+        setViewerBgTopColor(prefs.viewer_bg_top_color || '#2a2a2a')
+        setViewerBgBottomColor(prefs.viewer_bg_bottom_color || '#0a0a0a')
       }
     }
 
@@ -611,6 +617,8 @@ export function usePlannerState() {
     fileInputRef,
     dwgUnitInfo,
     markerMinScreenPx,
+    viewerBgTopColor,
+    viewerBgBottomColor,
 
     // Area state
     areaRevisions,

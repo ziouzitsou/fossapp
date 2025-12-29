@@ -69,6 +69,8 @@ interface GuiViewer3DInstance {
   finish: () => void
   loadDocumentNode: (doc: ViewerDocument, viewable: Viewable) => Promise<void>
   setTheme: (theme: 'light-theme' | 'dark-theme') => void
+  /** Set background gradient color (top RGB, bottom RGB) - values 0-255 */
+  setBackgroundColor: (topR: number, topG: number, topB: number, bottomR: number, bottomG: number, bottomB: number) => void
   resize: () => void
   container: HTMLElement
   navigation: ViewerNavigation
@@ -87,6 +89,8 @@ interface Viewer3DInstance {
   finish: () => void
   loadDocumentNode: (doc: ViewerDocument, viewable: Viewable) => Promise<void>
   setTheme: (theme: 'light-theme' | 'dark-theme') => void
+  /** Set background gradient color (top RGB, bottom RGB) - values 0-255 */
+  setBackgroundColor: (topR: number, topG: number, topB: number, bottomR: number, bottomG: number, bottomB: number) => void
   resize: () => void
   container: HTMLElement
   navigation: ViewerNavigation

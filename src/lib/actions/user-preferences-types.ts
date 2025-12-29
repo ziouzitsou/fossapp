@@ -3,6 +3,9 @@
 
 export interface ViewPreferences {
   marker_min_screen_px: number
+  // Viewer background gradient colors (hex format)
+  viewer_bg_top_color?: string    // e.g., "#404040"
+  viewer_bg_bottom_color?: string // e.g., "#000000"
 }
 
 export interface UserPreferences {
@@ -16,4 +19,6 @@ export interface UserPreferences {
 // Default values
 export const DEFAULT_VIEW_PREFERENCES: ViewPreferences = {
   marker_min_screen_px: 12,
+  viewer_bg_top_color: '#2a2a2a',
+  viewer_bg_bottom_color: '#0a0a0a',
 }

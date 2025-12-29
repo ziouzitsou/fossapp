@@ -56,6 +56,10 @@ export interface PlannerViewerProps {
   initialPlacements?: Placement[]
   /** Minimum screen size for markers in pixels (from user preferences) */
   markerMinScreenPx?: number
+  /** Background gradient top color (hex, from user preferences) */
+  viewerBgTopColor?: string
+  /** Background gradient bottom color (hex, from user preferences) */
+  viewerBgBottomColor?: string
   /** Callback when a placement is added via click-to-place (includes generated id) */
   onPlacementAdd?: (placement: Omit<Placement, 'dbId'>) => void
   /** Callback when a placement is deleted */
@@ -76,6 +80,19 @@ export interface PlannerViewerProps {
   onUnitInfoAvailable?: (info: DwgUnitInfo) => void
   /** Additional class name */
   className?: string
+}
+
+// Helper to convert hex color to RGB values
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const pattern = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i
+  const match = pattern.test(hex) ? hex.match(pattern) : null
+  return match
+    ? {
+        r: parseInt(match[1], 16),
+        g: parseInt(match[2], 16),
+        b: parseInt(match[3], 16),
+      }
+    : { r: 0, g: 0, b: 0 }
 }
 
 // Script loading state (module-level singleton)
@@ -130,6 +147,8 @@ export function PlannerViewer({
   placementMode,
   initialPlacements,
   markerMinScreenPx = 12,
+  viewerBgTopColor = '#2a2a2a',
+  viewerBgBottomColor = '#0a0a0a',
   onPlacementAdd,
   onPlacementDelete,
   onExitPlacementMode,
@@ -354,6 +373,7 @@ export function PlannerViewer({
 
         viewer.start()
         viewer.setTheme(initialTheme === 'dark' ? 'dark-theme' : 'light-theme')
+
         viewerRef.current = viewer
 
         // Set default navigation behavior
@@ -372,6 +392,21 @@ export function PlannerViewer({
 
             try {
               await viewer.loadDocumentNode(doc, viewable)
+
+              // Set background color AFTER document loads (loading resets it)
+              // API: (topR, topG, topB, bottomR, bottomG, bottomB) - colors are inverted (255-x)
+              if (initialTheme === 'dark') {
+                const topRgb = hexToRgb(viewerBgTopColor)
+                const bottomRgb = hexToRgb(viewerBgBottomColor)
+                // Invert colors: viewer interprets 0 as white, 255 as black
+                viewer.setBackgroundColor(
+                  255 - topRgb.r, 255 - topRgb.g, 255 - topRgb.b,
+                  255 - bottomRgb.r, 255 - bottomRgb.g, 255 - bottomRgb.b
+                )
+              } else {
+                // Light theme: light gray gradient (inverted: 240->15, 224->31)
+                viewer.setBackgroundColor(15, 15, 15, 31, 31, 31)
+              }
 
               // Extract DWG unit information from the model
               const model = viewer.model

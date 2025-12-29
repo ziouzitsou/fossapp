@@ -12,6 +12,7 @@ import {
   Slider,
   Label,
   Button,
+  ColorPicker,
 } from '@fossapp/ui'
 import {
   getUserPreferencesAction,
@@ -21,7 +22,15 @@ import {
   DEFAULT_VIEW_PREFERENCES,
   type ViewPreferences,
 } from '@/lib/actions/user-preferences-types'
-import { Eye, Monitor, RotateCcw } from 'lucide-react'
+import { Eye, Monitor, Palette, RotateCcw } from 'lucide-react'
+
+// Gradient presets
+const GRADIENT_PRESETS = [
+  { name: 'Subtle Dark', top: '#2a2a2a', bottom: '#0a0a0a' },
+  { name: 'Medium Contrast', top: '#404040', bottom: '#000000' },
+  { name: 'Strong Contrast', top: '#606060', bottom: '#000000' },
+  { name: 'Solid Black', top: '#000000', bottom: '#000000' },
+] as const
 
 export default function ViewSettingsPage() {
   const { data: session, status } = useDevSession()
@@ -49,10 +58,32 @@ export default function ViewSettingsPage() {
     }
   }, [session?.user?.email, status])
 
+  // Helper to check if preferences have changed
+  const checkHasChanges = (newPrefs: ViewPreferences) => {
+    return (
+      newPrefs.marker_min_screen_px !== originalPrefs.marker_min_screen_px ||
+      newPrefs.viewer_bg_top_color !== originalPrefs.viewer_bg_top_color ||
+      newPrefs.viewer_bg_bottom_color !== originalPrefs.viewer_bg_bottom_color
+    )
+  }
+
   const handleSliderChange = (value: number[]) => {
     const newValue = value[0]
-    setPreferences(prev => ({ ...prev, marker_min_screen_px: newValue }))
-    setHasChanges(newValue !== originalPrefs.marker_min_screen_px)
+    const newPrefs = { ...preferences, marker_min_screen_px: newValue }
+    setPreferences(newPrefs)
+    setHasChanges(checkHasChanges(newPrefs))
+  }
+
+  const handleColorChange = (field: 'viewer_bg_top_color' | 'viewer_bg_bottom_color', value: string) => {
+    const newPrefs = { ...preferences, [field]: value }
+    setPreferences(newPrefs)
+    setHasChanges(checkHasChanges(newPrefs))
+  }
+
+  const handlePresetSelect = (top: string, bottom: string) => {
+    const newPrefs = { ...preferences, viewer_bg_top_color: top, viewer_bg_bottom_color: bottom }
+    setPreferences(newPrefs)
+    setHasChanges(checkHasChanges(newPrefs))
   }
 
   const handleSave = async () => {
@@ -69,9 +100,7 @@ export default function ViewSettingsPage() {
 
   const handleReset = () => {
     setPreferences(DEFAULT_VIEW_PREFERENCES)
-    setHasChanges(
-      DEFAULT_VIEW_PREFERENCES.marker_min_screen_px !== originalPrefs.marker_min_screen_px
-    )
+    setHasChanges(checkHasChanges(DEFAULT_VIEW_PREFERENCES))
   }
 
   if (loading) {
@@ -147,6 +176,73 @@ export default function ViewSettingsPage() {
               <span className="text-xs text-muted-foreground">
                 {preferences.marker_min_screen_px * 2}px diameter at minimum zoom
               </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Viewer Background Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="h-5 w-5" />
+            Viewer Background
+          </CardTitle>
+          <CardDescription>
+            Customize the floor plan viewer&apos;s background gradient
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Live Preview */}
+          <div className="space-y-2">
+            <Label>Preview</Label>
+            <div
+              className="h-24 w-full rounded-lg border"
+              style={{
+                background: `linear-gradient(to bottom, ${preferences.viewer_bg_top_color || DEFAULT_VIEW_PREFERENCES.viewer_bg_top_color}, ${preferences.viewer_bg_bottom_color || DEFAULT_VIEW_PREFERENCES.viewer_bg_bottom_color})`,
+              }}
+            />
+          </div>
+
+          {/* Color Pickers */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Top Color</Label>
+              <ColorPicker
+                value={preferences.viewer_bg_top_color || DEFAULT_VIEW_PREFERENCES.viewer_bg_top_color!}
+                onChange={(color) => handleColorChange('viewer_bg_top_color', color)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Bottom Color</Label>
+              <ColorPicker
+                value={preferences.viewer_bg_bottom_color || DEFAULT_VIEW_PREFERENCES.viewer_bg_bottom_color!}
+                onChange={(color) => handleColorChange('viewer_bg_bottom_color', color)}
+              />
+            </div>
+          </div>
+
+          {/* Presets */}
+          <div className="space-y-2">
+            <Label>Presets</Label>
+            <div className="flex flex-wrap gap-2">
+              {GRADIENT_PRESETS.map((preset) => (
+                <Button
+                  key={preset.name}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => handlePresetSelect(preset.top, preset.bottom)}
+                >
+                  <div
+                    className="h-4 w-4 rounded border"
+                    style={{
+                      background: `linear-gradient(to bottom, ${preset.top}, ${preset.bottom})`,
+                    }}
+                  />
+                  {preset.name}
+                </Button>
+              ))}
             </div>
           </div>
         </CardContent>
