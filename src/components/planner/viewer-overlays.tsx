@@ -7,8 +7,8 @@
  * as overlays on top of the viewer container.
  */
 
-import { Loader2, AlertCircle, CheckCircle2, Crosshair } from 'lucide-react'
-import { Progress, cn } from '@fossapp/ui'
+import { Loader2, AlertCircle, CheckCircle2, Crosshair, Maximize } from 'lucide-react'
+import { Progress, cn, Button } from '@fossapp/ui'
 import type { DwgCoordinates } from './placement-tool'
 
 export type LoadingStage = 'scripts' | 'upload' | 'translation' | 'viewer' | 'cache-hit'
@@ -166,6 +166,32 @@ export function CoordinateOverlay({ coordinates, unitString }: CoordinateOverlay
           </span>
         )}
       </div>
+    </div>
+  )
+}
+
+export interface ViewerQuickActionsProps {
+  /** Callback to fit all geometry in view */
+  onFitAll: () => void
+}
+
+/**
+ * ViewerQuickActions - Quick action buttons in viewer top-right
+ *
+ * Provides one-click access to common viewer operations like Fit All.
+ */
+export function ViewerQuickActions({ onFitAll }: ViewerQuickActionsProps) {
+  return (
+    <div className="absolute top-3 right-3 z-20 flex gap-1">
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-8 w-8 bg-background/85 backdrop-blur-sm border-border/50 shadow-sm hover:bg-accent"
+        onClick={onFitAll}
+        title="Fit All (zoom to show entire drawing)"
+      >
+        <Maximize className="h-4 w-4" />
+      </Button>
     </div>
   )
 }

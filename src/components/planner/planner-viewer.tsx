@@ -21,7 +21,7 @@ import type { PlacementModeProduct, Placement, DwgUnitInfo } from './types'
 import { PlacementTool, dwgToViewerCoords, viewerToDwgCoords, type PageDimensions, type DwgCoordinates } from './placement-tool'
 import { MarkupMarkers } from './markup-markers'
 import { PlannerViewerToolbar, type MeasureMode } from './viewer-toolbar'
-import { ViewerLoadingOverlay, ViewerErrorOverlay, CoordinateOverlay, type LoadingStage } from './viewer-overlays'
+import { ViewerLoadingOverlay, ViewerErrorOverlay, CoordinateOverlay, ViewerQuickActions, type LoadingStage } from './viewer-overlays'
 
 // Re-export the Viewer3DInstance type for consumers
 export type { Viewer3DInstance }
@@ -881,6 +881,15 @@ export function PlannerViewer({
     markupMarkersRef.current?.deleteSelected()
   }, [])
 
+  const handleFitAll = useCallback(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+
+    // Simple approach: setViewFromFile resets to the default view from the DWG
+    console.log('[FitAll] Calling setViewFromFile()...')
+    viewer.setViewFromFile()
+  }, [])
+
   // Poll for measurements while in measure mode
   useEffect(() => {
     if (measureMode === 'none') {
@@ -943,6 +952,11 @@ export function PlannerViewer({
             coordinates={dwgCoordinates}
             unitString={dwgUnitString}
           />
+        )}
+
+        {/* Quick actions - top right corner */}
+        {showToolbar && (
+          <ViewerQuickActions onFitAll={handleFitAll} />
         )}
       </div>
 
