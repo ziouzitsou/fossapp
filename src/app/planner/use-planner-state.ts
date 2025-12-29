@@ -79,6 +79,7 @@ export function usePlannerState() {
   const [isSaving, setIsSaving] = useState(false)
   const [loadingPlacements, setLoadingPlacements] = useState(false)
   const [placementsRefreshKey, setPlacementsRefreshKey] = useState(0)
+  const [productsRefreshKey, setProductsRefreshKey] = useState(0)
 
   // Placement mode state
   const [placementMode, setPlacementMode] = useState<PlacementModeProduct | null>(null)
@@ -240,6 +241,22 @@ export function usePlannerState() {
     loadAreas()
   }, [activeProject?.id])
 
+  // Keep selectedAreaRevision in sync with areaRevisions updates
+  // This ensures the overview shows updated floor plan info after upload/translation
+  useEffect(() => {
+    if (selectedAreaRevision) {
+      const updatedArea = areaRevisions.find(a => a.revisionId === selectedAreaRevision.revisionId)
+      if (updatedArea && (
+        updatedArea.floorPlanUrn !== selectedAreaRevision.floorPlanUrn ||
+        updatedArea.floorPlanStatus !== selectedAreaRevision.floorPlanStatus ||
+        updatedArea.floorPlanFilename !== selectedAreaRevision.floorPlanFilename ||
+        updatedArea.floorPlanWarnings !== selectedAreaRevision.floorPlanWarnings
+      )) {
+        setSelectedAreaRevision(updatedArea)
+      }
+    }
+  }, [areaRevisions, selectedAreaRevision])
+
   // Load products for selected area revision
   useEffect(() => {
     async function loadProducts() {
@@ -265,7 +282,8 @@ export function usePlannerState() {
     }
 
     loadProducts()
-  }, [selectedAreaRevision?.revisionId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- productsRefreshKey intentionally triggers refetch
+  }, [selectedAreaRevision?.revisionId, productsRefreshKey])
 
   // Update viewer when area-revision changes
   useEffect(() => {
@@ -471,8 +489,9 @@ export function usePlannerState() {
   const handleBackToOverview = useCallback(() => {
     setViewMode('overview')
     setPlacementMode(null)  // Exit placement mode
-    // Trigger a refetch of placements to reflect any saved changes
+    // Trigger a refetch of placements and products to reflect any changes
     setPlacementsRefreshKey(prev => prev + 1)
+    setProductsRefreshKey(prev => prev + 1)
     const params = new URLSearchParams(searchParams.toString())
     params.delete('mode')
     router.replace(`?${params.toString()}`, { scroll: false })
@@ -655,6 +674,11 @@ export function usePlannerState() {
     }
   }, [selectedAreaRevision])
 
+  // Manual refresh for products list
+  const refreshProducts = useCallback(() => {
+    setProductsRefreshKey(prev => prev + 1)
+  }, [])
+
   return {
     // Context
     activeProject,
@@ -703,6 +727,7 @@ export function usePlannerState() {
     // Products state
     products,
     loadingProducts,
+    refreshProducts,
 
     // Placements state
     placements,

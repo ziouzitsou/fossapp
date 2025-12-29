@@ -87,7 +87,9 @@ export function ViewerLoadingOverlay({
             <Progress value={translationProgress} className="h-2" />
           )}
           <p className="text-xs text-muted-foreground text-center mt-1">
-            DWG conversion can take 30-60 seconds
+            DWG conversion can take 30-60 seconds.
+            <br />
+            <span className="text-amber-500">Please do not close this window.</span>
           </p>
         </div>
       )}

@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Info, Save, ArrowLeft, ChevronDown } from 'lucide-react'
+import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Info, Save, ArrowLeft, ChevronDown, RefreshCw } from 'lucide-react'
 import { Button } from '@fossapp/ui'
 import { Badge } from '@fossapp/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@fossapp/ui'
@@ -239,6 +239,7 @@ function AreaOverview({ state }: { state: ReturnType<typeof usePlannerState> }) 
     products,
     placements,
     loadingProducts,
+    refreshProducts,
     fileInputRef,
     pendingUploadAreaRef,
     handleFileChange,
@@ -307,9 +308,29 @@ function AreaOverview({ state }: { state: ReturnType<typeof usePlannerState> }) 
 
         {/* Products Section */}
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-            Products ({products.length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              Products ({products.length})
+            </h3>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={refreshProducts}
+                    disabled={loadingProducts}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${loadingProducts ? 'animate-spin' : ''}`} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Refresh products</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           {loadingProducts ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
