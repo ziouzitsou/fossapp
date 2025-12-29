@@ -60,6 +60,8 @@ export interface PlannerViewerProps {
   viewerBgTopColor?: string
   /** Background gradient bottom color (hex, from user preferences) */
   viewerBgBottomColor?: string
+  /** Reverse mouse wheel zoom direction (from user preferences) */
+  reverseZoomDirection?: boolean
   /** Callback when a placement is added via click-to-place (includes generated id) */
   onPlacementAdd?: (placement: Omit<Placement, 'dbId'>) => void
   /** Callback when a placement is deleted */
@@ -149,6 +151,7 @@ export function PlannerViewer({
   markerMinScreenPx = 12,
   viewerBgTopColor = '#2a2a2a',
   viewerBgBottomColor = '#0a0a0a',
+  reverseZoomDirection = false,
   onPlacementAdd,
   onPlacementDelete,
   onExitPlacementMode,
@@ -381,6 +384,9 @@ export function PlannerViewer({
         // Set default navigation behavior
         viewer.navigation.setZoomTowardsPivot(true)
 
+        // Apply user zoom direction preference
+        viewer.setReverseZoomDirection(reverseZoomDirection)
+
         // Load the document
         const documentId = `urn:${fileUrn}`
         window.Autodesk.Viewing.Document.load(
@@ -570,7 +576,7 @@ export function PlannerViewer({
         )
       })
     })
-  }, [getAccessToken, initialTheme, markerMinScreenPx])
+  }, [getAccessToken, initialTheme, markerMinScreenPx, reverseZoomDirection])
 
   // Main initialization effect - runs once per file
   useEffect(() => {

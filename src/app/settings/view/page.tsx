@@ -13,6 +13,7 @@ import {
   Label,
   Button,
   ColorPicker,
+  Switch,
 } from '@fossapp/ui'
 import {
   getUserPreferencesAction,
@@ -22,7 +23,7 @@ import {
   DEFAULT_VIEW_PREFERENCES,
   type ViewPreferences,
 } from '@/lib/actions/user-preferences-types'
-import { Eye, Monitor, Palette, RotateCcw } from 'lucide-react'
+import { Eye, Monitor, MousePointer2, Palette, RotateCcw } from 'lucide-react'
 
 // Gradient presets
 const GRADIENT_PRESETS = [
@@ -63,7 +64,8 @@ export default function ViewSettingsPage() {
     return (
       newPrefs.marker_min_screen_px !== originalPrefs.marker_min_screen_px ||
       newPrefs.viewer_bg_top_color !== originalPrefs.viewer_bg_top_color ||
-      newPrefs.viewer_bg_bottom_color !== originalPrefs.viewer_bg_bottom_color
+      newPrefs.viewer_bg_bottom_color !== originalPrefs.viewer_bg_bottom_color ||
+      newPrefs.reverse_zoom_direction !== originalPrefs.reverse_zoom_direction
     )
   }
 
@@ -82,6 +84,12 @@ export default function ViewSettingsPage() {
 
   const handlePresetSelect = (top: string, bottom: string) => {
     const newPrefs = { ...preferences, viewer_bg_top_color: top, viewer_bg_bottom_color: bottom }
+    setPreferences(newPrefs)
+    setHasChanges(checkHasChanges(newPrefs))
+  }
+
+  const handleReverseZoomChange = (checked: boolean) => {
+    const newPrefs = { ...preferences, reverse_zoom_direction: checked }
     setPreferences(newPrefs)
     setHasChanges(checkHasChanges(newPrefs))
   }
@@ -177,6 +185,29 @@ export default function ViewSettingsPage() {
                 {preferences.marker_min_screen_px * 2}px diameter at minimum zoom
               </span>
             </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t" />
+
+          {/* Reverse Zoom Direction */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <MousePointer2 className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="reverse-zoom" className="text-base font-medium">
+                  Reverse Zoom Direction
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Invert mouse wheel zoom behavior (scroll up to zoom out, like AutoCAD)
+              </p>
+            </div>
+            <Switch
+              id="reverse-zoom"
+              checked={preferences.reverse_zoom_direction ?? false}
+              onCheckedChange={handleReverseZoomChange}
+            />
           </div>
         </CardContent>
       </Card>

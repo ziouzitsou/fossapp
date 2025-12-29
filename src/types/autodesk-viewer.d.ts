@@ -101,6 +101,10 @@ interface Viewer3DInstance {
   setTheme: (theme: 'light-theme' | 'dark-theme') => void
   /** Set background gradient color (top RGB, bottom RGB) - values 0-255 */
   setBackgroundColor: (topR: number, topG: number, topB: number, bottomR: number, bottomG: number, bottomB: number) => void
+  /** Reverse the default direction for camera dolly (zoom) operations */
+  setReverseZoomDirection: (value: boolean) => void
+  /** Set the view to the default view defined in the source file */
+  setViewFromFile: (model?: unknown) => void
   resize: () => void
   container: HTMLElement
   navigation: ViewerNavigation

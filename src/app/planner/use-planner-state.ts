@@ -86,6 +86,7 @@ export function usePlannerState() {
   const [markerMinScreenPx, setMarkerMinScreenPx] = useState(DEFAULT_VIEW_PREFERENCES.marker_min_screen_px)
   const [viewerBgTopColor, setViewerBgTopColor] = useState(DEFAULT_VIEW_PREFERENCES.viewer_bg_top_color || '#2a2a2a')
   const [viewerBgBottomColor, setViewerBgBottomColor] = useState(DEFAULT_VIEW_PREFERENCES.viewer_bg_bottom_color || '#0a0a0a')
+  const [reverseZoomDirection, setReverseZoomDirection] = useState(DEFAULT_VIEW_PREFERENCES.reverse_zoom_direction ?? false)
 
   // Counter for generating unique dbIds
   const dbIdCounterRef = useRef(1000)
@@ -125,6 +126,8 @@ export function usePlannerState() {
         // Load background colors with fallback to defaults
         setViewerBgTopColor(prefs.viewer_bg_top_color || '#2a2a2a')
         setViewerBgBottomColor(prefs.viewer_bg_bottom_color || '#0a0a0a')
+        // Load zoom direction preference
+        setReverseZoomDirection(prefs.reverse_zoom_direction ?? false)
       }
     }
 
@@ -619,6 +622,7 @@ export function usePlannerState() {
     markerMinScreenPx,
     viewerBgTopColor,
     viewerBgBottomColor,
+    reverseZoomDirection,
 
     // Area state
     areaRevisions,

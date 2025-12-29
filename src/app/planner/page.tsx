@@ -259,6 +259,7 @@ function ViewerLayout({ state }: { state: ReturnType<typeof usePlannerState> }) 
             markerMinScreenPx={state.markerMinScreenPx}
             viewerBgTopColor={state.viewerBgTopColor}
             viewerBgBottomColor={state.viewerBgBottomColor}
+            reverseZoomDirection={state.reverseZoomDirection}
             onPlacementAdd={state.handlePlacementAdd}
             onPlacementDelete={state.handlePlacementDelete}
             onExitPlacementMode={state.handleExitPlacementMode}
