@@ -8,7 +8,7 @@
 // Skip static generation - uses useSearchParams which requires Suspense in Next.js 16
 export const dynamic = 'force-dynamic'
 
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { FileIcon, X, FolderOpen, PanelRightClose, PanelRight, Loader2, MapPin, AlertCircle, Info, Save, ArrowLeft, ChevronDown, RefreshCw } from 'lucide-react'
 import { Button } from '@fossapp/ui'
@@ -22,7 +22,8 @@ import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { PlannerViewer, ProductsPanel } from '@/components/planner'
 import { usePlannerState } from './use-planner-state'
 import { AreaCard } from './area-card'
-import { ProductsGrid, FloorPlanCard } from './components'
+import { ProductsGrid, FloorPlanCard, SymbolModal } from './components'
+import type { AreaRevisionProduct } from '@/lib/actions/areas/revision-products-actions'
 import { DeleteConfirmDialog, WarningsDialog, UnsavedChangesDialog } from './planner-dialogs'
 
 // Loading fallback for Suspense
@@ -251,6 +252,15 @@ function AreaOverview({ state }: { state: ReturnType<typeof usePlannerState> }) 
     handleOpenPlanner,
   } = state
 
+  // Symbol modal state
+  const [symbolModalProduct, setSymbolModalProduct] = useState<AreaRevisionProduct | null>(null)
+  const [symbolModalOpen, setSymbolModalOpen] = useState(false)
+
+  const handleSymbolClick = (product: AreaRevisionProduct) => {
+    setSymbolModalProduct(product)
+    setSymbolModalOpen(true)
+  }
+
   if (!selectedAreaRevision) {
     return (
       <div className="h-full p-6">
@@ -337,10 +347,21 @@ function AreaOverview({ state }: { state: ReturnType<typeof usePlannerState> }) 
               <span className="ml-2 text-muted-foreground">Loading products...</span>
             </div>
           ) : (
-            <ProductsGrid products={products} placements={placements} />
+            <ProductsGrid
+              products={products}
+              placements={placements}
+              onSymbolClick={handleSymbolClick}
+            />
           )}
         </div>
       </div>
+
+      {/* Symbol Modal */}
+      <SymbolModal
+        product={symbolModalProduct}
+        open={symbolModalOpen}
+        onOpenChange={setSymbolModalOpen}
+      />
     </div>
   )
 }

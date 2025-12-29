@@ -104,6 +104,8 @@ export interface AreaRevisionProduct {
   symbol_code?: string      // Letter code: A, B, C...
   symbol_sequence?: number  // Sequence: 1, 2, 3...
   symbol?: string           // Combined: A1, B2, C3...
+  // Symbol drawing (from items.product_symbols)
+  symbol_svg_path?: string  // Path in product-symbols bucket
 }
 
 /**
@@ -132,6 +134,26 @@ export async function listAreaRevisionProductsAction(
 
     if (!products || products.length === 0) {
       return { success: true, data: [] }
+    }
+
+    // Get unique foss_pids to look up symbol drawings
+    const fossPids = [...new Set(products.map((p: { foss_pid: string }) => p.foss_pid).filter(Boolean))]
+
+    // Fetch symbol drawings for these products
+    let symbolDrawings: Record<string, string> = {}
+    if (fossPids.length > 0) {
+      const { data: symbols } = await supabaseServer
+        .schema('items')
+        .from('product_symbols')
+        .select('foss_pid, svg_path')
+        .in('foss_pid', fossPids)
+        .not('svg_path', 'is', null)
+
+      if (symbols) {
+        symbolDrawings = Object.fromEntries(
+          symbols.map((s: { foss_pid: string; svg_path: string }) => [s.foss_pid, s.svg_path])
+        )
+      }
     }
 
     // Map RPC results to AreaRevisionProduct format
@@ -172,7 +194,9 @@ export async function listAreaRevisionProductsAction(
         // Symbol classification
         symbol_code: p.category_code ?? undefined,
         symbol_sequence: p.symbol_sequence ?? undefined,
-        symbol: p.symbol ?? undefined
+        symbol: p.symbol ?? undefined,
+        // Symbol drawing
+        symbol_svg_path: symbolDrawings[p.foss_pid] ?? undefined
       }
     })
 

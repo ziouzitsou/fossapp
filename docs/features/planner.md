@@ -1,6 +1,6 @@
 # Planner Feature
 
-**Status**: Phase 2 (Active Development)
+**Status**: Phase 4 (Symbol Images)
 **Route**: `/planner`
 **Last Updated**: 2025-12-29
 
@@ -202,7 +202,6 @@ CREATE TABLE items.product_symbols (
   -- Generation metadata
   generated_at TIMESTAMPTZ,
   generation_model TEXT,                   -- 'claude-sonnet-4' etc.
-  generation_cost_usd NUMERIC(10,4),
 
   -- For regeneration detection
   input_hash TEXT,                         -- Hash of dimensions + images used
@@ -276,18 +275,20 @@ if (data?.png_path) {
 - [x] Symbol letters on markers (A1, B2)
 - [x] User preferences (marker size, colors, zoom)
 
-### Phase 3: Area Overview UI 🚧
+### Phase 3: Area Overview UI ✅
 
-- [ ] Area dropdown selector (replace card grid)
-- [ ] Products grid in overview mode (Option D layout)
-- [ ] Placement status per product (placed vs pending)
-- [ ] Symbol summary badges
-- [ ] Mode toggle (Overview ↔ Planner)
+- [x] Area dropdown selector (replace card grid)
+- [x] Products grid in overview mode
+- [x] Placement status per product (placed vs pending)
+- [x] Symbol summary badges (with `?` amber badge for unclassified)
+- [x] Mode toggle (Overview ↔ Planner)
+- [x] Floor plan card with upload/delete actions
+- [x] Data refresh on mode switch
 
-### Phase 4: Symbol Images 📋
+### Phase 4: Symbol Images 🚧
 
-- [ ] Symbol storage table migration
-- [ ] Supabase bucket setup
+- [ ] Create `items.product_symbols` table migration
+- [ ] Create `product-symbols` storage bucket
 - [ ] Symbol generation integration (from symbol-generator)
 - [ ] On-demand generation trigger
 - [ ] Symbol images on markers (replace letters)
@@ -304,7 +305,7 @@ if (data?.png_path) {
 
 ### State Management
 
-**File**: `src/app/planner/use-planner-state.ts` (~685 lines)
+**File**: `src/app/planner/use-planner-state.ts` (~770 lines)
 
 Central hook managing all planner logic:
 
@@ -396,11 +397,14 @@ CREATE TABLE projects.planner_placements (
 ```
 src/
 ├── app/planner/
-│   ├── page.tsx                    # Main page component
-│   ├── use-planner-state.ts        # Central state hook (685 lines)
-│   ├── area-card.tsx               # Area card with upload/thumbnail
+│   ├── page.tsx                    # Main page (overview + planner modes)
+│   ├── use-planner-state.ts        # Central state hook (~770 lines)
+│   ├── area-card.tsx               # Legacy area card (deprecated)
 │   ├── planner-dialogs.tsx         # Delete, warnings, unsaved dialogs
-│   └── types.ts                    # Page-specific types
+│   ├── types.ts                    # Page-specific types
+│   └── components/
+│       ├── products-grid.tsx       # Overview: products with symbol badges
+│       └── floor-plan-card.tsx     # Overview: floor plan thumbnail + actions
 │
 ├── components/planner/
 │   ├── index.ts                    # Barrel exports

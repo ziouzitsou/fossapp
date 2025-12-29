@@ -8,17 +8,21 @@
 
 import { Badge } from '@fossapp/ui'
 import { cn } from '@fossapp/ui'
-import { CheckCircle2, Circle } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles } from 'lucide-react'
 import type { AreaRevisionProduct } from '@/lib/actions/areas/revision-products-actions'
 import type { Placement } from '@/components/planner'
+
+// Supabase storage URL for product-symbols bucket
+const SYMBOLS_BUCKET_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-symbols`
 
 interface ProductsGridProps {
   products: AreaRevisionProduct[]
   placements: Placement[]
   className?: string
+  onSymbolClick?: (product: AreaRevisionProduct) => void
 }
 
-export function ProductsGrid({ products, placements, className }: ProductsGridProps) {
+export function ProductsGrid({ products, placements, className, onSymbolClick }: ProductsGridProps) {
   // Calculate placement counts per product
   const placementCounts = products.reduce((acc, product) => {
     acc[product.id] = placements.filter(p => p.projectProductId === product.id).length
@@ -95,6 +99,34 @@ export function ProductsGrid({ products, placements, className }: ProductsGridPr
                   </div>
                 )}
               </div>
+
+              {/* Symbol Drawing Area */}
+              <button
+                type="button"
+                onClick={() => onSymbolClick?.(product)}
+                className={cn(
+                  'w-full aspect-square rounded border-2 border-dashed flex items-center justify-center',
+                  'transition-colors hover:border-primary/50 hover:bg-primary/5',
+                  product.symbol_svg_path
+                    ? 'border-border bg-white'
+                    : 'border-muted-foreground/30 bg-muted/30'
+                )}
+                title={product.symbol_svg_path ? 'View/edit symbol' : 'Generate symbol'}
+              >
+                {product.symbol_svg_path ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`${SYMBOLS_BUCKET_URL}/${product.symbol_svg_path}`}
+                    alt={`Symbol for ${product.foss_pid}`}
+                    className="w-full h-full object-contain p-1"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                    <Sparkles className="w-5 h-5" />
+                    <span className="text-[10px]">Generate</span>
+                  </div>
+                )}
+              </button>
 
               {/* Product Info */}
               <div className="mt-2 space-y-1">
