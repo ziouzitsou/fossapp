@@ -3,6 +3,7 @@
 /**
  * Symbol Modal Component
  * Modal for viewing/generating product symbol drawings
+ * Shows product photo, technical drawing, dimensions, and generated symbol
  */
 
 import { useState, useCallback, useEffect } from 'react'
@@ -14,11 +15,13 @@ import {
 } from '@fossapp/ui'
 import { Badge, Button } from '@fossapp/ui'
 import { cn } from '@fossapp/ui'
-import { Sparkles, Loader2, RefreshCw } from 'lucide-react'
+import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, Ruler, ChevronLeft, ChevronRight } from 'lucide-react'
+import Image from 'next/image'
 import type { AreaRevisionProduct } from '@/lib/actions/areas/revision-products-actions'
 import { TerminalLog } from '@/components/tiles/terminal-log'
 import { extractDimensions } from '@/lib/symbol-generator/dimension-utils'
-import type { ProductInfo } from '@fossapp/products/types'
+import type { ProductInfo, Feature } from '@fossapp/products/types'
+import { hasDisplayableValue, getFeatureDisplayValue, FEATURE_GROUP_CONFIG } from '@/lib/utils/feature-utils'
 
 // Supabase storage URL for product-symbols bucket
 const SYMBOLS_BUCKET_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-symbols`
@@ -32,11 +35,25 @@ interface SymbolModalProps {
 
 type GenerationStep = 'idle' | 'fetching' | 'analyzing' | 'generating' | 'done' | 'error'
 
+// Media slide type for carousel
+interface MediaSlide {
+  url: string
+  fallbackUrl?: string
+  label: string
+  type: 'photo' | 'drawing'
+}
+
 export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: SymbolModalProps) {
   const [step, setStep] = useState<GenerationStep>('idle')
   const [jobId, setJobId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [generatedPngPath, setGeneratedPngPath] = useState<string | null>(null)
+
+  // Product preview state
+  const [fullProduct, setFullProduct] = useState<ProductInfo | null>(null)
+  const [loadingProduct, setLoadingProduct] = useState(false)
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set())
 
   // Reset state when modal opens with different product
   useEffect(() => {
@@ -45,8 +62,81 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
       setJobId(null)
       setError(null)
       setGeneratedPngPath(null)
+      setFullProduct(null)
+      setCurrentSlide(0)
+      setFailedUrls(new Set())
+
+      // Fetch full product info for preview
+      fetchProductInfo(product.product_id)
     }
   }, [open, product?.id])
+
+  // Fetch full product info for preview
+  const fetchProductInfo = async (productId: string) => {
+    setLoadingProduct(true)
+    try {
+      const response = await fetch(`/api/products/${productId}`)
+      if (response.ok) {
+        const { data } = await response.json() as { data: ProductInfo }
+        setFullProduct(data)
+      }
+    } catch (err) {
+      console.error('Failed to fetch product info:', err)
+    } finally {
+      setLoadingProduct(false)
+    }
+  }
+
+  // Get media with fallback
+  const getMediaUrl = (primaryCode: string, fallbackCode: string): { url: string; fallbackUrl?: string } | null => {
+    if (!fullProduct?.multimedia) return null
+
+    const primary = fullProduct.multimedia.find(m => m.mime_code === primaryCode)
+    const fallback = fullProduct.multimedia.find(m => m.mime_code === fallbackCode)
+
+    if (primary && !failedUrls.has(primary.mime_source)) {
+      return { url: primary.mime_source, fallbackUrl: fallback?.mime_source }
+    }
+    if (fallback) {
+      return { url: fallback.mime_source }
+    }
+    return null
+  }
+
+  // Build media slides
+  const buildMediaSlides = (): MediaSlide[] => {
+    const slides: MediaSlide[] = []
+
+    // Photo: MD02 (Supabase) -> MD01 (Supplier)
+    const photo = getMediaUrl('MD02', 'MD01')
+    if (photo) {
+      slides.push({ ...photo, label: 'Product Photo', type: 'photo' })
+    }
+
+    // Drawing: MD64 (Supabase) -> MD12 (Supplier)
+    const drawing = getMediaUrl('MD64', 'MD12')
+    if (drawing) {
+      slides.push({ ...drawing, label: 'Technical Drawing', type: 'drawing' })
+    }
+
+    return slides
+  }
+
+  const mediaSlides = fullProduct ? buildMediaSlides() : []
+
+  // Get dimensions (EFG00011 features)
+  const getDimensions = (): Feature[] => {
+    if (!fullProduct?.features) return []
+    return fullProduct.features
+      .filter(f => f.FEATUREGROUPID === 'EFG00011' && hasDisplayableValue(f))
+  }
+
+  const dimensions = fullProduct ? getDimensions() : []
+
+  // Handle image error - trigger fallback
+  const handleImageError = (url: string) => {
+    setFailedUrls(prev => new Set(prev).add(url))
+  }
 
   const handleGenerate = useCallback(async () => {
     if (!product) return
@@ -56,14 +146,19 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
     setGeneratedPngPath(null)
 
     try {
-      // Step 1: Fetch full product info
-      const productResponse = await fetch(`/api/products/${product.product_id}`)
-      if (!productResponse.ok) {
-        throw new Error('Failed to fetch product details')
+      // Use cached fullProduct if available, otherwise fetch
+      let productData = fullProduct
+      if (!productData) {
+        const productResponse = await fetch(`/api/products/${product.product_id}`)
+        if (!productResponse.ok) {
+          throw new Error('Failed to fetch product details')
+        }
+        const { data } = await productResponse.json() as { data: ProductInfo }
+        productData = data
+        setFullProduct(data)
       }
-      const { data: fullProduct } = await productResponse.json() as { data: ProductInfo }
 
-      if (!fullProduct) {
+      if (!productData) {
         throw new Error('Product not found')
       }
 
@@ -72,7 +167,7 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
       const analyzeResponse = await fetch('/api/symbol-generator/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: fullProduct }),
+        body: JSON.stringify({ product: productData }),
       })
 
       const analysisResult = await analyzeResponse.json()
@@ -83,16 +178,16 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
 
       // Step 3: Generate DWG + PNG
       setStep('generating')
-      const dimensions = extractDimensions(fullProduct)
+      const dims = extractDimensions(productData)
 
       const generateResponse = await fetch('/api/symbol-generator/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          product: fullProduct,
+          product: productData,
           spec: analysisResult.description,
-          dimensions,
-          saveToSupabase: true,  // Save to Supabase bucket
+          dimensions: dims,
+          saveToSupabase: true,
         }),
       })
 
@@ -103,15 +198,13 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
       }
 
       setJobId(generateResult.jobId)
-      // TerminalLog will handle polling and completion
-
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
       setStep('error')
     }
-  }, [product])
+  }, [product, fullProduct])
 
-  // Handle job completion (called from TerminalLog)
+  // Handle job completion
   const handleJobComplete = useCallback((result: { success: boolean; savedToSupabase?: boolean; pngPath?: string }) => {
     if (result.success) {
       if (result.pngPath) {
@@ -129,10 +222,11 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
 
   const hasExistingSymbol = !!product.symbol_svg_path
   const displayPngPath = generatedPngPath || product.symbol_svg_path
+  const dimensionsConfig = FEATURE_GROUP_CONFIG['EFG00011']
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Badge
@@ -149,26 +243,178 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Product Info */}
+          {/* Product Description */}
           <p className="text-sm text-muted-foreground">
             {product.description_short}
           </p>
 
-          {/* Symbol Preview */}
-          <div className="aspect-square w-full max-w-[250px] mx-auto rounded-lg border-2 border-dashed flex items-center justify-center bg-muted/30">
-            {displayPngPath ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`${SYMBOLS_BUCKET_URL}/${displayPngPath}?t=${Date.now()}`}
-                alt={`Symbol for ${product.foss_pid}`}
-                className="w-full h-full object-contain p-4"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                <Sparkles className="w-12 h-12" />
-                <p className="text-sm">No symbol generated</p>
+          {/* Two-column layout: Media + Dimensions | Symbol */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left: Product Preview (Photo/Drawing + Dimensions) */}
+            <div className="space-y-4">
+              {/* Media Carousel */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <ImageIcon className="w-4 h-4" />
+                  <span>Product Media</span>
+                </div>
+
+                {loadingProduct ? (
+                  <div className="aspect-[4/3] rounded-lg border bg-muted/30 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : mediaSlides.length > 0 ? (
+                  <div className="relative">
+                    <div className="aspect-[4/3] rounded-lg border bg-muted/10 overflow-hidden">
+                      <Image
+                        src={mediaSlides[currentSlide].url}
+                        alt={mediaSlides[currentSlide].label}
+                        fill
+                        className="object-contain"
+                        onError={() => handleImageError(mediaSlides[currentSlide].url)}
+                      />
+                    </div>
+
+                    {/* Slide label */}
+                    <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/60 text-white text-xs">
+                      {mediaSlides[currentSlide].label}
+                    </div>
+
+                    {/* Navigation */}
+                    {mediaSlides.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => setCurrentSlide(prev => prev === 0 ? mediaSlides.length - 1 : prev - 1)}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setCurrentSlide(prev => prev === mediaSlides.length - 1 ? 0 : prev + 1)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+
+                        {/* Dots */}
+                        <div className="absolute bottom-2 right-2 flex gap-1">
+                          {mediaSlides.map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setCurrentSlide(idx)}
+                              className={cn(
+                                'w-2 h-2 rounded-full transition-colors',
+                                idx === currentSlide ? 'bg-white' : 'bg-white/50'
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="aspect-[4/3] rounded-lg border-2 border-dashed bg-muted/30 flex items-center justify-center">
+                    <div className="text-center text-muted-foreground">
+                      <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No media available</p>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Dimensions */}
+              <div className="space-y-2">
+                <div className={cn('flex items-center gap-2 text-sm font-medium', dimensionsConfig?.color || 'text-muted-foreground')}>
+                  <Ruler className="w-4 h-4" />
+                  <span>Dimensions</span>
+                </div>
+
+                {loadingProduct ? (
+                  <div className="h-24 rounded-lg border bg-muted/30 flex items-center justify-center">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : dimensions.length > 0 ? (
+                  <div className="rounded-lg border bg-muted/10 p-3">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                      {dimensions.map((feature, idx) => (
+                        <div key={idx} className="flex justify-between">
+                          <span className="text-muted-foreground truncate mr-2">
+                            {feature.feature_name || feature.FEATUREID}
+                          </span>
+                          <span className="font-medium whitespace-nowrap">
+                            {getFeatureDisplayValue(feature)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border-2 border-dashed bg-muted/30 p-4 text-center">
+                    <p className="text-sm text-muted-foreground">No dimensions available</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Symbol Preview */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Sparkles className="w-4 h-4" />
+                <span>Generated Symbol</span>
+              </div>
+
+              <div className="aspect-square rounded-lg border-2 border-dashed flex items-center justify-center bg-muted/30">
+                {displayPngPath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`${SYMBOLS_BUCKET_URL}/${displayPngPath}?t=${Date.now()}`}
+                    alt={`Symbol for ${product.foss_pid}`}
+                    className="w-full h-full object-contain p-4"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                    <Sparkles className="w-12 h-12" />
+                    <p className="text-sm">No symbol generated</p>
+                    <p className="text-xs text-center px-4">
+                      Click the button below to generate a CAD symbol
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Generation Actions */}
+              <div className="flex justify-center pt-2">
+                {step === 'idle' && (
+                  <Button onClick={handleGenerate} size="lg" className="w-full">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {hasExistingSymbol ? 'Regenerate Symbol' : 'Generate Symbol'}
+                  </Button>
+                )}
+
+                {(step === 'fetching' || step === 'analyzing' || (step === 'generating' && !jobId)) && (
+                  <Button disabled size="lg" className="w-full">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {step === 'fetching' && 'Fetching product...'}
+                    {step === 'analyzing' && 'Analyzing product...'}
+                    {step === 'generating' && 'Starting generation...'}
+                  </Button>
+                )}
+
+                {step === 'done' && (
+                  <Button onClick={handleGenerate} variant="outline" size="lg" className="w-full">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Regenerate
+                  </Button>
+                )}
+
+                {step === 'error' && (
+                  <Button onClick={handleGenerate} variant="outline" size="lg" className="w-full">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Try Again
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Generation Progress / Logs */}
@@ -187,39 +433,6 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
               {error}
             </div>
           )}
-
-          {/* Actions */}
-          <div className="flex justify-center gap-2">
-            {step === 'idle' && (
-              <Button onClick={handleGenerate} size="lg">
-                <Sparkles className="w-4 h-4 mr-2" />
-                {hasExistingSymbol ? 'Regenerate Symbol' : 'Generate Symbol'}
-              </Button>
-            )}
-
-            {(step === 'fetching' || step === 'analyzing' || (step === 'generating' && !jobId)) && (
-              <Button disabled size="lg">
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {step === 'fetching' && 'Fetching product...'}
-                {step === 'analyzing' && 'Analyzing product...'}
-                {step === 'generating' && 'Starting generation...'}
-              </Button>
-            )}
-
-            {step === 'done' && (
-              <Button onClick={handleGenerate} variant="outline" size="lg">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Regenerate
-              </Button>
-            )}
-
-            {step === 'error' && (
-              <Button onClick={handleGenerate} variant="outline" size="lg">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Try Again
-              </Button>
-            )}
-          </div>
         </div>
       </DialogContent>
     </Dialog>
