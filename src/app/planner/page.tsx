@@ -488,7 +488,7 @@ function FileInfoBar({ state }: { state: ReturnType<typeof usePlannerState> }) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={state.clearFile}
+          onClick={state.handleBackToOverview}
           className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
         >
           <X className="h-4 w-4 mr-1.5" />

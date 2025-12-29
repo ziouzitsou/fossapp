@@ -478,6 +478,9 @@ export function usePlannerState() {
   // Handle opening planner mode (floor plan viewer)
   const handleOpenPlanner = useCallback(() => {
     if (selectedAreaRevision?.floorPlanUrn) {
+      // Ensure URN is set when opening planner (may have been cleared by previous close)
+      setSelectedUrn(selectedAreaRevision.floorPlanUrn)
+      setSelectedFileName(selectedAreaRevision.floorPlanFilename || null)
       setViewMode('planner')
       const params = new URLSearchParams(searchParams.toString())
       params.set('mode', 'planner')
