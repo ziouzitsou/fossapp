@@ -328,8 +328,8 @@ export class MarkupMarkers {
     group.setAttribute('transform', `translate(${markupX}, ${markupY})`)
     group.style.cursor = 'pointer'
 
-    // Determine label - use symbol if available, otherwise first letter
-    const label = data.symbol || data.productName.charAt(0).toUpperCase()
+    // Determine label - use symbol if available, otherwise '?' for unclassified
+    const label = data.symbol || '?'
 
     // Calculate display radius based on current zoom level
     const radius = this.calculateDisplayRadius()

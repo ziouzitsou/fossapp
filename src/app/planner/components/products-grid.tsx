@@ -25,11 +25,10 @@ export function ProductsGrid({ products, placements, className }: ProductsGridPr
     return acc
   }, {} as Record<string, number>)
 
-  // Calculate symbol summary
+  // Calculate symbol summary (including unclassified as '?')
   const symbolSummary = products.reduce((acc, product) => {
-    if (product.symbol_code) {
-      acc[product.symbol_code] = (acc[product.symbol_code] || 0) + 1
-    }
+    const code = product.symbol_code || '?'
+    acc[code] = (acc[code] || 0) + 1
     return acc
   }, {} as Record<string, number>)
 
@@ -70,14 +69,15 @@ export function ProductsGrid({ products, placements, className }: ProductsGridPr
               )}
             >
               {/* Symbol Badge */}
-              {product.symbol && (
-                <Badge
-                  variant="default"
-                  className="absolute -top-2 -left-2 text-xs font-bold px-2 py-0.5"
-                >
-                  {product.symbol}
-                </Badge>
-              )}
+              <Badge
+                variant={product.symbol ? 'default' : 'outline'}
+                className={cn(
+                  'absolute -top-2 -left-2 text-xs font-bold px-2 py-0.5',
+                  !product.symbol && 'bg-amber-500 text-white border-amber-500 hover:bg-amber-500'
+                )}
+              >
+                {product.symbol || '?'}
+              </Badge>
 
               {/* Placement Status Icon */}
               <div className="absolute -top-2 -right-2">
@@ -136,7 +136,14 @@ export function ProductsGrid({ products, placements, className }: ProductsGridPr
             {Object.entries(symbolSummary)
               .sort(([a], [b]) => a.localeCompare(b))
               .map(([code, count]) => (
-                <Badge key={code} variant="secondary" className="text-xs px-1.5 py-0">
+                <Badge
+                  key={code}
+                  variant="secondary"
+                  className={cn(
+                    'text-xs px-1.5 py-0',
+                    code === '?' && 'bg-amber-500 text-white hover:bg-amber-500'
+                  )}
+                >
                   [{code}] ×{count}
                 </Badge>
               ))}

@@ -230,9 +230,9 @@ export function PlannerMarkups({
         ? 'translate(-50%, -50%) scale(1.2)'
         : 'translate(-50%, -50%)'
 
-      // Show product initial or icon
-      const initial = placement.productName?.charAt(0)?.toUpperCase() || '•'
-      marker.textContent = initial
+      // Show symbol or '?' for unclassified
+      const symbolLabel = placement.symbol || '?'
+      marker.textContent = symbolLabel
     }
 
     // Update positions after creating markers
