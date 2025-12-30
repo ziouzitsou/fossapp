@@ -74,7 +74,7 @@ export function AreaCard({
           <div className="shrink-0 w-12 h-12 rounded-lg bg-muted overflow-hidden relative">
             {area.floorPlanStatus === 'success' ? (
               <Image
-                src={`/api/planner/thumbnail?areaRevisionId=${area.revisionId}`}
+                src={`/api/planner/thumbnail?areaRevisionId=${area.revisionId}&v=${encodeURIComponent(area.floorPlanUrn?.slice(-8) || '')}`}
                 alt={area.floorPlanFilename || 'Floor plan thumbnail'}
                 fill
                 className="object-cover pointer-events-none"
