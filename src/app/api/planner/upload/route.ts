@@ -12,6 +12,73 @@ import { supabaseServer } from '@fossapp/core/db/server'
 import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 
 /**
+ * Sanitize filename to prevent path traversal and other attacks
+ *
+ * Security measures:
+ * 1. Decode URL-encoded characters first (catches %2F, %2E, etc.)
+ * 2. Remove path traversal sequences (.., /, \)
+ * 3. Remove dangerous characters
+ * 4. Whitelist only safe characters (alphanumeric, spaces, dots, hyphens, underscores)
+ * 5. Ensure filename doesn't start with dots
+ * 6. Limit length to prevent filesystem issues
+ *
+ * @param filename - Raw filename from user upload
+ * @returns Sanitized filename safe for filesystem use
+ */
+function sanitizeFileName(filename: string): string {
+  // Step 1: Decode URL-encoded characters (e.g., %2F -> /, %2E -> .)
+  // This catches attacks like "..%2F..%2Fetc%2Fpasswd"
+  let decoded = filename
+  try {
+    // Decode multiple times to catch double-encoding attacks
+    let prev = ''
+    while (prev !== decoded) {
+      prev = decoded
+      decoded = decodeURIComponent(decoded)
+    }
+  } catch {
+    // If decoding fails, use original (malformed encoding)
+    decoded = filename
+  }
+
+  // Step 2: Extract just the basename (remove any path components)
+  // This handles both Unix (/) and Windows (\) path separators
+  const basename = decoded.split(/[/\\]/).pop() || decoded
+
+  // Step 3: Remove path traversal sequences
+  let sanitized = basename
+    .replace(/\.\./g, '')      // Remove .. sequences
+    .replace(/\.\//g, '')      // Remove ./ sequences
+    .replace(/\.\\/g, '')      // Remove .\ sequences
+
+  // Step 4: Remove dangerous filesystem characters
+  // Keep only: alphanumeric, spaces, dots, hyphens, underscores, parentheses
+  sanitized = sanitized.replace(/[^a-zA-Z0-9\s.\-_()]/g, '_')
+
+  // Step 5: Collapse multiple underscores/spaces
+  sanitized = sanitized.replace(/_+/g, '_').replace(/\s+/g, ' ')
+
+  // Step 6: Remove leading dots (hidden files / extension confusion)
+  sanitized = sanitized.replace(/^\.+/, '')
+
+  // Step 7: Ensure we have a valid filename
+  if (!sanitized || sanitized === '_') {
+    sanitized = 'upload'
+  }
+
+  // Step 8: Limit length (keep extension intact if possible)
+  const maxLength = 200
+  if (sanitized.length > maxLength) {
+    const extMatch = sanitized.match(/\.[a-zA-Z0-9]+$/)
+    const ext = extMatch ? extMatch[0] : ''
+    const nameLength = maxLength - ext.length
+    sanitized = sanitized.substring(0, nameLength) + ext
+  }
+
+  return sanitized
+}
+
+/**
  * Check if floor plan with this hash already exists in any area revision
  * Returns existing URN if found (cache hit)
  */
@@ -173,11 +240,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Sanitize filename
-    const sanitizedFileName = file.name
-      .replace(/\.\./g, '')
-      .replace(/[<>:"/\\|?*]/g, '_')
-      .replace(/^\.+/, '')
+    // Sanitize filename (prevents path traversal, URL-encoded attacks, etc.)
+    const sanitizedFileName = sanitizeFileName(file.name)
 
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer()

@@ -20,6 +20,36 @@ export const E2E_AUTH_HEADER = 'x-e2e-test-key'
 // Minimum secret length for security
 const MIN_SECRET_LENGTH = 64
 
+/**
+ * Timing-safe string comparison (Edge Runtime compatible)
+ *
+ * Prevents timing attacks by always comparing all characters,
+ * regardless of where the first mismatch occurs. This ensures
+ * the comparison takes the same time whether strings differ
+ * at the first character or the last.
+ *
+ * @param a - First string to compare
+ * @param b - Second string to compare
+ * @returns true if strings are equal, false otherwise
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  // Always compare same number of characters to prevent length-based timing leaks
+  // If lengths differ, we still iterate over the longer string's length
+  // but the result will be non-zero due to XOR with 0 (missing char)
+  const maxLength = Math.max(a.length, b.length)
+
+  let result = a.length ^ b.length // Non-zero if lengths differ
+
+  for (let i = 0; i < maxLength; i++) {
+    // Use 0 for out-of-bounds to ensure we always iterate maxLength times
+    const charA = i < a.length ? a.charCodeAt(i) : 0
+    const charB = i < b.length ? b.charCodeAt(i) : 0
+    result |= charA ^ charB
+  }
+
+  return result === 0
+}
+
 // Rate limiting: 100 requests per minute per IP
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 const RATE_LIMIT_MAX_REQUESTS = 100
@@ -213,10 +243,10 @@ export function validateE2EBypass(
     }
   }
 
-  // 5. Validate the secret (timing-safe comparison)
-  // Note: In Edge runtime, we use a simple comparison since crypto.timingSafeEqual isn't available
-  // The rate limiting mitigates timing attacks
-  if (e2eHeader !== configuredSecret) {
+  // 5. Validate the secret using timing-safe comparison
+  // This prevents timing attacks where attackers measure response times
+  // to guess the secret character-by-character
+  if (!timingSafeEqual(e2eHeader, configuredSecret)) {
     logE2EBypassAttempt({
       timestamp: new Date().toISOString(),
       ip,

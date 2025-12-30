@@ -6,6 +6,36 @@ import { getGoogleDriveTileService } from '@/lib/tiles/google-drive-tile-service
 import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 
 /**
+ * Sanitize filename to prevent path traversal and other attacks
+ */
+function sanitizeFileName(filename: string): string {
+  // Decode URL-encoded characters first (catches %2F, %2E attacks)
+  let decoded = filename
+  try {
+    let prev = ''
+    while (prev !== decoded) {
+      prev = decoded
+      decoded = decodeURIComponent(decoded)
+    }
+  } catch {
+    decoded = filename
+  }
+
+  // Extract basename (remove any path components)
+  const basename = decoded.split(/[/\\]/).pop() || decoded
+
+  // Remove path traversal and dangerous characters, whitelist safe chars
+  return basename
+    .replace(/\.\./g, '')
+    .replace(/\.\//g, '')
+    .replace(/\.\\/g, '')
+    .replace(/[^a-zA-Z0-9\s.\-_()]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^\.+/, '')
+    .toLowerCase() || 'upload'
+}
+
+/**
  * POST /api/viewer/upload
  * Upload DWG file (and associated images) for viewing
  * Requires authentication to prevent service abuse
@@ -46,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     if (file) {
       // Direct file upload (no images)
-      finalFileName = file.name.toLowerCase()
+      finalFileName = file.name
       const arrayBuffer = await file.arrayBuffer()
       buffer = Buffer.from(arrayBuffer)
     } else if (driveFileId && fileName) {
@@ -56,7 +86,7 @@ export async function POST(request: NextRequest) {
       const tileFiles = await driveService.downloadTileFiles(driveFileId)
 
       buffer = tileFiles.dwg.buffer
-      finalFileName = fileName.toLowerCase()
+      finalFileName = fileName
       images = tileFiles.images
 
       console.log(`Downloaded from Drive: ${(buffer.length / 1024).toFixed(0)} KB DWG + ${images.length} images`)
@@ -67,11 +97,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Sanitize filename: remove path traversal and special characters
-    const sanitizedFileName = finalFileName
-      .replace(/\.\./g, '')           // Remove path traversal
-      .replace(/[<>:"/\\|?*]/g, '_')  // Replace invalid chars
-      .replace(/^\.+/, '')            // Remove leading dots
+    // Sanitize filename (prevents path traversal, URL-encoded attacks, etc.)
+    const sanitizedFileName = sanitizeFileName(finalFileName)
 
     // Validate file extension
     const validExtensions = ['.dwg', '.dxf']

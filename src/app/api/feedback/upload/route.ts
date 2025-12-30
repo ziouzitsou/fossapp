@@ -74,7 +74,15 @@ export async function POST(request: NextRequest) {
     // Format: user_folder/chat_id/timestamp.extension
     const userFolder = userEmail.replace('@', '_at_').replace(/\./g, '_')
     const timestamp = Date.now()
-    const extension = file.name.split('.').pop() || getExtensionFromMime(file.type)
+    // Sanitize extension: decode URL encoding, whitelist only alphanumeric chars
+    const rawExtension = file.name.split('.').pop() || getExtensionFromMime(file.type)
+    let extension = rawExtension
+    try {
+      extension = decodeURIComponent(rawExtension)
+    } catch {
+      // Keep original if decode fails
+    }
+    extension = extension.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().substring(0, 10) || 'bin'
     const fileName = `${userFolder}/${chatId || 'unassigned'}/${timestamp}.${extension}`
 
     // Upload to Supabase Storage
