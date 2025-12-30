@@ -40,7 +40,8 @@ export function usePlannerState() {
   // Area-revision selection
   const [areaRevisions, setAreaRevisions] = useState<AreaRevisionOption[]>([])
   const [selectedAreaRevision, setSelectedAreaRevision] = useState<AreaRevisionOption | null>(null)
-  const [loadingAreas, setLoadingAreas] = useState(false)
+  // Initialize to true to prevent flash of "no areas" before initial load completes
+  const [loadingAreas, setLoadingAreas] = useState(true)
 
   // View mode: 'overview' shows products grid, 'planner' shows floor plan viewer
   const [viewMode, setViewMode] = useState<'overview' | 'planner'>('overview')
@@ -145,6 +146,7 @@ export function usePlannerState() {
       if (!activeProject?.id) {
         setAreaRevisions([])
         setSelectedAreaRevision(null)
+        setLoadingAreas(false)  // No project = not loading
         return
       }
 

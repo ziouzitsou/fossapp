@@ -117,10 +117,10 @@ function PlannerContent() {
         <div className="flex-1 overflow-hidden">
           {!state.activeProject ? (
             <NoProjectView />
-          ) : !state.hasAreas ? (
-            <NoAreasView projectId={state.activeProject.id} />
           ) : state.loadingAreas ? (
             <LoadingView message="Loading project areas..." />
+          ) : !state.hasAreas ? (
+            <NoAreasView projectId={state.activeProject.id} />
           ) : state.viewMode === 'planner' && (state.selectedAreaRevision?.floorPlanUrn || state.selectedFile) ? (
             <ViewerLayout state={state} />
           ) : (
