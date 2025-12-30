@@ -105,11 +105,11 @@ export function ProductsGrid({ products, placements, className, onSymbolClick }:
                 type="button"
                 onClick={() => onSymbolClick?.(product)}
                 className={cn(
-                  'w-full aspect-square rounded border-2 border-dashed flex items-center justify-center',
-                  'transition-colors hover:border-primary/50 hover:bg-primary/5',
+                  'w-full aspect-square rounded border flex items-center justify-center',
+                  'transition-colors hover:border-primary/50',
                   product.symbol_svg_path
-                    ? 'border-border bg-white'
-                    : 'border-muted-foreground/30 bg-muted/30'
+                    ? 'border-border bg-zinc-800 hover:bg-zinc-700'
+                    : 'border-2 border-dashed border-muted-foreground/30 bg-muted/30 hover:bg-primary/5'
                 )}
                 title={product.symbol_svg_path ? 'View/edit symbol' : 'Generate symbol'}
               >

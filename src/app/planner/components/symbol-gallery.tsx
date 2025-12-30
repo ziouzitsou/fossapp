@@ -121,13 +121,13 @@ export function SymbolGallery({
   }
 
   return (
-    <div className="relative aspect-square rounded-lg border overflow-hidden bg-muted/10">
+    <div className="relative aspect-square rounded-lg border overflow-hidden bg-zinc-800 flex items-center justify-center">
       {/* Main Image */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={currentMedia.url}
         alt={`${fossPid} - ${currentMedia.label}`}
-        className="w-full h-full object-contain p-4"
+        className="max-w-full max-h-full object-contain p-4"
       />
 
       {/* Media Type Label - Bottom Left (like Product Media) */}
