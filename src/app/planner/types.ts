@@ -2,6 +2,11 @@
  * Planner Page Types
  */
 
+import type { usePlannerState } from './use-planner-state'
+
+/** Return type of usePlannerState hook - used by extracted components */
+export type PlannerState = ReturnType<typeof usePlannerState>
+
 /** Area-revision selection option for floor plan management */
 export interface AreaRevisionOption {
   areaId: string
