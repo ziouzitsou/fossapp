@@ -56,8 +56,12 @@ Generate TWO code blocks:
    - Must end with PNGOUT and SAVEAS commands
 
 2. **SVG Symbol** (\`\`\`svg block):
-   - Same symbol as the LISP but in SVG format
-   - ViewBox 0 0 100 100, centered at (50,50)
-   - Scale to fit within 80% of viewBox
+   - **CRITICAL: DO NOT use viewBox="0 0 100 100" - this is WRONG!**
+   - **TRUE SCALE**: viewBox dimensions MUST match the BOUNDARY size in mm
+   - Example: 84mm square boundary → viewBox="0 0 84 84"
+   - Example: 163mm diameter circle → viewBox="0 0 163 163"
+   - REQUIRED attributes: data-unit="mm" data-boundary-mm="BOUNDARY_SIZE"
+   - Center geometry at (BOUNDARY_SIZE/2, BOUNDARY_SIZE/2)
+   - Use actual mm values for all geometry - NO scaling!
    - Use hex colors matching DXF codes`
 }

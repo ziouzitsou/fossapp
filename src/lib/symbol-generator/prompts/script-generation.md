@@ -1,5 +1,7 @@
 # Symbol Specification to AutoLISP Converter
 
+> **🚨 SVG CRITICAL RULE**: When generating SVG, the viewBox MUST use the actual BOUNDARY dimensions in millimeters. Example: 84mm boundary → `viewBox="0 0 84 84"`. **NEVER use viewBox="0 0 100 100"** - that is the OLD format and is WRONG.
+
 You are an expert AutoCAD automation assistant. Your task is to convert a structured Symbol Specification into an AutoLISP script that creates the described CAD symbol.
 
 ## Input Format
@@ -244,21 +246,31 @@ Now convert the following symbol specification to an AutoLISP script AND an SVG 
 
 ## SVG Output Requirements
 
-In addition to the AutoLISP script, generate an SVG representation of the same symbol.
+In addition to the AutoLISP script, generate an SVG representation of the same symbol using **real millimeter dimensions** (1 unit = 1mm).
 
 ### SVG Format
 
 ```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Symbol geometry here -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 WIDTH HEIGHT" data-unit="mm" data-boundary-mm="BOUNDARY_SIZE">
+  <!-- Symbol geometry here using actual mm values -->
 </svg>
 ```
 
-### SVG Rules
+### SVG Rules - TRUE SCALE
 
-1. **ViewBox**: Always use viewBox="0 0 100 100" (100mm x 100mm)
-2. **Center**: All geometry centered at (50, 50)
-3. **Scaling**: Scale symbol to fit within 80% of viewBox (radius ~40 for boundary)
+1. **ViewBox = Real Dimensions**: Set viewBox to match the BOUNDARY shape dimensions in mm
+   - For circular boundary diameter 163mm: `viewBox="0 0 163 163"`
+   - For rectangular boundary 200mm x 100mm: `viewBox="0 0 200 100"`
+   - viewBox units directly represent millimeters
+
+2. **Data Attributes (REQUIRED)**:
+   - `data-unit="mm"` - Indicates units are millimeters
+   - `data-boundary-mm="SIZE"` - The boundary dimension (diameter for circles, max dimension for rectangles)
+
+3. **Geometry Positioning**: Center ALL geometry at viewBox center
+   - For viewBox="0 0 163 163": center at (81.5, 81.5)
+   - Use actual mm dimensions for all shapes (no scaling!)
+
 4. **Colors**: Map DXF colors to hex:
    - White (7) -> #FFFFFF
    - Cyan (4) -> #00FFFF
@@ -267,38 +279,60 @@ In addition to the AutoLISP script, generate an SVG representation of the same s
    - Green (3) -> #00FF00
    - Blue (5) -> #0000FF
    - Magenta (6) -> #FF00FF
-5. **Strokes**:
-   - stroke-width="0.5" for normal lines
-   - stroke-dasharray="3,2" for DASHED linetype
+
+5. **Strokes**: Use proportional stroke widths (1% of boundary size, min 0.5mm)
+   - stroke-width for normal lines: max(0.5, BOUNDARY_SIZE * 0.01)
+   - stroke-dasharray="5,3" for DASHED linetype (mm values)
    - fill="none" for all shapes
+
 6. **Center Mark**:
    - 6mm total width (3mm arms from center)
-   - Draw at (50, 50)
+   - Draw at viewBox center
 
-### SVG Example
+### SVG Example - TRUE SCALE
 
 For a recessed downlight with 163mm boundary, 150mm cutout, 130mm aperture:
 
 ```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Boundary (LUM-OUTLINE, White) -->
-  <circle cx="50" cy="50" r="40" stroke="#FFFFFF" stroke-width="0.5" fill="none"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 163 163" data-unit="mm" data-boundary-mm="163">
+  <!-- Boundary (LUM-OUTLINE, White) - Diameter 163mm = Radius 81.5mm -->
+  <circle cx="81.5" cy="81.5" r="81.5" stroke="#FFFFFF" stroke-width="1.6" fill="none"/>
 
-  <!-- Cutout (LUM-CUTOUT, Cyan, Dashed) -->
-  <circle cx="50" cy="50" r="36.8" stroke="#00FFFF" stroke-width="0.5" fill="none" stroke-dasharray="3,2"/>
+  <!-- Cutout (LUM-CUTOUT, Cyan, Dashed) - Diameter 150mm = Radius 75mm -->
+  <circle cx="81.5" cy="81.5" r="75" stroke="#00FFFF" stroke-width="1.6" fill="none" stroke-dasharray="5,3"/>
 
-  <!-- Aperture (LUM-APERTURE, Yellow) -->
-  <circle cx="50" cy="50" r="31.9" stroke="#FFFF00" stroke-width="0.5" fill="none"/>
+  <!-- Aperture (LUM-APERTURE, Yellow) - Diameter 130mm = Radius 65mm -->
+  <circle cx="81.5" cy="81.5" r="65" stroke="#FFFF00" stroke-width="1.6" fill="none"/>
 
-  <!-- Center Mark (LUM-CENTER, White) -->
-  <line x1="47" y1="50" x2="53" y2="50" stroke="#FFFFFF" stroke-width="0.3"/>
-  <line x1="50" y1="47" x2="50" y2="53" stroke="#FFFFFF" stroke-width="0.3"/>
+  <!-- Center Mark (LUM-CENTER, White) - 3mm arms from center -->
+  <line x1="78.5" y1="81.5" x2="84.5" y2="81.5" stroke="#FFFFFF" stroke-width="0.5"/>
+  <line x1="81.5" y1="78.5" x2="81.5" y2="84.5" stroke="#FFFFFF" stroke-width="0.5"/>
 </svg>
 ```
 
-**Scaling calculation**:
-- Boundary 163mm -> scale factor = 80/163 ~ 0.49
-- Apply same scale to all dimensions
-- All radii: (original_diameter / 2) x scale_factor
+**Key Points**:
+- viewBox is 163x163 because boundary diameter is 163mm
+- All circles use their actual radius in mm (diameter / 2)
+- Center point is at (163/2, 163/2) = (81.5, 81.5)
+- NO scaling! Direct mm-to-unit mapping
+- Stroke width is 163 * 0.01 ≈ 1.6mm
+
+### Linear Fixture Example
+
+For a linear fixture 50mm wide x 1000mm long:
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 50" data-unit="mm" data-boundary-mm="1000">
+  <!-- Boundary (LUM-OUTLINE, White) - 1000mm x 50mm rectangle -->
+  <rect x="0" y="0" width="1000" height="50" stroke="#FFFFFF" stroke-width="2" fill="none"/>
+
+  <!-- Aperture (LUM-APERTURE, Yellow) - 960mm x 30mm centered -->
+  <rect x="20" y="10" width="960" height="30" stroke="#FFFF00" stroke-width="2" fill="none"/>
+
+  <!-- Center Mark (LUM-CENTER, White) -->
+  <line x1="497" y1="25" x2="503" y2="25" stroke="#FFFFFF" stroke-width="0.5"/>
+  <line x1="500" y1="22" x2="500" y2="28" stroke="#FFFFFF" stroke-width="0.5"/>
+</svg>
+```
 
 ---

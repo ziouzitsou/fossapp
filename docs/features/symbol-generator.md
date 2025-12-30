@@ -134,11 +134,20 @@ System prompt for Stage 2 (Script Generation):
 
 ### Editing Prompts
 
-1. Edit the markdown file directly
-2. Restart the dev server (or wait for hot reload)
-3. Test with a product in the Planner
+**IMPORTANT**: Prompts are loaded at module initialization time (NOT hot-reloaded). You must follow these steps:
 
-Changes take effect immediately - no code changes required.
+1. Edit the markdown file directly
+2. **Delete the `.next/` folder** - clears server cache
+3. **Restart the dev server** - reloads the prompt files
+4. **Hard refresh browser** (`Ctrl+Shift+R`) - clears browser cache
+5. Test with a product in the Planner
+
+```bash
+# Quick reset after prompt changes
+rm -rf .next && npm run dev
+```
+
+> **Why this is necessary**: The `loadPrompt()` function uses `readFileSync` at module initialization. Node.js caches module exports, so even restarting the dev server may not reload the file without clearing `.next/`.
 
 ## Database Schema
 

@@ -22,11 +22,17 @@ type ViewerInstance = any
 type MarkupsCoreExt = any
 
 // Marker sizing constants
-const REAL_WORLD_RADIUS = 0.05      // 50mm in meters (100mm diameter)
+const REAL_WORLD_RADIUS = 0.05      // 50mm in meters (100mm diameter) - for circle markers
 const DEFAULT_MIN_SCREEN_RADIUS = 12  // Default minimum pixels on screen
 const STROKE_RATIO = 0.2            // Stroke width as ratio of radius
 const FONT_RATIO = 0.8              // Font size as ratio of radius
-const BADGE_RATIO = 0.35            // Badge size as ratio of marker size
+
+// SVG Symbol sizing - TRUE SCALE (like AutoCAD)
+// New approach: Read viewBox dimensions from SVG (in mm) and convert to meters
+// viewBox dimensions ARE the real mm size, divide by 1000 to get meters
+// Fallback for legacy symbols that use normalized 100x100 viewBox
+const LEGACY_SYMBOL_SIZE_M = 0.1    // 100mm = 0.1 meters (for old 100x100 viewBox symbols)
+const MM_TO_METERS = 0.001          // 1mm = 0.001 meters
 
 // Supabase storage URL for product symbols
 const SYMBOLS_BUCKET_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-symbols`
@@ -221,52 +227,49 @@ export class MarkupMarkers {
   }
 
   /**
-   * Update SVG marker size (symbol, click target, badge)
+   * Update SVG marker size (click target, badge - symbol stays at real scale)
    */
   private updateSvgMarkerSize(group: SVGElement, radius: number, isSelected: boolean) {
-    // Update click target
+    // Symbol stays at fixed real scale - no updates needed
+    // Only update click target and badge (dynamic sizing for visibility)
+
+    // Read stored symbol dimensions (or use legacy fallback)
+    const symbolWidthM = parseFloat(group.getAttribute('data-symbol-width-m') || String(LEGACY_SYMBOL_SIZE_M))
+    const symbolHeightM = parseFloat(group.getAttribute('data-symbol-height-m') || String(LEGACY_SYMBOL_SIZE_M))
+    const symbolMaxDim = Math.max(symbolWidthM, symbolHeightM)
+
+    // Update click target to cover the badge area (for clickability when zoomed out)
     const clickTarget = group.querySelector('rect')
     if (clickTarget) {
-      clickTarget.setAttribute('x', String(-radius))
-      clickTarget.setAttribute('y', String(-radius))
-      clickTarget.setAttribute('width', String(radius * 2))
-      clickTarget.setAttribute('height', String(radius * 2))
+      // Click target should cover badge position plus some margin
+      const badgeY = symbolHeightM / 2  // Badge is at top of symbol
+      const clickSize = Math.max(radius * 2, symbolMaxDim)  // At least cover symbol or badge
+      clickTarget.setAttribute('x', String(-clickSize / 2))
+      clickTarget.setAttribute('y', String(-clickSize / 2))
+      clickTarget.setAttribute('width', String(clickSize))
+      clickTarget.setAttribute('height', String(clickSize + badgeY))
     }
 
-    // Update symbol group transform
-    const symbolGroup = group.querySelector('.symbol-content')
-    if (symbolGroup) {
-      const symbolSize = radius * 2
-      const scale = symbolSize / 100  // Assuming 100x100 viewBox
-      const offsetX = -(100 * scale) / 2
-      const offsetY = -(100 * scale) / 2
-      symbolGroup.setAttribute('transform', `translate(${offsetX}, ${-offsetY}) scale(${scale}, ${-scale})`)
-
-      // Add selection highlight (scale up slightly when selected)
-      if (isSelected) {
-        symbolGroup.setAttribute('transform', `translate(${offsetX * 1.1}, ${-offsetY * 1.1}) scale(${scale * 1.1}, ${-scale * 1.1})`)
-      }
-    }
-
-    // Update badge
+    // Update badge (same size as circle markers for consistency)
     const badgeGroup = group.querySelector('.symbol-badge')
     if (badgeGroup) {
-      const badgeRadius = radius * BADGE_RATIO
+      const badgeRadius = radius  // Same size as circle markers
       const badgeX = 0
-      const badgeY = radius * 0.9  // Top-center (positive Y = up visually)
+      // Position badge above the real-scale symbol (with margin)
+      const badgeY = symbolHeightM / 2 + badgeRadius * 1.2
       badgeGroup.setAttribute('transform', `translate(${badgeX}, ${badgeY})`)
 
       const badgeCircle = badgeGroup.querySelector('circle')
       if (badgeCircle) {
         badgeCircle.setAttribute('r', String(badgeRadius))
-        badgeCircle.setAttribute('stroke-width', String(badgeRadius * 0.2))
+        badgeCircle.setAttribute('stroke-width', String(badgeRadius * STROKE_RATIO))
         // Change badge fill color based on selection state
         badgeCircle.setAttribute('fill', isSelected ? '#f59e0b' : '#3b82f6')
       }
 
       const badgeText = badgeGroup.querySelector('text')
       if (badgeText) {
-        badgeText.setAttribute('font-size', String(badgeRadius * 1.2))
+        badgeText.setAttribute('font-size', String(badgeRadius * FONT_RATIO))
       }
     }
   }
@@ -522,6 +525,38 @@ export class MarkupMarkers {
   }
 
   /**
+   * Parse viewBox dimensions and determine if it's a real-mm SVG or legacy normalized
+   * Returns dimensions in meters
+   */
+  private parseSymbolDimensions(svg: Element): { widthM: number; heightM: number; isRealMm: boolean } {
+    const viewBox = svg.getAttribute('viewBox') || '0 0 100 100'
+    const [, , vbWidth, vbHeight] = viewBox.split(' ').map(Number)
+
+    // Check for data-unit="mm" attribute (new real-mm format)
+    const dataUnit = svg.getAttribute('data-unit')
+    const isRealMm = dataUnit === 'mm'
+
+    if (isRealMm) {
+      // New format: viewBox values ARE millimeters, convert to meters
+      return {
+        widthM: vbWidth * MM_TO_METERS,
+        heightM: vbHeight * MM_TO_METERS,
+        isRealMm: true
+      }
+    } else {
+      // Legacy format: 100x100 normalized viewBox = 100mm = 0.1m
+      // Scale proportionally based on aspect ratio
+      const maxDim = Math.max(vbWidth, vbHeight)
+      const scale = LEGACY_SYMBOL_SIZE_M / maxDim
+      return {
+        widthM: vbWidth * scale,
+        heightM: vbHeight * scale,
+        isRealMm: false
+      }
+    }
+  }
+
+  /**
    * Upgrade a circle marker to SVG symbol with badge
    */
   private upgradeToSvgMarker(markerId: string, svgContent: string, symbol?: string) {
@@ -550,14 +585,21 @@ export class MarkupMarkers {
     const symbolGroup = document.createElementNS(ns, 'g')
     symbolGroup.setAttribute('class', 'symbol-content')
 
-    // Get viewBox to calculate proper scaling
+    // Parse viewBox and determine actual dimensions
     const viewBox = originalSvg.getAttribute('viewBox') || '0 0 100 100'
     const [, , vbWidth, vbHeight] = viewBox.split(' ').map(Number)
+    const dimensions = this.parseSymbolDimensions(originalSvg)
 
-    // Scale factor: fit symbol within radius * 2 (diameter)
-    // Symbol SVG is typically 100x100 viewBox, we want it to fit in 2*radius
-    const symbolSize = radius * 2
-    const scale = symbolSize / Math.max(vbWidth, vbHeight)
+    // Store actual symbol size on group for badge positioning
+    group.setAttribute('data-symbol-width-m', String(dimensions.widthM))
+    group.setAttribute('data-symbol-height-m', String(dimensions.heightM))
+
+    // TRUE SCALE: Calculate scale to convert viewBox units to meters
+    // For real-mm SVGs: 1 viewBox unit = 1mm, so scale = 0.001
+    // For legacy SVGs: scale to fit within LEGACY_SYMBOL_SIZE_M
+    const scale = dimensions.isRealMm
+      ? MM_TO_METERS  // 1mm -> 0.001m
+      : LEGACY_SYMBOL_SIZE_M / Math.max(vbWidth, vbHeight)
 
     // Center the symbol (offset by half the scaled size)
     const offsetX = -(vbWidth * scale) / 2
@@ -573,17 +615,22 @@ export class MarkupMarkers {
       symbolGroup.appendChild(cloned)
     })
 
-    // Create a click target (invisible rect covering the symbol area)
+    // Use actual symbol dimensions for click target and badge positioning
+    const symbolMaxDim = Math.max(dimensions.widthM, dimensions.heightM)
+
+    // Create a click target (invisible rect covering symbol + badge area)
     const clickTarget = document.createElementNS(ns, 'rect')
-    clickTarget.setAttribute('x', String(-radius))
-    clickTarget.setAttribute('y', String(-radius))
-    clickTarget.setAttribute('width', String(radius * 2))
-    clickTarget.setAttribute('height', String(radius * 2))
+    const clickSize = Math.max(radius * 2, symbolMaxDim)
+    const badgeOffset = dimensions.heightM / 2  // Badge above symbol top
+    clickTarget.setAttribute('x', String(-clickSize / 2))
+    clickTarget.setAttribute('y', String(-clickSize / 2))
+    clickTarget.setAttribute('width', String(clickSize))
+    clickTarget.setAttribute('height', String(clickSize + badgeOffset))
     clickTarget.setAttribute('fill', 'transparent')
     clickTarget.style.pointerEvents = 'auto'
 
-    // Create badge with symbol letter
-    const badgeGroup = this.createBadge(radius, label)
+    // Create badge with symbol letter, positioned based on actual symbol height
+    const badgeGroup = this.createBadge(radius, label, dimensions.heightM)
 
     // Add elements to group
     group.appendChild(clickTarget)
@@ -591,33 +638,38 @@ export class MarkupMarkers {
     group.appendChild(badgeGroup)
     group.setAttribute('data-marker-type', 'svg')
 
-    console.log('[MarkupMarkers] Upgraded marker to SVG:', markerId)
+    console.log(`[MarkupMarkers] Upgraded marker to SVG: ${markerId} (${dimensions.isRealMm ? 'real-mm' : 'legacy'}, ${(dimensions.widthM * 1000).toFixed(0)}x${(dimensions.heightM * 1000).toFixed(0)}mm)`)
   }
 
   /**
-   * Create a badge with the symbol letter
+   * Create a badge with the symbol letter (same size as circle markers)
+   * @param markerRadius - The radius for the badge circle (in meters)
+   * @param label - The label text to display
+   * @param symbolHeightM - The actual symbol height in meters (for positioning)
    */
-  private createBadge(markerRadius: number, label: string): SVGElement {
+  private createBadge(markerRadius: number, label: string, symbolHeightM: number = LEGACY_SYMBOL_SIZE_M): SVGElement {
     const ns = 'http://www.w3.org/2000/svg'
-    const badgeRadius = markerRadius * BADGE_RATIO
-    const fontSize = badgeRadius * 1.2
+    // Badge should be same size as circle markers for consistency
+    const badgeRadius = markerRadius
+    const fontSize = badgeRadius * FONT_RATIO
 
-    // Position badge at top-center of marker
+    // Position badge above the real-scale symbol (with margin to avoid overlap)
+    // Y position = half symbol height (top of symbol) + badge radius + small margin
     const badgeX = 0
-    const badgeY = markerRadius * 0.9  // Positive Y = up visually in markup coords
+    const badgeY = symbolHeightM / 2 + badgeRadius * 1.2  // Clear above symbol
 
     const badgeGroup = document.createElementNS(ns, 'g')
     badgeGroup.setAttribute('class', 'symbol-badge')
     badgeGroup.setAttribute('transform', `translate(${badgeX}, ${badgeY})`)
 
-    // Badge circle (blue with white border)
+    // Badge circle (blue with white border) - same style as circle markers
     const circle = document.createElementNS(ns, 'circle')
     circle.setAttribute('cx', '0')
     circle.setAttribute('cy', '0')
     circle.setAttribute('r', String(badgeRadius))
     circle.setAttribute('fill', '#3b82f6')
     circle.setAttribute('stroke', '#ffffff')
-    circle.setAttribute('stroke-width', String(badgeRadius * 0.2))
+    circle.setAttribute('stroke-width', String(badgeRadius * STROKE_RATIO))
 
     // Badge text
     const text = document.createElementNS(ns, 'text')
