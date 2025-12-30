@@ -66,7 +66,8 @@ export function AppSidebar() {
       </SidebarHeader>
 
       {/* Navigation Content */}
-      <SidebarContent>
+      <SidebarContent className="flex flex-col">
+        {/* Main Navigation */}
         <SidebarMenu className="px-2 py-4">
           {navigation.map((item) => {
             const Icon = item.icon
@@ -93,31 +94,34 @@ export function AppSidebar() {
             )
           })}
         </SidebarMenu>
+
+        {/* Spacer to push Feedback to bottom */}
+        <div className="flex-1" />
+
+        {/* Feedback Button - at bottom of content area */}
+        <SidebarMenu className="px-2 pb-2">
+          <SidebarMenuItem>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarMenuButton
+                  onClick={() => setFeedbackOpen(true)}
+                  className="w-full justify-start"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                  <span>Feedback</span>
+                </SidebarMenuButton>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                AI Assistant & Feedback
+              </TooltipContent>
+            </Tooltip>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarContent>
 
-      {/* Footer with Feedback, Theme Toggle and Version */}
+      {/* Footer with Theme Toggle and Version */}
       <SidebarFooter className="border-t">
         <div className="flex flex-col gap-2 p-2 group-data-[collapsible=icon]:p-1">
-          {/* Feedback Button */}
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <SidebarMenuButton
-                    onClick={() => setFeedbackOpen(true)}
-                    className="w-full justify-start"
-                  >
-                    <MessageCircle className="h-5 w-5" />
-                    <span>Feedback</span>
-                  </SidebarMenuButton>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  AI Assistant & Feedback
-                </TooltipContent>
-              </Tooltip>
-            </SidebarMenuItem>
-          </SidebarMenu>
-
           {/* Theme Toggle */}
           <div className="flex items-center justify-center">
             <ThemeToggle />
