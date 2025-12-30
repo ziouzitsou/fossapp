@@ -53,13 +53,6 @@ test.describe('Smoke Tests', () => {
     await expect(page.locator('body')).toBeVisible();
   });
 
-  test('symbol generator page loads', async ({ page }) => {
-    await page.goto('/symbol-generator');
-
-    await page.waitForLoadState('domcontentloaded');
-    await expect(page.locator('body')).toBeVisible();
-  });
-
   test('playground page loads', async ({ page }) => {
     await page.goto('/playground');
 

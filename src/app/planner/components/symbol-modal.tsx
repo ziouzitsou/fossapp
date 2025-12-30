@@ -15,17 +15,15 @@ import {
 } from '@fossapp/ui'
 import { Badge, Button } from '@fossapp/ui'
 import { cn } from '@fossapp/ui'
-import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, Ruler, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
+import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, Ruler, ChevronLeft, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 import type { AreaRevisionProduct } from '@/lib/actions/areas/revision-products-actions'
 import { SymbolProgress } from './symbol-progress'
+import { SymbolGallery } from './symbol-gallery'
 import { extractDimensions } from '@/lib/symbol-generator/dimension-utils'
 import type { ProductInfo, Feature } from '@fossapp/products/types'
 import { hasDisplayableValue, getFeatureDisplayValue, FEATURE_GROUP_CONFIG } from '@/lib/utils/feature-utils'
 import { deleteProductSymbolAction } from '@/lib/actions/symbols'
-
-// Supabase storage URL for product-symbols bucket
-const SYMBOLS_BUCKET_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-symbols`
 
 interface SymbolModalProps {
   product: AreaRevisionProduct | null
@@ -49,6 +47,7 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
   const [jobId, setJobId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [generatedPngPath, setGeneratedPngPath] = useState<string | null>(null)
+  const [generatedSvgPath, setGeneratedSvgPath] = useState<string | null>(null)
 
   // Product preview state
   const [fullProduct, setFullProduct] = useState<ProductInfo | null>(null)
@@ -67,6 +66,7 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
       setJobId(null)
       setError(null)
       setGeneratedPngPath(null)
+      setGeneratedSvgPath(null)
       setFullProduct(null)
       setCurrentSlide(0)
       setFailedUrls(new Set())
@@ -219,11 +219,14 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
   }, [product, fullProduct])
 
   // Handle job completion
-  const handleJobComplete = useCallback((result: { success: boolean; savedToSupabase?: boolean; pngPath?: string }) => {
+  const handleJobComplete = useCallback((result: { success: boolean; savedToSupabase?: boolean; pngPath?: string; svgPath?: string }) => {
     if (result.success) {
       if (result.pngPath) {
         setGeneratedPngPath(result.pngPath)
         setSymbolCleared(false)  // Clear the deleted state since we have a new symbol
+      }
+      if (result.svgPath) {
+        setGeneratedSvgPath(result.svgPath)
       }
       setStep('done')
       onSymbolGenerated?.()
@@ -250,6 +253,7 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
       const result = await deleteProductSymbolAction(product.foss_pid)
       if (result.success) {
         setGeneratedPngPath(null)
+        setGeneratedSvgPath(null)
         setSymbolCleared(true)  // Show "No symbol generated" immediately
         setStep('idle')
         onSymbolGenerated?.() // Refresh parent data
@@ -262,8 +266,9 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
 
   if (!product) return null
 
-  const hasExistingSymbol = !!product.symbol_svg_path && !symbolCleared
-  const displayPngPath = symbolCleared ? null : (generatedPngPath || product.symbol_svg_path)
+  const hasExistingSymbol = !!(product.symbol_png_path || product.symbol_svg_path) && !symbolCleared
+  const displayPngPath = symbolCleared ? null : (generatedPngPath || product.symbol_png_path)
+  const displaySvgPath = symbolCleared ? null : (generatedSvgPath || product.symbol_svg_path)
   const dimensionsConfig = FEATURE_GROUP_CONFIG['EFG00011']
 
   return (
@@ -405,44 +410,13 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
                 <span>Generated Symbol</span>
               </div>
 
-              <div className="relative aspect-square rounded-lg border-2 border-dashed flex items-center justify-center bg-muted/30">
-                {displayPngPath ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`${SYMBOLS_BUCKET_URL}/${displayPngPath}?t=${Date.now()}`}
-                      alt={`Symbol for ${product.foss_pid}`}
-                      className="w-full h-full object-contain p-4"
-                    />
-                    {/* Delete button - top right corner */}
-                    <button
-                      onClick={handleDeleteClick}
-                      disabled={deleteState === 'deleting'}
-                      className={cn(
-                        'absolute top-2 right-2 p-1.5 rounded-md transition-colors',
-                        deleteState === 'idle' && 'text-muted-foreground hover:text-destructive hover:bg-destructive/10',
-                        deleteState === 'confirming' && 'text-destructive bg-destructive/10 animate-pulse',
-                        deleteState === 'deleting' && 'text-muted-foreground cursor-not-allowed'
-                      )}
-                      title={deleteState === 'confirming' ? 'Click again to confirm' : 'Delete symbol'}
-                    >
-                      {deleteState === 'deleting' ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </button>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                    <Sparkles className="w-12 h-12" />
-                    <p className="text-sm">No symbol generated</p>
-                    <p className="text-xs text-center px-4">
-                      Click the button below to generate a CAD symbol
-                    </p>
-                  </div>
-                )}
-              </div>
+              <SymbolGallery
+                fossPid={product.foss_pid}
+                pngPath={displayPngPath}
+                svgPath={displaySvgPath}
+                deleteState={deleteState}
+                onDelete={displayPngPath || displaySvgPath ? handleDeleteClick : undefined}
+              />
 
               {/* Generation Actions */}
               <div className="flex justify-center pt-2">

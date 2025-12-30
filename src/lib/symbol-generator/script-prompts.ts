@@ -245,7 +245,70 @@ Origin: Center (0,0)
 8. **SAVEAS REQUIRED**: Script MUST end with SAVEAS command - without it, no DWG output!
 9. **PNGOUT REQUIRED**: Export PNG before SAVEAS using \`(command "PNGOUT" "Symbol.png" "ALL" "")\`
 
-Now convert the following symbol specification to an AutoLISP script:
+Now convert the following symbol specification to an AutoLISP script AND an SVG representation.
+
+---
+
+## SVG Output Requirements
+
+In addition to the AutoLISP script, generate an SVG representation of the same symbol.
+
+### SVG Format
+
+\`\`\`svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Symbol geometry here -->
+</svg>
+\`\`\`
+
+### SVG Rules
+
+1. **ViewBox**: Always use viewBox="0 0 100 100" (100mm × 100mm)
+2. **Center**: All geometry centered at (50, 50)
+3. **Scaling**: Scale symbol to fit within 80% of viewBox (radius ~40 for boundary)
+4. **Colors**: Map DXF colors to hex:
+   - White (7) → #FFFFFF
+   - Cyan (4) → #00FFFF
+   - Yellow (2) → #FFFF00
+   - Red (1) → #FF0000
+   - Green (3) → #00FF00
+   - Blue (5) → #0000FF
+   - Magenta (6) → #FF00FF
+5. **Strokes**:
+   - stroke-width="0.5" for normal lines
+   - stroke-dasharray="3,2" for DASHED linetype
+   - fill="none" for all shapes
+6. **Center Mark**:
+   - 6mm total width (3mm arms from center)
+   - Draw at (50, 50)
+
+### SVG Example
+
+For a recessed downlight with 163mm boundary, 150mm cutout, 130mm aperture:
+
+\`\`\`svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Boundary (LUM-OUTLINE, White) -->
+  <circle cx="50" cy="50" r="40" stroke="#FFFFFF" stroke-width="0.5" fill="none"/>
+
+  <!-- Cutout (LUM-CUTOUT, Cyan, Dashed) -->
+  <circle cx="50" cy="50" r="36.8" stroke="#00FFFF" stroke-width="0.5" fill="none" stroke-dasharray="3,2"/>
+
+  <!-- Aperture (LUM-APERTURE, Yellow) -->
+  <circle cx="50" cy="50" r="31.9" stroke="#FFFF00" stroke-width="0.5" fill="none"/>
+
+  <!-- Center Mark (LUM-CENTER, White) -->
+  <line x1="47" y1="50" x2="53" y2="50" stroke="#FFFFFF" stroke-width="0.3"/>
+  <line x1="50" y1="47" x2="50" y2="53" stroke="#FFFFFF" stroke-width="0.3"/>
+</svg>
+\`\`\`
+
+**Scaling calculation**:
+- Boundary 163mm → scale factor = 80/163 ≈ 0.49
+- Apply same scale to all dimensions
+- All radii: (original_diameter / 2) × scale_factor
+
+---
 `
 
 /**
@@ -255,14 +318,26 @@ export function buildSymbolScriptPrompt(
   spec: string,
   fossPid: string
 ): string {
-  return `Convert this Symbol Specification to an AutoLISP script.
+  return `Convert this Symbol Specification to BOTH an AutoLISP script AND an SVG.
 
 **FOSS_PID**: ${fossPid}
-**Output Files**: Symbol.dwg, Symbol.png
+**Output Files**: Symbol.dwg, Symbol.png (from AutoLISP)
 
 ## Symbol Specification
 
 ${spec}
 
-Generate the complete .scr script following the format from your instructions. Wrap the script in a \`\`\`lisp code block.`
+## Required Output
+
+Generate TWO code blocks:
+
+1. **AutoLISP Script** (\`\`\`lisp block):
+   - Complete .scr script following the format from your instructions
+   - Must end with PNGOUT and SAVEAS commands
+
+2. **SVG Symbol** (\`\`\`svg block):
+   - Same symbol as the LISP but in SVG format
+   - ViewBox 0 0 100 100, centered at (50,50)
+   - Scale to fit within 80% of viewBox
+   - Use hex colors matching DXF codes`
 }

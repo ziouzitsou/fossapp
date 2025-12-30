@@ -11,7 +11,6 @@ import {
   Package,
   Eye,
   Grid2X2,
-  Sparkles,
   ChevronRight,
   FolderPlus,
 } from 'lucide-react'
@@ -147,13 +146,6 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       }
     })
   }, [addToBucket, isInBucket, onOpenChange, router])
-
-  const handleOpenInSymbolGenerator = useCallback((product: ProductInfo, e?: React.MouseEvent) => {
-    e?.stopPropagation()
-    onOpenChange(false)
-    // Navigate to symbol generator with product ID as query param
-    router.push(`/symbol-generator?pid=${product.product_id}`)
-  }, [onOpenChange, router])
 
   const handleOpenDeeplink = useCallback((product: ProductInfo, e?: React.MouseEvent) => {
     e?.stopPropagation()
@@ -365,14 +357,6 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                           >
                             <Grid2X2 className="h-3.5 w-3.5" />
                             {inBucket ? 'In Tiles' : 'Add to Tiles'}
-                          </button>
-
-                          <button
-                            onClick={(e) => handleOpenInSymbolGenerator(product, e)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-                          >
-                            <Sparkles className="h-3.5 w-3.5" />
-                            Symbol Generator
                           </button>
 
                           <Popover

@@ -31,6 +31,7 @@ export interface LLMMessage {
 export interface ScriptGenerationResult {
   success: boolean
   script?: string
+  svg?: string  // SVG markup for web display
   rawResponse?: string
   error?: string
   model: string
@@ -123,19 +124,24 @@ async function callLLM(
 }
 
 /**
- * Extract AutoLISP script from LLM response
+ * Extract AutoLISP script and SVG from LLM response
  */
-export function extractScript(response: string): string {
-  const patterns = [
+export interface ExtractedContent {
+  script: string | null
+  svg: string | null
+}
+
+export function extractScript(response: string): ExtractedContent {
+  // --- Extract AutoLISP script ---
+  const lispPatterns = [
     /```lisp\n([\s\S]*?)```/,
     /```autolisp\n([\s\S]*?)```/,
     /```scr\n([\s\S]*?)```/,
-    /```\n([\s\S]*?)```/,
   ]
 
   let script: string | null = null
 
-  for (const pattern of patterns) {
+  for (const pattern of lispPatterns) {
     const match = response.match(pattern)
     if (match) {
       script = match[1].trim()
@@ -143,26 +149,60 @@ export function extractScript(response: string): string {
     }
   }
 
-  // Fallback: if response starts with AutoLISP code
+  // Fallback: if response starts with AutoLISP code (no code block)
   if (!script) {
     const trimmed = response.trim()
     if (trimmed.startsWith('(setvar') || trimmed.startsWith(';')) {
-      script = trimmed
+      // Find where AutoLISP ends (before any SVG or markdown)
+      const svgIndex = trimmed.indexOf('<svg')
+      script = svgIndex > 0 ? trimmed.slice(0, svgIndex).trim() : trimmed
     }
   }
 
+  // --- Extract SVG ---
+  let svg: string | null = null
+  const svgMatch = response.match(/```svg\n([\s\S]*?)```/)
+  if (svgMatch) {
+    svg = svgMatch[1].trim()
+  } else {
+    // Fallback: raw <svg>...</svg> tag
+    const rawSvgMatch = response.match(/<svg[^>]*>[\s\S]*?<\/svg>/)
+    if (rawSvgMatch) {
+      svg = rawSvgMatch[0].trim()
+    }
+  }
+
+  // Validate SVG if extracted
+  if (svg) {
+    if (!svg.includes('viewBox') || !svg.includes('</svg>')) {
+      console.log('[symbol-script] Invalid SVG detected, discarding')
+      svg = null
+    }
+  }
+
+  // --- Post-process script ---
+  if (script) {
+    // CRITICAL: Always append SAVEAS command at the end
+    // LLMs often forget this even when explicitly instructed
+    // Double SAVEAS won't hurt - AutoCAD will just save twice
+    console.log('[symbol-script] Appending SAVEAS command to script')
+    script = script.trimEnd()
+    script += '\n\n; === AUTO-ADDED: Required output commands ===\n'
+    script += '(command "SAVEAS" "2018" "Symbol.dwg")\n'
+  }
+
+  return { script, svg }
+}
+
+/**
+ * Legacy function for backward compatibility - extracts just the script
+ * @deprecated Use extractScript().script instead
+ */
+export function extractScriptOnly(response: string): string {
+  const { script } = extractScript(response)
   if (!script) {
     throw new Error('Could not extract script from LLM response')
   }
-
-  // CRITICAL: Always append SAVEAS command at the end
-  // LLMs often forget this even when explicitly instructed
-  // Double SAVEAS won't hurt - AutoCAD will just save twice
-  console.log('[symbol-script] Appending SAVEAS command to script')
-  script = script.trimEnd()
-  script += '\n\n; === AUTO-ADDED: Required output commands ===\n'
-  script += '(command "SAVEAS" "2018" "Symbol.dwg")\n'
-
   return script
 }
 
@@ -226,11 +266,16 @@ export async function generateSymbolScript(
       result.tokensOut += tokensOut
       result.rawResponse = content
 
-      const script = extractScript(content)
+      const { script, svg } = extractScript(content)
+      if (!script) {
+        throw new Error('Could not extract script from LLM response')
+      }
       result.script = script
+      result.svg = svg ?? undefined
       result.success = true
 
-      onProgress?.(attempt, modelName, `Script generated (${script.length} chars)`)
+      const svgInfo = svg ? `, SVG: ${svg.length} chars` : ''
+      onProgress?.(attempt, modelName, `Script generated (${script.length} chars${svgInfo})`)
       return result
 
     } catch (error) {
@@ -319,11 +364,16 @@ Generate a corrected .scr script.`,
     result.tokensOut = tokensOut
     result.rawResponse = content
 
-    const script = extractScript(content)
+    const { script, svg } = extractScript(content)
+    if (!script) {
+      throw new Error('Could not extract script from LLM response')
+    }
     result.script = script
+    result.svg = svg ?? undefined
     result.success = true
 
-    onProgress?.('Opus', `Script corrected (${script.length} chars)`)
+    const svgInfo = svg ? `, SVG: ${svg.length} chars` : ''
+    onProgress?.('Opus', `Script corrected (${script.length} chars${svgInfo})`)
 
   } catch (error) {
     result.error = error instanceof Error ? error.message : String(error)

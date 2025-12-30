@@ -17,6 +17,7 @@ interface SymbolProgressProps {
     success: boolean
     savedToSupabase?: boolean
     pngPath?: string
+    svgPath?: string
   }) => void
 }
 
@@ -106,6 +107,7 @@ export function SymbolProgress({ jobId, onComplete }: SymbolProgressProps) {
               success: true,
               savedToSupabase: msg.result.savedToSupabase,
               pngPath: msg.result.pngPath,
+              svgPath: msg.result.svgPath,
             })
           }
         }

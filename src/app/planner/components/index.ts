@@ -6,3 +6,4 @@
 export { ProductsGrid } from './products-grid'
 export { FloorPlanCard } from './floor-plan-card'
 export { SymbolModal } from './symbol-modal'
+export { SymbolGallery } from './symbol-gallery'

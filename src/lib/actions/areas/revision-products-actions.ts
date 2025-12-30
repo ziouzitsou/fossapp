@@ -104,8 +104,9 @@ export interface AreaRevisionProduct {
   symbol_code?: string      // Letter code: A, B, C...
   symbol_sequence?: number  // Sequence: 1, 2, 3...
   symbol?: string           // Combined: A1, B2, C3...
-  // Symbol drawing (from items.product_symbols)
-  symbol_svg_path?: string  // Path in product-symbols bucket
+  // Symbol drawings (from items.product_symbols)
+  symbol_png_path?: string  // PNG path in product-symbols bucket (DWG screenshot)
+  symbol_svg_path?: string  // SVG path in product-symbols bucket (web vector)
 }
 
 /**
@@ -139,19 +140,21 @@ export async function listAreaRevisionProductsAction(
     // Get unique foss_pids to look up symbol drawings
     const fossPids = [...new Set(products.map((p: { foss_pid: string }) => p.foss_pid).filter(Boolean))]
 
-    // Fetch symbol drawings for these products (PNG from product-symbols bucket)
-    let symbolDrawings: Record<string, string> = {}
+    // Fetch symbol drawings for these products (PNG and SVG from product-symbols bucket)
+    let symbolDrawings: Record<string, { pngPath?: string; svgPath?: string }> = {}
     if (fossPids.length > 0) {
       const { data: symbols } = await supabaseServer
         .schema('items')
         .from('product_symbols')
-        .select('foss_pid, png_path')
+        .select('foss_pid, png_path, svg_path')
         .in('foss_pid', fossPids)
-        .not('png_path', 'is', null)
 
       if (symbols) {
         symbolDrawings = Object.fromEntries(
-          symbols.map((s: { foss_pid: string; png_path: string }) => [s.foss_pid, s.png_path])
+          symbols.map((s: { foss_pid: string; png_path?: string; svg_path?: string }) => [
+            s.foss_pid,
+            { pngPath: s.png_path || undefined, svgPath: s.svg_path || undefined }
+          ])
         )
       }
     }
@@ -195,8 +198,9 @@ export async function listAreaRevisionProductsAction(
         symbol_code: p.category_code ?? undefined,
         symbol_sequence: p.symbol_sequence ?? undefined,
         symbol: p.symbol ?? undefined,
-        // Symbol drawing
-        symbol_svg_path: symbolDrawings[p.foss_pid] ?? undefined
+        // Symbol drawings
+        symbol_png_path: symbolDrawings[p.foss_pid]?.pngPath,
+        symbol_svg_path: symbolDrawings[p.foss_pid]?.svgPath
       }
     })
 

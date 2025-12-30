@@ -25,13 +25,15 @@ export interface LogMessage {
     tokensIn?: number
     tokensOut?: number
     savedToSupabase?: boolean
+    dwgPath?: string
     pngPath?: string
+    svgPath?: string
   }
 }
 
 interface TerminalLogProps {
   jobId: string | null
-  onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; hasDwgBuffer?: boolean; hasPngBuffer?: boolean; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number; savedToSupabase?: boolean; pngPath?: string }) => void
+  onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; hasDwgBuffer?: boolean; hasPngBuffer?: boolean; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number; savedToSupabase?: boolean; dwgPath?: string; pngPath?: string; svgPath?: string }) => void
   onClose?: () => void
   className?: string
 }
@@ -126,7 +128,9 @@ export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalL
                 tokensIn: msg.result.tokensIn,
                 tokensOut: msg.result.tokensOut,
                 savedToSupabase: msg.result.savedToSupabase,
+                dwgPath: msg.result.dwgPath,
                 pngPath: msg.result.pngPath,
+                svgPath: msg.result.svgPath,
               })
             } else {
               // Fallback: parse drive link from all messages

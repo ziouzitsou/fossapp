@@ -24,8 +24,10 @@ export interface ProgressMessage {
     llmModel?: string // Model used (e.g., "anthropic/claude-sonnet-4")
     tokensIn?: number // Input tokens used
     tokensOut?: number // Output tokens used
-    savedToSupabase?: boolean // Indicates PNG was saved to Supabase storage
-    pngPath?: string // Path in product-symbols bucket (symbol generator)
+    savedToSupabase?: boolean // Indicates files were saved to Supabase storage
+    dwgPath?: string // Path to DWG in product-symbols bucket
+    pngPath?: string // Path to PNG in product-symbols bucket
+    svgPath?: string // Path to SVG in product-symbols bucket (for web markers)
   }
 }
 
@@ -49,7 +51,9 @@ export interface JobProgress {
     tokensIn?: number
     tokensOut?: number
     savedToSupabase?: boolean
+    dwgPath?: string
     pngPath?: string
+    svgPath?: string
   }
   dwgBuffer?: Buffer // Temporary storage for playground downloads
   pngBuffer?: Buffer // Temporary storage for symbol PNG downloads
@@ -126,7 +130,7 @@ export function addProgress(
 export function completeJob(
   jobId: string,
   success: boolean,
-  result?: { dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; errors?: string[]; dwgBuffer?: Buffer; pngBuffer?: Buffer; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number; savedToSupabase?: boolean; pngPath?: string },
+  result?: { dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; errors?: string[]; dwgBuffer?: Buffer; pngBuffer?: Buffer; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number; savedToSupabase?: boolean; dwgPath?: string; pngPath?: string; svgPath?: string },
   customDetail?: string
 ): void {
   const job = jobs.get(jobId)

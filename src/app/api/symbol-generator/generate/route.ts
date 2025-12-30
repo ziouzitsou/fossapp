@@ -163,13 +163,39 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
       lastScript = llmResult.script
       // Note: SAVEAS is already injected by extractScript() in script-service.ts
 
+      const svgInfo = llmResult.svg ? `, SVG: ${llmResult.svg.length} chars` : ''
       addProgress(
         jobId,
         'llm',
         'Script generated',
-        `${lastScript.length} chars, cost: $${llmResult.totalCost.toFixed(4)}`,
+        `${lastScript.length} chars${svgInfo}, cost: $${llmResult.totalCost.toFixed(4)}`,
         `Attempt ${totalAttempts}`
       )
+
+      // Save SVG early if available (independent of APS)
+      let svgPath: string | undefined
+      if (llmResult.svg && payload.saveToSupabase) {
+        try {
+          svgPath = `${fossPid}/symbol.svg`
+          const { error: svgUploadError } = await supabaseServer
+            .storage
+            .from('product-symbols')
+            .upload(svgPath, llmResult.svg, {
+              contentType: 'image/svg+xml',
+              upsert: true,
+            })
+
+          if (svgUploadError) {
+            console.error('[symbol-generator] SVG upload failed:', svgUploadError.message)
+            svgPath = undefined
+          } else {
+            addProgress(jobId, 'storage', 'SVG saved', svgPath, `Attempt ${totalAttempts}`)
+          }
+        } catch (svgError) {
+          console.error('[symbol-generator] SVG save error:', svgError)
+          svgPath = undefined
+        }
+      }
 
       // --- Phase 2: APS Execution ---
       addProgress(
@@ -194,24 +220,47 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
 
         // Save to Supabase if requested
         let savedToSupabase = false
+        let dwgPath: string | undefined
         let pngPath: string | undefined
 
-        if (payload.saveToSupabase && apsResult.pngBuffer) {
+        if (payload.saveToSupabase) {
           addProgress(jobId, 'storage', 'Saving to Supabase...', fossPid)
 
           try {
-            // Upload PNG to Supabase storage
-            pngPath = `${fossPid}/symbol.png`
-            const { error: uploadError } = await supabaseServer
+            // Upload DWG to Supabase storage
+            dwgPath = `${fossPid}/symbol.dwg`
+            const { error: dwgUploadError } = await supabaseServer
               .storage
               .from('product-symbols')
-              .upload(pngPath, apsResult.pngBuffer, {
-                contentType: 'image/png',
+              .upload(dwgPath, apsResult.dwgBuffer, {
+                contentType: 'application/octet-stream',
                 upsert: true,
               })
 
-            if (uploadError) {
-              throw new Error(`Upload failed: ${uploadError.message}`)
+            if (dwgUploadError) {
+              console.error('[symbol-generator] DWG upload failed:', dwgUploadError.message)
+              dwgPath = undefined
+            } else {
+              addProgress(jobId, 'storage', 'DWG saved', dwgPath)
+            }
+
+            // Upload PNG to Supabase storage (if available)
+            if (apsResult.pngBuffer) {
+              pngPath = `${fossPid}/symbol.png`
+              const { error: pngUploadError } = await supabaseServer
+                .storage
+                .from('product-symbols')
+                .upload(pngPath, apsResult.pngBuffer, {
+                  contentType: 'image/png',
+                  upsert: true,
+                })
+
+              if (pngUploadError) {
+                console.error('[symbol-generator] PNG upload failed:', pngUploadError.message)
+                pngPath = undefined
+              } else {
+                addProgress(jobId, 'storage', 'PNG saved', pngPath)
+              }
             }
 
             // Save metadata to product_symbols table
@@ -220,7 +269,9 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
               .from('product_symbols')
               .upsert({
                 foss_pid: fossPid,
-                png_path: pngPath,
+                dwg_path: dwgPath || null,
+                png_path: pngPath || null,
+                svg_path: svgPath || null,
                 generated_at: new Date().toISOString(),
                 generation_model: llmResult.model,
               }, {
@@ -231,8 +282,10 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
               throw new Error(`DB save failed: ${dbError.message}`)
             }
 
-            savedToSupabase = true
-            addProgress(jobId, 'storage', 'Saved to Supabase', pngPath)
+            savedToSupabase = !!(dwgPath || pngPath || svgPath)
+            if (savedToSupabase) {
+              addProgress(jobId, 'storage', 'Metadata saved to database', fossPid)
+            }
           } catch (storageError) {
             const msg = storageError instanceof Error ? storageError.message : 'Unknown error'
             addProgress(jobId, 'error', 'Supabase save failed', msg)
@@ -240,6 +293,7 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
           }
         }
 
+        const savedFiles = [dwgPath && 'DWG', pngPath && 'PNG', svgPath && 'SVG'].filter(Boolean).join(', ')
         completeJob(jobId, true, {
           dwgBuffer: apsResult.dwgBuffer,
           pngBuffer: apsResult.pngBuffer,
@@ -249,8 +303,10 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
           tokensIn: llmResult.tokensIn,
           tokensOut: llmResult.tokensOut,
           savedToSupabase,
+          dwgPath,
           pngPath,
-        }, `DWG: ${dwgSizeKb} KB, PNG: ${pngSizeKb} KB, ${totalAttempts} attempt(s), cost: €${eurCost.toFixed(4)}${savedToSupabase ? ', saved to Supabase' : ''}`)
+          svgPath,
+        }, `DWG: ${dwgSizeKb} KB, PNG: ${pngSizeKb} KB, ${totalAttempts} attempt(s), cost: €${eurCost.toFixed(4)}${savedToSupabase ? ` (${savedFiles} saved)` : ''}`)
         return
       }
 
