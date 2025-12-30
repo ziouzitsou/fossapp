@@ -559,21 +559,22 @@ export class MarkupMarkers {
     const dataUnit = svg.getAttribute('data-unit')
     const isRealMm = dataUnit === 'mm'
 
-    // Conversion factor: SVG mm → model units
-    // Formula: mm * 0.001 (to meters) / modelUnitScale (meters to model units)
+    // Conversion factor: SVG mm → markup SVG units
+    // Includes the 0.5 correction for non-meter DWGs (see upgradeToSvgMarker comment)
     const mmToModelUnits = MM_TO_METERS / this.modelUnitScale
+    const markupScaleCorrection = this.modelUnitScale === 1 ? 1 : 0.5
 
     if (isRealMm) {
-      // New format: viewBox values ARE millimeters, convert to model units
+      // New format: viewBox values ARE millimeters, convert to markup units
       return {
-        width: vbWidth * mmToModelUnits,
-        height: vbHeight * mmToModelUnits,
+        width: vbWidth * mmToModelUnits * markupScaleCorrection,
+        height: vbHeight * mmToModelUnits * markupScaleCorrection,
         isRealMm: true
       }
     } else {
       // Legacy format: 100x100 normalized viewBox = 100mm
-      // Convert to model units using same scale
-      const legacySizeModelUnits = LEGACY_SYMBOL_SIZE_M / this.modelUnitScale
+      // Convert to markup units using same scale
+      const legacySizeModelUnits = LEGACY_SYMBOL_SIZE_M / this.modelUnitScale * markupScaleCorrection
       const maxDim = Math.max(vbWidth, vbHeight)
       const scale = legacySizeModelUnits / maxDim
       return {
@@ -622,13 +623,23 @@ export class MarkupMarkers {
     group.setAttribute('data-symbol-width', String(dimensions.width))
     group.setAttribute('data-symbol-height', String(dimensions.height))
 
-    // TRUE SCALE: Calculate scale to convert viewBox units to model units
-    // For real-mm SVGs: 1 viewBox unit = 1mm → convert using mmToModelUnits
-    // For legacy SVGs: scale to fit within legacy size in model units
+    // TRUE SCALE: Calculate scale to convert viewBox units to markup SVG units
+    //
+    // IMPORTANT: MarkupsCore SVG coordinate system has a 2x relationship with model units
+    // for non-meter DWGs. Empirically determined: when DWG is in mm (unitScale=0.001),
+    // the markups layer uses 0.5mm per SVG unit, not 1mm.
+    //
+    // Formula: scale = MM_TO_METERS / modelUnitScale / 2
+    //   - For meters (unitScale=1): 0.001 / 1 / 2 = 0.0005 (but we use 0.001, see below)
+    //   - For mm (unitScale=0.001): 0.001 / 0.001 / 2 = 0.5
+    //
+    // Note: The /2 correction is only needed for non-meter DWGs. For meters, the
+    // markups layer is 1:1 with model space.
     const mmToModelUnits = MM_TO_METERS / this.modelUnitScale
+    const markupScaleCorrection = this.modelUnitScale === 1 ? 1 : 0.5
     const scale = dimensions.isRealMm
-      ? mmToModelUnits  // 1mm → model units
-      : (LEGACY_SYMBOL_SIZE_M / this.modelUnitScale) / Math.max(vbWidth, vbHeight)
+      ? mmToModelUnits * markupScaleCorrection
+      : (LEGACY_SYMBOL_SIZE_M / this.modelUnitScale) * markupScaleCorrection / Math.max(vbWidth, vbHeight)
 
     // Center the symbol (offset by half the scaled size)
     const offsetX = -(vbWidth * scale) / 2
@@ -670,7 +681,12 @@ export class MarkupMarkers {
     // Log with dimensions converted back to mm for readability
     const widthMm = dimensions.width * this.modelUnitScale / MM_TO_METERS
     const heightMm = dimensions.height * this.modelUnitScale / MM_TO_METERS
-    console.log(`[MarkupMarkers] Upgraded marker to SVG: ${markerId} (${dimensions.isRealMm ? 'real-mm' : 'legacy'}, ${widthMm.toFixed(0)}x${heightMm.toFixed(0)}mm in model units: ${dimensions.width.toFixed(4)}x${dimensions.height.toFixed(4)})`)
+    console.log(`[MarkupMarkers] Upgraded marker to SVG: ${markerId}`)
+    console.log(`  - Format: ${dimensions.isRealMm ? 'real-mm' : 'legacy'}, viewBox: ${vbWidth}x${vbHeight}`)
+    console.log(`  - modelUnitScale: ${this.modelUnitScale} (${this.modelUnitScale === 1 ? 'meters' : this.modelUnitScale === 0.001 ? 'mm' : 'other'})`)
+    console.log(`  - mmToModelUnits: ${mmToModelUnits}, scale: ${scale}`)
+    console.log(`  - Dimensions: ${widthMm.toFixed(0)}x${heightMm.toFixed(0)}mm → ${dimensions.width.toFixed(4)}x${dimensions.height.toFixed(4)} model units`)
+    console.log(`  - Transform: translate(${offsetX.toFixed(4)}, ${(-offsetY).toFixed(4)}) scale(${scale}, ${-scale})`)
   }
 
   /**

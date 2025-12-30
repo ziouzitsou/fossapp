@@ -374,6 +374,7 @@ export function PlannerViewer({
                 }
                 modelUnitScale = unitInfo.unitScale
                 console.log('[PlannerViewer] DWG unit info:', unitInfo)
+                console.log('[PlannerViewer] Raw getUnitScale():', model.getUnitScale?.())
                 // Store unit string for coordinate display
                 setDwgUnitString(unitInfo.modelUnits || unitInfo.unitString)
                 onUnitInfoAvailableRef.current?.(unitInfo)
