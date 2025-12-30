@@ -207,9 +207,9 @@ CREATE TABLE items.product_symbols (
   symbol_code CHAR(1),                     -- Current classification (can change)
 
   -- Storage paths (relative to bucket)
-  dwg_path TEXT,                           -- '{foss_pid}/symbol.dwg'
-  png_path TEXT,                           -- '{foss_pid}/symbol.png'
-  svg_path TEXT,                           -- '{foss_pid}/symbol.svg' (optional)
+  dwg_path TEXT,                           -- '{foss_pid}/{foss_pid}-SYMBOL.dwg'
+  png_path TEXT,                           -- '{foss_pid}/{foss_pid}-SYMBOL.png'
+  svg_path TEXT,                           -- '{foss_pid}/{foss_pid}-SYMBOL.svg'
 
   -- Generation metadata
   generated_at TIMESTAMPTZ,
@@ -235,13 +235,13 @@ CREATE INDEX idx_product_symbols_foss_pid ON items.product_symbols(foss_pid);
 ```
 Bucket: product-symbols/
 ├── DT20229692W/
-│   ├── symbol.dwg          # AutoCAD 2018 format
-│   ├── symbol.png          # Preview image
-│   └── symbol.svg          # Web-friendly (optional)
+│   ├── DT20229692W-SYMBOL.dwg   # AutoCAD 2018 format
+│   ├── DT20229692W-SYMBOL.png   # Preview image
+│   └── DT20229692W-SYMBOL.svg   # Web-friendly vector
 ├── DT20229693W/
-│   ├── symbol.dwg
-│   ├── symbol.png
-│   └── symbol.svg
+│   ├── DT20229693W-SYMBOL.dwg
+│   ├── DT20229693W-SYMBOL.png
+│   └── DT20229693W-SYMBOL.svg
 └── ...
 ```
 
