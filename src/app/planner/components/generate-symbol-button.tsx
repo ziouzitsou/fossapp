@@ -1,0 +1,271 @@
+'use client'
+
+/**
+ * Generate Symbol Button
+ *
+ * Stateful button that transforms through generation phases:
+ * - idle: "Generate Symbol" / "Regenerate Symbol"
+ * - fetching: "Fetching..."
+ * - analyzing: "Analyzing..."
+ * - generating: Shows current sub-step (AutoLISP / AutoCAD / Saving)
+ * - success: Shows total cost (EUR) and time - click to dismiss
+ * - error: Shows error message in red - click to dismiss
+ */
+
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { Button } from '@fossapp/ui'
+import { cn } from '@fossapp/ui'
+import {
+  Sparkles,
+  Loader2,
+  RefreshCw,
+  Check,
+  AlertCircle,
+  Eye,
+  Cpu,
+  Database,
+  Pencil,
+} from 'lucide-react'
+import type { ProductInfo } from '@fossapp/products/types'
+import type { LogMessage } from '@/components/tiles/terminal-log'
+import { extractDimensions } from '@/lib/symbol-generator/dimension-utils'
+
+// Generation phases
+type Phase =
+  | 'idle'
+  | 'fetching'
+  | 'analyzing'
+  | 'generating:llm'      // Generating AutoLISP
+  | 'generating:aps'      // Running AutoCAD
+  | 'generating:storage'  // Saving symbol
+  | 'success'
+  | 'error'
+
+interface GenerateSymbolButtonProps {
+  product: {
+    id: string
+    product_id: string
+    foss_pid: string
+    symbol?: string | null
+    symbol_png_path?: string | null
+    symbol_svg_path?: string | null
+  }
+  fullProduct: ProductInfo | null
+  onFetchProduct: () => Promise<ProductInfo | null>
+  onSuccess: (result: {
+    pngPath?: string
+    svgPath?: string
+    savedToSupabase?: boolean
+  }) => void
+  hasExistingSymbol: boolean
+  className?: string
+}
+
+// Phase labels and icons
+const PHASE_CONFIG: Record<string, { label: string; icon: React.ElementType }> = {
+  idle: { label: 'Generate Symbol', icon: Sparkles },
+  fetching: { label: 'Fetching...', icon: Loader2 },
+  analyzing: { label: 'Analyzing...', icon: Eye },
+  'generating:llm': { label: 'Generating AutoLISP...', icon: Pencil },
+  'generating:aps': { label: 'Running AutoCAD...', icon: Cpu },
+  'generating:storage': { label: 'Saving symbol...', icon: Database },
+  success: { label: 'Done', icon: Check },
+  error: { label: 'Failed', icon: AlertCircle },
+}
+
+export function GenerateSymbolButton({
+  product,
+  fullProduct,
+  onFetchProduct,
+  onSuccess,
+  hasExistingSymbol,
+  className,
+}: GenerateSymbolButtonProps) {
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [error, setError] = useState<string | null>(null)
+  const [successInfo, setSuccessInfo] = useState<{ cost: number; duration: number } | null>(null)
+  const [jobId, setJobId] = useState<string | null>(null)
+
+  // Track costs from both phases
+  const analyzeCostRef = useRef<number>(0)
+  const startTimeRef = useRef<number>(0)
+
+  // Reset when product changes
+  useEffect(() => {
+    setPhase('idle')
+    setError(null)
+    setSuccessInfo(null)
+    setJobId(null)
+    analyzeCostRef.current = 0
+    startTimeRef.current = 0
+  }, [product.id])
+
+  // SSE subscription for generation progress
+  useEffect(() => {
+    if (!jobId) return
+
+    const eventSource = new EventSource(`/api/tiles/stream/${jobId}`)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const msg: LogMessage = JSON.parse(event.data)
+
+        // Update phase based on SSE messages
+        if (msg.phase === 'llm') {
+          setPhase('generating:llm')
+        } else if (msg.phase === 'aps') {
+          setPhase('generating:aps')
+        } else if (msg.phase === 'storage') {
+          setPhase('generating:storage')
+        } else if (msg.phase === 'complete' && msg.result) {
+          const duration = (Date.now() - startTimeRef.current) / 1000
+          const totalCost = (analyzeCostRef.current || 0) + (msg.result.costEur || 0)
+
+          setPhase('success')
+          setSuccessInfo({ cost: totalCost, duration })
+
+          onSuccess({
+            pngPath: msg.result.pngPath,
+            svgPath: msg.result.svgPath,
+            savedToSupabase: msg.result.savedToSupabase,
+          })
+          eventSource.close()
+        } else if (msg.phase === 'error') {
+          setPhase('error')
+          setError(msg.message || 'Generation failed')
+          eventSource.close()
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    eventSource.addEventListener('done', () => {
+      eventSource.close()
+    })
+
+    eventSource.onerror = () => {
+      eventSource.close()
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [jobId, onSuccess])
+
+  const handleClick = useCallback(async () => {
+    // If in success or error state, clicking resets to idle
+    if (phase === 'success' || phase === 'error') {
+      setPhase('idle')
+      setError(null)
+      setSuccessInfo(null)
+      setJobId(null)
+      return
+    }
+
+    // Don't allow clicking during active generation
+    if (phase !== 'idle') return
+
+    // Start generation
+    startTimeRef.current = Date.now()
+    analyzeCostRef.current = 0
+    setError(null)
+    setSuccessInfo(null)
+
+    try {
+      // Phase 1: Fetch product if needed
+      setPhase('fetching')
+      let productData = fullProduct
+      if (!productData) {
+        productData = await onFetchProduct()
+        if (!productData) {
+          throw new Error('Failed to fetch product details')
+        }
+      }
+
+      // Phase 2: Vision analysis
+      setPhase('analyzing')
+      const analyzeResponse = await fetch('/api/symbol-generator/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: productData }),
+      })
+
+      const analysisResult = await analyzeResponse.json()
+
+      if (!analysisResult.success || !analysisResult.description) {
+        throw new Error(analysisResult.error || 'Vision analysis failed')
+      }
+
+      // Capture analyze cost (convert USD to EUR roughly, actual conversion in generate)
+      analyzeCostRef.current = analysisResult.costUsd * 0.92 // Approximate EUR
+
+      // Phase 3: Start generation (sets jobId, SSE takes over)
+      setPhase('generating:llm')
+      const dims = extractDimensions(productData)
+
+      const generateResponse = await fetch('/api/symbol-generator/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product: productData,
+          spec: analysisResult.description,
+          dimensions: dims,
+          saveToSupabase: true,
+        }),
+      })
+
+      const generateResult = await generateResponse.json()
+
+      if (!generateResult.success || !generateResult.jobId) {
+        throw new Error('Failed to start generation')
+      }
+
+      setJobId(generateResult.jobId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+      setPhase('error')
+    }
+  }, [phase, fullProduct, onFetchProduct])
+
+  // Determine button appearance based on phase
+  const isLoading = phase !== 'idle' && phase !== 'success' && phase !== 'error'
+  const isSuccess = phase === 'success'
+  const isError = phase === 'error'
+
+  // Get current phase config
+  const config = PHASE_CONFIG[phase] || PHASE_CONFIG.idle
+  const Icon = config.icon
+
+  // Build label
+  let label = config.label
+  if (phase === 'idle' && hasExistingSymbol) {
+    label = 'Regenerate Symbol'
+  } else if (isSuccess && successInfo) {
+    label = `€${successInfo.cost.toFixed(4)} · ${successInfo.duration.toFixed(1)}s`
+  } else if (isError && error) {
+    // Truncate long errors
+    label = error.length > 40 ? error.slice(0, 37) + '...' : error
+  }
+
+  return (
+    <Button
+      onClick={handleClick}
+      size="lg"
+      disabled={isLoading}
+      variant={isError ? 'destructive' : isSuccess ? 'outline' : 'default'}
+      className={cn(
+        'w-full transition-all duration-200',
+        isSuccess && 'bg-emerald-500/10 border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400',
+        isError && 'cursor-pointer', // Allow click to dismiss
+        className
+      )}
+    >
+      <Icon className={cn('w-4 h-4 mr-2', isLoading && 'animate-spin')} />
+      {label}
+      {(isSuccess || isError) && (
+        <span className="ml-2 text-xs opacity-60">(click to dismiss)</span>
+      )}
+    </Button>
+  )
+}

@@ -13,14 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@fossapp/ui'
-import { Badge, Button } from '@fossapp/ui'
+import { Badge } from '@fossapp/ui'
 import { cn } from '@fossapp/ui'
-import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, Ruler, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Loader2, Image as ImageIcon, Ruler, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 import Image from 'next/image'
 import type { AreaRevisionProduct } from '@/lib/actions/areas/revision-products-actions'
-import { SymbolProgress } from './symbol-progress'
+import { GenerateSymbolButton } from './generate-symbol-button'
 import { SymbolGallery } from './symbol-gallery'
-import { extractDimensions } from '@/lib/symbol-generator/dimension-utils'
 import type { ProductInfo, Feature } from '@fossapp/products/types'
 import { hasDisplayableValue, getFeatureDisplayValue, FEATURE_GROUP_CONFIG } from '@/lib/utils/feature-utils'
 import { deleteProductSymbolAction } from '@/lib/actions/symbols'
@@ -32,8 +31,6 @@ interface SymbolModalProps {
   onSymbolGenerated?: () => void  // Callback when symbol is saved
 }
 
-type GenerationStep = 'idle' | 'fetching' | 'analyzing' | 'generating' | 'done' | 'error'
-
 // Media slide type for carousel
 interface MediaSlide {
   url: string
@@ -43,9 +40,7 @@ interface MediaSlide {
 }
 
 export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: SymbolModalProps) {
-  const [step, setStep] = useState<GenerationStep>('idle')
-  const [jobId, setJobId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // Generated symbol paths (updated on success)
   const [generatedPngPath, setGeneratedPngPath] = useState<string | null>(null)
   const [generatedSvgPath, setGeneratedSvgPath] = useState<string | null>(null)
 
@@ -62,9 +57,6 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
   // Reset state when modal opens with different product
   useEffect(() => {
     if (open && product) {
-      setStep('idle')
-      setJobId(null)
-      setError(null)
       setGeneratedPngPath(null)
       setGeneratedSvgPath(null)
       setFullProduct(null)
@@ -151,90 +143,35 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
     setFailedUrls(prev => new Set(prev).add(url))
   }
 
-  const handleGenerate = useCallback(async () => {
-    if (!product) return
+  // Handle successful generation - update paths and notify parent
+  const handleGenerationSuccess = useCallback((result: { pngPath?: string; svgPath?: string; savedToSupabase?: boolean }) => {
+    if (result.pngPath) {
+      setGeneratedPngPath(result.pngPath)
+      setSymbolCleared(false)
+    }
+    if (result.svgPath) {
+      setGeneratedSvgPath(result.svgPath)
+    }
+    onSymbolGenerated?.()
+  }, [onSymbolGenerated])
 
-    setStep('fetching')
-    setError(null)
-    setGeneratedPngPath(null)
-    setJobId(null)  // Reset to allow SymbolProgress to reset its state
+  // Fetch product for generation button (returns cached or fetches new)
+  const fetchProductForGeneration = useCallback(async (): Promise<ProductInfo | null> => {
+    if (fullProduct) return fullProduct
+    if (!product) return null
 
     try {
-      // Use cached fullProduct if available, otherwise fetch
-      let productData = fullProduct
-      if (!productData) {
-        const productResponse = await fetch(`/api/products/${product.product_id}`)
-        if (!productResponse.ok) {
-          throw new Error('Failed to fetch product details')
-        }
-        const { data } = await productResponse.json() as { data: ProductInfo }
-        productData = data
+      const response = await fetch(`/api/products/${product.product_id}`)
+      if (response.ok) {
+        const { data } = await response.json() as { data: ProductInfo }
         setFullProduct(data)
+        return data
       }
-
-      if (!productData) {
-        throw new Error('Product not found')
-      }
-
-      // Step 2: Vision analysis
-      setStep('analyzing')
-      const analyzeResponse = await fetch('/api/symbol-generator/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: productData }),
-      })
-
-      const analysisResult = await analyzeResponse.json()
-
-      if (!analysisResult.success || !analysisResult.description) {
-        throw new Error(analysisResult.error || 'Vision analysis failed')
-      }
-
-      // Step 3: Generate DWG + PNG
-      setStep('generating')
-      const dims = extractDimensions(productData)
-
-      const generateResponse = await fetch('/api/symbol-generator/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product: productData,
-          spec: analysisResult.description,
-          dimensions: dims,
-          saveToSupabase: true,
-        }),
-      })
-
-      const generateResult = await generateResponse.json()
-
-      if (!generateResult.success || !generateResult.jobId) {
-        throw new Error('Failed to start generation')
-      }
-
-      setJobId(generateResult.jobId)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
-      setStep('error')
+      console.error('Failed to fetch product:', err)
     }
-  }, [product, fullProduct])
-
-  // Handle job completion
-  const handleJobComplete = useCallback((result: { success: boolean; savedToSupabase?: boolean; pngPath?: string; svgPath?: string }) => {
-    if (result.success) {
-      if (result.pngPath) {
-        setGeneratedPngPath(result.pngPath)
-        setSymbolCleared(false)  // Clear the deleted state since we have a new symbol
-      }
-      if (result.svgPath) {
-        setGeneratedSvgPath(result.svgPath)
-      }
-      setStep('done')
-      onSymbolGenerated?.()
-    } else {
-      setStep('error')
-      setError('Generation failed - check logs above')
-    }
-  }, [onSymbolGenerated])
+    return null
+  }, [fullProduct, product])
 
   // Handle delete with two-step confirmation
   const handleDeleteClick = useCallback(async () => {
@@ -255,10 +192,9 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
         setGeneratedPngPath(null)
         setGeneratedSvgPath(null)
         setSymbolCleared(true)  // Show "No symbol generated" immediately
-        setStep('idle')
         onSymbolGenerated?.() // Refresh parent data
       } else {
-        setError(result.error || 'Failed to delete symbol')
+        console.error('Delete failed:', result.error)
       }
       setDeleteState('idle')
     }
@@ -418,55 +354,18 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
                 onDelete={displayPngPath || displaySvgPath ? handleDeleteClick : undefined}
               />
 
-              {/* Generation Actions */}
-              <div className="flex justify-center pt-2">
-                {step === 'idle' && (
-                  <Button onClick={handleGenerate} size="lg" className="w-full">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    {hasExistingSymbol ? 'Regenerate Symbol' : 'Generate Symbol'}
-                  </Button>
-                )}
-
-                {(step === 'fetching' || step === 'analyzing' || (step === 'generating' && !jobId)) && (
-                  <Button disabled size="lg" className="w-full">
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {step === 'fetching' && 'Fetching product...'}
-                    {step === 'analyzing' && 'Analyzing product...'}
-                    {step === 'generating' && 'Starting generation...'}
-                  </Button>
-                )}
-
-                {step === 'done' && (
-                  <Button onClick={handleGenerate} variant="outline" size="lg" className="w-full">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Regenerate
-                  </Button>
-                )}
-
-                {step === 'error' && (
-                  <Button onClick={handleGenerate} variant="outline" size="lg" className="w-full">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Try Again
-                  </Button>
-                )}
+              {/* Generation Button */}
+              <div className="pt-2">
+                <GenerateSymbolButton
+                  product={product}
+                  fullProduct={fullProduct}
+                  onFetchProduct={fetchProductForGeneration}
+                  onSuccess={handleGenerationSuccess}
+                  hasExistingSymbol={hasExistingSymbol}
+                />
               </div>
             </div>
           </div>
-
-          {/* Generation Progress */}
-          {jobId && (
-            <SymbolProgress
-              jobId={jobId}
-              onComplete={handleJobComplete}
-            />
-          )}
-
-          {/* Error Message */}
-          {error && step === 'error' && (
-            <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-              {error}
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>
