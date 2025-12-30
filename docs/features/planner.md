@@ -1,8 +1,8 @@
 # Planner Feature
 
-**Status**: Phase 4 (Symbol Images)
+**Status**: Phase 4 (Symbol Images) - In Progress
 **Route**: `/planner`
-**Last Updated**: 2025-12-29
+**Last Updated**: 2025-12-30
 
 ---
 
@@ -168,19 +168,31 @@ Products are automatically assigned symbol letters based on ETIM classification 
 
 See [Symbol Classification](./symbol-classification.md) for full details.
 
-### Symbol Images (Planned)
+### Symbol Images (Implemented)
 
-Each product will have a generated AutoCAD symbol image stored in Supabase.
+Each product can have a generated AutoCAD symbol stored in Supabase.
 
-**Generation Pipeline:**
-1. Vision Analysis (Claude) - Analyze product photos/drawings
-2. AutoLISP Generation (Claude) - Create drawing script
-3. APS Execution - Run script in cloud AutoCAD
-4. Storage - Save DWG/PNG to Supabase bucket
+**Current Generation Pipeline:**
+1. Vision Analysis (Claude) - Analyze product photos/drawings for shape description
+2. AutoLISP Generation (Claude Sonnet) - Create drawing script from description
+3. APS Execution - Run script in cloud AutoCAD via Design Automation
+4. Storage - Save DWG + PNG to Supabase `product-symbols` bucket
+
+**Symbol Modal UI:**
+- Product preview: Photo/drawing carousel + dimensions (EFG00011 features)
+- Generate button with progress indicator (3 steps)
+- Delete button with two-step inline confirmation
+- Shows existing symbol PNG if already generated
 
 **Marker Display Modes:**
-- **Current**: Letter labels only (A1, B2)
-- **Future**: Symbol images (actual CAD graphics)
+- **Current**: Letter labels only (A1, B2) in blue circles
+- **Planned**: SVG symbols with letter badges (Phase 4 next step)
+
+**Planned SVG Enhancement:**
+- Generate SVG alongside LISP in single LLM call
+- SVG at 100mm viewBox for real-world coordinate scaling
+- Display SVG in markers, letter as small badge
+- Better zoom scaling than PNG raster images
 
 ---
 
@@ -287,11 +299,18 @@ if (data?.png_path) {
 
 ### Phase 4: Symbol Images 🚧
 
-- [ ] Create `items.product_symbols` table migration
-- [ ] Create `product-symbols` storage bucket
-- [ ] Symbol generation integration (from symbol-generator)
-- [ ] On-demand generation trigger
-- [ ] Symbol images on markers (replace letters)
+**Completed:**
+- [x] Create `items.product_symbols` table migration
+- [x] Create `product-symbols` storage bucket
+- [x] Symbol generation integration (vision + LISP + APS)
+- [x] On-demand generation trigger (symbol modal)
+- [x] Product preview in symbol modal (photo/drawing carousel + dimensions)
+- [x] Delete symbol action with two-step confirmation
+- [x] Minimalistic progress indicator (replaced terminal log)
+
+**In Progress:**
+- [ ] SVG generation alongside LISP (for web markers)
+- [ ] Symbol images on markers (SVG approach)
 
 ### Phase 5: Export 📋
 
@@ -404,7 +423,9 @@ src/
 │   ├── types.ts                    # Page-specific types
 │   └── components/
 │       ├── products-grid.tsx       # Overview: products with symbol badges
-│       └── floor-plan-card.tsx     # Overview: floor plan thumbnail + actions
+│       ├── floor-plan-card.tsx     # Overview: floor plan thumbnail + actions
+│       ├── symbol-modal.tsx        # Symbol generation modal with preview
+│       └── symbol-progress.tsx     # Minimalistic step progress indicator
 │
 ├── components/planner/
 │   ├── index.ts                    # Barrel exports
@@ -413,12 +434,16 @@ src/
 │   ├── viewer-toolbar.tsx          # Bottom toolbar
 │   ├── markup-markers.ts           # MarkupsCore marker management
 │   ├── placement-tool.ts           # Coordinate conversion
+│   ├── planner-viewer-utils.ts     # Utility functions
 │   └── types.ts                    # Component types
 │
 ├── lib/planner/
 │   ├── index.ts                    # Library exports
 │   ├── aps-planner-service.ts      # APS bucket/upload/caching
 │   └── actions.ts                  # Server actions wrapper
+│
+├── lib/actions/
+│   └── symbols.ts                  # Symbol CRUD actions (delete, rules)
 │
 └── app/api/planner/
     ├── upload/route.ts             # POST: upload, GET: URN
@@ -442,6 +467,10 @@ deleteAreaRevisionFloorPlanAction(revisionId)
 // Placements
 loadAreaPlacementsAction(revisionId)
 saveAreaPlacementsAction(revisionId, placements)
+
+// Symbols
+getSymbolRulesAction()                      // Get symbol classification rules
+deleteProductSymbolAction(fossPid)          // Delete symbol files + DB record
 ```
 
 ---
@@ -478,4 +507,4 @@ Stored in `projects.user_preferences`:
 
 ---
 
-**Last Updated**: 2025-12-29 (v1.13.x - Comprehensive rewrite with symbol storage system)
+**Last Updated**: 2025-12-30 (v1.13.x - Phase 4 symbol generation modal, delete action, progress indicator)
