@@ -18,7 +18,7 @@ import { cn } from '@fossapp/ui'
 import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, Ruler, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 import type { AreaRevisionProduct } from '@/lib/actions/areas/revision-products-actions'
-import { TerminalLog } from '@/components/tiles/terminal-log'
+import { SymbolProgress } from './symbol-progress'
 import { extractDimensions } from '@/lib/symbol-generator/dimension-utils'
 import type { ProductInfo, Feature } from '@fossapp/products/types'
 import { hasDisplayableValue, getFeatureDisplayValue, FEATURE_GROUP_CONFIG } from '@/lib/utils/feature-utils'
@@ -157,6 +157,7 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
     setStep('fetching')
     setError(null)
     setGeneratedPngPath(null)
+    setJobId(null)  // Reset to allow SymbolProgress to reset its state
 
     try {
       // Use cached fullProduct if available, otherwise fetch
@@ -478,14 +479,12 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
             </div>
           </div>
 
-          {/* Generation Progress / Logs */}
+          {/* Generation Progress */}
           {jobId && (
-            <div className="border rounded-lg overflow-hidden">
-              <TerminalLog
-                jobId={jobId}
-                onComplete={handleJobComplete}
-              />
-            </div>
+            <SymbolProgress
+              jobId={jobId}
+              onComplete={handleJobComplete}
+            />
           )}
 
           {/* Error Message */}
