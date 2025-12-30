@@ -176,7 +176,7 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
       let svgPath: string | undefined
       if (llmResult.svg && payload.saveToSupabase) {
         try {
-          svgPath = `${fossPid}/symbol.svg`
+          svgPath = `${fossPid}-SYMBOL.svg`
           const { error: svgUploadError } = await supabaseServer
             .storage
             .from('product-symbols')
@@ -228,7 +228,7 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
 
           try {
             // Upload DWG to Supabase storage
-            dwgPath = `${fossPid}/symbol.dwg`
+            dwgPath = `${fossPid}-SYMBOL.dwg`
             const { error: dwgUploadError } = await supabaseServer
               .storage
               .from('product-symbols')
@@ -246,7 +246,7 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
 
             // Upload PNG to Supabase storage (if available)
             if (apsResult.pngBuffer) {
-              pngPath = `${fossPid}/symbol.png`
+              pngPath = `${fossPid}-SYMBOL.png`
               const { error: pngUploadError } = await supabaseServer
                 .storage
                 .from('product-symbols')
