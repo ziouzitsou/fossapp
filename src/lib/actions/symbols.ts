@@ -28,3 +28,53 @@ export async function getSymbolRulesAction(): Promise<SymbolRule[]> {
 
   return data || []
 }
+
+/**
+ * Delete a product symbol (files from storage + database record)
+ * Deletes the entire {foss_pid}/ folder from product-symbols bucket
+ */
+export async function deleteProductSymbolAction(fossPid: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    // 1. List all files in the product folder
+    const { data: files, error: listError } = await supabaseServer
+      .storage
+      .from('product-symbols')
+      .list(fossPid)
+
+    if (listError) {
+      console.error('Failed to list symbol files:', listError)
+      return { success: false, error: 'Failed to list files' }
+    }
+
+    // 2. Delete all files in the folder
+    if (files && files.length > 0) {
+      const filePaths = files.map(f => `${fossPid}/${f.name}`)
+      const { error: deleteFilesError } = await supabaseServer
+        .storage
+        .from('product-symbols')
+        .remove(filePaths)
+
+      if (deleteFilesError) {
+        console.error('Failed to delete symbol files:', deleteFilesError)
+        return { success: false, error: 'Failed to delete files from storage' }
+      }
+    }
+
+    // 3. Delete the database record
+    const { error: dbError } = await supabaseServer
+      .schema('items')
+      .from('product_symbols')
+      .delete()
+      .eq('foss_pid', fossPid)
+
+    if (dbError) {
+      console.error('Failed to delete symbol record:', dbError)
+      return { success: false, error: 'Failed to delete database record' }
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error('Delete symbol error:', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Unknown error' }
+  }
+}

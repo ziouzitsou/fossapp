@@ -15,13 +15,14 @@ import {
 } from '@fossapp/ui'
 import { Badge, Button } from '@fossapp/ui'
 import { cn } from '@fossapp/ui'
-import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, Ruler, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, Ruler, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 import type { AreaRevisionProduct } from '@/lib/actions/areas/revision-products-actions'
 import { TerminalLog } from '@/components/tiles/terminal-log'
 import { extractDimensions } from '@/lib/symbol-generator/dimension-utils'
 import type { ProductInfo, Feature } from '@fossapp/products/types'
 import { hasDisplayableValue, getFeatureDisplayValue, FEATURE_GROUP_CONFIG } from '@/lib/utils/feature-utils'
+import { deleteProductSymbolAction } from '@/lib/actions/symbols'
 
 // Supabase storage URL for product-symbols bucket
 const SYMBOLS_BUCKET_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-symbols`
@@ -55,6 +56,10 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
   const [currentSlide, setCurrentSlide] = useState(0)
   const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set())
 
+  // Delete confirmation state (two-step: idle -> confirming -> deleting)
+  const [deleteState, setDeleteState] = useState<'idle' | 'confirming' | 'deleting'>('idle')
+  const [symbolCleared, setSymbolCleared] = useState(false)
+
   // Reset state when modal opens with different product
   useEffect(() => {
     if (open && product) {
@@ -65,6 +70,8 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
       setFullProduct(null)
       setCurrentSlide(0)
       setFailedUrls(new Set())
+      setDeleteState('idle')
+      setSymbolCleared(false)
 
       // Fetch full product info for preview
       fetchProductInfo(product.product_id)
@@ -215,6 +222,7 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
     if (result.success) {
       if (result.pngPath) {
         setGeneratedPngPath(result.pngPath)
+        setSymbolCleared(false)  // Clear the deleted state since we have a new symbol
       }
       setStep('done')
       onSymbolGenerated?.()
@@ -224,10 +232,37 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
     }
   }, [onSymbolGenerated])
 
+  // Handle delete with two-step confirmation
+  const handleDeleteClick = useCallback(async () => {
+    if (!product) return
+
+    if (deleteState === 'idle') {
+      // First click: show confirmation
+      setDeleteState('confirming')
+      // Auto-reset after 3 seconds if not confirmed
+      setTimeout(() => {
+        setDeleteState(prev => prev === 'confirming' ? 'idle' : prev)
+      }, 3000)
+    } else if (deleteState === 'confirming') {
+      // Second click: execute delete
+      setDeleteState('deleting')
+      const result = await deleteProductSymbolAction(product.foss_pid)
+      if (result.success) {
+        setGeneratedPngPath(null)
+        setSymbolCleared(true)  // Show "No symbol generated" immediately
+        setStep('idle')
+        onSymbolGenerated?.() // Refresh parent data
+      } else {
+        setError(result.error || 'Failed to delete symbol')
+      }
+      setDeleteState('idle')
+    }
+  }, [product, deleteState, onSymbolGenerated])
+
   if (!product) return null
 
-  const hasExistingSymbol = !!product.symbol_svg_path
-  const displayPngPath = generatedPngPath || product.symbol_svg_path
+  const hasExistingSymbol = !!product.symbol_svg_path && !symbolCleared
+  const displayPngPath = symbolCleared ? null : (generatedPngPath || product.symbol_svg_path)
   const dimensionsConfig = FEATURE_GROUP_CONFIG['EFG00011']
 
   return (
@@ -369,14 +404,34 @@ export function SymbolModal({ product, open, onOpenChange, onSymbolGenerated }: 
                 <span>Generated Symbol</span>
               </div>
 
-              <div className="aspect-square rounded-lg border-2 border-dashed flex items-center justify-center bg-muted/30">
+              <div className="relative aspect-square rounded-lg border-2 border-dashed flex items-center justify-center bg-muted/30">
                 {displayPngPath ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={`${SYMBOLS_BUCKET_URL}/${displayPngPath}?t=${Date.now()}`}
-                    alt={`Symbol for ${product.foss_pid}`}
-                    className="w-full h-full object-contain p-4"
-                  />
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`${SYMBOLS_BUCKET_URL}/${displayPngPath}?t=${Date.now()}`}
+                      alt={`Symbol for ${product.foss_pid}`}
+                      className="w-full h-full object-contain p-4"
+                    />
+                    {/* Delete button - top right corner */}
+                    <button
+                      onClick={handleDeleteClick}
+                      disabled={deleteState === 'deleting'}
+                      className={cn(
+                        'absolute top-2 right-2 p-1.5 rounded-md transition-colors',
+                        deleteState === 'idle' && 'text-muted-foreground hover:text-destructive hover:bg-destructive/10',
+                        deleteState === 'confirming' && 'text-destructive bg-destructive/10 animate-pulse',
+                        deleteState === 'deleting' && 'text-muted-foreground cursor-not-allowed'
+                      )}
+                      title={deleteState === 'confirming' ? 'Click again to confirm' : 'Delete symbol'}
+                    >
+                      {deleteState === 'deleting' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  </>
                 ) : (
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <Sparkles className="w-12 h-12" />
