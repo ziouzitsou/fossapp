@@ -363,6 +363,7 @@ export function PlannerViewer({
 
               // Extract DWG unit information from the model
               const model = viewer.model
+              let modelUnitScale: number | null = null
               if (model) {
                 const unitInfo: DwgUnitInfo = {
                   unitString: model.getUnitString?.() ?? null,
@@ -371,6 +372,7 @@ export function PlannerViewer({
                   pageUnits: (model.getMetadata?.('page_dimensions', 'page_units', null) as string | null) ?? null,
                   modelUnits: (model.getMetadata?.('page_dimensions', 'model_units', null) as string | null) ?? null,
                 }
+                modelUnitScale = unitInfo.unitScale
                 console.log('[PlannerViewer] DWG unit info:', unitInfo)
                 // Store unit string for coordinate display
                 setDwgUnitString(unitInfo.modelUnits || unitInfo.unitString)
@@ -382,6 +384,11 @@ export function PlannerViewer({
               const markersInitialized = await markers.initialize()
               if (markersInitialized) {
                 markupMarkersRef.current = markers
+                // Set model unit scale for proper SVG symbol sizing
+                // This converts SVG mm values to model units based on the DWG's unit system
+                if (modelUnitScale !== null) {
+                  markers.setModelUnitScale(modelUnitScale)
+                }
                 // Set callbacks for marker selection/deletion
                 markers.setCallbacks(
                   (id) => setHasSelectedMarker(id !== null),

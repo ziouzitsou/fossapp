@@ -28,11 +28,12 @@ const STROKE_RATIO = 0.2            // Stroke width as ratio of radius
 const FONT_RATIO = 0.8              // Font size as ratio of radius
 
 // SVG Symbol sizing - TRUE SCALE (like AutoCAD)
-// New approach: Read viewBox dimensions from SVG (in mm) and convert to meters
-// viewBox dimensions ARE the real mm size, divide by 1000 to get meters
-// Fallback for legacy symbols that use normalized 100x100 viewBox
+// SVG symbols are always in mm. Convert to model units using:
+//   svgMm * MM_TO_METERS / modelUnitScale
+// where modelUnitScale is from Autodesk viewer (meters=1, mm=0.001, inches=0.0254)
 const LEGACY_SYMBOL_SIZE_M = 0.1    // 100mm = 0.1 meters (for old 100x100 viewBox symbols)
 const MM_TO_METERS = 0.001          // 1mm = 0.001 meters
+const DEFAULT_MODEL_UNIT_SCALE = 1  // Default: meters (unitScale=1)
 
 // Supabase storage URL for product symbols
 const SYMBOLS_BUCKET_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-symbols`
@@ -59,6 +60,10 @@ export class MarkupMarkers {
   private onDelete: ((id: string) => void) | null = null
   private minScreenRadius: number
 
+  // Model unit scale from Autodesk viewer (meters=1, mm=0.001, inches=0.0254)
+  // Used to convert SVG mm to model units
+  private modelUnitScale: number = DEFAULT_MODEL_UNIT_SCALE
+
   // SVG symbol cache: fossPid -> SVG content (or null if no symbol)
   private svgCache: Map<string, string | null> = new Map()
   // Pending SVG fetches to avoid duplicate requests
@@ -67,6 +72,23 @@ export class MarkupMarkers {
   constructor(viewer: ViewerInstance, minScreenPx: number = DEFAULT_MIN_SCREEN_RADIUS) {
     this.viewer = viewer
     this.minScreenRadius = minScreenPx
+  }
+
+  /**
+   * Set the model unit scale from DWG unit info
+   * This affects how SVG symbols (always in mm) are scaled to model units
+   *
+   * @param unitScale - Scale factor to meters from Autodesk viewer:
+   *   - meters: 1
+   *   - mm: 0.001
+   *   - inches: 0.0254
+   *   - feet: 0.3048
+   */
+  setModelUnitScale(unitScale: number | null) {
+    this.modelUnitScale = unitScale ?? DEFAULT_MODEL_UNIT_SCALE
+    console.log(`[MarkupMarkers] Model unit scale set to ${this.modelUnitScale} (SVG mm → model units factor: ${MM_TO_METERS / this.modelUnitScale})`)
+    // Re-render existing markers with new scale
+    this.updateMarkerSizes()
   }
 
   /**
@@ -233,16 +255,17 @@ export class MarkupMarkers {
     // Symbol stays at fixed real scale - no updates needed
     // Only update click target and badge (dynamic sizing for visibility)
 
-    // Read stored symbol dimensions (or use legacy fallback)
-    const symbolWidthM = parseFloat(group.getAttribute('data-symbol-width-m') || String(LEGACY_SYMBOL_SIZE_M))
-    const symbolHeightM = parseFloat(group.getAttribute('data-symbol-height-m') || String(LEGACY_SYMBOL_SIZE_M))
-    const symbolMaxDim = Math.max(symbolWidthM, symbolHeightM)
+    // Read stored symbol dimensions in model units (or use legacy fallback)
+    const legacyFallback = LEGACY_SYMBOL_SIZE_M / this.modelUnitScale
+    const symbolWidth = parseFloat(group.getAttribute('data-symbol-width') || String(legacyFallback))
+    const symbolHeight = parseFloat(group.getAttribute('data-symbol-height') || String(legacyFallback))
+    const symbolMaxDim = Math.max(symbolWidth, symbolHeight)
 
     // Update click target to cover the badge area (for clickability when zoomed out)
     const clickTarget = group.querySelector('rect')
     if (clickTarget) {
       // Click target should cover badge position plus some margin
-      const badgeY = symbolHeightM / 2  // Badge is at top of symbol
+      const badgeY = symbolHeight / 2  // Badge is at top of symbol
       const clickSize = Math.max(radius * 2, symbolMaxDim)  // At least cover symbol or badge
       clickTarget.setAttribute('x', String(-clickSize / 2))
       clickTarget.setAttribute('y', String(-clickSize / 2))
@@ -256,7 +279,7 @@ export class MarkupMarkers {
       const badgeRadius = radius  // Same size as circle markers
       const badgeX = 0
       // Position badge above the real-scale symbol (with margin)
-      const badgeY = symbolHeightM / 2 + badgeRadius * 1.2
+      const badgeY = symbolHeight / 2 + badgeRadius * 1.2
       badgeGroup.setAttribute('transform', `translate(${badgeX}, ${badgeY})`)
 
       const badgeCircle = badgeGroup.querySelector('circle')
@@ -526,9 +549,9 @@ export class MarkupMarkers {
 
   /**
    * Parse viewBox dimensions and determine if it's a real-mm SVG or legacy normalized
-   * Returns dimensions in meters
+   * Returns dimensions in MODEL UNITS (adjusted for DWG unit scale)
    */
-  private parseSymbolDimensions(svg: Element): { widthM: number; heightM: number; isRealMm: boolean } {
+  private parseSymbolDimensions(svg: Element): { width: number; height: number; isRealMm: boolean } {
     const viewBox = svg.getAttribute('viewBox') || '0 0 100 100'
     const [, , vbWidth, vbHeight] = viewBox.split(' ').map(Number)
 
@@ -536,21 +559,26 @@ export class MarkupMarkers {
     const dataUnit = svg.getAttribute('data-unit')
     const isRealMm = dataUnit === 'mm'
 
+    // Conversion factor: SVG mm → model units
+    // Formula: mm * 0.001 (to meters) / modelUnitScale (meters to model units)
+    const mmToModelUnits = MM_TO_METERS / this.modelUnitScale
+
     if (isRealMm) {
-      // New format: viewBox values ARE millimeters, convert to meters
+      // New format: viewBox values ARE millimeters, convert to model units
       return {
-        widthM: vbWidth * MM_TO_METERS,
-        heightM: vbHeight * MM_TO_METERS,
+        width: vbWidth * mmToModelUnits,
+        height: vbHeight * mmToModelUnits,
         isRealMm: true
       }
     } else {
-      // Legacy format: 100x100 normalized viewBox = 100mm = 0.1m
-      // Scale proportionally based on aspect ratio
+      // Legacy format: 100x100 normalized viewBox = 100mm
+      // Convert to model units using same scale
+      const legacySizeModelUnits = LEGACY_SYMBOL_SIZE_M / this.modelUnitScale
       const maxDim = Math.max(vbWidth, vbHeight)
-      const scale = LEGACY_SYMBOL_SIZE_M / maxDim
+      const scale = legacySizeModelUnits / maxDim
       return {
-        widthM: vbWidth * scale,
-        heightM: vbHeight * scale,
+        width: vbWidth * scale,
+        height: vbHeight * scale,
         isRealMm: false
       }
     }
@@ -590,16 +618,17 @@ export class MarkupMarkers {
     const [, , vbWidth, vbHeight] = viewBox.split(' ').map(Number)
     const dimensions = this.parseSymbolDimensions(originalSvg)
 
-    // Store actual symbol size on group for badge positioning
-    group.setAttribute('data-symbol-width-m', String(dimensions.widthM))
-    group.setAttribute('data-symbol-height-m', String(dimensions.heightM))
+    // Store actual symbol size on group for badge positioning (in model units)
+    group.setAttribute('data-symbol-width', String(dimensions.width))
+    group.setAttribute('data-symbol-height', String(dimensions.height))
 
-    // TRUE SCALE: Calculate scale to convert viewBox units to meters
-    // For real-mm SVGs: 1 viewBox unit = 1mm, so scale = 0.001
-    // For legacy SVGs: scale to fit within LEGACY_SYMBOL_SIZE_M
+    // TRUE SCALE: Calculate scale to convert viewBox units to model units
+    // For real-mm SVGs: 1 viewBox unit = 1mm → convert using mmToModelUnits
+    // For legacy SVGs: scale to fit within legacy size in model units
+    const mmToModelUnits = MM_TO_METERS / this.modelUnitScale
     const scale = dimensions.isRealMm
-      ? MM_TO_METERS  // 1mm -> 0.001m
-      : LEGACY_SYMBOL_SIZE_M / Math.max(vbWidth, vbHeight)
+      ? mmToModelUnits  // 1mm → model units
+      : (LEGACY_SYMBOL_SIZE_M / this.modelUnitScale) / Math.max(vbWidth, vbHeight)
 
     // Center the symbol (offset by half the scaled size)
     const offsetX = -(vbWidth * scale) / 2
@@ -616,12 +645,12 @@ export class MarkupMarkers {
     })
 
     // Use actual symbol dimensions for click target and badge positioning
-    const symbolMaxDim = Math.max(dimensions.widthM, dimensions.heightM)
+    const symbolMaxDim = Math.max(dimensions.width, dimensions.height)
 
     // Create a click target (invisible rect covering symbol + badge area)
     const clickTarget = document.createElementNS(ns, 'rect')
     const clickSize = Math.max(radius * 2, symbolMaxDim)
-    const badgeOffset = dimensions.heightM / 2  // Badge above symbol top
+    const badgeOffset = dimensions.height / 2  // Badge above symbol top
     clickTarget.setAttribute('x', String(-clickSize / 2))
     clickTarget.setAttribute('y', String(-clickSize / 2))
     clickTarget.setAttribute('width', String(clickSize))
@@ -630,7 +659,7 @@ export class MarkupMarkers {
     clickTarget.style.pointerEvents = 'auto'
 
     // Create badge with symbol letter, positioned based on actual symbol height
-    const badgeGroup = this.createBadge(radius, label, dimensions.heightM)
+    const badgeGroup = this.createBadge(radius, label, dimensions.height)
 
     // Add elements to group
     group.appendChild(clickTarget)
@@ -638,16 +667,19 @@ export class MarkupMarkers {
     group.appendChild(badgeGroup)
     group.setAttribute('data-marker-type', 'svg')
 
-    console.log(`[MarkupMarkers] Upgraded marker to SVG: ${markerId} (${dimensions.isRealMm ? 'real-mm' : 'legacy'}, ${(dimensions.widthM * 1000).toFixed(0)}x${(dimensions.heightM * 1000).toFixed(0)}mm)`)
+    // Log with dimensions converted back to mm for readability
+    const widthMm = dimensions.width * this.modelUnitScale / MM_TO_METERS
+    const heightMm = dimensions.height * this.modelUnitScale / MM_TO_METERS
+    console.log(`[MarkupMarkers] Upgraded marker to SVG: ${markerId} (${dimensions.isRealMm ? 'real-mm' : 'legacy'}, ${widthMm.toFixed(0)}x${heightMm.toFixed(0)}mm in model units: ${dimensions.width.toFixed(4)}x${dimensions.height.toFixed(4)})`)
   }
 
   /**
    * Create a badge with the symbol letter (same size as circle markers)
-   * @param markerRadius - The radius for the badge circle (in meters)
+   * @param markerRadius - The radius for the badge circle (in model units)
    * @param label - The label text to display
-   * @param symbolHeightM - The actual symbol height in meters (for positioning)
+   * @param symbolHeight - The actual symbol height in model units (for positioning)
    */
-  private createBadge(markerRadius: number, label: string, symbolHeightM: number = LEGACY_SYMBOL_SIZE_M): SVGElement {
+  private createBadge(markerRadius: number, label: string, symbolHeight: number = LEGACY_SYMBOL_SIZE_M): SVGElement {
     const ns = 'http://www.w3.org/2000/svg'
     // Badge should be same size as circle markers for consistency
     const badgeRadius = markerRadius
@@ -656,7 +688,7 @@ export class MarkupMarkers {
     // Position badge above the real-scale symbol (with margin to avoid overlap)
     // Y position = half symbol height (top of symbol) + badge radius + small margin
     const badgeX = 0
-    const badgeY = symbolHeightM / 2 + badgeRadius * 1.2  // Clear above symbol
+    const badgeY = symbolHeight / 2 + badgeRadius * 1.2  // Clear above symbol
 
     const badgeGroup = document.createElementNS(ns, 'g')
     badgeGroup.setAttribute('class', 'symbol-badge')
