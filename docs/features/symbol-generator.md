@@ -161,9 +161,9 @@ CREATE TABLE items.product_symbols (
 ### Storage Bucket
 
 - **Bucket**: `product-symbols` (public)
-- **Structure**: `{FOSS_PID}-SYMBOL.{ext}` (flat naming)
+- **Structure**: `{FOSS_PID}/{FOSS_PID}-SYMBOL.{ext}`
 - **Files**: `.dwg`, `.png`, `.svg`
-- **Example**: `DT20229692W-SYMBOL.dwg`, `DT20229692W-SYMBOL.png`
+- **Example**: `DT20229692W/DT20229692W-SYMBOL.dwg`
 
 ## API Endpoints
 
