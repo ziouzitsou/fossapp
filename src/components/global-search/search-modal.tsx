@@ -99,7 +99,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       setHasSearched(true)
 
       try {
-        const response = await fetch(`/api/tiles/search?q=${encodeURIComponent(query.trim())}`)
+        const response = await fetch(`/api/products/search?q=${encodeURIComponent(query.trim())}`)
         if (response.ok) {
           const { data } = await response.json()
           setResults(data || [])

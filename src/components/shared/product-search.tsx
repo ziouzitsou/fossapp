@@ -85,7 +85,7 @@ export function ProductSearch({
     setShowHistory(false)
 
     try {
-      const response = await fetch(`/api/tiles/search?q=${encodeURIComponent(term.trim())}`)
+      const response = await fetch(`/api/products/search?q=${encodeURIComponent(term.trim())}`)
 
       if (!response.ok) {
         if (response.status === 401) {

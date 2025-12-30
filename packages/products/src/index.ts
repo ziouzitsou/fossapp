@@ -24,6 +24,7 @@ export {
 // Actions
 export {
   searchProductsBasicAction,
+  searchProductsFTSAction,
   getProductByIdAction,
   getProductsByTaxonomyAction,
   getProductsByTaxonomyPaginatedAction,

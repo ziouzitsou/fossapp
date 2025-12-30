@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
-import { searchProductsBasicAction } from '@/lib/actions'
+import { searchProductsFTSAction } from '@fossapp/products'
 import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 
 export async function GET(request: NextRequest) {
-  // ✅ Require authentication
+  // Require authentication
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json(
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // ✅ Rate limiting
+  // Rate limiting
   const rateLimit = checkRateLimit(session.user.email, 'products-search')
   if (!rateLimit.success) {
     return NextResponse.json(
@@ -32,11 +32,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const userId = session.user.email
-    const results = await searchProductsBasicAction(query, userId)
+    const results = await searchProductsFTSAction(query, userId)
     return NextResponse.json({ data: results })
   } catch (error) {
-    // Sanitized error logging
-    console.error('API search error:',
+    console.error('Product search API error:',
       error instanceof Error ? error.message : 'Unknown error'
     )
     return NextResponse.json({ error: 'Search failed' }, { status: 500 })

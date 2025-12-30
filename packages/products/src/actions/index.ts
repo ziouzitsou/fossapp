@@ -429,3 +429,86 @@ export async function getProductsByTaxonomyPaginatedAction(
     }
   }
 }
+
+// ============================================================================
+// FULL-TEXT SEARCH (FTS)
+// ============================================================================
+
+const FTS_SEARCH_LIMIT = 20
+
+/**
+ * Search products using PostgreSQL Full-Text Search with prefix matching.
+ * Searches across: foss_pid, manufacturer_pid, description, supplier, class
+ * Converts multi-word queries like "entero lum" to "entero:* & lum:*" for partial matching.
+ *
+ * Used by: /api/products/search API endpoint, Global Search modal
+ */
+export async function searchProductsFTSAction(
+  query: string,
+  userId?: string
+): Promise<ProductInfo[]> {
+  try {
+    const sanitizedQuery = validateSearchQuery(query)
+
+    // Call search schema function with prefix matching
+    const { data, error } = await supabaseServer
+      .schema('search')
+      .rpc('search_products_fts', {
+        search_query: sanitizedQuery,
+        result_limit: FTS_SEARCH_LIMIT
+      })
+
+    if (error) {
+      console.error('FTS product search failed:', {
+        message: error.message,
+        code: error.code,
+        query: sanitizedQuery.substring(0, 50),
+        userId: userId?.split('@')[0],
+      })
+
+      // Fallback to simple ILIKE search if FTS fails
+      return fallbackILIKESearch(sanitizedQuery)
+    }
+
+    // Log search event if userId is provided
+    if (userId) {
+      const resultsCount = data?.length || 0
+
+      await logEvent('search', userId, {
+        eventData: {
+          search_query: sanitizedQuery,
+          results_count: resultsCount,
+          search_context: 'global-search',
+          search_type: 'fts',
+        },
+        pathname: '/search'
+      })
+    }
+
+    return (data || []) as ProductInfo[]
+  } catch (error) {
+    console.error('FTS search action error:',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
+    return []
+  }
+}
+
+/**
+ * Fallback search using ILIKE when FTS is unavailable
+ */
+async function fallbackILIKESearch(query: string): Promise<ProductInfo[]> {
+  const { data, error } = await supabaseServer
+    .schema('items')
+    .from('product_info')
+    .select('*')
+    .or(`foss_pid.ilike.%${query}%,description_short.ilike.%${query}%,manufacturer_pid.ilike.%${query}%`)
+    .limit(FTS_SEARCH_LIMIT)
+
+  if (error) {
+    console.error('Fallback ILIKE search failed:', error.message)
+    return []
+  }
+
+  return (data || []) as ProductInfo[]
+}
