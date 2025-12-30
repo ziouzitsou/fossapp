@@ -54,7 +54,8 @@ export function SymbolGallery({
 
     const fetchSvg = async () => {
       try {
-        const url = `${SYMBOLS_BUCKET_URL}/${svgPath}`
+        // Add cache-busting to prevent stale SVG content
+        const url = `${SYMBOLS_BUCKET_URL}/${svgPath}?t=${Date.now()}`
         const response = await fetch(url)
         if (response.ok) {
           const text = await response.text()
