@@ -1,38 +1,74 @@
 # Symbol Generator
 
-**Status**: Experimental / Test Tool
-**Route**: `/symbol-generator`
-**Last Updated**: 2024-12-09
+**Status**: Production (integrated into Planner)
+**Route**: `/planner` (embedded in Area Overview)
+**Last Updated**: 2024-12-30
 
 ## Overview
 
-The Symbol Generator analyzes luminaire product images using Claude Vision (via OpenRouter) to generate structured specifications for AutoCAD plan-view symbols. This is a test/prototyping tool that outputs text descriptions which can be fed into an external LISP generator.
+The Symbol Generator creates AutoCAD plan-view symbols for luminaire products. It uses a **2-stage LLM pipeline**:
 
-**Output**: Structured text specification (NOT AutoLISP code - user has separate tool for that)
+1. **Vision Analysis**: Analyzes product images to create a structured Symbol Specification
+2. **Script Generation**: Converts the specification to AutoLISP + SVG
+
+The generated symbols are stored in Supabase and displayed in the Planner.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  /symbol-generator                                          │
+│  Planner Area Overview → Product Card → Symbol Modal        │
 ├─────────────────────────────────────────────────────────────┤
-│  1. Search product (reuses /api/tiles/search)               │
-│  2. Select product → show MD01 photo + MD12 drawing         │
-│  3. Extract ETIM dimensions from features                   │
-│  4. Click "Analyze" → send to Claude Vision                 │
-│  5. Display structured specification                        │
+│  1. Click product card → opens SymbolModal                  │
+│  2. Click "Generate Symbol" → triggers pipeline             │
+│  3. Progress displayed in real-time                         │
+│  4. Results: PNG (DWG screenshot) + SVG (web display)       │
 └─────────────────────────────────────────────────────────────┘
-         │
-         ▼
+                    │
+                    ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Vision Analysis Pipeline                                   │
+│  Stage 1: Vision Analysis (Claude Sonnet 4)                 │
 ├─────────────────────────────────────────────────────────────┤
-│  • Fetch MD01 (product photo) - JPEG/PNG                    │
-│  • Fetch MD12 (technical drawing) - SVG → convert to PNG    │
-│  • Extract ETIM dimensions from features JSONB              │
-│  • Build multimodal prompt with images + dimensions         │
-│  • Call OpenRouter (anthropic/claude-sonnet-4)              │
-│  • Return structured specification                          │
+│  Input:                                                     │
+│  • Product photo (MD01/MD02)                                │
+│  • Technical drawing (MD12/MD64)                            │
+│  • ETIM dimensions from database                            │
+│                                                             │
+│  Output:                                                    │
+│  • Structured Symbol Specification (text)                   │
+│  • Layers, geometry, dimensions, mounting type              │
+└─────────────────────────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Stage 2: Script Generation (Sonnet → Opus on retry)        │
+├─────────────────────────────────────────────────────────────┤
+│  Input:                                                     │
+│  • Symbol Specification from Stage 1                        │
+│  • Product ID                                               │
+│                                                             │
+│  Output:                                                    │
+│  • AutoLISP script (.scr)                                   │
+│  • SVG representation                                       │
+└─────────────────────────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Stage 3: APS Design Automation                             │
+├─────────────────────────────────────────────────────────────┤
+│  • Upload script to Autodesk cloud                          │
+│  • Execute in headless AutoCAD                              │
+│  • Generate DWG + PNG files                                 │
+│  • Up to 3 retries with error feedback to LLM               │
+└─────────────────────────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Storage: Supabase                                          │
+├─────────────────────────────────────────────────────────────┤
+│  Bucket: product-symbols                                    │
+│  Files: {FOSS_PID}/symbol.dwg, symbol.png, symbol.svg       │
+│  Metadata: items.product_symbols table                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -41,128 +77,190 @@ The Symbol Generator analyzes luminaire product images using Claude Vision (via 
 ```
 src/
 ├── app/
-│   ├── symbol-generator/
-│   │   └── page.tsx                    # Main page
+│   ├── planner/
+│   │   └── components/
+│   │       ├── symbol-modal.tsx      # Modal with generate UI
+│   │       ├── symbol-gallery.tsx    # PNG/SVG carousel display
+│   │       └── products-grid.tsx     # Product cards with symbols
 │   └── api/
 │       └── symbol-generator/
-│           └── analyze/
-│               └── route.ts            # POST endpoint
-├── components/
-│   └── symbol-generator/
-│       └── symbol-generator-form.tsx   # Main form component
+│           ├── analyze/route.ts      # Stage 1: Vision analysis
+│           ├── generate/route.ts     # Stage 2+3: Script + APS
+│           └── download/[jobId]/route.ts
 └── lib/
     └── symbol-generator/
-        ├── types.ts                    # TypeScript interfaces
-        ├── dimension-utils.ts          # ETIM dimension extraction
-        ├── prompts.ts                  # Vision system prompt
-        └── vision-service.ts           # OpenRouter multimodal API
+        ├── prompts/                  # ⭐ EXTERNAL PROMPT FILES
+        │   ├── vision-analysis.md    # Stage 1 system prompt
+        │   └── script-generation.md  # Stage 2 system prompt
+        ├── prompts.ts                # Loads vision-analysis.md
+        ├── script-prompts.ts         # Loads script-generation.md
+        ├── types.ts                  # TypeScript interfaces
+        ├── dimension-utils.ts        # ETIM dimension extraction
+        ├── vision-service.ts         # OpenRouter vision API
+        ├── script-service.ts         # Script generation + retry
+        └── symbol-aps-service.ts     # APS Design Automation
 ```
 
-## Key Features
+## External Prompt Files
 
-### 1. Product Search
-- Reuses the existing tiles search API (`/api/tiles/search`)
-- Search by FOSS PID or product name
-- Local search history in localStorage
+**Location**: `src/lib/symbol-generator/prompts/`
 
-### 2. Image Processing
-- **MD01 (Photo)**: Product appearance image - helps identify shape
-- **MD12 (Drawing)**: Technical drawing with dimensions
-- **SVG Conversion**: SVG drawings are converted to PNG using Sharp (Claude Vision doesn't support SVG)
-- Images are base64 encoded for the multimodal API
+LLM prompts are stored in external markdown files for easy editing without modifying TypeScript code.
 
-### 3. ETIM Dimension Extraction
+### vision-analysis.md
 
-Extracts from `features` JSONB field using these ETIM feature IDs:
+System prompt for Stage 1 (Vision Analysis):
+- Analyzes product images and technical drawings
+- Uses ETIM dimensions as authoritative source
+- Outputs structured Symbol Specification with layers and geometry
 
-| Feature ID | Description | Use |
-|------------|-------------|-----|
-| EF001438 | Length | Outer dimension |
-| EF000008 | Width | Outer dimension |
-| EF001456 | Height | Outer dimension |
-| EF000015 | Outer diameter | Circular fixtures |
-| EF023168 | Built-in length | Cutout dimension |
-| EF011933 | Built-in width | Cutout dimension |
-| EF010795 | Built-in height/depth | Cutout dimension |
-| EF009351 | Adjustability | Direction indicator |
+**Key sections to customize**:
+- `## Output Format` - Layer names, colors, structure
+- `## Shape Recognition Guidelines` - How to identify fixture types
+- `## DXF Color Codes` - Layer-to-color mapping
 
-### 4. Vision Analysis
+### script-generation.md
 
-Uses OpenRouter API with Claude Sonnet 4 for multimodal analysis:
-- System prompt instructs structured output format
-- ETIM dimensions marked as authoritative
-- Estimated values tagged with `[ESTIMATE]`
-- Source tracking (ETIM | DRAWING | ESTIMATE)
+System prompt for Stage 2 (Script Generation):
+- Converts Symbol Specification to AutoLISP
+- Also generates SVG for web display
+- Includes entmake patterns for all geometry types
 
-## Output Format
+**Key sections to customize**:
+- `## Layer Commands` - AutoLISP layer setup
+- `## DXF Color Codes` - Color numbers for layers
+- `## Entity Creation with entmake` - Geometry patterns
+- `## SVG Rules` - Web display styling
 
-The tool generates structured specifications compatible with the external LISP generator:
+### Editing Prompts
 
-```markdown
-## SYMBOL SPECIFICATION
-Product: DIRO SBL 927 W - Recessed Downlight
-FOSS_PID: DT20229692W
-Units: mm
-Origin: Center (0,0)
+1. Edit the markdown file directly
+2. Restart the dev server (or wait for hot reload)
+3. Test with a product in the Planner
 
-### LAYERS
-| Layer | Color | Linetype | Purpose |
-|-------|-------|----------|---------|
-| LUM-OUTLINE | 7 (White) | CONTINUOUS | Outer boundary |
-| LUM-CUTOUT | 4 (Cyan) | DASHED | Ceiling opening |
-| LUM-APERTURE | 2 (Yellow) | CONTINUOUS | Light output |
+Changes take effect immediately - no code changes required.
 
-### GEOMETRY
+## Database Schema
 
-#### 1. BOUNDARY (Layer: LUM-OUTLINE)
-- Shape: CIRCLE
-- Dimensions: Diameter = 163 mm
-- Center: 0,0
-- Source: ETIM (Outer diameter)
+### product_symbols table (items schema)
 
-#### 2. CUTOUT (Layer: LUM-CUTOUT)
-- Shape: CIRCLE
-- Dimensions: Diameter = 150 mm [ESTIMATE]
-- Center: 0,0
-- Source: ESTIMATE
-
-...
+```sql
+CREATE TABLE items.product_symbols (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  foss_pid TEXT UNIQUE NOT NULL,
+  dwg_path TEXT,           -- Path in storage: {foss_pid}/symbol.dwg
+  png_path TEXT,           -- Path in storage: {foss_pid}/symbol.png
+  svg_path TEXT,           -- Path in storage: {foss_pid}/symbol.svg
+  generated_at TIMESTAMPTZ,
+  generation_model TEXT,   -- Model used (e.g., 'claude-sonnet-4')
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
-## Rate Limiting
+### Storage Bucket
 
-- 20 requests per minute per user
-- Configured in `src/lib/ratelimit.ts`
+- **Bucket**: `product-symbols` (public)
+- **Structure**: `{FOSS_PID}/symbol.{ext}`
+- **Files**: `.dwg`, `.png`, `.svg`
 
-## Cost
+## API Endpoints
 
-Typical analysis costs ~$0.015-0.02 per request:
-- Input tokens: ~3000 (images + prompt)
-- Output tokens: ~500-600
+### POST /api/symbol-generator/analyze
+
+Stage 1: Vision analysis
+
+**Request**:
+```json
+{
+  "product": { /* ProductInfo */ }
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "description": "## SYMBOL SPECIFICATION\n...",
+  "model": "anthropic/claude-sonnet-4",
+  "tokensIn": 3000,
+  "tokensOut": 600,
+  "costUsd": 0.02,
+  "hadImage": true,
+  "hadDrawing": true
+}
+```
+
+### POST /api/symbol-generator/generate
+
+Stage 2+3: Script generation + APS execution
+
+**Request**:
+```json
+{
+  "product": { /* ProductInfo */ },
+  "spec": "## SYMBOL SPECIFICATION\n...",
+  "dimensions": { /* LuminaireDimensions */ },
+  "saveToSupabase": true
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "jobId": "sym_abc123"
+}
+```
+
+Returns immediately with jobId. Poll `/api/symbol-generator/download/{jobId}` for progress and results.
+
+## Cost & Rate Limits
+
+### Vision Analysis (Stage 1)
+- ~$0.02 per request
 - Model: anthropic/claude-sonnet-4
+- Rate limit: 20/min per user
 
-## Integration with External LISP Tool
+### Script Generation (Stage 2)
+- ~$0.01 (Sonnet) to ~$0.05 (Opus on retry)
+- Models: claude-sonnet-4 → claude-opus-4
+- Rate limit: 10/min per user
 
-The output is designed to be copy/pasted or fed into:
-- **Location**: `/home/sysadmin/tools/dwg-creator/`
-- **Tool**: `dwg_generator.py` - LLM-powered AutoLISP generator
-- **Workflow**: Symbol spec → LISP generator → accoreconsole.exe → DWG file
+### APS Design Automation
+- ~$0.001 per work item (Autodesk credits)
+- Processing time: 30-60 seconds
+
+## Error Handling & Retry
+
+The pipeline has automatic retry with error feedback:
+
+1. **Attempt 1**: Sonnet generates script → APS executes
+2. **If APS fails**: Extract error, feed back to Opus
+3. **Attempt 2**: Opus corrects script → APS executes
+4. **Attempt 3**: Final attempt with Opus
+
+Error context from APS is fed back to the LLM for intelligent correction.
 
 ## Environment Variables
 
-Requires `OPENROUTER_API_KEY` in `.env.local`
+```bash
+OPENROUTER_API_KEY=sk-or-...          # OpenRouter API key
+APS_CLIENT_ID=...                      # Autodesk Platform Services
+APS_CLIENT_SECRET=...
+APS_CALLBACK_URL=...
+```
 
 ## Known Limitations
 
-1. **SVG dimension extraction**: While SVG is converted to PNG for vision, dimension text in SVGs may not be readable by the vision model
-2. **Cutout estimation**: Many products don't have built-in dimensions in ETIM, requiring estimation
-3. **Complex shapes**: Irregular shapes (L-shaped, custom profiles) may not be accurately described
-4. **No LISP output**: This tool only generates specifications - LISP generation is separate
+1. **Complex shapes**: Irregular geometries may not be accurately generated
+2. **Cutout estimation**: Many products lack built-in dimensions in ETIM
+3. **APS cold start**: First request after idle may take longer (~90s)
+4. **SVG colors**: White strokes require dark background for visibility
 
-## Future Enhancements (Not Implemented)
+## Future Enhancements
 
-- [ ] Direct integration with dwg_generator.py
-- [ ] APS Design Automation for DWG creation
-- [ ] Google Drive upload of generated symbols
-- [ ] Batch processing multiple products
-- [ ] Symbol library/catalog management
+- [ ] Block library support (insert pre-defined blocks)
+- [ ] Multi-aperture patterns (LED arrays, spots)
+- [ ] Symbol versioning and history
+- [ ] Batch generation for product families
