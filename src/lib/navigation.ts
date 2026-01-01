@@ -5,7 +5,7 @@
  * Update this file to add/remove/modify navigation items.
  */
 
-import { MdDashboard, MdWork, MdGridView, MdCode, MdEventNote } from 'react-icons/md'
+import { MdDashboard, MdWork, MdGridView, MdCode, MdEventNote, MdScience } from 'react-icons/md'
 import { FaUsers, FaFolderOpen } from 'react-icons/fa'
 import type { IconType } from 'react-icons'
 
@@ -31,6 +31,7 @@ export function getNavigation(currentPath: string): NavigationItem[] {
     { name: 'Tiles', icon: MdGridView, href: '/tiles' },
     { name: 'Playground', icon: MdCode, href: '/playground' },
     { name: 'Planner', icon: MdEventNote, href: '/planner', badge: 'Beta' },
+    { name: 'Case Study', icon: MdScience, href: '/case-study', badge: 'Dev' },
   ]
 
   return allItems.map(item => ({
@@ -51,4 +52,5 @@ export const navigationItems = [
   { name: 'Tiles', icon: MdGridView, href: '/tiles' },
   { name: 'Playground', icon: MdCode, href: '/playground' },
   { name: 'Planner', icon: MdEventNote, href: '/planner', badge: 'Beta' },
+  { name: 'Case Study', icon: MdScience, href: '/case-study', badge: 'Dev' },
 ] as const
