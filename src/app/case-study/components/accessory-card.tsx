@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from '@fossapp/ui'
 import { Button } from '@fossapp/ui'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@fossapp/ui'
 import { Package, Plus, Minus, Zap, CircleDot, Wrench } from 'lucide-react'
 import type { AccessoryProduct } from '../types'
 
@@ -48,7 +49,14 @@ export function AccessoryCard({
 
         {/* Product info */}
         <div className="space-y-0.5">
-          <div className="text-xs font-medium truncate">{product.name}</div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="text-xs font-medium truncate cursor-default">{product.name}</div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs">
+              <p>{product.name}</p>
+            </TooltipContent>
+          </Tooltip>
           <div className="text-[10px] text-muted-foreground truncate">{product.code}</div>
         </div>
 

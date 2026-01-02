@@ -9,9 +9,17 @@ import type { LuminaireProduct } from '../../types'
 
 /**
  * Adapt case-study LuminaireProduct to planner's AreaRevisionProduct format
- * for use with SymbolModal
+ * for use with SymbolModal.
  */
 function toAreaRevisionProduct(product: LuminaireProduct): AreaRevisionProduct {
+  // Symbol paths follow format: {foss_pid}/{foss_pid}-SYMBOL.{ext}
+  const pngPath = product.hasSymbolDrawing
+    ? `${product.code}/${product.code}-SYMBOL.png`
+    : undefined
+  const svgPath = product.hasSymbolDrawing
+    ? `${product.code}/${product.code}-SYMBOL.svg`
+    : undefined
+
   return {
     id: product.id,
     product_id: product.productId,
@@ -22,9 +30,8 @@ function toAreaRevisionProduct(product: LuminaireProduct): AreaRevisionProduct {
     symbol_code: product.symbolLetter,
     symbol_sequence: product.symbolSequence,
     symbol: product.symbol,
-    // Symbol paths - not available in LuminaireProduct, modal will show empty until generated
-    symbol_png_path: product.hasSymbolDrawing ? `/storage/symbols/${product.code}.png` : undefined,
-    symbol_svg_path: product.hasSymbolDrawing ? `/storage/symbols/${product.code}.svg` : undefined,
+    symbol_png_path: pngPath,
+    symbol_svg_path: svgPath,
   }
 }
 

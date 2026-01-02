@@ -2,6 +2,7 @@
 
 import { Button } from '@fossapp/ui'
 import { ScrollArea, ScrollBar } from '@fossapp/ui'
+import { TooltipProvider } from '@fossapp/ui'
 import { Plus } from 'lucide-react'
 import { LuminaireCard } from './luminaire-card'
 import { AccessoryCard } from './accessory-card'
@@ -33,14 +34,16 @@ export function ProductsView({
   onAddToTile,
 }: ProductsViewProps) {
   return (
-    <div className="flex flex-col gap-6 p-4">
+    <TooltipProvider delayDuration={300}>
+    <div className="flex flex-col gap-4 p-4">
       {/* Luminaires section */}
       <section>
-        <h2 className="text-sm font-medium text-muted-foreground mb-3">
+        <h2 className="text-sm font-medium text-muted-foreground mb-2">
           Luminaires ({luminaires.length})
         </h2>
         <ScrollArea className="w-full whitespace-nowrap pb-2">
-          <div className="flex gap-3 py-1 px-1">
+          {/* Extra padding for floating badges: pt-3 for top badge, pl-3 for left badge */}
+          <div className="flex gap-3 pt-3 pb-1 px-3">
             {luminaires.map((product) => (
               <LuminaireCard
                 key={product.id}
@@ -53,9 +56,9 @@ export function ProductsView({
             {/* Add button */}
             <Button
               variant="outline"
-              className="w-44 h-auto shrink-0 flex-col gap-2 py-8"
+              className="w-40 h-auto shrink-0 flex-col gap-2 py-6"
             >
-              <Plus className="h-6 w-6" />
+              <Plus className="h-5 w-5" />
               <span className="text-xs">Add Luminaire</span>
             </Button>
           </div>
@@ -65,7 +68,7 @@ export function ProductsView({
 
       {/* Accessories section */}
       <section>
-        <h2 className="text-sm font-medium text-muted-foreground mb-3">
+        <h2 className="text-sm font-medium text-muted-foreground mb-2">
           Accessories & Drivers ({accessories.length})
         </h2>
         <ScrollArea className="w-full whitespace-nowrap pb-2">
@@ -81,9 +84,9 @@ export function ProductsView({
             {/* Add button */}
             <Button
               variant="outline"
-              className="w-36 h-auto shrink-0 flex-col gap-2 py-8"
+              className="w-36 h-auto shrink-0 flex-col gap-2 py-4"
             >
-              <Plus className="h-6 w-6" />
+              <Plus className="h-5 w-5" />
               <span className="text-xs">Add Accessory</span>
             </Button>
           </div>
@@ -91,5 +94,6 @@ export function ProductsView({
         </ScrollArea>
       </section>
     </div>
+    </TooltipProvider>
   )
 }
