@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 import {
   getCaseStudyProductsAction,
   getCaseStudyPlacementsAction,
@@ -47,10 +48,17 @@ export function useCaseStudyState(areaRevisionId: string | null) {
   // DATA FETCHING
   // ============================================================================
 
-  // Fetch products and placements when area revision changes
-  useEffect(() => {
-    if (!areaRevisionId) {
-      // Clear data when no revision selected
+  // Ref to track current area revision (for refetch)
+  const areaRevisionIdRef = useRef(areaRevisionId)
+  areaRevisionIdRef.current = areaRevisionId
+
+  /**
+   * Fetch products and placements for the current area revision
+   * Can be called manually via refetchProducts() for refreshing after adds
+   */
+  const fetchData = useCallback(async () => {
+    const revisionId = areaRevisionIdRef.current
+    if (!revisionId) {
       setLuminaires([])
       setAccessories([])
       setPlacements([])
@@ -58,54 +66,41 @@ export function useCaseStudyState(areaRevisionId: string | null) {
       return
     }
 
-    // Capture the ID for use in async function (ensures type narrowing)
-    const revisionId = areaRevisionId
-    let cancelled = false
+    setIsLoading(true)
+    setError(null)
 
-    async function fetchData() {
-      setIsLoading(true)
-      setError(null)
+    try {
+      // Fetch products and placements in parallel
+      const [productsResult, placementsResult] = await Promise.all([
+        getCaseStudyProductsAction(revisionId),
+        getCaseStudyPlacementsAction(revisionId),
+      ])
 
-      try {
-        // Fetch products and placements in parallel
-        const [productsResult, placementsResult] = await Promise.all([
-          getCaseStudyProductsAction(revisionId),
-          getCaseStudyPlacementsAction(revisionId),
-        ])
-
-        if (cancelled) return
-
-        if (!productsResult.success) {
-          setError(productsResult.error || 'Failed to fetch products')
-          return
-        }
-
-        if (!placementsResult.success) {
-          setError(placementsResult.error || 'Failed to fetch placements')
-          return
-        }
-
-        setLuminaires(productsResult.data?.luminaires || [])
-        setAccessories(productsResult.data?.accessories || [])
-        setPlacements(placementsResult.data || [])
-      } catch (err) {
-        if (!cancelled) {
-          console.error('Case study data fetch error:', err)
-          setError('An unexpected error occurred')
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false)
-        }
+      if (!productsResult.success) {
+        setError(productsResult.error || 'Failed to fetch products')
+        return
       }
-    }
 
+      if (!placementsResult.success) {
+        setError(placementsResult.error || 'Failed to fetch placements')
+        return
+      }
+
+      setLuminaires(productsResult.data?.luminaires || [])
+      setAccessories(productsResult.data?.accessories || [])
+      setPlacements(placementsResult.data || [])
+    } catch (err) {
+      console.error('Case study data fetch error:', err)
+      setError('An unexpected error occurred')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Fetch products and placements when area revision changes
+  useEffect(() => {
     fetchData()
-
-    return () => {
-      cancelled = true
-    }
-  }, [areaRevisionId])
+  }, [areaRevisionId, fetchData])
 
   // ============================================================================
   // PERSISTENCE: Auto-save placements (debounced)
@@ -122,14 +117,23 @@ export function useCaseStudyState(areaRevisionId: string | null) {
     // Debounce save by 1 second
     placementSaveTimerRef.current = setTimeout(async () => {
       try {
-        await saveCaseStudyPlacementsAction(
+        const result = await saveCaseStudyPlacementsAction(
           areaRevisionId,
           placements,
           luminaires
         )
         pendingPlacementSaveRef.current = false
+
+        if (!result.success) {
+          toast.error('Failed to save placements', {
+            description: result.error || 'Please try again',
+          })
+        }
       } catch (err) {
         console.error('Failed to save placements:', err)
+        toast.error('Failed to save placements', {
+          description: 'Network error - changes may not be saved',
+        })
       }
     }, 1000)
   }, [areaRevisionId, placements, luminaires])
@@ -361,6 +365,9 @@ export function useCaseStudyState(areaRevisionId: string | null) {
     removePlacement,
     updatePlacementRotation,
     updatePlacementPosition,
+
+    // Refresh
+    refetchProducts: fetchData,
 
     // Loading
     isLoading,

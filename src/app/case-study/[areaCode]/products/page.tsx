@@ -57,9 +57,9 @@ export default function ProductsPage() {
   }, [state.luminaires])
 
   const handleSymbolGenerated = useCallback(() => {
-    // TODO: Add refresh to context to update hasSymbolDrawing status
-    console.log('[CaseStudy] Symbol generated - refresh needed')
-  }, [])
+    // Refresh products to update hasSymbolDrawing status
+    state.refetchProducts()
+  }, [state])
 
   return (
     <>
@@ -71,6 +71,8 @@ export default function ProductsPage() {
         onSymbolClick={handleSymbolClick}
         onTileClick={(id) => console.log('Tile modal:', id)}
         onAddToTile={(id) => console.log('Add to tile:', id)}
+        onRefresh={state.refetchProducts}
+        isRefreshing={state.isLoading}
       />
 
       <SymbolModal

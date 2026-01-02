@@ -3,7 +3,8 @@
 import { Button } from '@fossapp/ui'
 import { ScrollArea, ScrollBar } from '@fossapp/ui'
 import { TooltipProvider } from '@fossapp/ui'
-import { Plus } from 'lucide-react'
+import { cn } from '@fossapp/ui'
+import { RefreshCw } from 'lucide-react'
 import { LuminaireCard } from './luminaire-card'
 import { AccessoryCard } from './accessory-card'
 import type { LuminaireProduct, AccessoryProduct } from '../types'
@@ -16,6 +17,10 @@ interface ProductsViewProps {
   onSymbolClick: (id: string) => void
   onTileClick: (id: string) => void
   onAddToTile: (id: string) => void
+  /** Refresh products after adding via search */
+  onRefresh?: () => void
+  /** Whether refresh is in progress */
+  isRefreshing?: boolean
 }
 
 /**
@@ -32,6 +37,8 @@ export function ProductsView({
   onSymbolClick,
   onTileClick,
   onAddToTile,
+  onRefresh,
+  isRefreshing = false,
 }: ProductsViewProps) {
   return (
     <TooltipProvider delayDuration={300}>
@@ -53,13 +60,16 @@ export function ProductsView({
                 onQuantityChange={(delta) => onLuminaireQuantityChange(product.id, delta)}
               />
             ))}
-            {/* Add button */}
+            {/* Refresh button - use after adding products via / search */}
             <Button
               variant="outline"
               className="w-40 h-auto shrink-0 flex-col gap-2 py-6"
+              onClick={onRefresh}
+              disabled={isRefreshing}
             >
-              <Plus className="h-5 w-5" />
-              <span className="text-xs">Add Luminaire</span>
+              <RefreshCw className={cn('h-5 w-5', isRefreshing && 'animate-spin')} />
+              <span className="text-xs">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+              <span className="text-[10px] text-muted-foreground">Press / to add</span>
             </Button>
           </div>
           <ScrollBar orientation="horizontal" />
@@ -81,14 +91,6 @@ export function ProductsView({
                 onQuantityChange={(delta) => onAccessoryQuantityChange(product.id, delta)}
               />
             ))}
-            {/* Add button */}
-            <Button
-              variant="outline"
-              className="w-36 h-auto shrink-0 flex-col gap-2 py-4"
-            >
-              <Plus className="h-5 w-5" />
-              <span className="text-xs">Add Accessory</span>
-            </Button>
           </div>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>

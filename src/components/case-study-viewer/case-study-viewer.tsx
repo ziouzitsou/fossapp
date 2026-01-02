@@ -664,6 +664,17 @@ export function CaseStudyViewer({
         await initializeViewer(fileUrn)
 
         cleanup = () => {
+          // Dispose MarkupMarkers to remove event listeners
+          markupMarkersRef.current?.dispose()
+          markupMarkersRef.current = null
+
+          // Dispose PlacementTool (deactivates snapper)
+          if (placementToolRef.current && viewerRef.current) {
+            viewerRef.current.toolController.deactivateTool('placement-tool')
+            placementToolRef.current = null
+          }
+
+          // Finish viewer last
           if (viewerRef.current) {
             viewerRef.current.finish()
             viewerRef.current = null

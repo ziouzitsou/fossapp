@@ -4,7 +4,7 @@ import { useMemo, useCallback } from 'react'
 import { Card, CardContent } from '@fossapp/ui'
 import { Button } from '@fossapp/ui'
 import { ScrollArea } from '@fossapp/ui'
-import { Plus, Upload } from 'lucide-react'
+import { RefreshCw, Upload } from 'lucide-react'
 import { cn } from '@fossapp/ui'
 import { CaseStudyViewer } from '@/components/case-study-viewer'
 import type { PlacementModeProduct, Placement as PlannerPlacement } from '@/components/case-study-viewer/types'
@@ -84,6 +84,10 @@ interface ViewerViewProps {
     rotation?: number
   ) => Placement | null
   onRemovePlacement: (placementId: string) => void
+  /** Refresh products after adding via search */
+  onRefresh?: () => void
+  /** Whether refresh is in progress */
+  isRefreshing?: boolean
 }
 
 /**
@@ -105,6 +109,8 @@ export function ViewerView({
   reverseZoomDirection = false,
   onAddPlacement,
   onRemovePlacement,
+  onRefresh,
+  isRefreshing = false,
 }: ViewerViewProps) {
   const {
     placementMode,
@@ -283,10 +289,15 @@ export function ViewerView({
                   </Card>
                 )
               })}
-              {/* Add button */}
-              <Button variant="outline" className="w-full h-12 flex-col gap-1">
-                <Plus className="h-4 w-4" />
-                <span className="text-xs">Add Product</span>
+              {/* Refresh button - use after adding products via search */}
+              <Button
+                variant="outline"
+                className="w-full h-10 gap-2"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
+                <span className="text-xs">{isRefreshing ? 'Refreshing...' : 'Refresh Products'}</span>
               </Button>
             </div>
           </ScrollArea>
