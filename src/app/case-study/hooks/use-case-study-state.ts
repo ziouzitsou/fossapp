@@ -274,9 +274,12 @@ export function useCaseStudyState(areaRevisionId: string | null) {
   // PLACEMENT ACTIONS
   // ============================================================================
 
-  /** Add a new placement (optimistic, auto-saves) */
+  /** Add a new placement (optimistic, auto-saves)
+   * @param id - Placement ID from PlannerViewer (required to prevent duplicate markers)
+   */
   const addPlacement = useCallback(
     (
+      id: string,
       projectProductId: string,
       symbol: string,
       coords: ViewerCoordinates,
@@ -286,7 +289,7 @@ export function useCaseStudyState(areaRevisionId: string | null) {
       if (!luminaire) return null
 
       const newPlacement: Placement = {
-        id: `pl-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        id, // Use ID from PlannerViewer (already registered in renderedPlacementIdsRef)
         projectProductId,
         productId: luminaire.productId,
         symbol,
