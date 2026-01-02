@@ -6,9 +6,43 @@
  * Modeled after the Product Media carousel pattern
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Code2, Image as ImageIcon, ChevronLeft, ChevronRight, Sparkles, Trash2, Loader2 } from 'lucide-react'
 import { cn } from '@fossapp/ui'
+
+/**
+ * Calculate a "nice" scale bar value based on the boundary size
+ * Returns a round number that's roughly 20-30% of the boundary
+ */
+function getScaleBarValue(boundaryMm: number): number {
+  const targetWidth = boundaryMm * 0.33 // Target ~1/3 of width
+  const niceValues = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]
+  return niceValues.reduce((prev, curr) =>
+    Math.abs(curr - targetWidth) < Math.abs(prev - targetWidth) ? curr : prev
+  )
+}
+
+/**
+ * Extract boundary dimension from SVG content
+ * Tries data-boundary-mm attribute first, then falls back to viewBox
+ */
+function extractBoundaryFromSvg(svgText: string): number | null {
+  // Try data-boundary-mm attribute first
+  const boundaryMatch = svgText.match(/data-boundary-mm="(\d+(?:\.\d+)?)"/)
+  if (boundaryMatch) {
+    return parseFloat(boundaryMatch[1])
+  }
+
+  // Fallback to viewBox (assumes square or takes max dimension)
+  const viewBoxMatch = svgText.match(/viewBox="0\s+0\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)"/)
+  if (viewBoxMatch) {
+    const width = parseFloat(viewBoxMatch[1])
+    const height = parseFloat(viewBoxMatch[2])
+    return Math.max(width, height)
+  }
+
+  return null
+}
 
 // Supabase storage URL for product-symbols bucket
 const SYMBOLS_BUCKET_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-symbols`
@@ -44,11 +78,17 @@ export function SymbolGallery({
 }: SymbolGalleryProps) {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [svgDataUrl, setSvgDataUrl] = useState<string | null>(null)
+  const [boundaryMm, setBoundaryMm] = useState<number | null>(null)
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null)
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const imageRef = useRef<HTMLImageElement>(null)
 
   // Fetch SVG and convert to data URL for safe rendering
   useEffect(() => {
     if (!svgPath) {
       setSvgDataUrl(null)
+      setBoundaryMm(null)
       return
     }
 
@@ -62,6 +102,10 @@ export function SymbolGallery({
           // Convert to data URL for safe XSS-free rendering
           const dataUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(text)))}`
           setSvgDataUrl(dataUrl)
+
+          // Extract boundary dimension for scale bar
+          const boundary = extractBoundaryFromSvg(text)
+          setBoundaryMm(boundary)
         }
       } catch {
         // Ignore fetch errors
@@ -70,6 +114,63 @@ export function SymbolGallery({
 
     fetchSvg()
   }, [svgPath])
+
+  // Track container size for scale bar calculation
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const updateSize = () => {
+      // Use the image element if available to get actual rendered size
+      const img = imageRef.current
+      if (img && img.naturalWidth > 0) {
+        // Calculate the actual displayed size (accounting for object-contain and padding)
+        const containerRect = container.getBoundingClientRect()
+        const padding = 16 * 2 // p-4 = 1rem = 16px on each side
+        const availableWidth = containerRect.width - padding
+        const availableHeight = containerRect.height - padding
+
+        // object-contain scales to fit while maintaining aspect ratio
+        const imgAspect = img.naturalWidth / img.naturalHeight
+        const containerAspect = availableWidth / availableHeight
+
+        let displayedWidth: number
+        if (imgAspect > containerAspect) {
+          // Image is wider than container - width is the constraint
+          displayedWidth = availableWidth
+        } else {
+          // Image is taller than container - height is the constraint
+          displayedWidth = availableHeight * imgAspect
+        }
+
+        setContainerSize({ width: displayedWidth, height: displayedWidth / imgAspect })
+      } else {
+        // Fallback to container size
+        const rect = container.getBoundingClientRect()
+        setContainerSize({ width: rect.width - 32, height: rect.height - 32 })
+      }
+    }
+
+    // Initial measurement
+    updateSize()
+
+    // ResizeObserver for responsive updates
+    const resizeObserver = new ResizeObserver(updateSize)
+    resizeObserver.observe(container)
+
+    // Also update when image loads
+    const img = imageRef.current
+    if (img) {
+      img.addEventListener('load', updateSize)
+    }
+
+    return () => {
+      resizeObserver.disconnect()
+      if (img) {
+        img.removeEventListener('load', updateSize)
+      }
+    }
+  }, [svgDataUrl])
 
   // Build slides array
   const slides: SymbolSlide[] = []
@@ -121,15 +222,61 @@ export function SymbolGallery({
     )
   }
 
+  // Calculate scale bar dimensions
+  const showScaleBar = currentMedia?.type === 'svg' && boundaryMm && containerSize
+  const scaleBarValue = boundaryMm ? getScaleBarValue(boundaryMm) : 0
+  const scaleBarPixels = showScaleBar && boundaryMm
+    ? (scaleBarValue / boundaryMm) * containerSize.width
+    : 0
+
   return (
-    <div className="relative aspect-square rounded-lg border overflow-hidden bg-zinc-800 flex items-center justify-center">
+    <div
+      ref={containerRef}
+      className="relative aspect-square rounded-lg border overflow-hidden bg-zinc-800 flex items-center justify-center"
+    >
       {/* Main Image */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        ref={imageRef}
         src={currentMedia.url}
         alt={`${fossPid} - ${currentMedia.label}`}
         className="max-w-full max-h-full object-contain p-4"
       />
+
+      {/* Map-style Scale Bar - Only for SVG slides */}
+      {showScaleBar && scaleBarPixels > 0 && (
+        <div className="absolute top-3 left-3">
+          {/* Semitransparent container with rounded corners */}
+          <div
+            className="bg-black/30 backdrop-blur-sm rounded-md px-2.5 py-2 flex flex-col gap-1"
+            style={{ width: `${Math.max(scaleBarPixels, 50) + 20}px` }}
+          >
+            {/* Scale bar with end caps */}
+            <div className="relative h-2.5 w-full">
+              <svg
+                width="100%"
+                height="100%"
+                className="absolute inset-0"
+                preserveAspectRatio="none"
+              >
+                {/* Left end cap */}
+                <line x1="0.5" y1="0" x2="0.5" y2="100%" stroke="white" strokeOpacity="0.8" strokeWidth="1" />
+                {/* Horizontal bar */}
+                <line x1="0" y1="100%" x2="100%" y2="100%" stroke="white" strokeOpacity="0.8" strokeWidth="1" />
+                {/* Right end cap */}
+                <line x1="calc(100% - 0.5px)" y1="0" x2="calc(100% - 0.5px)" y2="100%" stroke="white" strokeOpacity="0.8" strokeWidth="1" />
+                {/* Middle tick */}
+                <line x1="50%" y1="40%" x2="50%" y2="100%" stroke="white" strokeOpacity="0.5" strokeWidth="1" />
+              </svg>
+            </div>
+            {/* Labels: 0 on left, value on right */}
+            <div className="flex justify-between w-full">
+              <span className="text-[9px] text-white/70 font-medium tabular-nums leading-none">0</span>
+              <span className="text-[9px] text-white/70 font-medium tabular-nums leading-none">{scaleBarValue} mm</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Media Type Label - Bottom Left (like Product Media) */}
       <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/60 text-white text-xs flex items-center gap-1.5">
