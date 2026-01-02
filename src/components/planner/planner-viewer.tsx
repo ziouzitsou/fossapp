@@ -344,7 +344,13 @@ export function PlannerViewer({
             }
 
             try {
-              await viewer.loadDocumentNode(doc, viewable)
+              // Load with globalOffset: { x: 0, y: 0, z: 0 } to reset coordinate origin
+              // This prevents INT32 overflow issues in the transformation matrix
+              const loadOptions = {
+                globalOffset: { x: 0, y: 0, z: 0 }
+              }
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              await (viewer as any).loadDocumentNode(doc, viewable, loadOptions)
 
               // Set background color AFTER document loads (loading resets it)
               // API: (topR, topG, topB, bottomR, bottomG, bottomB) - colors are inverted (255-x)
