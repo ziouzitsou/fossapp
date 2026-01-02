@@ -1,8 +1,12 @@
-# Planner Feature
+# Planner Feature (ARCHIVED)
 
-**Status**: Phase 4 (Symbol Images) - In Progress
-**Route**: `/planner`
-**Last Updated**: 2025-12-30
+> **ARCHIVED**: This documentation is for the legacy `/planner` route which was replaced by the Case Study feature on 2026-01-02. See [../features/case-study.md](../features/case-study.md) for current documentation.
+>
+> The legacy planner code was removed in commit `6926857`. This document is preserved for historical reference only.
+
+**Status**: ARCHIVED (replaced by Case Study)
+**Former Route**: `/planner` (now deleted)
+**Archived**: 2026-01-02
 
 ---
 

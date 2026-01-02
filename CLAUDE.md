@@ -218,7 +218,7 @@ src/
 | Symbols | `/symbol-generator` | [features/symbol-generator.md](./docs/features/symbol-generator.md) |
 | Playground | `/playground` | [features/playground.md](./docs/features/playground.md) |
 | Projects | `/projects` | [features/project-management/](./docs/features/project-management/) |
-| Planner | `/planner` | [features/planner.md](./docs/features/planner.md) |
+| Case Study | `/case-study` | [features/case-study.md](./docs/features/case-study.md) |
 | Feedback | Sidebar | [features/feedback-assistant.md](./docs/features/feedback-assistant.md) |
 | Theming | User dropdown | [features/theming.md](./docs/features/theming.md) |
 | Dashboard | `/dashboard` | - |

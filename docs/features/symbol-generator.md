@@ -1,8 +1,8 @@
 # Symbol Generator
 
-**Status**: Production (integrated into Planner)
-**Route**: `/planner` (embedded in Area Overview)
-**Last Updated**: 2024-12-30
+**Status**: Production (integrated into Case Study)
+**Route**: `/case-study` (accessible from product cards)
+**Last Updated**: 2026-01-02
 
 ## Overview
 
@@ -11,13 +11,13 @@ The Symbol Generator creates AutoCAD plan-view symbols for luminaire products. I
 1. **Vision Analysis**: Analyzes product images to create a structured Symbol Specification
 2. **Script Generation**: Converts the specification to AutoLISP + SVG
 
-The generated symbols are stored in Supabase and displayed in the Planner.
+The generated symbols are stored in Supabase and displayed in the Case Study page.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Planner Area Overview → Product Card → Symbol Modal        │
+│  Case Study Products View → Product Card → Symbol Modal     │
 ├─────────────────────────────────────────────────────────────┤
 │  1. Click product card → opens SymbolModal                  │
 │  2. Click "Generate Symbol" → triggers pipeline             │
@@ -76,12 +76,12 @@ The generated symbols are stored in Supabase and displayed in the Planner.
 
 ```
 src/
+├── components/
+│   └── symbols/                      # Shared symbol components
+│       ├── symbol-modal.tsx          # Modal with generate UI
+│       ├── symbol-gallery.tsx        # PNG/SVG carousel display
+│       └── generate-symbol-button.tsx
 ├── app/
-│   ├── planner/
-│   │   └── components/
-│   │       ├── symbol-modal.tsx      # Modal with generate UI
-│   │       ├── symbol-gallery.tsx    # PNG/SVG carousel display
-│   │       └── products-grid.tsx     # Product cards with symbols
 │   └── api/
 │       └── symbol-generator/
 │           ├── analyze/route.ts      # Stage 1: Vision analysis

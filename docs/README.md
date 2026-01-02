@@ -1,6 +1,8 @@
 # FOSSAPP Documentation Index
 
 > **Quick Start**: See [CLAUDE.md](../CLAUDE.md) for essential commands and references.
+>
+> **Contributing**: See [CONTRIBUTING.md](./CONTRIBUTING.md) for documentation guidelines.
 
 ---
 
@@ -65,7 +67,7 @@ Feature-specific documentation.
 | [theming.md](./features/theming.md) | Multi-theme system (OKLch colors, tweakcn) |
 | [tiles.md](./features/tiles.md) | Tile Management System (DWG generation) |
 | [playground.md](./features/playground.md) | DWG from natural language (LLM + APS) |
-| [planner.md](./features/planner.md) | Visual lighting layout planner (upload DWG + place products) |
+| [case-study.md](./features/case-study.md) | Case Study - visual lighting layout planner (DWG + placements) |
 | [symbol-generator.md](./features/symbol-generator.md) | AutoCAD symbol specs via Vision LLM (experimental) |
 | [symbol-classification.md](./features/symbol-classification.md) | Product classification rules (A-P letter codes) |
 | [filters.md](./features/filters.md) | Dynamic filters implementation |
@@ -114,7 +116,8 @@ Historical and completed migration docs.
 | [nextauth-v5-guide.md](./archive/nextauth-v5-guide.md) | NextAuth v5 migration (future) |
 | [SHADCN_MIGRATION_TASKS.md](./archive/SHADCN_MIGRATION_TASKS.md) | shadcn migration (completed) |
 | [icons_migration.md](./archive/icons_migration.md) | Icons migration (completed) |
+| [planner-legacy.md](./archive/planner-legacy.md) | Old planner (replaced by Case Study) |
 
 ---
 
-**Last Updated**: 2025-12-28 (v1.12.5 - Added symbol classification docs)
+**Last Updated**: 2026-01-02 (Case Study docs consolidated, planner archived)

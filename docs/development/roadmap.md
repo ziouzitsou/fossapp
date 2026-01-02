@@ -98,7 +98,7 @@ Internal tracking for planned improvements, tech debt, and future features.
 - **Locations**:
   - `src/lib/tiles/google-drive-tile-service.ts`
   - `src/lib/tiles/progress-store.ts`
-  - `src/components/planner/planner-viewer.tsx`
+  - `src/components/case-study-viewer/case-study-viewer.tsx`
 - **Solution**: Use conditional logging utility or remove entirely
 - **Effort**: Low
 

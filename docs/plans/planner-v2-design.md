@@ -1,9 +1,11 @@
 # Case Study - Design Document
 
-**Status:** In Development
+> **Note**: This is the original design document with UX principles and wireframes. For current implementation details, code structure, and technical reference, see [../features/case-study.md](../features/case-study.md).
+
+**Status:** Phase 4 (Viewer Integration) - Active Development
 **Created:** 2026-01-01
-**Branch:** `feature/case-study`
 **Route:** `/case-study`
+**Implementation Docs:** [../features/case-study.md](../features/case-study.md)
 
 ---
 
