@@ -232,9 +232,15 @@ export async function getCaseStudyProductsAction(
       }
     }
 
-    // Categorize products
+    // Categorize products by ETIM group:
+    // - EG000027 = Luminaires
+    // - EG000030 = Accessories, Drivers, Control gear
+    // - Other/null = classify by name heuristics
     const luminaires: LuminaireProduct[] = []
     const accessories: AccessoryProduct[] = []
+
+    const LUMINAIRES_GROUP = 'EG000027'
+    const ACCESSORIES_GROUP = 'EG000030'
 
     for (const p of products as Array<{
       id: string
@@ -245,22 +251,27 @@ export async function getCaseStudyProductsAction(
       category_code?: string
       symbol_sequence?: number
       symbol?: string
-      etim_class_id?: string
+      etim_group_id?: string
     }>) {
-      const hasSymbol = Boolean(p.category_code && p.symbol_sequence)
       const media = multimediaMap[p.foss_pid] || {}
       const symbols = symbolDrawings[p.foss_pid] || {}
 
-      // Luminaires have symbol codes (A, B, C, etc.)
-      // Accessories don't have symbols - they're drivers, optics, mounts
-      if (hasSymbol) {
+      // Classify by ETIM group (EG000027 = Luminaires)
+      const isLuminaire = p.etim_group_id === LUMINAIRES_GROUP
+
+      if (isLuminaire) {
+        // Luminaire - use symbol if available, otherwise "?"
+        const hasSymbolAssigned = Boolean(p.category_code && p.symbol_sequence)
         luminaires.push({
           id: p.id,
           productId: p.product_id,
           name: p.description_short || 'Unknown Product',
           code: p.foss_pid || '',
           type: 'luminaire',
-          symbol: p.symbol || `${p.category_code}${p.symbol_sequence}`,
+          // Use assigned symbol, or "?" if not yet classified
+          symbol: hasSymbolAssigned
+            ? (p.symbol || `${p.category_code}${p.symbol_sequence}`)
+            : '?',
           symbolLetter: p.category_code || '',
           symbolSequence: p.symbol_sequence || 0,
           hasSymbolDrawing: Boolean(symbols.svgPath || symbols.pngPath),
@@ -272,16 +283,24 @@ export async function getCaseStudyProductsAction(
           drawingUrl: media.drawingUrl || symbols.svgPath,
         })
       } else {
-        // Determine accessory type based on ETIM class or name heuristics
+        // Accessory - determine type by ETIM group or name heuristics
         let productType: 'driver' | 'optic' | 'mount' | 'accessory' = 'accessory'
         const nameLower = (p.description_short || '').toLowerCase()
 
-        if (nameLower.includes('driver') || nameLower.includes('dali')) {
-          productType = 'driver'
-        } else if (nameLower.includes('optic') || nameLower.includes('lens')) {
-          productType = 'optic'
-        } else if (nameLower.includes('mount') || nameLower.includes('bracket')) {
-          productType = 'mount'
+        // EG000030 contains drivers and control gear
+        if (p.etim_group_id === ACCESSORIES_GROUP) {
+          if (nameLower.includes('driver') || nameLower.includes('dali') || nameLower.includes('power supply')) {
+            productType = 'driver'
+          }
+        } else {
+          // Fallback to name heuristics for other groups
+          if (nameLower.includes('driver') || nameLower.includes('dali')) {
+            productType = 'driver'
+          } else if (nameLower.includes('optic') || nameLower.includes('lens')) {
+            productType = 'optic'
+          } else if (nameLower.includes('mount') || nameLower.includes('bracket')) {
+            productType = 'mount'
+          }
         }
 
         accessories.push({
