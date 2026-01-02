@@ -1,3 +1,23 @@
+/**
+ * Global Search Modal - Command palette for searching products across FOSSAPP
+ *
+ * Provides quick product lookup with debounced search and expandable action cards.
+ * Accessed via ⌘K / Ctrl+K keyboard shortcut.
+ *
+ * @remarks
+ * **Actions available per product**:
+ * - View Details: Navigate to product detail page
+ * - Add to Tiles: Add to the tiles bucket for DWG generation
+ * - Add to Project: Add to the active project's selected area
+ * - Copy PID: Copy the foss_pid to clipboard
+ * - Supplier Page: Open the supplier's product page (if deeplink available)
+ *
+ * Uses the cmdk library (via shadcn Command component) for command palette UX.
+ *
+ * @see {@link SearchProvider} for the context that controls modal visibility
+ * @see {@link useBucket} for tiles bucket integration
+ * @see {@link useActiveProject} for project context integration
+ */
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -40,22 +60,41 @@ import { useActiveProject } from '@/lib/active-project-context'
 import { addProductToProjectAction, getProjectAreasForDropdownAction, type AreaDropdownItem } from '@/lib/actions'
 import { toast } from 'sonner'
 
+/**
+ * Props for the SearchModal component.
+ */
 interface SearchModalProps {
+  /** Whether the modal is currently visible */
   open: boolean
+  /** Callback to change modal visibility (e.g., from close button or overlay click) */
   onOpenChange: (open: boolean) => void
 }
 
-// Helper to get product image URL
+/**
+ * Extracts the primary image URL from product multimedia.
+ * Prefers MD02 (product image) over MD01 (manufacturer logo).
+ */
 function getProductImage(product: ProductInfo): string | undefined {
   return product.multimedia?.find(m => m.mime_code === 'MD02')?.mime_source
     || product.multimedia?.find(m => m.mime_code === 'MD01')?.mime_source
 }
 
-// Helper to get deeplink URL
+/**
+ * Extracts the supplier deeplink URL (MD04) for external product page.
+ */
 function getProductDeeplink(product: ProductInfo): string | undefined {
   return product.multimedia?.find(m => m.mime_code === 'MD04')?.mime_source
 }
 
+/**
+ * Command palette modal for global product search.
+ *
+ * @remarks
+ * - Debounces search queries (300ms) to avoid excessive API calls
+ * - Expands product cards on click to reveal action buttons
+ * - Integrates with tiles bucket and active project contexts
+ * - Shows area picker popover when adding to project
+ */
 export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   const router = useRouter()
   const { addToBucket, isInBucket } = useBucket()

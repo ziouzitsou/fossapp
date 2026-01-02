@@ -1,14 +1,33 @@
 /**
- * Centralized application constants
+ * Centralized Application Constants
  *
- * Use these constants instead of magic numbers throughout the codebase.
- * This enables easy configuration changes and improves maintainability.
+ * Single source of truth for magic numbers, limits, and configuration values.
+ * Import from `@fossapp/core/config` to use throughout the codebase.
+ *
+ * @remarks
+ * Constants are organized into categories:
+ * - VALIDATION: Input limits and regex patterns
+ * - PAGINATION: Page sizes and result limits
+ * - DASHBOARD: Display limits for dashboard widgets
+ * - CACHE: TTL values for caching layers
+ * - UI: Default values for UI components
+ * - API: Network and timeout settings
+ *
+ * All exports are `as const` for type inference and immutability.
+ *
+ * @module @fossapp/core/config
  */
 
 // ============================================================================
 // VALIDATION LIMITS
 // ============================================================================
 
+/**
+ * Validation constraints for user input sanitization.
+ *
+ * @remarks
+ * Used by `@fossapp/core/validation` functions to enforce limits.
+ */
 export const VALIDATION = {
   /** Maximum characters for search queries */
   SEARCH_QUERY_MAX_LENGTH: 100,
@@ -28,6 +47,12 @@ export const VALIDATION = {
 // PAGINATION DEFAULTS
 // ============================================================================
 
+/**
+ * Default pagination settings for list views and search results.
+ *
+ * @remarks
+ * Different page sizes for different content types based on typical usage patterns.
+ */
 export const PAGINATION = {
   /** Default limit for product search results */
   DEFAULT_SEARCH_LIMIT: 50,
@@ -47,6 +72,9 @@ export const PAGINATION = {
 // DASHBOARD & DISPLAY LIMITS
 // ============================================================================
 
+/**
+ * Display limits for dashboard widgets and summary views.
+ */
 export const DASHBOARD = {
   /** Number of top families to show on dashboard */
   TOP_FAMILIES_LIMIT: 10,
@@ -62,6 +90,12 @@ export const DASHBOARD = {
 // CACHE SETTINGS
 // ============================================================================
 
+/**
+ * Cache TTL (Time To Live) settings in seconds.
+ *
+ * @remarks
+ * Used for response caching and cookie expiration.
+ */
 export const CACHE = {
   /** Dashboard stats cache TTL in seconds (5 minutes) */
   DASHBOARD_STATS_TTL: 300,
@@ -75,6 +109,9 @@ export const CACHE = {
 // UI DEFAULTS
 // ============================================================================
 
+/**
+ * Default values for UI components.
+ */
 export const UI = {
   /** Default max height for filter dropdowns */
   FILTER_MAX_HEIGHT: '12rem',
@@ -88,6 +125,9 @@ export const UI = {
 // API SETTINGS
 // ============================================================================
 
+/**
+ * API client configuration for network requests.
+ */
 export const API = {
   /** Request timeout in milliseconds (30 seconds) */
   REQUEST_TIMEOUT: 30000,
@@ -101,6 +141,7 @@ export const API = {
 // TYPE EXPORTS
 // ============================================================================
 
+/** TypeScript type for VALIDATION constant (for function parameters) */
 export type ValidationConfig = typeof VALIDATION
 export type PaginationConfig = typeof PAGINATION
 export type DashboardConfig = typeof DASHBOARD

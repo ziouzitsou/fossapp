@@ -1,3 +1,23 @@
+/**
+ * DWG Viewer - Autodesk Forge Viewer integration for displaying CAD files
+ *
+ * Provides an embedded 3D viewer for DWG files using Autodesk's Forge platform.
+ * Supports multiple input sources:
+ * - **URN**: Pre-uploaded file (immediate viewing)
+ * - **driveFileId**: Download from Google Drive, upload to APS, then view
+ * - **file**: Direct file upload from browser
+ *
+ * @remarks
+ * The viewer goes through several loading stages:
+ * 1. Load Autodesk viewer scripts (~1-2s)
+ * 2. Upload file to APS if needed (~3-5s)
+ * 3. Wait for translation (DWG → viewable format, 30-60s)
+ * 4. Initialize viewer and load model
+ *
+ * Uses the EMEA region endpoint (streamingV2_EU) to match our APS setup.
+ *
+ * @see {@link https://aps.autodesk.com/en/docs/viewer/v7/} Autodesk Viewer docs
+ */
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
@@ -6,37 +26,45 @@ import { Progress } from '@fossapp/ui'
 import { cn } from '@fossapp/ui'
 import type { GuiViewer3DInstance, ViewerInitOptions } from '@/types/autodesk-viewer'
 
-// Status polling types
+/** APS translation job status returned by the status polling API. */
 interface TranslationStatus {
   status: 'pending' | 'inprogress' | 'success' | 'failed'
   progress: string
   messages?: string[]
 }
 
+/**
+ * Props for the DwgViewer component.
+ * Provide exactly one of: `urn`, `driveFileId` + `fileName`, or `file`.
+ */
 export interface DwgViewerProps {
-  /** URN of the file to display (if already uploaded) */
+  /** URN of a file already uploaded to APS (base64-encoded object ID) */
   urn?: string
-  /** Google Drive file ID to download and view */
+  /** Google Drive file ID - will download and upload to APS for viewing */
   driveFileId?: string
-  /** File name (required when using driveFileId) */
+  /** File name (required when using driveFileId for proper MIME detection) */
   fileName?: string
-  /** File to upload (direct upload) */
+  /** Direct file upload from browser file input */
   file?: File
-  /** Initial theme */
+  /** Viewer theme, matches app theme by default */
   theme?: 'light' | 'dark'
-  /** Callback when viewer is ready */
+  /** Called when the model is fully loaded and ready to interact */
   onReady?: () => void
-  /** Callback when error occurs */
+  /** Called when any error occurs during loading stages */
   onError?: (error: string) => void
-  /** Additional class name */
+  /** Additional CSS class for the container */
   className?: string
 }
 
-// Script loading state
+// Script loading state (module-level singleton for deduplication)
 let scriptsLoaded = false
 let scriptsLoading = false
 const loadCallbacks: Array<() => void> = []
 
+/**
+ * Dynamically loads the Autodesk Viewer scripts and CSS.
+ * Uses singleton pattern to prevent duplicate loading across component instances.
+ */
 function loadAutodeskScripts(): Promise<void> {
   return new Promise((resolve) => {
     if (scriptsLoaded) {
@@ -75,6 +103,13 @@ function loadAutodeskScripts(): Promise<void> {
   })
 }
 
+/**
+ * Embedded Autodesk Forge Viewer for displaying DWG and other CAD files.
+ *
+ * @remarks
+ * Displays loading progress with stage indicators and handles
+ * wheel event capture to prevent page scrolling when zooming the model.
+ */
 export function DwgViewer({
   urn: initialUrn,
   driveFileId,

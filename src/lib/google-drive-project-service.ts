@@ -1,14 +1,40 @@
 /**
  * Google Drive Project Service
  *
- * Handles all Google Drive operations for project management:
- * - Create project folder structure
- * - Create new versions (copy folder)
- * - Delete projects
- * - Delete versions
- * - List files
+ * Manages Google Drive folder operations for project management.
+ * Creates and maintains a standardized folder structure for each project.
  *
- * Uses Service Account authentication (no user tokens needed)
+ * @remarks
+ * **Authentication**: Uses a Service Account (no user tokens required).
+ * Credentials loaded from `credentials/google-service-account.json` or
+ * path specified in `GOOGLE_SERVICE_ACCOUNT_PATH` env var.
+ *
+ * **Folder Structure** (per project):
+ * ```
+ * {project_code}/
+ * ├── 00_Customer/           # Customer reference files
+ * │   ├── Drawings/
+ * │   ├── Photos/
+ * │   └── Documents/
+ * ├── 01_Working/            # Engineer work-in-progress
+ * │   ├── CAD/
+ * │   └── Calculations/
+ * ├── 02_Areas/              # Per-area folders (created dynamically)
+ * │   └── {area_code}/
+ * │       └── RV{n}/         # Revisions (RV1, RV2, etc.)
+ * ├── 03_Output/             # Final deliverables
+ * │   ├── Drawings/
+ * │   ├── Presentations/
+ * │   └── Schedules/
+ * └── 04_Specs/              # Product specifications
+ *     ├── Cut_Sheets/
+ *     └── Photometrics/
+ * ```
+ *
+ * **Usage**: Accessed via singleton pattern with `getGoogleDriveProjectService()`.
+ *
+ * @module google-drive-project-service
+ * @see {@link https://developers.google.com/drive/api/v3/reference} Drive API Docs
  */
 
 import { google, drive_v3 } from 'googleapis'
@@ -96,43 +122,85 @@ Product documentation and photometric data:
 `,
 }
 
+/**
+ * A file or folder in Google Drive
+ */
 export interface DriveFile {
+  /** Google Drive file ID */
   id: string
+  /** File or folder name */
   name: string
+  /** MIME type (folder: 'application/vnd.google-apps.folder') */
   mimeType: string
+  /** File size in bytes (undefined for folders) */
   size?: string
+  /** Last modified timestamp (ISO 8601) */
   modifiedTime?: string
+  /** URL to view/edit in browser */
   webViewLink?: string
+  /** True if this is a folder */
   isFolder: boolean
 }
 
+/**
+ * Result of creating a project folder structure
+ */
 export interface ProjectFolderResult {
+  /** ID of the main project folder */
   projectFolderId: string
-  areasFolderId: string // ID of the 02_Areas folder for creating area subfolders
+  /** ID of 02_Areas folder for creating area subfolders */
+  areasFolderId: string
 }
 
+/**
+ * Result of creating an area folder
+ */
 export interface AreaFolderResult {
+  /** ID of the area folder (e.g., "A01") */
   areaFolderId: string
+  /** Area code used as folder name */
   areaCode: string
-  versionFolderId: string // ID of the v1 folder created inside the area
+  /** ID of the initial RV1 revision folder inside the area */
+  versionFolderId: string
 }
 
+/**
+ * Result of creating a new area revision folder
+ */
 export interface AreaVersionFolderResult {
+  /** ID of the revision folder (e.g., "RV2") */
   versionFolderId: string
+  /** Revision number (1, 2, 3, etc.) */
   versionNumber: number
 }
 
-// Deprecated - project-level versioning removed
+/**
+ * @deprecated Project-level versioning removed. Use area-level revisions.
+ */
 export interface VersionFolderResult {
   versionFolderId: string
   versionNumber: number
 }
 
+/**
+ * Service for managing Google Drive project folders
+ *
+ * @remarks
+ * Use the singleton accessor `getGoogleDriveProjectService()` instead
+ * of instantiating directly.
+ */
 class GoogleDriveProjectService {
   private drive: drive_v3.Drive
+  /** HUB Shared Drive ID (from GOOGLE_DRIVE_HUB_ID env var) */
   private hubDriveId: string
+  /** Projects folder ID within HUB (from GOOGLE_DRIVE_PROJECTS_FOLDER_ID env var) */
   private projectsFolderId: string
 
+  /**
+   * Create a new service instance
+   *
+   * @throws Error if env vars or credentials file are missing
+   */
   constructor() {
     // Load environment variables
     this.hubDriveId = getEnvVar('GOOGLE_DRIVE_HUB_ID')

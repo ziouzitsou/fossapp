@@ -1,11 +1,26 @@
 /**
  * APS Design Automation Service
- * Main orchestrator for tile processing using Autodesk Platform Services
  *
- * Handles:
- * - Activity creation/deletion
- * - WorkItem submission and monitoring
- * - DWG generation workflow
+ * Main orchestrator for tile DWG generation using Autodesk Platform Services.
+ * Coordinates the full workflow:
+ * 1. Authentication
+ * 2. Dynamic Activity creation (with N image parameters)
+ * 3. Temporary bucket creation
+ * 4. File uploads (script + images)
+ * 5. WorkItem submission and monitoring
+ * 6. DWG download and optional viewer preparation
+ * 7. Cleanup (activity deletion, bucket auto-expires)
+ *
+ * @remarks
+ * Design Automation (DA) runs AutoCAD in the cloud. Activities define what
+ * the AutoCAD engine can do (inputs, outputs, commands). WorkItems are
+ * execution requests against an Activity with specific files.
+ *
+ * Tiles use a dynamic Activity with variable image count to support
+ * different tile configurations (1-50+ images per tile).
+ *
+ * @module tiles/aps/design-automation-service
+ * @see {@link https://aps.autodesk.com/en/docs/design-automation/v3/} DA Docs
  */
 
 import { APS_CONFIG, DA_BASE_URL } from './config'
@@ -13,13 +28,38 @@ import { APSAuthService } from './auth-service'
 import { OSSService } from './oss-service'
 import type { ProcessingLog, FileUploadResult, WorkItemResult, TileProcessingResult } from './types'
 
+/**
+ * Service for processing tiles through APS Design Automation
+ *
+ * @remarks
+ * Creates a new instance per tile processing request.
+ * Manages its own auth/OSS services and processing logs.
+ *
+ * @example
+ * ```typescript
+ * const service = new APSDesignAutomationService()
+ * const result = await service.processTileWithProgress(
+ *   scriptContent,
+ *   imageBuffers,
+ *   'Tile Q321',
+ *   (step, detail) => console.log(step, detail)
+ * )
+ * if (result.success && result.dwgBuffer) {
+ *   // Save DWG to Google Drive, etc.
+ * }
+ * ```
+ */
 export class APSDesignAutomationService {
   private authService = new APSAuthService()
   private ossService = new OSSService(this.authService)
   private processingLogs: ProcessingLog[] = []
 
   /**
-   * Add log entry
+   * Add a log entry to the processing logs
+   *
+   * @param step - Processing step identifier
+   * @param status - Current status
+   * @param details - Optional additional context
    */
   private addLog(step: string, status: ProcessingLog['status'], details?: Record<string, unknown>) {
     this.processingLogs.push({
@@ -31,7 +71,20 @@ export class APSDesignAutomationService {
   }
 
   /**
-   * Create Activity dynamically with exact number of image parameters
+   * Create a Design Automation Activity with dynamic image parameters
+   *
+   * @remarks
+   * Activities define the "contract" for WorkItems:
+   * - Engine version (AutoCAD 2025)
+   * - Command line (accoreconsole.exe with script)
+   * - Parameters (script input, tile output, N image inputs)
+   *
+   * This method creates an Activity with exactly the number of image
+   * parameters needed, avoiding the "unused parameter" warnings.
+   *
+   * If Activity already exists (409), it's deleted and recreated.
+   *
+   * @param imageCount - Number of image parameters to define
    */
   private async createDynamicActivity(imageCount: number): Promise<void> {
     const accessToken = await this.authService.getAccessToken()
@@ -121,7 +174,11 @@ export class APSDesignAutomationService {
   }
 
   /**
-   * Delete Activity and all its aliases/versions
+   * Delete the current Activity and all its aliases/versions
+   *
+   * @remarks
+   * Non-blocking: errors are logged but not thrown.
+   * Called in cleanup phase to avoid accumulating old Activity versions.
    */
   private async deleteActivity(): Promise<void> {
     try {
@@ -144,8 +201,26 @@ export class APSDesignAutomationService {
   }
 
   /**
-   * Process a tile with script and images
-   * Creates activity dynamically and cleans up all APS resources after completion
+   * Process a tile and generate a DWG file
+   *
+   * @remarks
+   * Main entry point for tile processing without progress callback.
+   * Use `processTileWithProgress` for SSE streaming support.
+   *
+   * Full workflow:
+   * 1. Authenticate with APS
+   * 2. Create Activity with N image params
+   * 3. Create transient bucket
+   * 4. Upload script + images
+   * 5. Submit WorkItem
+   * 6. Poll for completion
+   * 7. Download DWG
+   * 8. Cleanup Activity (bucket auto-expires)
+   *
+   * @param scriptContent - AutoCAD script (.scr format)
+   * @param imageBuffers - Array of images to embed in the DWG
+   * @param tileName - Name for the output file (e.g., 'Tile Q321')
+   * @returns Processing result with DWG buffer on success
    */
   async processTile(
     scriptContent: string,
@@ -277,7 +352,12 @@ export class APSDesignAutomationService {
   }
 
   /**
-   * Upload script and images to OSS
+   * Upload script and image files to OSS bucket
+   *
+   * @param bucketName - Target OSS bucket
+   * @param scriptContent - Script content to upload as script.scr
+   * @param imageBuffers - Images to upload with their filenames
+   * @returns Array of upload results with signed URLs
    */
   private async uploadFiles(
     bucketName: string,
@@ -306,9 +386,17 @@ export class APSDesignAutomationService {
   }
 
   /**
-   * Submit WorkItem to Design Automation
-   * Uses custom fossapp activity for tile processing
-   * Returns workItemId and outputUrl for later download
+   * Submit a WorkItem to Design Automation
+   *
+   * @remarks
+   * WorkItem is an execution request against our Activity.
+   * Specifies input files (script, images) and output location (DWG).
+   * Returns immediately with workItemId for status polling.
+   *
+   * @param bucketName - OSS bucket containing input files
+   * @param uploadResults - Results from uploadFiles with signed URLs
+   * @param tileName - Output filename (without extension)
+   * @returns WorkItem ID and output URL for monitoring/download
    */
   private async submitWorkItem(
     bucketName: string,
@@ -429,7 +517,16 @@ export class APSDesignAutomationService {
   }
 
   /**
-   * Monitor WorkItem until completion (success or failure)
+   * Monitor a WorkItem until completion
+   *
+   * @remarks
+   * Polls DA API every 2 seconds until status is terminal (success/failed).
+   * Typical processing time: 15-30 seconds.
+   * Timeout after maxPollingAttempts (configured in APS_CONFIG).
+   *
+   * @param workItemId - WorkItem to monitor
+   * @returns AutoCAD report on completion
+   * @throws Error on failure or timeout
    */
   private async monitorWorkItem(workItemId: string): Promise<{ report?: string }> {
     const accessToken = await this.authService.getAccessToken()
@@ -490,7 +587,11 @@ export class APSDesignAutomationService {
   }
 
   /**
-   * Download DWG file from URL
+   * Download a DWG file from a signed URL
+   *
+   * @param dwgUrl - Pre-signed URL to download from
+   * @returns DWG file contents as Buffer
+   * @throws Error if download fails or URL expired
    */
   async downloadDwg(dwgUrl: string): Promise<Buffer> {
     const response = await fetch(dwgUrl)
@@ -507,7 +608,12 @@ export class APSDesignAutomationService {
   }
 
   /**
-   * Test authentication
+   * Test APS authentication
+   *
+   * @remarks
+   * Useful for connection diagnostics and validating credentials.
+   *
+   * @returns Success status and message
    */
   async testAuthentication(): Promise<{ success: boolean; message: string; expiresIn?: number }> {
     try {
@@ -526,7 +632,33 @@ export class APSDesignAutomationService {
   }
 
   /**
-   * Process tile with progress callback for SSE streaming
+   * Process a tile with real-time progress updates
+   *
+   * @remarks
+   * Primary entry point for tile processing with SSE streaming.
+   * Progress callback fires at each workflow step for live UI updates.
+   *
+   * Also includes viewer preparation step (SVF translation) after DWG
+   * generation for immediate web preview capability.
+   *
+   * @param scriptContent - AutoCAD script (.scr format)
+   * @param imageBuffers - Array of images to embed in the DWG
+   * @param tileName - Name for the output file (e.g., 'Tile Q321')
+   * @param onProgress - Callback for progress updates (step, optional detail)
+   * @returns Processing result with DWG buffer and optional viewerUrn
+   *
+   * @example
+   * ```typescript
+   * const result = await service.processTileWithProgress(
+   *   script,
+   *   images,
+   *   'Tile Q321',
+   *   (step, detail) => {
+   *     // Send to SSE stream
+   *     res.write(`data: ${JSON.stringify({ step, detail })}\n\n`)
+   *   }
+   * )
+   * ```
    */
   async processTileWithProgress(
     scriptContent: string,
@@ -670,7 +802,12 @@ export class APSDesignAutomationService {
   }
 
   /**
-   * Monitor WorkItem with progress callback
+   * Monitor a WorkItem with progress updates
+   *
+   * @param workItemId - WorkItem to monitor
+   * @param onProgress - Callback for elapsed time updates
+   * @returns AutoCAD report on completion
+   * @throws Error on failure or timeout
    */
   private async monitorWorkItemWithProgress(
     workItemId: string,

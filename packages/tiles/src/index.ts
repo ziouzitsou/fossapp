@@ -1,11 +1,31 @@
 /**
- * @fossapp/tiles
- * Tile generation utilities for FOSSAPP
+ * @fossapp/tiles - Tile Generation Domain Package
  *
- * Exports:
- * - progress: SSE streaming progress store (shared by playground, symbol-generator, tiles)
- * - types: Tile-specific types (BucketItem, TileGroup, ProductInfo for tiles)
- * - scripts: AutoLISP script generator
+ * Provides utilities for creating grouped product layouts (tiles) for
+ * print catalogs and AutoCAD drawings. Includes job progress tracking
+ * and AutoLISP script generation.
+ *
+ * @remarks
+ * Import patterns:
+ * - `@fossapp/tiles` - Main exports (progress, types, scripts)
+ * - `@fossapp/tiles/types` - Types only
+ * - `@fossapp/tiles/scripts` - Script generator only
+ * - `@fossapp/tiles/progress` - Progress store only
+ *
+ * The progress store is shared across tiles, playground, and symbol-generator
+ * features for SSE-based real-time job tracking.
+ *
+ * @example
+ * ```ts
+ * import { generateTileScript, createJob, addProgress } from '@fossapp/tiles'
+ *
+ * const jobId = generateJobId()
+ * createJob(jobId, 'LED Panel 600x600')
+ * addProgress(jobId, 'script', 'Generating script...')
+ * const script = generateTileScript(tileData)
+ * ```
+ *
+ * @packageDocumentation
  */
 
 // Re-export from submodules

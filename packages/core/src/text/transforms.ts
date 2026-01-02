@@ -1,8 +1,15 @@
 /**
- * Text transformation utilities
+ * Text Transformation Utilities
  *
- * Provides both local string operations and LLM-powered transformations
- * using OpenRouter API (Gemini Flash by default)
+ * Provides both local string operations (titleCase, uppercase, lowercase, trim)
+ * and LLM-powered transformations (translation, smart title case) using
+ * OpenRouter API with Gemini Flash by default.
+ *
+ * Local transforms execute synchronously without any API calls.
+ * LLM transforms require an OpenRouter API key (via env or options).
+ *
+ * @module @fossapp/core/text
+ * @see {@link ./types.ts} for type definitions and available transforms
  */
 
 import type {
@@ -17,7 +24,11 @@ const DEFAULT_MODEL = 'google/gemini-2.0-flash-001'
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
 /**
- * Apply local (non-LLM) transformations
+ * Applies a local (non-LLM) transformation to text.
+ *
+ * @param text - The input string to transform
+ * @param transform - The transformation to apply (titleCase, uppercase, lowercase, trim)
+ * @returns The transformed string, or original if transform is LLM-only
  */
 function applyLocalTransform(text: string, transform: TextTransform): string {
   switch (transform) {
@@ -35,8 +46,14 @@ function applyLocalTransform(text: string, transform: TextTransform): string {
 }
 
 /**
- * Simple title case conversion
- * Capitalizes first letter of each word
+ * Converts text to title case by capitalizing the first letter of each word.
+ *
+ * @remarks
+ * This is a naive implementation that doesn't handle articles, prepositions,
+ * or proper nouns. For smarter title casing, use the 'smartTitleCase' LLM transform.
+ *
+ * @param text - The input string to convert
+ * @returns Text with each word's first letter capitalized
  */
 function toTitleCase(text: string): string {
   return text
@@ -50,7 +67,17 @@ function toTitleCase(text: string): string {
 }
 
 /**
- * Build the prompt for LLM transformations
+ * Builds the prompt string for LLM-based transformations.
+ *
+ * @remarks
+ * Combines multiple transform instructions into a single prompt for efficiency.
+ * The prompt structure includes optional context, transformation instructions,
+ * and explicit instructions for clean output.
+ *
+ * @param text - The text to be transformed
+ * @param transforms - Array of LLM transforms to apply
+ * @param context - Optional context hint (e.g., "this is a project name")
+ * @returns Formatted prompt string ready for the LLM
  */
 function buildPrompt(
   text: string,
@@ -87,7 +114,18 @@ function buildPrompt(
 }
 
 /**
- * Call OpenRouter API for LLM transformations
+ * Calls OpenRouter API to perform LLM-based text transformation.
+ *
+ * @remarks
+ * Uses low temperature (0.1) for consistent, deterministic results.
+ * Automatically strips any quotes the LLM might add to the response.
+ *
+ * @param prompt - The formatted prompt from buildPrompt()
+ * @param options - Transform options including API key and model
+ * @returns Object containing transformed text and optional token usage stats
+ * @throws {Error} If API key is missing or API call fails
+ *
+ * @see {@link https://openrouter.ai/docs} OpenRouter API documentation
  */
 async function callLLM(
   prompt: string,
@@ -226,21 +264,46 @@ export async function transformText(
 }
 
 /**
- * Quick helper for title case (no async needed)
+ * Synchronous title case helper for simple use cases.
+ *
+ * @remarks
+ * Use this when you just need basic title case without async overhead.
+ * For smarter title casing that respects proper nouns and acronyms,
+ * use `transformText(text, 'smartTitleCase')` instead.
+ *
+ * @param text - The input string to convert
+ * @returns Text with each word's first letter capitalized
+ *
+ * @example
+ * titleCase('hello world') // 'Hello World'
  */
 export function titleCase(text: string): string {
   return toTitleCase(text)
 }
 
 /**
- * Check if a transform requires LLM
+ * Checks if a single transform requires an LLM API call.
+ *
+ * @remarks
+ * Useful for UI hints (e.g., showing "requires API key" warning) or
+ * conditionally enabling features based on API availability.
+ *
+ * @param transform - The transform type to check
+ * @returns True if the transform requires OpenRouter API
  */
 export function requiresLLM(transform: TextTransform): boolean {
   return LLM_TRANSFORMS.includes(transform)
 }
 
 /**
- * Check if any transforms in an array require LLM
+ * Checks if any transform in an array requires an LLM API call.
+ *
+ * @remarks
+ * Use this to check a batch of transforms before processing to determine
+ * if API credentials will be needed.
+ *
+ * @param transforms - Array of transform types to check
+ * @returns True if at least one transform requires OpenRouter API
  */
 export function anyRequiresLLM(transforms: TextTransform[]): boolean {
   return transforms.some((t) => LLM_TRANSFORMS.includes(t))

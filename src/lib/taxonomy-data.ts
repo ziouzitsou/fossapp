@@ -1,17 +1,38 @@
 /**
- * Real Taxonomy Data from search.taxonomy table
+ * Product Taxonomy Data
  *
- * This file contains the actual product taxonomy structure
- * with all 3 levels for the demo pages.
+ * Hierarchical category structure for lighting products.
+ * Based on the `search.taxonomy` table but provided as static data
+ * for demo pages and UI components.
+ *
+ * @remarks
+ * 3-level hierarchy:
+ * - Level 1: Top categories (LUMINAIRE, ACCESSORIES, CONTROLS, COMPONENTS)
+ * - Level 2: Subcategories (e.g., LUMINAIRE-CEILING, LUMINAIRE-WALL)
+ * - Level 3: Specific types (e.g., LUMINAIRE-CEILING-RECESSED)
+ *
+ * Product counts are approximate and used for display purposes.
+ *
+ * @module taxonomy-data
  */
 
+/**
+ * A category in the product taxonomy tree
+ */
 export interface TaxonomyCategory {
+  /** Unique code (e.g., "LUMINAIRE-CEILING-RECESSED") */
   code: string
+  /** Display name */
   name: string
+  /** Brief description */
   description: string
+  /** Hierarchy level (1-3) */
   level: number
+  /** Lucide icon name for UI display */
   icon: string
+  /** Approximate number of products in this category */
   productCount: number
+  /** Child categories (for levels 1 and 2) */
   children?: TaxonomyCategory[]
 }
 

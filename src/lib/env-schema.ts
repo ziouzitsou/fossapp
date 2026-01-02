@@ -1,28 +1,47 @@
 /**
  * Environment Variable Schema & Validation
  *
- * Single source of truth for all environment variables.
- * This file:
- * 1. Documents all required/optional env vars
- * 2. Validates them at runtime (server startup)
- * 3. Provides typed access to env vars
+ * Single source of truth for all environment variables used in FOSSAPP.
+ * Provides documentation, validation, and .env.example generation.
  *
- * UPDATE THIS FILE when adding new environment variables!
+ * @remarks
+ * When adding a new feature requiring env vars:
+ * 1. Add the definition to ENV_SCHEMA below
+ * 2. Run `npm run env:check` to see what's missing
+ * 3. Add to local `.env.local`
+ * 4. Add to production via SSH or deployment config
+ *
+ * Categories:
+ * - **NextAuth**: Authentication configuration
+ * - **Google OAuth**: Sign-in with Google
+ * - **Supabase**: Database connection
+ * - **Google Drive**: Cloud storage integration
+ * - **APS (Autodesk)**: Design Automation for DWG generation
+ * - **Feedback**: AI chat and email notifications
+ * - **E2E Testing**: Playwright auth bypass
+ *
+ * @module env-schema
  */
 
+/**
+ * Definition for a single environment variable
+ */
 export interface EnvVarDefinition {
+  /** Environment variable name (e.g., "SUPABASE_SERVICE_ROLE_KEY") */
   name: string
+  /** Whether the app fails to start without this var */
   required: boolean
+  /** Human-readable description for documentation */
   description: string
-  // Where this var is needed
+  /** Where this var is used: 'server' only, 'client' (NEXT_PUBLIC_), or 'both' */
   context: 'server' | 'client' | 'both'
-  // When it's required
+  /** When it's required: 'production', 'development', or 'all' */
   environment?: 'production' | 'development' | 'all'
-  // Example value (for .env.example generation)
+  /** Example value for .env.example generation */
   example?: string
-  // Validation pattern
+  /** Regex pattern for validation */
   pattern?: RegExp
-  // Sensitive - should be masked in logs
+  /** If true, value is masked in logs and error messages */
   sensitive?: boolean
 }
 

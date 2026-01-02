@@ -1,3 +1,18 @@
+/**
+ * Feature Groups Display - Organized product specifications
+ *
+ * Renders product features grouped by ETIM Feature Group (EFGxxxxx),
+ * with a "Key Specifications" card highlighting the most important features.
+ *
+ * @remarks
+ * **Feature Organization**:
+ * - Groups are defined by ETIM's FEATUREGROUPID (e.g., EFG00006 = Electrical)
+ * - Important features are extracted based on priority rules (CCT, CRI, IP, etc.)
+ * - Unconfigured groups are collapsed into "Other Specifications"
+ *
+ * @see {@link FEATURE_GROUP_CONFIG} for group display configuration
+ * @see {@link getImportantFeatures} for priority feature selection
+ */
 'use client';
 
 import React from 'react';
@@ -11,6 +26,9 @@ import {
 import { Card, CardContent } from '@fossapp/ui';
 import { FeatureValueRenderer } from './FeatureValueRenderer';
 
+/**
+ * Props for the FeatureGroupsDisplay component.
+ */
 interface FeatureGroupsDisplayProps {
   product: ProductInfo;
   showQuickView?: boolean;

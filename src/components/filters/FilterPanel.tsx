@@ -1,3 +1,26 @@
+/**
+ * Filter Panel - Dynamic product filtering UI based on selected taxonomy
+ *
+ * Renders a collapsible filter panel that adapts based on the selected product
+ * category (taxonomy). When no category is selected, only the supplier filter
+ * is shown. When a category is selected, loads additional filters from the
+ * database (CCT, CRI, IP rating, beam angle, etc.).
+ *
+ * @remarks
+ * **Filter Types Supported**:
+ * - `boolean`: Yes/No/Either toggle (e.g., Indoor, Outdoor)
+ * - `categorical`: Multi-select checkboxes (e.g., IP Rating, Light Source)
+ * - `range`: Min/max numeric inputs with optional presets (e.g., CCT, Lumens)
+ *
+ * **Data Flow**:
+ * 1. Taxonomy selected → Load filter definitions from DB
+ * 2. Fetch facets (counts) based on current filter state
+ * 3. User changes filter → `onChange` callback updates parent state
+ * 4. Parent triggers new search with updated filters
+ *
+ * @see {@link getFilterDefinitionsAction} for filter definition loading
+ * @see {@link BooleanFilter} {@link MultiSelectFilter} {@link RangeFilter} for filter components
+ */
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { logEventClient } from '@fossapp/core/logging/client'
@@ -19,45 +42,90 @@ import {
   type FilterGroup
 } from '@/lib/filters/actions'
 
-// Range filter type (min/max both optional during editing)
+/**
+ * Range filter value - both min and max are optional during editing.
+ * Only applied to query when at least one bound is set.
+ */
 export type RangeValue = { min?: number; max?: number }
 
-// Filter value types: range, multi-select string[], single string, or boolean
+/**
+ * Union of all possible filter value types.
+ * The actual type depends on the filter's `filter_type` in the definition.
+ */
 export type FilterValue = RangeValue | string[] | string | boolean | number | null
 
+/**
+ * Interface for all filter values, combining typed known filters with dynamic support.
+ *
+ * @remarks
+ * Known properties provide type safety for common filters.
+ * The index signature allows any additional filters loaded from the database.
+ */
 export interface FilterValues {
+  /** Selected supplier ID from the supplier dropdown */
   supplier?: number | null
-  // Boolean filters (known properties with explicit types)
+
+  // Boolean filters (installation environment)
   indoor?: boolean
   outdoor?: boolean
   submersible?: boolean
   trimless?: boolean
   cut_shape_round?: boolean
   cut_shape_rectangular?: boolean
-  // Range filters
+
+  // Range filters (lighting specifications)
+  /** Correlated Color Temperature in Kelvin (e.g., 2700-6500) */
   cct?: RangeValue
+  /** Color Rendering Index (0-100) */
   cri?: RangeValue
+  /** Light output in lumens */
   lumens_output?: RangeValue
+  /** Operating voltage */
   voltage?: RangeValue
+  /** Beam angle in degrees */
   beam_angle?: RangeValue
+
   // Multi-select filters
+  /** IP (Ingress Protection) rating codes */
   ip?: string[]
+  /** Finish/housing colors */
   finishing_colour?: string[]
+  /** Light source type (LED, etc.) */
   light_source?: string[]
+  /** Light distribution pattern */
   light_distribution?: string[]
+  /** Beam angle classification */
   beam_angle_type?: string[]
+  /** Dimming capabilities */
   dimmable?: string[]
+  /** ETIM class codes */
   class?: string[]
-  // Allow other dynamic filters
+
+  /** Index signature for dynamic filters loaded from database */
   [key: string]: FilterValue | RangeValue | undefined
 }
 
+/**
+ * Props for the FilterPanel component.
+ */
 interface FilterPanelProps {
+  /** Current taxonomy code (e.g., "EC001234") - determines which filters to show */
   taxonomyCode?: string
+  /** Current filter values - controlled component pattern */
   values: FilterValues
+  /** Called when any filter value changes */
   onChange: (values: FilterValues) => void
 }
 
+/**
+ * Renders the filter panel with taxonomy-specific filters.
+ *
+ * @remarks
+ * Has three render modes:
+ * 1. **Loading**: Shows skeleton while fetching filter definitions
+ * 2. **No taxonomy**: Shows only supplier filter with guidance message
+ * 3. **Full filters**: Shows all applicable filters grouped by category
+ */
 export function FilterPanel({
   taxonomyCode,
   values,

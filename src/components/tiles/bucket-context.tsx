@@ -1,16 +1,45 @@
+/**
+ * Bucket Context - State management for the Tiles feature drag-and-drop workflow
+ *
+ * Manages a three-zone state machine for tile creation:
+ * 1. **Bucket**: Products collected from search results (staging area)
+ * 2. **Canvas**: Products dragged onto the workspace (intermediate zone)
+ * 3. **TileGroups**: Named groups of products for DWG generation (final)
+ *
+ * All state is persisted to localStorage, surviving page refreshes.
+ * Products move between zones via drag-and-drop or explicit actions.
+ *
+ * @example
+ * ```tsx
+ * // Wrap the tiles page with the provider
+ * <BucketProvider>
+ *   <TilesPage />
+ * </BucketProvider>
+ *
+ * // Use the hook in child components
+ * const { bucketItems, addToBucket, tileGroups } = useBucket()
+ * ```
+ *
+ * @see {@link TileGroupCard} for the UI that consumes this context
+ */
 'use client'
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
 import { ProductInfo, BucketItem, TileGroup } from '@fossapp/tiles/types'
 
+/** localStorage keys for persisting tiles state across sessions. */
 const STORAGE_KEYS = {
   bucket: 'tiles-bucket-items',
   canvas: 'tiles-canvas-items',
   groups: 'tiles-tile-groups',
 } as const
 
+/**
+ * Full interface for the bucket context, providing state and actions
+ * for all three zones: bucket, canvas, and tile groups.
+ */
 interface BucketContextType {
-  // Bucket state
+  // Bucket state (staging area)
   bucketItems: BucketItem[]
   addToBucket: (product: ProductInfo) => void
   removeFromBucket: (productId: string) => void
@@ -41,7 +70,10 @@ interface BucketContextType {
 
 const BucketContext = createContext<BucketContextType | undefined>(undefined)
 
-// localStorage helpers
+/**
+ * Safely loads and parses JSON from localStorage.
+ * Returns fallback on SSR or parse errors.
+ */
 function loadFromStorage<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback
   try {
@@ -52,6 +84,7 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
+/** Safely saves JSON to localStorage, handling SSR and quota errors. */
 function saveToStorage<T>(key: string, value: T): void {
   if (typeof window === 'undefined') return
   try {
@@ -61,6 +94,7 @@ function saveToStorage<T>(key: string, value: T): void {
   }
 }
 
+/** Generates a random 4-character alphanumeric code for new tile names. */
 function generateTileCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let result = ''
@@ -70,6 +104,10 @@ function generateTileCode(): string {
   return result
 }
 
+/**
+ * React Context provider for tiles bucket state.
+ * Handles hydration from localStorage on mount and auto-saves on state changes.
+ */
 export function BucketProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false)
   const [bucketItems, setBucketItems] = useState<BucketItem[]>([])
@@ -336,6 +374,12 @@ export function BucketProvider({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * Hook to access the bucket context for managing tiles state.
+ *
+ * @returns All bucket/canvas/tileGroup state and actions
+ * @throws Error if used outside of BucketProvider
+ */
 export function useBucket() {
   const context = useContext(BucketContext)
   if (context === undefined) {

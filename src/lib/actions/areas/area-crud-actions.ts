@@ -3,8 +3,21 @@
 /**
  * Area CRUD Actions
  *
- * Core operations for project areas: list, get, create, update, delete.
- * Areas represent physical spaces within a project (rooms, floors, zones).
+ * Server actions for managing project areas (physical spaces within projects).
+ * Areas represent rooms, floors, or zones where lighting products are placed.
+ *
+ * @remarks
+ * Key concepts:
+ * - **Area**: A named space with code (e.g., "A01 - Lobby")
+ * - **Revision**: Version snapshot of an area's product selections
+ * - Each area starts with revision 1 (RV1), created by database trigger
+ * - Current revision is tracked on the area record
+ *
+ * Integrations:
+ * - Google Drive: Each area gets a folder with revision subfolders
+ * - Products: Linked via `project_products` with `area_revision_id`
+ *
+ * @module actions/areas/area-crud-actions
  */
 
 import { supabaseServer } from '@fossapp/core/db/server'
@@ -32,6 +45,21 @@ type RevisionSummary = {
 // LIST AREAS FOR PROJECT
 // ============================================================================
 
+/**
+ * List all active areas for a project
+ *
+ * @remarks
+ * Fetches areas with their current revision data including:
+ * - Product count and total cost (via RPC function)
+ * - Floor plan status (URN, filename, translation status)
+ * - Optionally all revisions for version history display
+ *
+ * Areas are sorted by display_order, then floor_level.
+ *
+ * @param projectId - UUID of the project
+ * @param includeRevisions - Whether to include all revision history (default: false)
+ * @returns Array of areas with current revision data
+ */
 export async function listProjectAreasAction(
   projectId: string,
   includeRevisions = false
@@ -147,6 +175,12 @@ export async function listProjectAreasAction(
 // GET AREA BY ID
 // ============================================================================
 
+/**
+ * Get a single area by ID with current revision data
+ *
+ * @param areaId - UUID of the area
+ * @returns Area with current revision data, or error if not found
+ */
 export async function getAreaByIdAction(areaId: string): Promise<ActionResult<ProjectArea>> {
   try {
     const { data: area, error } = await supabaseServer
@@ -212,6 +246,21 @@ export async function getAreaByIdAction(areaId: string): Promise<ActionResult<Pr
 // CREATE AREA
 // ============================================================================
 
+/**
+ * Create a new area in a project
+ *
+ * @remarks
+ * Creates an area with automatic provisioning:
+ * 1. Inserts area record (trigger creates initial RV1 revision)
+ * 2. Creates Google Drive folder structure (Area/{code}/RV1)
+ * 3. Updates records with Drive folder IDs
+ *
+ * Area codes are normalized to uppercase (e.g., "a01" → "A01").
+ * Each project can have unique area codes (enforced by unique constraint).
+ *
+ * @param input - Area creation data including project_id and area_code
+ * @returns Success with area ID, revision ID, and optional Drive folder ID
+ */
 export async function createAreaAction(
   input: CreateAreaInput
 ): Promise<ActionResult<{ id: string; revision_id: string; google_drive_folder_id?: string }>> {
@@ -313,6 +362,17 @@ export async function createAreaAction(
 // UPDATE AREA
 // ============================================================================
 
+/**
+ * Update an existing area
+ *
+ * @remarks
+ * Supports partial updates. Area code changes are normalized to uppercase.
+ * Setting `is_active: false` soft-deletes the area (excluded from list queries).
+ *
+ * @param areaId - UUID of the area to update
+ * @param input - Fields to update (undefined values are ignored)
+ * @returns Success or error message
+ */
 export async function updateAreaAction(
   areaId: string,
   input: UpdateAreaInput
@@ -369,6 +429,21 @@ export async function updateAreaAction(
 // DELETE AREA
 // ============================================================================
 
+/**
+ * Delete an area and all associated data
+ *
+ * @remarks
+ * **Destructive operation** - permanently deletes:
+ * - Area record
+ * - All revisions (cascade delete)
+ * - All products linked to revisions (cascade delete)
+ * - Google Drive folder (if linked)
+ *
+ * Drive deletion failures are logged but don't block database deletion.
+ *
+ * @param areaId - UUID of the area to delete
+ * @returns Success or error message
+ */
 export async function deleteAreaAction(areaId: string): Promise<ActionResult> {
   try {
     // Get the area's Drive folder ID before deleting

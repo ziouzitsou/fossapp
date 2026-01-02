@@ -1,3 +1,20 @@
+/**
+ * Project Form Sheet - Slide-over form for creating and editing lighting projects
+ *
+ * Provides a comprehensive multi-tab form for project management. In create mode,
+ * automatically generates project codes (YYMM-NNN format) and creates corresponding
+ * Google Drive folders. In edit mode, populates all fields from existing project data.
+ *
+ * @remarks
+ * The form is organized into four tabs:
+ * - **Basic**: Name, status, customer, type, priority, budget, dates
+ * - **Location**: Address fields (optimized for Greek addresses)
+ * - **Team**: Project stakeholders (manager, architect, engineers)
+ * - **Details**: Category and notes
+ *
+ * @see {@link createProjectWithDriveAction} for the create action with Drive integration
+ * @see {@link updateProjectAction} for the update action
+ */
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -38,7 +55,10 @@ import { useDevSession } from '@/lib/use-dev-session'
 import { useTextTransform } from '@/hooks/use-text-transform'
 import { Sparkles } from 'lucide-react'
 
-// Project status options
+/**
+ * Available project statuses for the workflow lifecycle.
+ * Values are synced with the database CHECK constraint on `items.projects.status`.
+ */
 const PROJECT_STATUSES = [
   { value: 'draft', label: 'Draft' },
   { value: 'quotation', label: 'Quotation' },
@@ -49,7 +69,7 @@ const PROJECT_STATUSES = [
   { value: 'on_hold', label: 'On Hold' },
 ]
 
-// Project priority options
+/** Priority levels for project urgency classification. */
 const PROJECT_PRIORITIES = [
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
@@ -57,7 +77,10 @@ const PROJECT_PRIORITIES = [
   { value: 'urgent', label: 'Urgent' },
 ]
 
-// Project type options (synced with database CHECK constraint)
+/**
+ * Project type classifications for lighting installations.
+ * Values are synced with the database CHECK constraint on `items.projects.project_type`.
+ */
 const PROJECT_TYPES = [
   { value: 'residential', label: 'Residential' },
   { value: 'commercial', label: 'Commercial' },
@@ -74,13 +97,32 @@ const PROJECT_TYPES = [
 ]
 
 
+/**
+ * Props for the ProjectFormSheet component.
+ */
 interface ProjectFormSheetProps {
+  /** Controls the sheet's open/closed state */
   open: boolean
+  /** Callback when the sheet should open or close */
   onOpenChange: (open: boolean) => void
-  project?: ProjectDetail | null  // If provided, we're editing
+  /** Existing project data for edit mode; undefined/null for create mode */
+  project?: ProjectDetail | null
+  /** Called after successful create/update with the project ID */
   onSuccess?: (projectId: string) => void
 }
 
+/**
+ * Slide-over sheet for creating new projects or editing existing ones.
+ *
+ * @remarks
+ * - In **create mode** (`project` undefined): Generates project codes automatically
+ *   and creates a corresponding Google Drive folder structure.
+ * - In **edit mode** (`project` provided): Populates form with existing data.
+ *   Project code is read-only to preserve consistency.
+ *
+ * The form validates that a customer is selected before submission.
+ * Text fields support AI-powered transformation (title case + translation).
+ */
 export function ProjectFormSheet({
   open,
   onOpenChange,

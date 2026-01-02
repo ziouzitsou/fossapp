@@ -2,30 +2,73 @@
  * FOSSAPP Knowledge Base
  *
  * Structured knowledge about app features for the feedback assistant.
- * UPDATE THIS FILE when new features are added or changed.
+ * This is the SINGLE SOURCE OF TRUTH for what the AI knows about FOSSAPP.
  *
+ * @remarks
+ * **IMPORTANT**: UPDATE THIS FILE when new features are added or changed!
  * The assistant will ONLY know what's documented here - this prevents
  * hallucinating features that don't exist.
+ *
+ * When adding a new feature:
+ * 1. Add entry to `features` object with name, description, capabilities
+ * 2. Add `limitations` if something is intentionally not supported
+ * 3. Add `howTo` for common user actions
+ * 4. Add `statuses` if the feature has workflow states
+ * 5. Update `commonQuestions` if users frequently ask about it
+ *
+ * @module feedback/knowledge-base
+ * @see src/lib/feedback/knowledge-base.ts in project for updates
  */
 
+/**
+ * Knowledge about a single FOSSAPP feature
+ *
+ * @remarks
+ * Each feature entry provides context for the AI to accurately
+ * answer user questions without inventing non-existent functionality.
+ */
 export interface FeatureKnowledge {
+  /** Display name of the feature */
   name: string
+  /** Brief description of what the feature does */
   description: string
+  /** List of things users CAN do with this feature */
   capabilities: string[]
+  /** List of things that are NOT supported (prevents hallucination) */
   limitations?: string[]
+  /** Step-by-step instructions for common actions (key: action name) */
   howTo?: Record<string, string>
+  /** Available status values and their meanings (for workflow features) */
   statuses?: Record<string, string>
 }
 
+/**
+ * Complete knowledge base structure
+ *
+ * @remarks
+ * Organized to provide the AI with:
+ * - Feature details (what the app can do)
+ * - Common Q&A (quick answers to frequent questions)
+ * - Product vocabulary (search term mappings and categories)
+ */
 export interface KnowledgeBase {
+  /** Application name */
   appName: string
+  /** One-line app description */
   appDescription: string
+  /** Last update date (YYYY-MM-DD) - update when content changes */
   lastUpdated: string
+  /** Feature entries keyed by feature ID */
   features: Record<string, FeatureKnowledge>
+  /** Quick answers to common questions (key: question phrase) */
   commonQuestions: Record<string, string>
+  /** Product search vocabulary for better results */
   productVocabulary: {
+    /** Tips for effective searching */
     searchTips: string[]
+    /** User term → database terms mapping */
     synonyms: Record<string, string[]>
+    /** ETIM category names with product counts */
     categories: Record<string, string>
   }
 }
@@ -234,7 +277,18 @@ export const FOSSAPP_KNOWLEDGE: KnowledgeBase = {
 }
 
 /**
- * Generate a knowledge summary for the system prompt
+ * Generate a markdown summary of the knowledge base for the AI system prompt
+ *
+ * @remarks
+ * This summary is injected into the AI's system prompt so it knows
+ * what features exist, their capabilities, limitations, and common Q&A.
+ *
+ * The summary is formatted for AI consumption:
+ * - Features grouped with capabilities and limitations
+ * - Quick answers section for common questions
+ * - Product search vocabulary for better tool use
+ *
+ * @returns Markdown-formatted knowledge base summary
  */
 export function generateKnowledgeSummary(): string {
   const kb = FOSSAPP_KNOWLEDGE
@@ -287,6 +341,9 @@ export function generateKnowledgeSummary(): string {
 
 /**
  * Get detailed info about a specific feature
+ *
+ * @param featureKey - Feature identifier (e.g., 'products', 'projects', 'tiles')
+ * @returns Feature knowledge or null if not found
  */
 export function getFeatureInfo(featureKey: string): FeatureKnowledge | null {
   return FOSSAPP_KNOWLEDGE.features[featureKey] || null

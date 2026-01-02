@@ -1,7 +1,19 @@
 /**
- * Event types for user access monitoring
+ * Event Logging Types
  *
- * Phase 1 (Implemented):
+ * Type definitions for the FOSSAPP analytics event logging system.
+ * Events are stored in the `analytics.user_events` Supabase table.
+ *
+ * @module @fossapp/core/logging
+ * @see {@link ./server.ts} for the logEvent() function
+ */
+
+/**
+ * Event types for user access monitoring.
+ *
+ * @remarks
+ * Events are grouped by category for organization:
+ * - Authentication: login, logout, login_blocked
  * - Search & Discovery: search, search_refinement, search_no_results
  * - Product Engagement: product_view, product_image_viewed, product_details_expanded
  * - User Preferences: theme_toggled
@@ -47,7 +59,15 @@ export type EventType =
   | 'feedback_chat'              // AI feedback chat message sent
 
 /**
- * Event data structure (flexible JSONB)
+ * Event data structure for storing arbitrary event metadata.
+ *
+ * @remarks
+ * Stored as JSONB in Supabase, allowing flexible key-value data.
+ * Common fields by event type:
+ * - search: { search_query, results_count, filters_applied }
+ * - product_view: { product_id, product_name, manufacturer }
+ * - client_error: { error_message, error_stack, component }
+ * - page_load_time: { duration_ms, route }
  */
 export interface EventData {
   [key: string]: string | number | boolean | null | undefined

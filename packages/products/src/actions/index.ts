@@ -1,3 +1,19 @@
+/**
+ * Product Server Actions - Server-side product data operations
+ *
+ * This module provides all server-side actions for searching and retrieving
+ * product data from the Supabase database. Actions are designed to be called
+ * from React Server Components or API routes.
+ *
+ * @remarks
+ * All actions use the service-role Supabase client for elevated permissions.
+ * Input validation is performed using @fossapp/core/validation utilities.
+ * Analytics events are logged when userId is provided.
+ *
+ * @module
+ * @see {@link ../types/index.ts} for ProductInfo and ProductSearchResult types
+ * @see {@link @fossapp/core/db} for Supabase client configuration
+ */
 'use server'
 
 import { supabaseServer, logEvent, PAGINATION } from '@fossapp/core'
@@ -16,7 +32,12 @@ export type { ProductSearchResult } from '../types'
 // INTERFACES
 // ============================================================================
 
-/** @deprecated Use ProductInfo from @fossapp/products/types instead */
+/**
+ * Legacy product detail interface with pricing and multimedia.
+ *
+ * @deprecated Use ProductInfo from @fossapp/products/types instead.
+ * This interface is maintained for backwards compatibility only.
+ */
 export interface ProductDetail {
   product_id: string
   foss_pid: string
@@ -46,30 +67,60 @@ export interface ProductDetail {
   }>
 }
 
+/**
+ * Product data returned when browsing by taxonomy classification.
+ *
+ * @remarks
+ * This is a subset of ProductInfo optimized for taxonomy browsing views,
+ * excluding features and other heavy fields not needed in list displays.
+ */
 export interface ProductByTaxonomy {
+  /** UUID from items.product_info */
   product_id: string
+  /** FOSS product identifier (e.g., "FLMR-001") */
   foss_pid: string
+  /** Short marketing description */
   description_short: string
+  /** Extended product description */
   description_long: string
+  /** Supplier/manufacturer name */
   supplier_name: string
+  /** URL to supplier logo (light theme) */
   supplier_logo?: string
+  /** URL to supplier logo (dark theme) */
   supplier_logo_dark?: string
+  /** Historical pricing data from price lists */
   prices: Array<{
     date: string
     disc1: number
     start_price: number
   }>
+  /** Product images and documents */
   multimedia?: Array<{
+    /** MIME type code per BMEcat standard */
     mime_code: string
+    /** URL or path to the media file */
     mime_source: string
   }>
 }
 
+/**
+ * Paginated result wrapper for taxonomy-based product queries.
+ *
+ * @remarks
+ * Used by {@link getProductsByTaxonomyPaginatedAction} to return
+ * products with pagination metadata for infinite scroll or paging UI.
+ */
 export interface ProductByTaxonomyResult {
+  /** Products for the current page */
   products: ProductByTaxonomy[]
+  /** Total matching products across all pages */
   total: number
+  /** Current page number (1-indexed) */
   page: number
+  /** Number of products per page */
   pageSize: number
+  /** Total number of available pages */
   totalPages: number
 }
 
@@ -78,9 +129,26 @@ export interface ProductByTaxonomyResult {
 // ============================================================================
 
 /**
- * Basic text search for products (simple query, no filters)
- * Used by: /api/products/search API endpoint
- * For advanced filter search, use searchProductsWithFiltersAction from search-actions.ts
+ * Performs basic text search for products using ILIKE pattern matching.
+ *
+ * Searches across multiple fields: description_short, foss_pid, supplier_name,
+ * family, and subfamily. Results are limited by PAGINATION.DEFAULT_SEARCH_LIMIT.
+ *
+ * @remarks
+ * This is a simple search without filters. For advanced filtering (supplier,
+ * taxonomy, price range), use `searchProductsWithFiltersAction` from search-actions.ts.
+ * Analytics events are logged when userId is provided.
+ *
+ * @param query - Search term to match against product fields
+ * @param userId - Optional user email for analytics logging
+ * @returns Array of matching products, or empty array on error
+ *
+ * @example
+ * ```ts
+ * const results = await searchProductsBasicAction('LED panel', user?.email)
+ * ```
+ *
+ * @see {@link searchProductsFTSAction} for full-text search with ranking
  */
 export async function searchProductsBasicAction(query: string, userId?: string): Promise<ProductSearchResult[]> {
   try {
@@ -139,6 +207,26 @@ export async function searchProductsBasicAction(query: string, userId?: string):
 // GET BY ID
 // ============================================================================
 
+/**
+ * Retrieves complete product details by product ID.
+ *
+ * Fetches all product fields including features, multimedia, and pricing
+ * from the items.product_info materialized view.
+ *
+ * @remarks
+ * Logs a 'product_view' analytics event when userId is provided.
+ * The product_id is validated as a UUID before querying.
+ *
+ * @param productId - UUID of the product to retrieve
+ * @param userId - Optional user email for analytics logging
+ * @returns Full ProductInfo object, or null if not found/error
+ *
+ * @example
+ * ```ts
+ * const product = await getProductByIdAction(params.id, session?.user?.email)
+ * if (!product) notFound()
+ * ```
+ */
 export async function getProductByIdAction(productId: string, userId?: string): Promise<ProductInfo | null> {
   try {
     const sanitizedProductId = validateProductId(productId)
@@ -189,7 +277,21 @@ export async function getProductByIdAction(productId: string, userId?: string): 
 // ============================================================================
 
 /**
- * Get products filtered by taxonomy code and optional supplier (legacy - no pagination)
+ * Retrieves products matching a taxonomy classification code.
+ *
+ * Queries the search.product_taxonomy_flags table to find products that
+ * contain the specified taxonomy code in their classification path.
+ *
+ * @remarks
+ * This is the legacy non-paginated version. For large result sets,
+ * use {@link getProductsByTaxonomyPaginatedAction} instead.
+ * Results are capped at PAGINATION.TAXONOMY_QUERY_LIMIT (500 by default).
+ *
+ * @param taxonomyCode - ETIM or custom taxonomy code (e.g., "EC001234")
+ * @param supplierId - Optional supplier ID to filter results
+ * @returns Array of products matching the taxonomy, or empty array on error
+ *
+ * @see {@link getProductsByTaxonomyPaginatedAction} for paginated version
  */
 export async function getProductsByTaxonomyAction(
   taxonomyCode: string,
@@ -263,7 +365,30 @@ export async function getProductsByTaxonomyAction(
 }
 
 /**
- * Get paginated products filtered by taxonomy code and optional supplier
+ * Retrieves paginated products matching a taxonomy classification code.
+ *
+ * Two-phase query: first gets matching product IDs from taxonomy index,
+ * then fetches full product details for the current page only.
+ *
+ * @remarks
+ * When supplierId is provided, uses the RPC function `get_products_by_taxonomy_and_supplier`
+ * to efficiently filter by both taxonomy path and supplier in a single query.
+ * Without supplierId, uses offset-based pagination on the taxonomy index.
+ *
+ * @param taxonomyCode - ETIM or custom taxonomy code (e.g., "EC001234")
+ * @param options - Pagination and filter options
+ * @param options.page - Page number (1-indexed), defaults to 1
+ * @param options.pageSize - Products per page, defaults to PAGINATION.DEFAULT_PRODUCT_PAGE_SIZE
+ * @param options.supplierId - Optional supplier ID to filter results
+ * @returns Paginated result with products, total count, and page metadata
+ *
+ * @example
+ * ```ts
+ * const { products, totalPages } = await getProductsByTaxonomyPaginatedAction(
+ *   'EC001234',
+ *   { page: 2, pageSize: 20, supplierId: 5 }
+ * )
+ * ```
  */
 export async function getProductsByTaxonomyPaginatedAction(
   taxonomyCode: string,
@@ -434,14 +559,32 @@ export async function getProductsByTaxonomyPaginatedAction(
 // FULL-TEXT SEARCH (FTS)
 // ============================================================================
 
+/** Maximum results returned by FTS search */
 const FTS_SEARCH_LIMIT = 20
 
 /**
- * Search products using PostgreSQL Full-Text Search with prefix matching.
- * Searches across: foss_pid, manufacturer_pid, description, supplier, class
- * Converts multi-word queries like "entero lum" to "entero:* & lum:*" for partial matching.
+ * Searches products using PostgreSQL Full-Text Search with prefix matching.
  *
- * Used by: /api/products/search API endpoint, Global Search modal
+ * Calls the `search.search_products_fts` RPC function which searches across
+ * foss_pid, manufacturer_pid, description, supplier_name, and class_name.
+ * Multi-word queries like "entero lum" are converted to "entero:* & lum:*"
+ * for partial matching.
+ *
+ * @remarks
+ * FTS provides better ranking and performance than ILIKE for larger datasets.
+ * Falls back to {@link fallbackILIKESearch} if the FTS function fails.
+ * Used by the Global Search modal (Ctrl+K) for fast product lookup.
+ *
+ * @param query - Search term(s) to match
+ * @param userId - Optional user email for analytics logging
+ * @returns Array of full ProductInfo objects, ranked by relevance
+ *
+ * @example
+ * ```ts
+ * const results = await searchProductsFTSAction('philips led')
+ * ```
+ *
+ * @see {@link https://www.postgresql.org/docs/current/textsearch.html} PostgreSQL FTS docs
  */
 export async function searchProductsFTSAction(
   query: string,
@@ -495,7 +638,16 @@ export async function searchProductsFTSAction(
 }
 
 /**
- * Fallback search using ILIKE when FTS is unavailable
+ * Fallback search using ILIKE pattern matching when FTS is unavailable.
+ *
+ * @remarks
+ * This is a degraded search mode used only when the FTS RPC function fails.
+ * Searches foss_pid, description_short, and manufacturer_pid fields.
+ * Does not provide relevance ranking like FTS.
+ *
+ * @param query - Sanitized search term
+ * @returns Array of matching products, or empty array on error
+ * @internal
  */
 async function fallbackILIKESearch(query: string): Promise<ProductInfo[]> {
   const { data, error } = await supabaseServer

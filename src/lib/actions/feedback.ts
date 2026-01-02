@@ -3,12 +3,22 @@
 /**
  * Feedback Chat Server Actions
  *
- * CRUD operations for feedback chats and messages.
- * All operations use supabaseServer (service_role) for full access.
+ * CRUD operations for the in-app feedback chat system.
+ * Users can submit feedback, report bugs, and get AI-assisted help.
  *
- * Tables are in the `feedback` schema:
- * - feedback.chats
- * - feedback.chat_messages
+ * @remarks
+ * Schema: `feedback.chats` and `feedback.chat_messages`
+ *
+ * Features:
+ * - Chat sessions with subject and status (active/resolved/archived)
+ * - Messages with role (user/assistant/system)
+ * - Attachments stored in Supabase Storage (feedback-attachments bucket)
+ * - Token/cost tracking for AI messages
+ * - Ownership verification (users can only access their own chats)
+ *
+ * Storage: Public feedback-attachments bucket with timestamped paths.
+ *
+ * @module actions/feedback
  */
 
 import { supabaseServer } from '@fossapp/core/db/server'

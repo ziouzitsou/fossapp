@@ -1,15 +1,25 @@
+/**
+ * RangeFilter - Dual-thumb slider for ETIM Range (R) type features
+ *
+ * Displays a slider with min/max values, an "All" toggle to bypass filtering,
+ * and optional preset buttons for quick selection of common ranges.
+ *
+ * @remarks
+ * **Features**:
+ * - Auto-detects actual min/max from facet data
+ * - "All" toggle clears the filter (undefined min/max)
+ * - Presets defined per filter (e.g., Warm/Neutral/Cool for CCT)
+ *
+ * @example
+ * CCT (K): [2700───────4000] [All: Off]
+ * Presets: [Warm White] [Neutral White] [Cool White]
+ */
 'use client'
 
 import { RangeFilterProps } from './types'
 import { Slider } from '@fossapp/ui'
 import { Switch } from '@fossapp/ui'
 import { Label } from '@fossapp/ui'
-
-/**
- * RangeFilter - For R (Range) type filters
- * Displays dual-thumb slider with "All" toggle, optional presets
- * Examples: Voltage, CCT (Color Temperature), Luminous Flux (Lumens)
- */
 export default function RangeFilter({
   filterKey,
   label,

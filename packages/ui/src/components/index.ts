@@ -1,5 +1,24 @@
-// shadcn/ui components barrel export
-// These are client components, so "use client" is in each individual component file
+/**
+ * UI Component Library
+ *
+ * Barrel export of all shadcn/ui components used in FOSSAPP.
+ * These are client components built on Radix UI primitives.
+ *
+ * @remarks
+ * Most components are standard shadcn/ui with minimal customization.
+ * Custom/modified components:
+ * - `color-picker`: OKLch color picker for theme customization
+ * - `markdown-description`: Rich text rendering with Markdown support
+ * - `sonner`: Toast notifications (wrapper around sonner library)
+ * - `spinner`: Loading spinner (custom addition)
+ * - `sidebar`: Collapsible navigation (heavily customized)
+ *
+ * @example
+ * import { Button, Card, Input } from '@fossapp/ui'
+ *
+ * @module @fossapp/ui
+ * @see {@link https://ui.shadcn.com} shadcn/ui documentation
+ */
 
 export * from './accordion'
 export * from './alert'

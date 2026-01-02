@@ -3,8 +3,20 @@
 /**
  * Project CRUD Actions
  *
- * Core operations for projects: list, get, create, update, delete.
- * Projects are the top-level containers for lighting design work.
+ * Core server actions for managing lighting design projects.
+ * Projects are the top-level containers that organize:
+ * - Customer information
+ * - Project areas (rooms/zones)
+ * - Product selections
+ * - Documents and contacts
+ * - Google Drive integration
+ * - APS floor plan storage (OSS buckets)
+ *
+ * @remarks
+ * All functions validate input and use the service-role Supabase client.
+ * Returns `ActionResult<T>` for consistent error handling in the UI.
+ *
+ * @module actions/projects/project-crud-actions
  */
 
 import { supabaseServer } from '@fossapp/core/db/server'
@@ -26,6 +38,20 @@ import type {
 // LIST PROJECTS
 // ============================================================================
 
+/**
+ * List projects with pagination and sorting
+ *
+ * @remarks
+ * Fetches projects from the `projects.projects` table with related customer names.
+ * Returns a paginated result for efficient display in data tables.
+ *
+ * @param params - Pagination and sorting options
+ * @param params.page - Page number (1-based, default: 1)
+ * @param params.pageSize - Items per page (default: 10)
+ * @param params.sortBy - Column to sort by (default: 'created_at')
+ * @param params.sortOrder - Sort direction ('asc' | 'desc', default: 'desc')
+ * @returns Paginated list of projects with customer names joined
+ */
 export async function listProjectsAction(params: ProjectListParams = {}): Promise<ProjectListResult> {
   const {
     page = 1,
@@ -162,6 +188,22 @@ export async function listProjectsAction(params: ProjectListParams = {}): Promis
 // GET PROJECT BY ID
 // ============================================================================
 
+/**
+ * Get full project details by ID
+ *
+ * @remarks
+ * Fetches a complete project with all related data:
+ * - Customer details (name, email, phone)
+ * - Products with area assignments
+ * - Contacts (primary contact first)
+ * - Documents (newest first)
+ * - Phases and Areas
+ *
+ * Used on the project detail page to display all project information.
+ *
+ * @param projectId - UUID of the project
+ * @returns Full project details or null if not found
+ */
 export async function getProjectByIdAction(projectId: string): Promise<ProjectDetail | null> {
   try {
     const sanitizedProjectId = validateProjectId(projectId)
@@ -387,6 +429,21 @@ export async function getProjectByIdAction(projectId: string): Promise<ProjectDe
 // CREATE PROJECT
 // ============================================================================
 
+/**
+ * Create a new project
+ *
+ * @remarks
+ * Creates a project record and provisions cloud storage:
+ * 1. Validates required fields (project_code, name)
+ * 2. Inserts project record with defaults (EUR, draft status, medium priority)
+ * 3. Creates APS OSS bucket for floor plan storage (Planner feature)
+ *
+ * The OSS bucket is created upfront since all projects use the Planner.
+ * Google Drive folder is created separately when user enables integration.
+ *
+ * @param input - Project creation data
+ * @returns Success with project ID, or error message
+ */
 export async function createProjectAction(
   input: CreateProjectInput
 ): Promise<ActionResult<{ id: string }>> {
@@ -474,6 +531,18 @@ export async function createProjectAction(
 // UPDATE PROJECT
 // ============================================================================
 
+/**
+ * Update an existing project
+ *
+ * @remarks
+ * Supports partial updates - only fields present in input are modified.
+ * Empty strings are converted to null for optional fields.
+ * Required fields (project_code, name) cannot be emptied.
+ *
+ * @param projectId - UUID of the project to update
+ * @param input - Fields to update (undefined values are ignored)
+ * @returns Success with project ID, or error message
+ */
 export async function updateProjectAction(
   projectId: string,
   input: UpdateProjectInput
@@ -551,6 +620,23 @@ export async function updateProjectAction(
 // DELETE PROJECT
 // ============================================================================
 
+/**
+ * Delete a project and all associated resources
+ *
+ * @remarks
+ * **Destructive operation** - permanently deletes:
+ * 1. Google Drive folder (if linked)
+ * 2. APS OSS bucket with floor plans
+ * 3. Project areas (cascade deletes revisions and products)
+ * 4. Project products, contacts, documents, phases
+ * 5. The project record itself
+ *
+ * Cloud resource deletion failures are logged but don't block DB deletion.
+ * This prevents orphaned cloud resources from blocking project removal.
+ *
+ * @param projectId - UUID of the project to delete
+ * @returns Success or error message
+ */
 export async function deleteProjectAction(
   projectId: string
 ): Promise<ActionResult> {

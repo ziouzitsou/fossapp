@@ -1,10 +1,25 @@
-'use client'
-
 /**
- * Symbol Modal Component
- * Modal for viewing/generating product symbol drawings
- * Shows product photo, technical drawing, dimensions, and generated symbol
+ * Symbol Modal - Product symbol viewing and generation dialog
+ *
+ * Displays a two-column layout for product symbol generation:
+ * - **Left**: Product media carousel (photo, technical drawing) + dimensions table
+ * - **Right**: Generated symbol preview with gallery + generation controls
+ *
+ * @remarks
+ * **Symbol Generation Pipeline**:
+ * 1. Vision AI analyzes product drawing/photo to extract shape description
+ * 2. LLM generates AutoLISP script based on dimensions + vision analysis
+ * 3. APS Design Automation executes script in AutoCAD
+ * 4. PNG/SVG outputs saved to Supabase storage
+ *
+ * **Media Fallback Hierarchy**:
+ * - Photo: MD02 (Supabase) → MD01 (Supplier CDN)
+ * - Drawing: MD64 (Supabase) → MD12 (Supplier CDN)
+ *
+ * @see {@link GenerateSymbolButton} for the generation trigger
+ * @see {@link SymbolGallery} for the output preview
  */
+'use client'
 
 import { useState, useCallback, useEffect } from 'react'
 import {
@@ -24,14 +39,21 @@ import type { ProductInfo, Feature } from '@fossapp/products/types'
 import { hasDisplayableValue, getFeatureDisplayValue, FEATURE_GROUP_CONFIG } from '@/lib/utils/feature-utils'
 import { deleteProductSymbolAction } from '@/lib/actions/symbols'
 
+/**
+ * Props for the SymbolModal component.
+ */
 interface SymbolModalProps {
+  /** Product to generate symbol for (from area revision context) */
   product: AreaRevisionProduct | null
+  /** Whether the modal is visible */
   open: boolean
+  /** Callback when modal visibility changes */
   onOpenChange: (open: boolean) => void
-  onSymbolGenerated?: () => void  // Callback when symbol is saved
+  /** Called after successful symbol generation/deletion to refresh parent data */
+  onSymbolGenerated?: () => void
 }
 
-// Media slide type for carousel
+/** Carousel slide for product media (photo or technical drawing). */
 interface MediaSlide {
   url: string
   fallbackUrl?: string

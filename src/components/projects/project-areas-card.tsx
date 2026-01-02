@@ -1,3 +1,20 @@
+/**
+ * Project Areas Card - Manages areas with revision-based product lists
+ *
+ * Displays all areas belonging to a project with their current revision info,
+ * product counts, and total costs. Provides controls for creating, editing,
+ * deleting areas and managing revisions.
+ *
+ * @remarks
+ * **Area Revision Model**:
+ * - Each area has independent revisions (RV1, RV2, ...)
+ * - Revisions can be created from scratch or by copying from a previous one
+ * - The "current_revision" is the active/editable one
+ * - Product lists and placements are stored per-revision
+ *
+ * @see {@link AreaFormDialog} for creating/editing areas
+ * @see {@link AreaRevisionHistoryDialog} for managing revisions
+ */
 'use client'
 
 import { useState } from 'react'
@@ -23,10 +40,17 @@ import { AreaRevisionHistoryDialog } from './area-revision-history-dialog'
 import { deleteAreaAction, createAreaRevisionAction } from '@/lib/actions'
 import { useDevSession } from '@/lib/use-dev-session'
 
+/**
+ * Props for the ProjectAreasCard component.
+ */
 interface ProjectAreasCardProps {
+  /** Project UUID */
   projectId: string
+  /** Project code (e.g., "2601-001") for display */
   projectCode: string
+  /** List of areas belonging to this project */
   areas: ProjectArea[]
+  /** Called when areas are created, updated, or deleted to refresh parent data */
   onAreaChange: () => void
 }
 

@@ -1,9 +1,33 @@
+/**
+ * Terminal Log - Real-time streaming log display for tile generation jobs
+ *
+ * Displays a VS Code-style terminal with live updates from Server-Sent Events (SSE).
+ * Each phase of the tile generation process is color-coded with icons.
+ *
+ * @remarks
+ * **Generation Phases**:
+ * - `images`: Downloading/processing product images
+ * - `script`: Generating AutoLISP script
+ * - `aps`: Sending to APS Design Automation
+ * - `drive`: Uploading results to Google Drive
+ * - `storage`: Saving to Supabase storage
+ * - `llm`: AI processing for text generation
+ * - `complete` / `error`: Terminal states
+ *
+ * Also exports `useTileGeneration` hook for managing generation state.
+ *
+ * @see {@link TileGroupCard} which uses this component to show progress
+ */
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@fossapp/ui'
 import { CheckCircle2, Circle, Loader2, XCircle, Terminal as TerminalIcon, X, Camera, FileText, Settings, Cloud, Database, Bot } from 'lucide-react'
 
+/**
+ * Structure of a single log message received via SSE.
+ * The `phase` determines the icon and color used for display.
+ */
 export interface LogMessage {
   timestamp: number
   elapsed: string
@@ -31,13 +55,21 @@ export interface LogMessage {
   }
 }
 
+/**
+ * Props for the TerminalLog component.
+ */
 interface TerminalLogProps {
+  /** Active job ID to stream logs from, or null when not streaming */
   jobId: string | null
+  /** Called when job completes (success or failure) with result data */
   onComplete?: (result: { success: boolean; dwgUrl?: string; dwgFileId?: string; driveLink?: string; viewerUrn?: string; hasDwgBuffer?: boolean; hasPngBuffer?: boolean; costEur?: number; llmModel?: string; tokensIn?: number; tokensOut?: number; savedToSupabase?: boolean; dwgPath?: string; pngPath?: string; svgPath?: string }) => void
+  /** Called when user clicks the close button (after completion) */
   onClose?: () => void
+  /** Additional CSS class for the container */
   className?: string
 }
 
+/** Maps generation phases to their corresponding Lucide icons. */
 const PhaseIcon = ({ phase }: { phase: keyof typeof PHASE_COLORS }) => {
   const iconClass = "w-3.5 h-3.5"
   switch (phase) {
@@ -53,6 +85,7 @@ const PhaseIcon = ({ phase }: { phase: keyof typeof PHASE_COLORS }) => {
   }
 }
 
+/** Color mapping for each generation phase (Tailwind classes). */
 const PHASE_COLORS = {
   images: 'text-blue-400',
   script: 'text-yellow-400',
@@ -64,6 +97,14 @@ const PHASE_COLORS = {
   llm: 'text-violet-400',
 }
 
+/**
+ * Terminal-style log display that streams generation progress via SSE.
+ *
+ * @remarks
+ * Connects to `/api/tiles/stream/{jobId}` and displays messages in real-time.
+ * Auto-scrolls to bottom on new messages. Shows connection status and
+ * final success/failure state.
+ */
 export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalLogProps) {
   const [messages, setMessages] = useState<LogMessage[]>([])
   const [isConnected, setIsConnected] = useState(false)
@@ -267,7 +308,26 @@ export function TerminalLog({ jobId, onComplete, onClose, className }: TerminalL
 }
 
 /**
- * Hook for using tile generation with SSE streaming
+ * Hook for managing tile generation state with SSE streaming.
+ *
+ * @returns Object with:
+ * - `jobId`: Current job ID (null when idle)
+ * - `isGenerating`: Whether generation is in progress
+ * - `result`: Final result after completion
+ * - `startGeneration(payload)`: Initiates a new generation
+ * - `handleComplete(result)`: Called by TerminalLog when done
+ * - `reset()`: Clears state for a new generation
+ *
+ * @example
+ * ```tsx
+ * const { jobId, isGenerating, startGeneration, handleComplete, reset } = useTileGeneration()
+ *
+ * // Start generation
+ * await startGeneration(tilePayload)
+ *
+ * // In render
+ * {jobId && <TerminalLog jobId={jobId} onComplete={handleComplete} onClose={reset} />}
+ * ```
  */
 export function useTileGeneration() {
   const [jobId, setJobId] = useState<string | null>(null)

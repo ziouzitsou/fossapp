@@ -88,11 +88,21 @@ export async function logEvent(
 }
 
 /**
- * Log multiple events in batch
- * Useful for logging related events atomically
+ * Logs multiple events in a single database insert for better performance.
  *
- * @param events - Array of event objects
- * @returns Promise<boolean> - true if all logged successfully
+ * @remarks
+ * Use this for related events that should be logged atomically,
+ * or when you have multiple events to log from a single user action.
+ * More efficient than multiple logEvent() calls.
+ *
+ * @param events - Array of event objects to log
+ * @returns Promise<boolean> - true if all events logged successfully, false on any error
+ *
+ * @example
+ * await logEventsBatch([
+ *   { eventType: 'search', userId: user, eventData: { query: 'led' } },
+ *   { eventType: 'search_filter_applied', userId: user, eventData: { filter: 'brand' } }
+ * ])
  */
 export async function logEventsBatch(
   events: Array<{
@@ -140,11 +150,19 @@ export async function logEventsBatch(
 }
 
 /**
- * Helper function to extract session ID from NextAuth session
- * Uses a simple hash of user email + timestamp as session identifier
+ * Generates a session ID for grouping related user events.
  *
- * @param userEmail - User's email from session
- * @returns Session ID string
+ * @remarks
+ * Creates a simple session identifier by combining user email with an hour timestamp.
+ * This groups all events from the same user within the same hour,
+ * useful for analyzing user journeys and session-based metrics.
+ *
+ * @param userEmail - User's email from NextAuth session
+ * @returns Session ID in format "email-hourTimestamp"
+ *
+ * @example
+ * const sessionId = generateSessionId('user@example.com')
+ * // Returns: "user@example.com-486792" (hour-based timestamp)
  */
 export function generateSessionId(userEmail: string): string {
   // Simple session ID: hash of email + hour (groups events by hour)

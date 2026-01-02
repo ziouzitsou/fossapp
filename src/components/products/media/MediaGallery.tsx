@@ -1,3 +1,20 @@
+/**
+ * Media Gallery - Product image carousel with document links
+ *
+ * Displays a carousel of product media including photos, technical drawings,
+ * and photometric data. Also provides buttons to access PDF documentation.
+ *
+ * @remarks
+ * **Media Fallback Strategy** (Supabase → Supplier CDN):
+ * - Photos: MD02 → MD01
+ * - Drawings: MD64 → MD12
+ * - Photometric: MD19 → MD16
+ *
+ * Failed image loads are tracked and fallback URLs are tried automatically.
+ * All image views are logged for analytics via `logEventClient`.
+ *
+ * @see {@link MULTIMEDIA_CODES} for the full code mapping
+ */
 'use client';
 
 import React, { useState, useCallback } from 'react';
@@ -10,11 +27,15 @@ import { Badge } from '@fossapp/ui';
 import { FaImage, FaFileAlt, FaFilePdf, FaChartArea, FaExternalLinkAlt, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import type { IconType } from 'react-icons';
 
+/**
+ * Props for the MediaGallery component.
+ */
 interface MediaGalleryProps {
   multimedia: Multimedia[];
   productName: string;
 }
 
+/** Media item with optional fallback URL for resilient loading. */
 interface MediaWithFallback {
   primary: Multimedia;
   fallback?: Multimedia;

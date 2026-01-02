@@ -90,6 +90,19 @@ export interface CaseStudyViewerProps {
   className?: string
 }
 
+/**
+ * APS-powered viewer for case study floor plans with product placement.
+ *
+ * @remarks
+ * Uses Viewer3D (no built-in GUI) with custom external controls.
+ * State is managed via five specialized hooks for separation of concerns.
+ *
+ * **Key capabilities**:
+ * - Upload DWG files with SHA256-based caching (instant reload for same files)
+ * - Click-to-place products with world coordinate conversion
+ * - Measurement tools (distance and area)
+ * - Custom marker rendering for placed products
+ */
 export function CaseStudyViewer({
   file,
   urn: initialUrn,

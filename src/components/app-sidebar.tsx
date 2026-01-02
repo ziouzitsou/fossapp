@@ -1,3 +1,21 @@
+/**
+ * App Sidebar - Main navigation component for FOSSAPP
+ *
+ * Renders a collapsible sidebar with navigation links, feedback button,
+ * theme toggle, and version display. Uses shadcn's Sidebar primitives.
+ *
+ * @remarks
+ * **Collapsible Behavior**:
+ * - Full mode: Shows logo, labels, and badges
+ * - Icon mode: Shows icons only with tooltips
+ *
+ * **Structure**:
+ * - Header: Logo (responsive to collapse state)
+ * - Content: Navigation items + Feedback button
+ * - Footer: Theme toggle + Version display
+ *
+ * The Feedback button opens an AI chat panel for support and bug reports.
+ */
 'use client'
 
 import * as React from 'react'
@@ -26,6 +44,10 @@ import {
   TooltipTrigger,
 } from '@fossapp/ui'
 
+/**
+ * Main application sidebar with navigation and feedback access.
+ * Uses path-based active state detection and supports icon-only collapsed mode.
+ */
 export function AppSidebar() {
   const pathname = usePathname()
   const navigation = getNavigation(pathname)

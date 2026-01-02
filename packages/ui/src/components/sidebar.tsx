@@ -1,3 +1,45 @@
+/**
+ * Sidebar Component System
+ *
+ * A comprehensive, collapsible sidebar system built on shadcn/ui patterns.
+ * Supports desktop (collapsible) and mobile (sheet/drawer) layouts with
+ * automatic responsive behavior and keyboard shortcuts.
+ *
+ * @remarks
+ * This is the main navigation sidebar for FOSSAPP. Key features:
+ * - **Auto-collapse on tablet**: Collapses to icons on 768-1024px screens
+ * - **Mobile drawer**: Uses Sheet component on small screens
+ * - **Keyboard shortcut**: Cmd/Ctrl+B toggles sidebar
+ * - **Persistent state**: Saves collapse state to cookie for 7 days
+ * - **Tooltip support**: Shows labels on hover when collapsed
+ *
+ * @example
+ * ```tsx
+ * import {
+ *   SidebarProvider, Sidebar, SidebarHeader, SidebarContent,
+ *   SidebarMenu, SidebarMenuItem, SidebarMenuButton
+ * } from '@fossapp/ui'
+ *
+ * <SidebarProvider>
+ *   <Sidebar>
+ *     <SidebarHeader>Logo</SidebarHeader>
+ *     <SidebarContent>
+ *       <SidebarMenu>
+ *         <SidebarMenuItem>
+ *           <SidebarMenuButton tooltip="Dashboard">
+ *             <HomeIcon /> Dashboard
+ *           </SidebarMenuButton>
+ *         </SidebarMenuItem>
+ *       </SidebarMenu>
+ *     </SidebarContent>
+ *   </Sidebar>
+ *   <SidebarInset>Main content</SidebarInset>
+ * </SidebarProvider>
+ * ```
+ *
+ * @module @fossapp/ui
+ */
+
 "use client"
 
 import * as React from "react"
@@ -31,18 +73,44 @@ const SIDEBAR_WIDTH_MOBILE = "13rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
+/**
+ * Sidebar context value type.
+ *
+ * @remarks
+ * Available to all children of SidebarProvider via useSidebar() hook.
+ */
 type SidebarContextProps = {
+  /** Current visual state: 'expanded' or 'collapsed' */
   state: "expanded" | "collapsed"
+  /** Whether sidebar is open (desktop) */
   open: boolean
+  /** Setter for open state */
   setOpen: (open: boolean) => void
+  /** Whether mobile drawer is open */
   openMobile: boolean
+  /** Setter for mobile drawer state */
   setOpenMobile: (open: boolean) => void
+  /** Whether current viewport is mobile (<768px) */
   isMobile: boolean
+  /** Toggle function that works on both mobile and desktop */
   toggleSidebar: () => void
 }
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null)
 
+/**
+ * Hook to access sidebar state and controls.
+ *
+ * @remarks
+ * Must be used within a SidebarProvider. Provides access to toggle,
+ * open/close state, and mobile detection.
+ *
+ * @returns Sidebar context with state and controls
+ * @throws {Error} If used outside SidebarProvider
+ *
+ * @example
+ * const { toggleSidebar, state, isMobile } = useSidebar()
+ */
 function useSidebar() {
   const context = React.useContext(SidebarContext)
   if (!context) {
@@ -52,6 +120,17 @@ function useSidebar() {
   return context
 }
 
+/**
+ * Root provider component for the sidebar system.
+ *
+ * @remarks
+ * Wraps the entire layout. Provides context for all sidebar components
+ * and handles responsive behavior, keyboard shortcuts, and state persistence.
+ *
+ * @param defaultOpen - Initial open state (default: true)
+ * @param open - Controlled open state (for external control)
+ * @param onOpenChange - Callback when open state changes
+ */
 const SidebarProvider = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
@@ -178,6 +257,17 @@ const SidebarProvider = React.forwardRef<
 )
 SidebarProvider.displayName = "SidebarProvider"
 
+/**
+ * Main sidebar container component.
+ *
+ * @remarks
+ * Renders as a Sheet (drawer) on mobile, fixed sidebar on desktop.
+ * Supports multiple visual variants and collapse behaviors.
+ *
+ * @param side - Which side of screen ('left' | 'right', default: 'left')
+ * @param variant - Visual style ('sidebar' | 'floating' | 'inset', default: 'sidebar')
+ * @param collapsible - Collapse behavior ('offcanvas' | 'icon' | 'none', default: 'offcanvas')
+ */
 const Sidebar = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
@@ -559,6 +649,19 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
+/**
+ * Interactive menu button within the sidebar.
+ *
+ * @remarks
+ * Supports tooltips that appear when sidebar is collapsed (icon mode).
+ * Use `asChild` with Slot pattern for custom link components.
+ *
+ * @param asChild - Render as child element (for use with Link)
+ * @param isActive - Whether this button represents the current page
+ * @param tooltip - Tooltip text or TooltipContent props (shown when collapsed)
+ * @param variant - Visual variant ('default' | 'outline')
+ * @param size - Size variant ('default' | 'sm' | 'lg')
+ */
 const SidebarMenuButton = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<"button"> & {

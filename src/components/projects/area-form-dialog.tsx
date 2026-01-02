@@ -1,3 +1,18 @@
+/**
+ * Area Form Dialog - Create/edit project areas (floors, zones, gardens)
+ *
+ * Modal dialog for managing project areas. Each area can have multiple
+ * revisions with independent product lists and pricing.
+ *
+ * @remarks
+ * **Required fields**: area_code, area_name, floor_level
+ * **Optional fields**: area_type, area_sqm, ceiling_height_m, description, notes
+ *
+ * Area codes are immutable after creation to maintain reference integrity.
+ *
+ * @see {@link ProjectAreasCard} which hosts this dialog
+ * @see {@link createAreaAction} for the create server action
+ */
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -30,6 +45,7 @@ import {
 } from '@/lib/actions'
 import { useDevSession } from '@/lib/use-dev-session'
 
+/** Available area type classifications. */
 const AREA_TYPES = [
   { value: 'floor', label: 'Floor' },
   { value: 'room', label: 'Room' },
@@ -40,11 +56,19 @@ const AREA_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
+/**
+ * Props for the AreaFormDialog component.
+ */
 interface AreaFormDialogProps {
+  /** Whether the dialog is visible */
   open: boolean
+  /** Callback when dialog visibility changes */
   onOpenChange: (open: boolean) => void
+  /** Parent project ID */
   projectId: string
+  /** Existing area to edit, or null/undefined for create mode */
   area?: ProjectArea | null
+  /** Called after successful create/update to refresh parent data */
   onSuccess?: () => void
 }
 

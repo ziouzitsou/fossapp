@@ -1,5 +1,29 @@
 'use client'
 
+/**
+ * User Settings Context Provider
+ *
+ * Centralized state management for user preferences that persist across sessions.
+ * Provides a hybrid storage strategy:
+ * - **Authenticated users**: Settings synced to Supabase (`users.settings` table)
+ * - **Unauthenticated users**: Settings stored in localStorage as fallback
+ *
+ * @remarks
+ * **Settings included**:
+ * - Theme preference (default, minimal, emerald, ocean)
+ * - Sidebar expanded/collapsed state
+ * - Active project selection
+ * - Last seen version (for "What's New" dialog)
+ * - Search histories (tiles, symbols, customers)
+ *
+ * **Sync behavior**:
+ * - Debounced writes (300ms) to avoid excessive database calls
+ * - Pending updates batched together
+ * - localStorage always updated immediately for UI responsiveness
+ *
+ * @module user-settings-context
+ */
+
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { useDevSession } from '@/lib/use-dev-session'
 import {
@@ -12,44 +36,71 @@ import {
 // TYPES
 // ============================================================================
 
+/** Available app themes */
 type Theme = 'default' | 'minimal' | 'emerald' | 'ocean'
 
+/**
+ * Minimal project info for the active project selector
+ */
 interface ActiveProject {
+  /** Project UUID */
   id: string
+  /** Project code (e.g., "2501-001") */
   project_code: string
+  /** Project display name */
   name: string
 }
 
+/**
+ * Context value shape for user settings
+ */
 interface UserSettingsContextType {
-  // Status
+  // === Status ===
+  /** True while loading from DB/localStorage */
   isLoading: boolean
+  /** True during database sync */
   isSyncing: boolean
+  /** True if user is authenticated */
   isAuthenticated: boolean
 
-  // Theme
+  // === Theme ===
+  /** Current theme preference */
   theme: Theme
+  /** Update theme (syncs to DB if authenticated) */
   setTheme: (theme: Theme) => void
 
-  // Sidebar
+  // === Sidebar ===
+  /** Sidebar expanded state */
   sidebarExpanded: boolean
+  /** Toggle sidebar (also updates cookie for SSR) */
   setSidebarExpanded: (expanded: boolean) => void
 
-  // Active Project
+  // === Active Project ===
+  /** Currently selected project for quick actions */
   activeProject: ActiveProject | null
+  /** Set active project (used by project selector) */
   setActiveProject: (project: ActiveProject | null) => void
 
-  // Last Seen Version (for What's New dialog)
+  // === What's New ===
+  /** Last version user acknowledged in What's New dialog */
   lastSeenVersion: string | null
+  /** Mark version as seen (hides What's New until next release) */
   setLastSeenVersion: (version: string) => void
 
-  // Search Histories
+  // === Search Histories ===
+  /** Recent searches in Tiles page */
   searchHistoryTiles: string[]
+  /** Recent searches in Symbol Generator */
   searchHistorySymbols: string[]
+  /** Recent searches in Customer selector */
   searchHistoryCustomers: string[]
+  /** Add a term to a search history (max 10 items) */
   addToSearchHistory: (type: 'tiles' | 'symbols' | 'customers', term: string) => void
+  /** Clear a search history */
   clearSearchHistory: (type: 'tiles' | 'symbols' | 'customers') => void
 
-  // Force sync
+  // === Manual Sync ===
+  /** Force immediate sync to database */
   syncNow: () => Promise<void>
 }
 

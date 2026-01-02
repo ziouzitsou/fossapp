@@ -46,11 +46,35 @@ const CHAT_ID_STORAGE_KEY = 'fossapp_feedback_chat_id'
 // sessionStorage key to prevent repeated "restored" toasts on navigation
 const HISTORY_RESTORED_KEY = 'fossapp_feedback_history_restored'
 
+/**
+ * Props for the FeedbackChatPanel component.
+ */
 interface FeedbackChatPanelProps {
+  /** Controls whether the slide-out panel is visible */
   open: boolean
+  /** Callback when panel visibility should change (e.g., close button, overlay click) */
   onOpenChange: (open: boolean) => void
 }
 
+/**
+ * AI-powered feedback chat panel that slides out from the right side of the screen.
+ *
+ * @remarks
+ * **Persistence**: Conversations persist across page navigation using localStorage
+ * for the chat ID. Messages are stored in Supabase and restored on mount.
+ *
+ * **Features**:
+ * - Streaming AI responses via SSE
+ * - Screenshot capture (hides panel, captures, reopens)
+ * - File uploads (images, PDFs)
+ * - Cost tracking (displayed in EUR)
+ *
+ * **Lifecycle**:
+ * 1. User opens panel → Previous chat restored from localStorage if exists
+ * 2. User sends messages → Stored in DB with streaming responses
+ * 3. User clicks "Submit" → Chat marked as resolved, state cleared
+ * 4. User clicks "New Chat" → State cleared, new conversation starts
+ */
 export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps) {
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatUIMessage[]>([])
@@ -614,7 +638,11 @@ export function FeedbackChatPanel({ open, onOpenChange }: FeedbackChatPanelProps
 }
 
 /**
- * Floating action button to open feedback panel
+ * Floating action button (FAB) to open the feedback chat panel.
+ *
+ * @remarks
+ * Typically positioned fixed at the bottom-right of the viewport.
+ * Uses primary color with shadow for visibility.
  */
 export function FeedbackButton({
   onClick,

@@ -1,16 +1,25 @@
-'use client'
-
 /**
- * Generate Symbol Button
+ * Generate Symbol Button - Multi-phase generation trigger with inline progress
  *
- * Stateful button that transforms through generation phases:
- * - idle: "Generate Symbol" / "Regenerate Symbol"
- * - fetching: "Fetching..."
- * - analyzing: "Analyzing..."
- * - generating: Shows current sub-step (AutoLISP / AutoCAD / Saving)
- * - success: Shows total cost (EUR) and time - click to dismiss
- * - error: Shows error message in red - click to dismiss
+ * A stateful button that visually transforms through each generation phase,
+ * providing real-time feedback without a separate progress indicator.
+ *
+ * @remarks
+ * **Generation Phases (in order)**:
+ * 1. `idle` → "Generate Symbol" / "Regenerate Symbol"
+ * 2. `fetching` → Loading full product data if needed
+ * 3. `analyzing` → Vision AI analyzing product images
+ * 4. `generating:llm` → LLM creating AutoLISP script
+ * 5. `generating:aps` → AutoCAD executing script via APS
+ * 6. `generating:storage` → Saving PNG/SVG to Supabase
+ * 7. `success` → Shows cost + duration (click to dismiss)
+ * 8. `error` → Shows error message (click to dismiss)
+ *
+ * **Cost Tracking**: Aggregates costs from both vision analysis and LLM phases.
+ *
+ * @see {@link SymbolModal} which hosts this button
  */
+'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Button } from '@fossapp/ui'
@@ -30,7 +39,7 @@ import type { ProductInfo } from '@fossapp/products/types'
 import type { LogMessage } from '@/components/tiles/terminal-log'
 import { extractDimensions } from '@/lib/symbol-generator/dimension-utils'
 
-// Generation phases
+/** Current generation phase - determines button appearance and label. */
 type Phase =
   | 'idle'
   | 'fetching'
@@ -41,7 +50,11 @@ type Phase =
   | 'success'
   | 'error'
 
+/**
+ * Props for the GenerateSymbolButton component.
+ */
 interface GenerateSymbolButtonProps {
+  /** Minimal product info needed for generation */
   product: {
     id: string
     product_id: string
@@ -50,18 +63,23 @@ interface GenerateSymbolButtonProps {
     symbol_png_path?: string | null
     symbol_svg_path?: string | null
   }
+  /** Full product data if already loaded (avoids refetch) */
   fullProduct: ProductInfo | null
+  /** Async function to fetch full product data when needed */
   onFetchProduct: () => Promise<ProductInfo | null>
+  /** Called after successful generation with output paths */
   onSuccess: (result: {
     pngPath?: string
     svgPath?: string
     savedToSupabase?: boolean
   }) => void
+  /** Whether product already has a generated symbol (changes button text) */
   hasExistingSymbol: boolean
+  /** Additional CSS classes */
   className?: string
 }
 
-// Phase labels and icons
+/** Configuration for each generation phase (label and icon). */
 const PHASE_CONFIG: Record<string, { label: string; icon: React.ElementType }> = {
   idle: { label: 'Generate Symbol', icon: Sparkles },
   fetching: { label: 'Fetching...', icon: Loader2 },

@@ -1,10 +1,27 @@
 'use server'
 
 /**
- * Project + Google Drive Combined Actions
+ * Project + Google Drive Integration Actions
  *
- * These actions handle both database operations and Google Drive operations
- * for project management. They ensure consistency between DB and Drive.
+ * Combines database operations with Google Drive folder management
+ * to maintain consistency between FOSSAPP and cloud storage.
+ *
+ * @remarks
+ * Google Drive folder structure:
+ * ```
+ * FOSSAPP Projects/
+ * └── {project_code}/           # e.g., "2501-001 - Hotel Lobby"
+ *     ├── 01_Documentation/     # Project documents
+ *     ├── 02_Areas/             # Per-area folders with revisions
+ *     │   └── {area_code}/      # e.g., "A01"
+ *     │       └── RV{n}/        # e.g., "RV1", "RV2"
+ *     └── 03_Drawings/          # CAD files, exports
+ * ```
+ *
+ * These actions also provision APS OSS buckets for floor plan storage
+ * (used by the Planner feature for upload → DWG viewer workflow).
+ *
+ * @module actions/project-drive
  */
 
 import { supabaseServer } from '@fossapp/core/db/server'

@@ -1,14 +1,28 @@
 /**
  * Feedback Email Notifications
  *
- * Sends email notifications when users submit feedback via Resend.
- * Domain: feedback.fossapp.online
+ * Sends email notifications to the development team when users submit feedback.
+ * Uses Resend for email delivery with a verified domain.
+ *
+ * @remarks
+ * - Domain: feedback.fossapp.online (verified in Resend)
+ * - Recipient: Configured via FEEDBACK_NOTIFICATION_EMAIL env var
+ * - Includes full conversation history in HTML and plain text
+ * - Reports AI token costs for budget tracking
+ *
+ * @module feedback/email
+ * @see {@link https://resend.com/docs} Resend Documentation
  */
 
 import { Resend } from 'resend'
 
-// Lazy initialization to avoid build-time errors
+// Lazy initialization to avoid build-time errors when env vars not set
 let resend: Resend | null = null
+
+/**
+ * Get or create the Resend client
+ * @throws Error if RESEND_API_KEY is not configured
+ */
 function getResendClient(): Resend {
   if (!resend) {
     if (!process.env.RESEND_API_KEY) {
@@ -21,18 +35,33 @@ function getResendClient(): Resend {
 
 const FROM_EMAIL = 'FOSSAPP Feedback <noreply@feedback.fossapp.online>'
 
+/**
+ * A single message in a feedback conversation
+ */
 export interface FeedbackMessage {
+  /** Message sender ('user' or 'assistant') */
   role: 'user' | 'assistant'
+  /** Message text content */
   content: string
+  /** ISO timestamp when message was created */
   created_at: string
 }
 
+/**
+ * Data required to send a feedback notification email
+ */
 export interface FeedbackEmailData {
+  /** UUID of the feedback chat session */
   chatId: string
+  /** Email address of the user who submitted feedback */
   userEmail: string
+  /** User-provided subject (optional) */
   subject: string | null
+  /** Full conversation history */
   messages: FeedbackMessage[]
+  /** Total AI cost in USD for this conversation */
   totalCost: number
+  /** Number of messages in conversation */
   messageCount: number
 }
 
@@ -74,7 +103,30 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * Send feedback notification email
+ * Send a feedback notification email to the development team
+ *
+ * @remarks
+ * Sends both HTML and plain text versions for compatibility.
+ * HTML includes styled conversation bubbles with timestamps (Athens timezone).
+ * Errors are caught and returned, not thrown.
+ *
+ * @param data - Email content and metadata
+ * @returns Success status and optional error message
+ *
+ * @example
+ * ```typescript
+ * const result = await sendFeedbackNotification({
+ *   chatId: 'abc-123',
+ *   userEmail: 'user@example.com',
+ *   subject: 'Bug report',
+ *   messages: [...],
+ *   totalCost: 0.0042,
+ *   messageCount: 5
+ * })
+ * if (!result.success) {
+ *   console.error('Email failed:', result.error)
+ * }
+ * ```
  */
 export async function sendFeedbackNotification(
   data: FeedbackEmailData

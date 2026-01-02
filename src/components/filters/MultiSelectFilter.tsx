@@ -1,14 +1,27 @@
+/**
+ * MultiSelectFilter - Checkbox list for ETIM Alphanumeric (A) type features
+ *
+ * Renders a scrollable list of checkboxes with product counts, allowing
+ * multiple selections. Supports optional search, color swatches, and icons.
+ *
+ * @remarks
+ * **Features**:
+ * - Searchable when more than 10 options
+ * - Color swatches for finishing colors
+ * - IP rating icons (droplets for water protection level)
+ * - Product counts from facets
+ *
+ * @example
+ * IP Rating:
+ * [ ] IP20 (1,234)
+ * [x] IP44 (567)
+ * [x] IP65 (890)
+ */
 'use client'
 
 import { useState } from 'react'
 import { MultiSelectFilterProps } from './types'
 import { X, Search, Droplets, Droplet, CloudRain, Umbrella, Home } from 'lucide-react'
-
-/**
- * MultiSelectFilter - For A (Alphanumeric) type filters
- * Displays checkboxes with optional search, icons, and color swatches
- * Examples: IP Rating, Finishing Colour, Protection Class, CRI
- */
 export default function MultiSelectFilter({
   filterKey,
   label,

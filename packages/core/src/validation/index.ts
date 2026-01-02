@@ -1,15 +1,33 @@
 /**
- * @fossapp/core/validation
+ * Shared Validation Utilities
  *
- * Shared validation utilities for server actions.
- * These are pure utility functions - no 'use server' directive needed.
+ * Pure validation functions for server actions and API routes.
+ * All functions throw on invalid input - use try/catch in calling code.
+ *
+ * @remarks
+ * - Functions sanitize input (trim, length limits) before validation
+ * - UUID validation uses RFC 4122 format
+ * - Constants for limits come from `@fossapp/core/config`
+ *
+ * @module @fossapp/core/validation
+ * @see {@link ../config/constants.ts} for validation limits
  */
 
 import { VALIDATION } from '../config/constants'
 
 /**
- * Validate and sanitize a search query string.
- * @throws Error if query is invalid or empty
+ * Validates and sanitizes a search query string.
+ *
+ * @remarks
+ * Trims whitespace and enforces max length from VALIDATION.SEARCH_QUERY_MAX_LENGTH.
+ *
+ * @param query - Raw search query from user input
+ * @returns Sanitized query string
+ * @throws {Error} If query is empty, null, or not a string
+ *
+ * @example
+ * const clean = validateSearchQuery('  led downlight  ')  // 'led downlight'
+ * const clean = validateSearchQuery('')  // throws Error
  */
 export function validateSearchQuery(query: string): string {
   if (!query || typeof query !== 'string') {
@@ -25,8 +43,11 @@ export function validateSearchQuery(query: string): string {
 }
 
 /**
- * Validate a product ID (UUID format).
- * @throws Error if product ID is invalid
+ * Validates a product ID in UUID format.
+ *
+ * @param productId - Product UUID from database
+ * @returns The validated product ID
+ * @throws {Error} If productId is not a valid UUID
  */
 export function validateProductId(productId: string): string {
   if (!productId || typeof productId !== 'string') {
@@ -41,8 +62,15 @@ export function validateProductId(productId: string): string {
 }
 
 /**
- * Validate a customer ID (UUID or numeric string).
- * @throws Error if customer ID is invalid
+ * Validates a customer ID (UUID or legacy numeric ID).
+ *
+ * @remarks
+ * FOSSAPP supports both UUID and numeric customer IDs for backwards
+ * compatibility with legacy systems.
+ *
+ * @param customerId - Customer identifier (UUID or numeric string)
+ * @returns The validated customer ID
+ * @throws {Error} If customerId is neither a valid UUID nor numeric string
  */
 export function validateCustomerId(customerId: string): string {
   if (!customerId || typeof customerId !== 'string') {
@@ -59,8 +87,11 @@ export function validateCustomerId(customerId: string): string {
 }
 
 /**
- * Validate a project ID (UUID format).
- * @throws Error if project ID is invalid
+ * Validates a project ID in UUID format.
+ *
+ * @param projectId - Project UUID from database
+ * @returns The validated project ID
+ * @throws {Error} If projectId is not a valid UUID
  */
 export function validateProjectId(projectId: string): string {
   if (!projectId || typeof projectId !== 'string') {
@@ -76,8 +107,15 @@ export function validateProjectId(projectId: string): string {
 }
 
 /**
- * Validate a taxonomy code (alphanumeric with dots, hyphens, underscores).
- * @throws Error if taxonomy code is invalid
+ * Validates an ETIM taxonomy code.
+ *
+ * @remarks
+ * ETIM codes follow patterns like "EC000123" (class) or "EF000456" (feature).
+ * Allows alphanumeric, dots, hyphens, and underscores for flexibility.
+ *
+ * @param code - ETIM taxonomy code
+ * @returns The sanitized and validated code
+ * @throws {Error} If code contains invalid characters or exceeds max length
  */
 export function validateTaxonomyCode(code: string): string {
   if (!code || typeof code !== 'string') {
@@ -96,8 +134,11 @@ export function validateTaxonomyCode(code: string): string {
 }
 
 /**
- * Validate a supplier ID (positive integer).
- * @throws Error if supplier ID is invalid
+ * Validates a supplier ID as a positive integer.
+ *
+ * @param supplierId - Numeric supplier identifier from database
+ * @returns The validated supplier ID
+ * @throws {Error} If supplierId is not a positive integer
  */
 export function validateSupplierId(supplierId: number): number {
   if (!Number.isInteger(supplierId) || supplierId <= 0) {
@@ -107,8 +148,19 @@ export function validateSupplierId(supplierId: number): number {
 }
 
 /**
- * Validate a UUID string.
- * @throws Error if UUID is invalid
+ * Generic UUID validator with customizable field name in error messages.
+ *
+ * @remarks
+ * Use this for any UUID field that doesn't have a specific validator.
+ * The fieldName parameter makes error messages more descriptive.
+ *
+ * @param uuid - The UUID string to validate
+ * @param fieldName - Name to use in error messages (default: 'ID')
+ * @returns The validated UUID
+ * @throws {Error} If uuid is not a valid RFC 4122 UUID format
+ *
+ * @example
+ * validateUUID(areaId, 'Area ID')  // throws 'Invalid Area ID format' if invalid
  */
 export function validateUUID(uuid: string, fieldName = 'ID'): string {
   if (!uuid || typeof uuid !== 'string') {

@@ -1,14 +1,21 @@
+/**
+ * BooleanFilter - Three-state toggle for ETIM Logical (L) type features
+ *
+ * Renders an All/Yes/No toggle group with product counts from facets.
+ * Used for binary product characteristics like Indoor, Outdoor, Trimless.
+ *
+ * @remarks
+ * The toggle uses color coding: Green for Yes, Red for No, Primary for All.
+ * Counts are formatted with K suffix for thousands (e.g., 5.2K).
+ *
+ * @example
+ * Indoor: [All] [Yes 5,234] [No 8,242]
+ */
 'use client'
 
 import { BooleanFilterProps } from './types'
 import { ToggleGroup, ToggleGroupItem } from '@fossapp/ui'
 import { Check, X, CircleDashed } from 'lucide-react'
-
-/**
- * BooleanFilter - For L (Logical) type filters
- * Displays All/Yes/No toggle group with product counts
- * Example: Indoor (All | Yes 5,234 | No 8,242)
- */
 export default function BooleanFilter({
   filterKey: _filterKey,
   label,

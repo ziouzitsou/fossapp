@@ -1,63 +1,135 @@
 /**
- * @fossapp/tiles/scripts
- * AutoLISP Script Generator for Tiles
- * Ported from genlsp (Node.js/Express) to TypeScript
+ * AutoLISP Script Generator for Tile Layouts
  *
- * Generates .scr files for AutoCAD to create tile layouts with:
- * - Layer management (LEGEND TILES LINE THIN/THICK, IMAGES)
- * - Image insertion with proper scaling
- * - Rectangle frames around images
- * - Text labels positioned to the right
+ * Generates .scr (script) files for AutoCAD/APS to create product tile layouts.
+ * Originally ported from the genlsp Node.js/Express service to TypeScript.
+ *
+ * The generated scripts create:
+ * - Layer structure: LEGEND TILES LINE THIN/THICK (frames), IMAGES (product photos)
+ * - Image insertion with DPI-aware scaling to fit tile dimensions
+ * - Rectangle frames around each image
+ * - MTEXT labels positioned to the right of the tile container
+ *
+ * @remarks
+ * Scripts use AutoLISP `(command ...)` syntax for headless AutoCAD compatibility.
+ * Units are set to millimeters via DWGUNITS for metric output.
+ * The QUIT command at the end is required for APS Design Automation workflows.
+ *
+ * @module
+ * @see {@link https://aps.autodesk.com/en/docs/design-automation} APS Design Automation docs
  */
 
-// Types
+// ============================================================================
+// TYPES
+// ============================================================================
+
+/**
+ * A single product within a tile, including its image dimensions and target size.
+ *
+ * @remarks
+ * Images are typically 1500x1500px at 300 DPI from product catalogs.
+ * The tileWidth/tileHeight define the target size in AutoCAD (mm).
+ */
 export interface TileMember {
+  /** UUID linking to items.product_info */
   productId: string
+  /** Product photo filename (JPEG/PNG) - optional if only drawing */
   imageFilename?: string
+  /** Technical drawing filename (DWG) - optional if only photo */
   drawingFilename?: string
+  /** Text description to appear beside the tile */
   tileText: string
-  width: number      // pixels
-  height: number     // pixels
-  dpi: number        // dots per inch
-  tileWidth: number  // mm (target width in AutoCAD)
-  tileHeight: number // mm (target height in AutoCAD)
+  /** Source image width in pixels */
+  width: number
+  /** Source image height in pixels */
+  height: number
+  /** Image resolution (typically 300 for catalog images) */
+  dpi: number
+  /** Target width in AutoCAD units (mm) */
+  tileWidth: number
+  /** Target height in AutoCAD units (mm) */
+  tileHeight: number
 }
 
+/**
+ * A complete tile definition with multiple product members.
+ *
+ * @remarks
+ * A tile is a grouped layout of products that share a common theme,
+ * such as "LED Panel 600x600" variants from the same supplier.
+ */
 export interface TileData {
+  /** Display name for the tile (e.g., "LED Panel 600x600") */
   tile: string
+  /** Unique identifier for the tile record */
   tileId: string
+  /** Products included in this tile layout */
   members: TileMember[]
 }
 
+/**
+ * Configuration options for script generation.
+ *
+ * @remarks
+ * All dimensions are in millimeters to match AutoCAD's metric setup.
+ */
 export interface ScriptSettings {
-  textGap?: number       // mm gap between container and text (default: 10)
-  textHeight?: number    // AutoCAD text height (default: 3)
-  textWidth?: number     // MTEXT width (default: 40)
+  /** Gap between tile container and text labels (default: 10mm) */
+  textGap?: number
+  /** AutoCAD MTEXT height for labels (default: 3mm) */
+  textHeight?: number
+  /** MTEXT column width for wrapping (default: 40mm) */
+  textWidth?: number
+  /** Custom output filename (default: tile name + .dwg) */
   outputFilename?: string
 }
 
+/**
+ * Internal layout data for a single rectangle within a member.
+ * @internal
+ */
 interface RectangleLayout {
+  /** Whether this rectangle contains a photo or technical drawing */
   type: 'image' | 'drawing'
+  /** Path to the image/drawing file */
   filename: string
+  /** Y position from container origin (mm) */
   y: number
+  /** Rectangle width (mm) */
   width: number
+  /** Rectangle height (mm) */
   height: number
 }
 
+/**
+ * Internal layout data for a tile member.
+ * @internal
+ */
 interface MemberLayout {
+  /** Index in the members array */
   index: number
+  /** Y position where this member starts (mm) */
   startY: number
+  /** Y position where this member ends (mm) */
   endY: number
+  /** Rectangles to draw for this member (image + optional drawing) */
   rectangles: RectangleLayout[]
 }
 
+/**
+ * Complete layout calculation result for a tile container.
+ * @internal
+ */
 interface ContainerLayout {
+  /** Container dimensions and position */
   container: {
     width: number
     height: number
     origin: { x: number; y: number }
   }
+  /** Layout data for each member */
   members: MemberLayout[]
+  /** Applied settings */
   settings: {
     memberSpacing: number
     textGap: number
@@ -65,22 +137,43 @@ interface ContainerLayout {
 }
 
 // ============================================================================
-// Image Scaling Calculator
+// IMAGE SCALING CALCULATOR
 // ============================================================================
 
 /**
- * Convert pixels to millimeters using DPI
- * Formula: (pixels / dpi) * 25.4 (mm per inch)
+ * Converts pixels to millimeters using DPI resolution.
+ *
+ * @remarks
+ * Uses the standard formula: mm = (pixels / dpi) × 25.4
+ * where 25.4 is the number of millimeters per inch.
+ *
+ * @param pixels - Image dimension in pixels
+ * @param dpi - Dots per inch resolution (typically 300 for catalog images)
+ * @returns Equivalent size in millimeters
+ *
+ * @example
+ * ```ts
+ * const widthMm = pixelsToMm(1500, 300) // 127mm (5 inches)
+ * ```
  */
 export function pixelsToMm(pixels: number, dpi: number): number {
   return (pixels / dpi) * 25.4
 }
 
 /**
- * Calculate AutoCAD scale factor for image insertion
- * For 1500x1500 @ 300 DPI fitting in 50mm squares:
- * Physical size: 1500px / 300 DPI = 5 inches = 127mm
- * Target size: 50mm -> Scale: 50 / 127 = 0.3937
+ * Calculates AutoCAD scale factor for image insertion.
+ *
+ * The scale factor maps physical image size to target AutoCAD units.
+ *
+ * @remarks
+ * Assumes standard 1500×1500 pixel catalog images.
+ * Example calculation for 1500px @ 300 DPI fitting in 50mm:
+ * - Physical size: 1500px ÷ 300 DPI = 5 inches = 127mm
+ * - Target size: 50mm → Scale: 50 ÷ 127 = 0.3937
+ *
+ * @param dpi - Image resolution in dots per inch
+ * @param targetSizeMm - Desired size in AutoCAD (default: 50mm)
+ * @returns Scale factor for the -IMAGE ATTACH command
  */
 export function calculateAutoCADScale(dpi: number, targetSizeMm: number = 50): number {
   const imageSizeInches = 1500 / dpi // Assuming 1500x1500 standard images
@@ -89,7 +182,20 @@ export function calculateAutoCADScale(dpi: number, targetSizeMm: number = 50): n
 }
 
 /**
- * Calculate scaling information for a tile member
+ * Calculates complete scaling information for a tile member.
+ *
+ * Computes physical dimensions, scaled dimensions to fit the tile,
+ * AutoCAD scale factor, and centering offsets.
+ *
+ * @param member - Tile member with image dimensions and target size
+ * @returns Scaling data including physical size, scaled size, scale factor, and offsets
+ *
+ * @example
+ * ```ts
+ * const scaling = calculateMemberScaling(member)
+ * // scaling.autoCADScale → 0.3937 for standard 50mm tiles
+ * // scaling.offset.x/y → centering offsets if image doesn't fill tile
+ * ```
  */
 export function calculateMemberScaling(member: TileMember) {
   const physicalWidth = pixelsToMm(member.width, member.dpi)
@@ -117,7 +223,21 @@ export function calculateMemberScaling(member: TileMember) {
 }
 
 /**
- * Calculate container dimensions for all members
+ * Calculates layout dimensions for the entire tile container.
+ *
+ * Stacks members vertically, with each member potentially having
+ * multiple rectangles (image + drawing). Returns complete layout
+ * data needed for script generation.
+ *
+ * @param members - Array of tile members to layout
+ * @param settings - Optional settings for gaps and text positioning
+ * @returns Complete layout with container dimensions and member positions
+ *
+ * @example
+ * ```ts
+ * const layout = calculateContainerDimensions(tileData.members, { textGap: 15 })
+ * console.log(layout.container.height) // Total height in mm
+ * ```
  */
 export function calculateContainerDimensions(
   members: TileMember[],
@@ -180,14 +300,35 @@ export function calculateContainerDimensions(
 }
 
 // ============================================================================
-// Script Generator Class
+// SCRIPT GENERATOR CLASS
 // ============================================================================
 
+/**
+ * Generates AutoLISP/SCR scripts for creating tile layouts in AutoCAD.
+ *
+ * The class builds up a sequence of AutoCAD commands that:
+ * 1. Set automation system variables (CMDECHO=0, FILEDIA=0)
+ * 2. Configure millimeter units via DWGUNITS
+ * 3. Create layer structure for tiles
+ * 4. Insert images with proper scaling
+ * 5. Draw rectangle frames
+ * 6. Add text labels via MTEXT
+ * 7. Save and quit (required for APS Design Automation)
+ *
+ * @example
+ * ```ts
+ * const generator = new TileScriptGenerator()
+ * const script = generator.generateScript(tileData, { textGap: 15 })
+ * // Write script to .scr file for APS processing
+ * ```
+ */
 export class TileScriptGenerator {
+  /** Accumulated AutoLISP commands */
   private commands: string[] = []
 
   /**
-   * Create a layer with specific properties
+   * Creates a layer with specific properties.
+   * @internal
    */
   private createLayer(
     layerName: string,
@@ -316,7 +457,21 @@ export class TileScriptGenerator {
   }
 
   /**
-   * Generate the complete tile script
+   * Generates the complete AutoLISP script for a tile layout.
+   *
+   * This is the main entry point that orchestrates all script generation.
+   * The generated script can be executed in AutoCAD or processed by APS
+   * Design Automation to produce DWG output.
+   *
+   * @param tileData - Tile definition with members and metadata
+   * @param settings - Optional customization for text positioning and output
+   * @returns Complete script as a string, ready to write to .scr file
+   *
+   * @example
+   * ```ts
+   * const script = generator.generateScript(tileData)
+   * await fs.writeFile('output.scr', script)
+   * ```
    */
   generateScript(tileData: TileData, settings: ScriptSettings = {}): string {
     this.commands = [] // Reset
@@ -417,7 +572,19 @@ export class TileScriptGenerator {
 }
 
 /**
- * Convenience function to generate a script
+ * Generates a tile script using default TileScriptGenerator instance.
+ *
+ * This is a convenience wrapper around {@link TileScriptGenerator.generateScript}
+ * for simple one-off script generation without managing class instances.
+ *
+ * @param tileData - Tile definition with members and metadata
+ * @param settings - Optional customization settings
+ * @returns Complete AutoLISP script as a string
+ *
+ * @example
+ * ```ts
+ * const script = generateTileScript(tileData, { textGap: 15 })
+ * ```
  */
 export function generateTileScript(
   tileData: TileData,
@@ -428,7 +595,21 @@ export function generateTileScript(
 }
 
 /**
- * Generate script preview (returns info without full script)
+ * Generates a preview of the tile script without the full command output.
+ *
+ * Returns layout information useful for displaying to users before
+ * committing to full script generation and APS processing.
+ *
+ * @param tileData - Tile definition to preview
+ * @param settings - Optional settings that affect layout
+ * @returns Preview object with dimensions, member count, and layer names
+ *
+ * @example
+ * ```ts
+ * const preview = previewTileScript(tileData)
+ * console.log(`Container: ${preview.container.width}x${preview.container.height}mm`)
+ * console.log(`Members: ${preview.memberCount}`)
+ * ```
  */
 export function previewTileScript(tileData: TileData, settings: ScriptSettings = {}) {
   const layout = calculateContainerDimensions(tileData.members, settings)

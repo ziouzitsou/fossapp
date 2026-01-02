@@ -1,3 +1,21 @@
+/**
+ * Tile Group Card - Container for products grouped into a single DWG tile
+ *
+ * Displays a named group of products that will be rendered together as a
+ * tile layout in AutoCAD. Supports drag-and-drop reordering, custom notes
+ * per product, and triggers DWG generation via APS Design Automation.
+ *
+ * @remarks
+ * **Tiles Workflow**:
+ * 1. User drags products from the bucket into a tile group
+ * 2. Products are displayed in vertical order (matches DWG output)
+ * 3. User can add custom notes per product (e.g., "with dimming")
+ * 4. "Generate DWG" sends payload to APS, streams progress via SSE
+ * 5. Result includes Drive folder link and DWG viewer access
+ *
+ * @see {@link useTileGeneration} for the streaming generation hook
+ * @see {@link BucketContext} for drag-and-drop state management
+ */
 'use client'
 
 import { useState } from 'react'
@@ -22,14 +40,26 @@ import { TerminalLog, useTileGeneration } from './terminal-log'
 import { GoogleDriveIcon, WindowsExplorerIcon } from '@/components/icons/brand-icons'
 import { TileViewerModal } from './tile-viewer-modal'
 
+/**
+ * Props for a draggable/sortable product member within a tile group.
+ */
 interface SortableMemberProps {
+  /** The product bucket item containing product data */
   item: BucketItem
+  /** Parent tile group ID for composite sortable key */
   groupId: string
+  /** User-entered custom notes for this product instance */
   customText?: string
+  /** Callback when custom notes are updated */
   onTextChange: (text: string) => void
+  /** Callback to remove this product from the group */
   onRemove: () => void
 }
 
+/**
+ * Renders a single product within a tile group with drag handle,
+ * product images, info, and inline-editable custom notes.
+ */
 function SortableMember({ item, groupId, customText, onTextChange, onRemove }: SortableMemberProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
@@ -171,11 +201,20 @@ function SortableMember({ item, groupId, customText, onTextChange, onRemove }: S
   )
 }
 
+/**
+ * Props for the TileGroupCard component.
+ */
 interface TileGroupCardProps {
+  /** The tile group data including name, members, and custom texts */
   group: TileGroup
 }
 
-// Generate payload for tile processing
+/**
+ * Converts a TileGroup into the payload format expected by the APS tile generation API.
+ *
+ * @param group - The tile group with members and custom texts
+ * @returns Payload with tile name, member images, and text overrides
+ */
 function generateTilePayload(group: TileGroup): TilePayload {
   return {
     tile: group.name,
@@ -202,6 +241,14 @@ function generateTilePayload(group: TileGroup): TilePayload {
   }
 }
 
+/**
+ * Card component displaying a tile group with its product members.
+ *
+ * @remarks
+ * Provides a drop zone for adding products, sortable members for reordering,
+ * and controls for renaming, deleting, and generating DWG output.
+ * After successful generation, shows links to Google Drive and DWG viewer.
+ */
 export function TileGroupCard({ group }: TileGroupCardProps) {
   const { deleteTileGroup, renameTileGroup, removeFromTileGroup, updateMemberText } = useBucket()
   const [isEditing, setIsEditing] = useState(false)
