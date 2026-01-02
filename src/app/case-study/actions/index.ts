@@ -180,12 +180,12 @@ export async function getCaseStudyProductsAction(
             .in('foss_pid', fossPids)
         : { data: null },
 
-      // Multimedia codes for images (MD01/MD02 = product photo, MD12/MD64 = line drawing)
+      // Multimedia for images (MD01/MD02 = product photo, MD12/MD64 = line drawing)
       fossPids.length > 0
         ? supabaseServer
             .schema('items')
             .from('product_info')
-            .select('foss_pid, multimedia_codes')
+            .select('foss_pid, multimedia')
             .in('foss_pid', fossPids)
         : { data: null },
     ])
@@ -201,21 +201,22 @@ export async function getCaseStudyProductsAction(
       }
     }
 
+    // BMEcat multimedia uses mime_code/mime_source naming
     const multimediaMap: Record<string, { imageUrl?: string; drawingUrl?: string }> = {}
     if (multimediaResult.data) {
       for (const m of multimediaResult.data) {
-        const codes = m.multimedia_codes as Array<{ code: string; url: string }> | null
-        if (codes && Array.isArray(codes)) {
+        const media = m.multimedia as Array<{ mime_code: string; mime_source: string }> | null
+        if (media && Array.isArray(media)) {
           // Photo: MD02 (Supabase) -> MD01 (Supplier) - consistent with symbol-modal
-          const md02 = codes.find((c) => c.code === 'MD02')
-          const md01 = codes.find((c) => c.code === 'MD01')
+          const md02 = media.find((c) => c.mime_code === 'MD02')
+          const md01 = media.find((c) => c.mime_code === 'MD01')
           // Drawing: MD64 (Supabase) -> MD12 (Supplier) - consistent with symbol-modal
-          const md64 = codes.find((c) => c.code === 'MD64')
-          const md12 = codes.find((c) => c.code === 'MD12')
+          const md64 = media.find((c) => c.mime_code === 'MD64')
+          const md12 = media.find((c) => c.mime_code === 'MD12')
 
           multimediaMap[m.foss_pid] = {
-            imageUrl: md02?.url || md01?.url,
-            drawingUrl: md64?.url || md12?.url,
+            imageUrl: md02?.mime_source || md01?.mime_source,
+            drawingUrl: md64?.mime_source || md12?.mime_source,
           }
         }
       }
