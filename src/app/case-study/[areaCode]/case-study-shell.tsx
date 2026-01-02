@@ -2,13 +2,16 @@
 
 import { useParams, usePathname, useRouter } from 'next/navigation'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { useUserSettings } from '@/lib/user-settings-context'
 import { Skeleton } from '@fossapp/ui'
 import { getCaseStudyAreasAction } from '../actions'
+import { getUserPreferencesAction } from '@/lib/actions/user-preferences'
+import { DEFAULT_VIEW_PREFERENCES, type ViewPreferences } from '@/lib/actions/user-preferences-types'
 import { CaseStudyToolbar } from '../components'
-import { useCaseStudyState, useViewerControls } from '../hooks'
-import type { CaseStudyStateValue, ViewerControlsValue } from '../hooks'
+import { useCaseStudyState, useViewerControls, useFloorPlanUpload } from '../hooks'
+import type { CaseStudyStateValue, ViewerControlsValue, FloorPlanUploadValue } from '../hooks'
 import type { CaseStudyArea, ViewMode } from '../types'
 
 // ============================================================================
@@ -18,12 +21,15 @@ import type { CaseStudyArea, ViewMode } from '../types'
 interface CaseStudyContextValue {
   state: CaseStudyStateValue
   viewerControls: ViewerControlsValue
+  floorPlanUpload: FloorPlanUploadValue
+  viewPreferences: ViewPreferences
   areas: CaseStudyArea[]
   selectedArea: CaseStudyArea | null
   areaCode: string
   viewMode: ViewMode
   isLoadingAreas: boolean
   projectError: string | null
+  projectId: string | null
 }
 
 const CaseStudyContext = createContext<CaseStudyContextValue | null>(null)
@@ -69,6 +75,7 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
   const params = useParams()
   const pathname = usePathname()
   const router = useRouter()
+  const { data: session } = useSession()
   const { activeProject } = useUserSettings()
 
   const areaCode = params.areaCode as string
@@ -77,6 +84,31 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
   const [areas, setAreas] = useState<CaseStudyArea[]>([])
   const [isLoadingAreas, setIsLoadingAreas] = useState(false)
   const [projectError, setProjectError] = useState<string | null>(null)
+
+  // View preferences state
+  const [viewPreferences, setViewPreferences] = useState<ViewPreferences>(DEFAULT_VIEW_PREFERENCES)
+
+  // Load user preferences
+  useEffect(() => {
+    const email = session?.user?.email
+    if (!email) return
+
+    async function loadPreferences() {
+      try {
+        const result = await getUserPreferencesAction(email)
+        if (result.success && result.data) {
+          setViewPreferences({
+            ...DEFAULT_VIEW_PREFERENCES,
+            ...result.data.view_preferences,
+          })
+        }
+      } catch (err) {
+        console.error('Failed to load user preferences:', err)
+      }
+    }
+
+    loadPreferences()
+  }, [session?.user?.email])
 
   // Fetch areas when project changes
   useEffect(() => {
@@ -151,6 +183,7 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
   // State hook - pass selected area's revision ID
   const state = useCaseStudyState(selectedArea?.revisionId ?? null)
   const viewerControls = useViewerControls()
+  const floorPlanUpload = useFloorPlanUpload(selectedArea, activeProject?.id ?? null)
 
   // Handle area change - navigate to new URL
   const handleAreaChange = (areaId: string) => {
@@ -169,12 +202,15 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
   const contextValue: CaseStudyContextValue = {
     state,
     viewerControls,
+    floorPlanUpload,
+    viewPreferences,
     areas,
     selectedArea,
     areaCode,
     viewMode,
     isLoadingAreas,
     projectError,
+    projectId: activeProject?.id ?? null,
   }
 
   // Show loading state
@@ -244,6 +280,16 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
     <CaseStudyContext.Provider value={contextValue}>
       <ProtectedPageLayout>
         <div className="flex h-full flex-col">
+          {/* Hidden file input for DWG upload */}
+          <input
+            ref={floorPlanUpload.fileInputRef}
+            type="file"
+            accept=".dwg"
+            onChange={floorPlanUpload.handleFileChange}
+            className="hidden"
+            aria-label="Upload DWG floor plan"
+          />
+
           {/* Toolbar - always visible */}
           <CaseStudyToolbar
             areas={areas}
@@ -251,7 +297,18 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
             onAreaChange={handleAreaChange}
             viewMode={viewMode}
             onViewModeChange={handleViewModeChange}
+            onUploadClick={floorPlanUpload.triggerFileSelect}
+            isUploading={floorPlanUpload.isUploading}
+            hasFloorPlan={floorPlanUpload.hasExistingFloorPlan}
+            floorPlanFilename={floorPlanUpload.existingFilename}
           />
+
+          {/* Upload error toast */}
+          {floorPlanUpload.uploadError && (
+            <div className="bg-destructive/10 text-destructive border-destructive/20 mx-4 mt-2 rounded-md border px-4 py-2 text-sm">
+              {floorPlanUpload.uploadError}
+            </div>
+          )}
 
           {/* Child route content */}
           <div className="flex-1 overflow-hidden">{children}</div>
