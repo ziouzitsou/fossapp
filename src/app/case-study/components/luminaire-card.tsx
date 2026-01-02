@@ -4,18 +4,7 @@ import { Card, CardContent } from '@fossapp/ui'
 import { Button } from '@fossapp/ui'
 import { Palette, Package, Plus, Minus } from 'lucide-react'
 import { cn } from '@fossapp/ui'
-
-export interface LuminaireProduct {
-  id: string
-  name: string
-  code: string
-  symbol: string
-  hasSymbolDrawing: boolean
-  hasTile: boolean
-  tileAccessories: string[]
-  quantity: number
-  placed: number
-}
+import type { LuminaireProduct } from '../types'
 
 interface LuminaireCardProps {
   product: LuminaireProduct
@@ -24,6 +13,15 @@ interface LuminaireCardProps {
   onQuantityChange: (delta: number) => void
 }
 
+/**
+ * Luminaire Card - Shows symbol, tile preview, and placement progress
+ *
+ * Displays:
+ * - Symbol drawing (or letter badge fallback)
+ * - Tile preview (if tile exists)
+ * - Placement progress bar (3/5 placed)
+ * - Quick actions: Symbol modal, Tile modal
+ */
 export function LuminaireCard({
   product,
   onSymbolClick,
@@ -55,7 +53,7 @@ export function LuminaireCard({
           {product.hasTile ? (
             <div className="text-center">
               <div className="text-[10px]">Tile</div>
-              <div className="text-[9px]">+{product.tileAccessories.length} items</div>
+              <div className="text-[9px]">+{product.tileAccessoryCount} items</div>
             </div>
           ) : (
             <span className="text-[10px]">No tile</span>

@@ -10,21 +10,25 @@ import {
 } from '@fossapp/ui'
 import { LayoutGrid, Map, Upload, Sparkles } from 'lucide-react'
 import { cn } from '@fossapp/ui'
-import type { ViewMode } from '../page'
-
-interface Area {
-  id: string
-  name: string
-}
+import type { ViewMode, CaseStudyArea } from '../types'
 
 interface CaseStudyToolbarProps {
-  areas: Area[]
+  areas: CaseStudyArea[]
   selectedAreaId: string
   onAreaChange: (areaId: string) => void
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
 }
 
+/**
+ * Case Study Toolbar - Area selector, view toggle, and action buttons
+ *
+ * Always visible at the top of the page. Controls:
+ * - Area dropdown (switch between project areas)
+ * - Products/Viewer toggle
+ * - Upload DWG button
+ * - Generate button (magic button)
+ */
 export function CaseStudyToolbar({
   areas,
   selectedAreaId,
@@ -32,17 +36,27 @@ export function CaseStudyToolbar({
   viewMode,
   onViewModeChange,
 }: CaseStudyToolbarProps) {
+  const selectedArea = areas.find((a) => a.id === selectedAreaId)
+
   return (
     <div className="flex items-center gap-4 border-b bg-background px-4 py-2">
       {/* Area selector */}
       <Select value={selectedAreaId} onValueChange={onAreaChange}>
         <SelectTrigger className="w-48">
-          <SelectValue placeholder="Select area" />
+          <SelectValue placeholder="Select area">
+            {selectedArea && (
+              <span>
+                <span className="font-medium">{selectedArea.areaCode}</span>
+                <span className="text-muted-foreground"> - {selectedArea.areaName}</span>
+              </span>
+            )}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {areas.map((area) => (
             <SelectItem key={area.id} value={area.id}>
-              {area.name}
+              <span className="font-medium">{area.areaCode}</span>
+              <span className="text-muted-foreground"> - {area.areaName}</span>
             </SelectItem>
           ))}
         </SelectContent>

@@ -1,3 +1,8 @@
-// Hooks will be added in Phase 2
-// export { useCaseStudyState } from './use-case-study-state'
-// export { useViewerControls } from './use-viewer-controls'
+/**
+ * Case Study Hooks
+ *
+ * Centralized state management for the Case Study (Planner V2) page.
+ */
+
+export { useCaseStudyState, type CaseStudyStateValue } from './use-case-study-state'
+export { useViewerControls, type ViewerControlsValue } from './use-viewer-controls'

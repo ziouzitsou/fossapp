@@ -2,15 +2,8 @@
 
 import { Card, CardContent } from '@fossapp/ui'
 import { Button } from '@fossapp/ui'
-import { Package, Plus, Minus } from 'lucide-react'
-
-export interface AccessoryProduct {
-  id: string
-  name: string
-  code: string
-  type: 'driver' | 'optic' | 'mount' | 'accessory'
-  quantity: number
-}
+import { Package, Plus, Minus, Zap, CircleDot, Wrench } from 'lucide-react'
+import type { AccessoryProduct } from '../types'
 
 interface AccessoryCardProps {
   product: AccessoryProduct
@@ -18,17 +11,39 @@ interface AccessoryCardProps {
   onQuantityChange: (delta: number) => void
 }
 
+/** Get icon based on accessory type */
+function getTypeIcon(type: AccessoryProduct['type']) {
+  switch (type) {
+    case 'driver':
+      return Zap
+    case 'optic':
+      return CircleDot
+    case 'mount':
+      return Wrench
+    default:
+      return Package
+  }
+}
+
+/**
+ * Accessory Card - Simple card for drivers, optics, mounts
+ *
+ * Simpler than LuminaireCard - no symbols or placements.
+ * Shows: Type icon, name, code, quantity controls, Add to Tile button.
+ */
 export function AccessoryCard({
   product,
   onAddToTile,
   onQuantityChange,
 }: AccessoryCardProps) {
+  const TypeIcon = getTypeIcon(product.type)
+
   return (
     <Card className="w-36 shrink-0">
       <CardContent className="p-2 space-y-2">
-        {/* Product image placeholder */}
+        {/* Product icon */}
         <div className="aspect-square rounded bg-muted flex items-center justify-center">
-          <Package className="h-8 w-8 text-muted-foreground" />
+          <TypeIcon className="h-8 w-8 text-muted-foreground" />
         </div>
 
         {/* Product info */}

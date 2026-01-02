@@ -1,56 +1,37 @@
 'use client'
 
-import { useState } from 'react'
 import { Button } from '@fossapp/ui'
 import { ScrollArea, ScrollBar } from '@fossapp/ui'
 import { Plus } from 'lucide-react'
-import { LuminaireCard, type LuminaireProduct } from './luminaire-card'
-import { AccessoryCard, type AccessoryProduct } from './accessory-card'
-
-// Mock data for Phase 1
-const MOCK_LUMINAIRES: LuminaireProduct[] = [
-  { id: '1', name: 'BOXY XL', code: 'MY8204045139', symbol: 'A1', hasSymbolDrawing: true, hasTile: true, tileAccessories: ['Driver', 'Optic'], quantity: 5, placed: 3 },
-  { id: '2', name: 'BOXY S', code: 'MY8204045140', symbol: 'A2', hasSymbolDrawing: true, hasTile: false, tileAccessories: [], quantity: 3, placed: 0 },
-  { id: '3', name: 'MINI GRID', code: 'MY8204045141', symbol: 'A3', hasSymbolDrawing: false, hasTile: true, tileAccessories: ['Driver'], quantity: 8, placed: 8 },
-  { id: '4', name: 'PENDANT L', code: 'MY8204045142', symbol: 'B1', hasSymbolDrawing: true, hasTile: false, tileAccessories: [], quantity: 2, placed: 1 },
-  { id: '5', name: 'TRACK SPOT', code: 'MY8204045143', symbol: 'N1', hasSymbolDrawing: false, hasTile: false, tileAccessories: [], quantity: 4, placed: 2 },
-  { id: '6', name: 'OUTDOOR IP65', code: 'MY8204045144', symbol: 'C1', hasSymbolDrawing: true, hasTile: true, tileAccessories: ['Mount'], quantity: 6, placed: 4 },
-  { id: '7', name: 'LINEAR 120', code: 'MY8204045145', symbol: 'D1', hasSymbolDrawing: false, hasTile: false, tileAccessories: [], quantity: 10, placed: 5 },
-  { id: '8', name: 'DOWNLIGHT PRO', code: 'MY8204045146', symbol: 'A4', hasSymbolDrawing: true, hasTile: true, tileAccessories: ['Driver', 'Optic', 'Frame'], quantity: 12, placed: 12 },
-]
-
-const MOCK_ACCESSORIES: AccessoryProduct[] = [
-  { id: '101', name: 'Driver 350mA DALI', code: 'DRV350MA-DALI', type: 'driver', quantity: 5 },
-  { id: '102', name: 'Optic 24° Narrow', code: 'OPT-24-BOXY', type: 'optic', quantity: 5 },
-  { id: '103', name: 'Optic 36° Medium', code: 'OPT-36-BOXY', type: 'optic', quantity: 3 },
-  { id: '104', name: 'Mount Bracket', code: 'MNT-BRK-01', type: 'mount', quantity: 2 },
-  { id: '105', name: 'Emergency Kit', code: 'EMG-KIT-01', type: 'accessory', quantity: 4 },
-]
+import { LuminaireCard } from './luminaire-card'
+import { AccessoryCard } from './accessory-card'
+import type { LuminaireProduct, AccessoryProduct } from '../types'
 
 interface ProductsViewProps {
-  areaId: string
+  luminaires: LuminaireProduct[]
+  accessories: AccessoryProduct[]
+  onLuminaireQuantityChange: (id: string, delta: number) => void
+  onAccessoryQuantityChange: (id: string, delta: number) => void
+  onSymbolClick: (id: string) => void
+  onTileClick: (id: string) => void
+  onAddToTile: (id: string) => void
 }
 
-export function ProductsView({ areaId }: ProductsViewProps) {
-  const [luminaires, setLuminaires] = useState(MOCK_LUMINAIRES)
-  const [accessories, setAccessories] = useState(MOCK_ACCESSORIES)
-
-  const handleLuminaireQuantityChange = (id: string, delta: number) => {
-    setLuminaires((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, quantity: Math.max(p.placed, p.quantity + delta) } : p
-      )
-    )
-  }
-
-  const handleAccessoryQuantityChange = (id: string, delta: number) => {
-    setAccessories((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, quantity: Math.max(0, p.quantity + delta) } : p
-      )
-    )
-  }
-
+/**
+ * Products View - Horizontal scrolling product cards
+ *
+ * Shows luminaires (with symbols/tiles) and accessories (drivers/optics).
+ * Each section scrolls horizontally to accommodate many products.
+ */
+export function ProductsView({
+  luminaires,
+  accessories,
+  onLuminaireQuantityChange,
+  onAccessoryQuantityChange,
+  onSymbolClick,
+  onTileClick,
+  onAddToTile,
+}: ProductsViewProps) {
   return (
     <div className="flex flex-col gap-6 p-4">
       {/* Luminaires section */}
@@ -64,9 +45,9 @@ export function ProductsView({ areaId }: ProductsViewProps) {
               <LuminaireCard
                 key={product.id}
                 product={product}
-                onSymbolClick={() => console.log('Symbol:', product.id)}
-                onTileClick={() => console.log('Tile:', product.id)}
-                onQuantityChange={(delta) => handleLuminaireQuantityChange(product.id, delta)}
+                onSymbolClick={() => onSymbolClick(product.id)}
+                onTileClick={() => onTileClick(product.id)}
+                onQuantityChange={(delta) => onLuminaireQuantityChange(product.id, delta)}
               />
             ))}
             {/* Add button */}
@@ -93,8 +74,8 @@ export function ProductsView({ areaId }: ProductsViewProps) {
               <AccessoryCard
                 key={product.id}
                 product={product}
-                onAddToTile={() => console.log('Add to tile:', product.id)}
-                onQuantityChange={(delta) => handleAccessoryQuantityChange(product.id, delta)}
+                onAddToTile={() => onAddToTile(product.id)}
+                onQuantityChange={(delta) => onAccessoryQuantityChange(product.id, delta)}
               />
             ))}
             {/* Add button */}
