@@ -1,16 +1,15 @@
 import { redirect } from 'next/navigation'
-import { MOCK_AREAS } from './types'
 
 /**
  * Case Study Root Page
- * Redirects to the first area's products view.
+ *
+ * Redirects to a default area code. The CaseStudyShell will handle
+ * redirecting to the correct area if this one doesn't exist.
  *
  * Route: /case-study → /case-study/gf/products
  */
 export default function CaseStudyPage() {
-  // Get default area code (first area, lowercase)
-  const defaultAreaCode = MOCK_AREAS[0]?.areaCode.toLowerCase() ?? 'gf'
-
-  // Redirect to products view for default area
-  redirect(`/case-study/${defaultAreaCode}/products`)
+  // Redirect to products view with default area code
+  // The shell will redirect to actual first area if 'gf' doesn't exist
+  redirect('/case-study/gf/products')
 }

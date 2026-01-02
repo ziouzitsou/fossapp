@@ -301,7 +301,9 @@ A tile is a **vertical assembly** of a luminaire + its accessories for the BOM t
 ```
 src/app/case-study/
 ├── page.tsx                    # Redirect → /gf/products
-├── types.ts                    # ~210 lines - Types + mock data
+├── types.ts                    # ~178 lines - Types (Phase 3: mock data removed)
+├── actions/
+│   └── index.ts                # ~310 lines - Server actions for Supabase (Phase 3)
 ├── components/
 │   ├── index.ts                # Barrel export
 │   ├── case-study-toolbar.tsx  # ~107 lines - Area selector, view toggle, buttons
@@ -314,11 +316,11 @@ src/app/case-study/
 │   └── tile-modal.tsx          # (Phase 5) Tile assembly
 ├── hooks/
 │   ├── index.ts                # Barrel export
-│   ├── use-case-study-state.ts # ~173 lines - Data state management
+│   ├── use-case-study-state.ts # ~368 lines - Data + Supabase integration (Phase 3)
 │   └── use-viewer-controls.ts  # ~173 lines - Viewer interactions
 └── [areaCode]/                 # URL-based routing
     ├── layout.tsx              # ~17 lines - Server component wrapper
-    ├── case-study-shell.tsx    # ~95 lines - Client shell + context
+    ├── case-study-shell.tsx    # ~260 lines - Client shell + project context (Phase 3)
     ├── page.tsx                # Redirect → products
     ├── products/
     │   └── page.tsx            # ~26 lines - Products view route
@@ -326,7 +328,7 @@ src/app/case-study/
         └── page.tsx            # ~24 lines - Viewer route
 ```
 
-**Actual**: ~1,517 lines across 16 files (~95 lines average) ✅
+**Actual**: ~2,225 lines across 17 files (~131 lines average) ✅
 **Compare**: Current planner has 2,575 lines in 3 files (~858 lines average)
 
 ---
@@ -362,17 +364,17 @@ Wire up state management with proper TypeScript types. Added URL-based routing.
 | URL-based routing | `[areaCode]/products\|viewer` | [x] |
 | Server/client split (hydration fix) | `layout.tsx` + `case-study-shell.tsx` | [x] |
 
-### Phase 3: Data Integration (Supabase)
+### Phase 3: Data Integration (Supabase) ✅ COMPLETE
 
 Connect to real data from the database.
 
 | Task | Status |
 |------|--------|
-| Fetch area products | [ ] |
-| Fetch/save placements | [ ] |
-| Fetch/save tiles | [ ] |
-| Area selector with real data | [ ] |
-| Quantity updates (inline +/-) | [ ] |
+| Fetch area products | [x] |
+| Fetch/save placements | [x] |
+| Fetch/save tiles | [ ] deferred to Phase 5 |
+| Area selector with real data | [x] |
+| Quantity updates (inline +/-) | [x] |
 
 ### Phase 4: Viewer Integration (DWG)
 
@@ -456,4 +458,5 @@ Final touches and migration from old planner.
 | 2026-01-01 | Added file structure and development phases |
 | 2026-01-01 | Phase 1 complete - UI shell with mock data |
 | 2026-01-02 | Phase 2 complete - State hooks, URL-based routing, hydration fix |
+| 2026-01-02 | Phase 3 complete - Supabase data integration, optimistic updates |
 

@@ -173,37 +173,6 @@ export interface CaseStudyActions {
 }
 
 // ============================================================================
-// MOCK DATA GENERATORS (for Phase 1-2 development)
+// NOTE: Mock data removed in Phase 3
+// Real data is now fetched from Supabase via case-study/actions/index.ts
 // ============================================================================
-
-export const MOCK_AREAS: CaseStudyArea[] = [
-  { id: '1', areaCode: 'GF', areaName: 'Ground Floor', revisionId: 'r1', revisionNumber: 1 },
-  { id: '2', areaCode: 'FF', areaName: 'First Floor', revisionId: 'r2', revisionNumber: 1 },
-  { id: '3', areaCode: 'GD', areaName: 'Garden', revisionId: 'r3', revisionNumber: 1 },
-]
-
-export const MOCK_LUMINAIRES: LuminaireProduct[] = [
-  { id: '1', productId: 'p1', name: 'BOXY XL', code: 'MY8204045139', type: 'luminaire', symbol: 'A1', symbolLetter: 'A', symbolSequence: 1, hasSymbolDrawing: true, hasTile: true, tileAccessoryCount: 2, quantity: 5, placed: 3 },
-  { id: '2', productId: 'p2', name: 'BOXY S', code: 'MY8204045140', type: 'luminaire', symbol: 'A2', symbolLetter: 'A', symbolSequence: 2, hasSymbolDrawing: true, hasTile: false, tileAccessoryCount: 0, quantity: 3, placed: 0 },
-  { id: '3', productId: 'p3', name: 'MINI GRID', code: 'MY8204045141', type: 'luminaire', symbol: 'A3', symbolLetter: 'A', symbolSequence: 3, hasSymbolDrawing: false, hasTile: true, tileAccessoryCount: 1, quantity: 8, placed: 8 },
-  { id: '4', productId: 'p4', name: 'PENDANT L', code: 'MY8204045142', type: 'luminaire', symbol: 'B1', symbolLetter: 'B', symbolSequence: 1, hasSymbolDrawing: true, hasTile: false, tileAccessoryCount: 0, quantity: 2, placed: 1 },
-  { id: '5', productId: 'p5', name: 'TRACK SPOT', code: 'MY8204045143', type: 'luminaire', symbol: 'N1', symbolLetter: 'N', symbolSequence: 1, hasSymbolDrawing: false, hasTile: false, tileAccessoryCount: 0, quantity: 4, placed: 2 },
-  { id: '6', productId: 'p6', name: 'OUTDOOR IP65', code: 'MY8204045144', type: 'luminaire', symbol: 'C1', symbolLetter: 'C', symbolSequence: 1, hasSymbolDrawing: true, hasTile: true, tileAccessoryCount: 1, quantity: 6, placed: 4 },
-  { id: '7', productId: 'p7', name: 'LINEAR 120', code: 'MY8204045145', type: 'luminaire', symbol: 'D1', symbolLetter: 'D', symbolSequence: 1, hasSymbolDrawing: false, hasTile: false, tileAccessoryCount: 0, quantity: 10, placed: 5 },
-  { id: '8', productId: 'p8', name: 'DOWNLIGHT PRO', code: 'MY8204045146', type: 'luminaire', symbol: 'A4', symbolLetter: 'A', symbolSequence: 4, hasSymbolDrawing: true, hasTile: true, tileAccessoryCount: 3, quantity: 12, placed: 12 },
-]
-
-export const MOCK_ACCESSORIES: AccessoryProduct[] = [
-  { id: '101', productId: 'a1', name: 'Driver 350mA DALI', code: 'DRV350MA-DALI', type: 'driver', quantity: 5 },
-  { id: '102', productId: 'a2', name: 'Optic 24° Narrow', code: 'OPT-24-BOXY', type: 'optic', quantity: 5 },
-  { id: '103', productId: 'a3', name: 'Optic 36° Medium', code: 'OPT-36-BOXY', type: 'optic', quantity: 3 },
-  { id: '104', productId: 'a4', name: 'Mount Bracket', code: 'MNT-BRK-01', type: 'mount', quantity: 2 },
-  { id: '105', productId: 'a5', name: 'Emergency Kit', code: 'EMG-KIT-01', type: 'accessory', quantity: 4 },
-]
-
-export const MOCK_PLACEMENTS: Placement[] = [
-  { id: 'pl1', projectProductId: '1', productId: 'p1', symbol: 'A1', worldX: 3200, worldY: 2000, rotation: 0 },
-  { id: 'pl2', projectProductId: '1', productId: 'p1', symbol: 'A1', worldX: 6400, worldY: 4000, rotation: 90 },
-  { id: 'pl3', projectProductId: '1', productId: 'p1', symbol: 'A1', worldX: 4800, worldY: 6000, rotation: 0 },
-  { id: 'pl4', projectProductId: '4', productId: 'p4', symbol: 'B1', worldX: 4800, worldY: 2800, rotation: 45 },
-]

@@ -25,7 +25,7 @@ interface ViewerViewProps {
     symbol: string,
     coords: ViewerCoordinates,
     rotation?: number
-  ) => Placement
+  ) => Placement | null
   onRemovePlacement: (placementId: string) => void
 }
 
