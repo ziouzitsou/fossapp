@@ -107,6 +107,7 @@ export function GenerateSymbolButton({
   // Track costs from both phases
   const analyzeCostRef = useRef<number>(0)
   const startTimeRef = useRef<number>(0)
+  const completedRef = useRef<boolean>(false)
 
   // Reset when product changes
   useEffect(() => {
@@ -116,6 +117,7 @@ export function GenerateSymbolButton({
     setJobId(null)
     analyzeCostRef.current = 0
     startTimeRef.current = 0
+    completedRef.current = false
   }, [product.id])
 
   // SSE subscription for generation progress
@@ -128,6 +130,12 @@ export function GenerateSymbolButton({
       try {
         const msg: LogMessage = JSON.parse(event.data)
 
+        // Guard: If already completed, ignore all messages (SSE reconnection replays all messages)
+        if (completedRef.current) {
+          eventSource.close()
+          return
+        }
+
         // Update phase based on SSE messages
         if (msg.phase === 'llm') {
           setPhase('generating:llm')
@@ -136,6 +144,8 @@ export function GenerateSymbolButton({
         } else if (msg.phase === 'storage') {
           setPhase('generating:storage')
         } else if (msg.phase === 'complete' && msg.result) {
+          completedRef.current = true
+
           const duration = (Date.now() - startTimeRef.current) / 1000
           const totalCost = (analyzeCostRef.current || 0) + (msg.result.costEur || 0)
 
@@ -187,6 +197,7 @@ export function GenerateSymbolButton({
     // Start generation
     startTimeRef.current = Date.now()
     analyzeCostRef.current = 0
+    completedRef.current = false
     setError(null)
     setSuccessInfo(null)
 
