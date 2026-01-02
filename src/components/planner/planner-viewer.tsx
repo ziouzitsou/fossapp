@@ -18,7 +18,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { cn } from '@fossapp/ui'
 import type { Viewer3DInstance, WorldCoordinates as WorldCoordsType, ViewerInitOptions } from '@/types/autodesk-viewer'
 import type { PlacementModeProduct, Placement, DwgUnitInfo } from './types'
-import { PlacementTool, dwgToViewerCoords, viewerToDwgCoords, type PageDimensions, type DwgCoordinates } from './placement-tool'
+import { PlacementTool, type DwgCoordinates } from './placement-tool'
 import { MarkupMarkers } from './markup-markers'
 import { PlannerViewerToolbar, type MeasureMode } from './viewer-toolbar'
 import { ViewerLoadingOverlay, ViewerErrorOverlay, CoordinateOverlay, ViewerQuickActions, type LoadingStage } from './viewer-overlays'
@@ -140,9 +140,6 @@ export function PlannerViewer({
   // Ref for MarkupMarkers instance
   const markupMarkersRef = useRef<MarkupMarkers | null>(null)
 
-  // Ref for page dimensions (needed for coordinate transformation when loading placements)
-  const pageDimensionsRef = useRef<PageDimensions | null>(null)
-
   // Ref for initial placements to render after viewer is ready
   const initialPlacementsRef = useRef(initialPlacements)
   initialPlacementsRef.current = initialPlacements
@@ -162,6 +159,89 @@ export function PlannerViewer({
   const [hasSelectedMarker, setHasSelectedMarker] = useState(false)
   const [dwgCoordinates, setDwgCoordinates] = useState<DwgCoordinates | null>(null)
   const [dwgUnitString, setDwgUnitString] = useState<string | null>(null)
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COORDINATE TRANSFORMATION (2D DWGs)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // APS Viewer uses 2-stage coordinates for 2D DWGs:
+  //   Screen (pixels) → Page (viewer internal) → DWG Model Space
+  //
+  // - PlacementTool outputs PAGE coordinates (from visible bounds or snapper)
+  // - We convert Page→DWG for storage/export (LISP scripts need DWG coords)
+  // - We convert DWG→Page for marker rendering (markers positioned in page space)
+  //
+  // Transform source: model.getPageToModelTransform(1) - viewport 1 = model space
+  // See: https://aps.autodesk.com/blog/parsing-line-points-viewer
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Page-to-Model transformation stored as plain numbers for reliable access
+  // Format: [scaleX, scaleY, translateX, translateY] from Matrix4 column-major layout
+  // Lazily extracted on first use (not available during GEOMETRY_LOADED event)
+  const pageToModelTransformRef = useRef<[number, number, number, number] | null>(null)
+
+  /**
+   * Convert page coordinates (from APS viewer) to DWG model space coordinates.
+   * Uses matrix elements from getPageToModelTransform(vpId=1).
+   * Lazily extracts transform on first use (not available during geometry load).
+   */
+  const pageToDwgCoords = useCallback((pageX: number, pageY: number): { x: number; y: number } => {
+    // Lazy extraction: get transform from viewer if not cached
+    if (!pageToModelTransformRef.current && viewerRef.current?.model) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const model = viewerRef.current.model as any
+      const matrix = model.getPageToModelTransform?.(1)
+      if (matrix?.elements) {
+        const e = matrix.elements
+        // Extract [scaleX, scaleY, translateX, translateY] from Matrix4 (column-major)
+        pageToModelTransformRef.current = [e[0], e[5], e[12], e[13]]
+        console.log('[PlannerViewer] Lazy-loaded page-to-model transform:', pageToModelTransformRef.current)
+      }
+    }
+
+    const transform = pageToModelTransformRef.current
+    if (!transform) {
+      return { x: pageX, y: pageY }
+    }
+
+    const [scaleX, scaleY, translateX, translateY] = transform
+
+    // Apply affine transformation: result = scale * input + translate
+    const dwgX = scaleX * pageX + translateX
+    const dwgY = scaleY * pageY + translateY
+
+    return { x: dwgX, y: dwgY }
+  }, [])
+
+  /**
+   * Convert DWG model space coordinates to page coordinates (for marker positioning).
+   * Inverse of pageToDwgCoords: pageX = (dwgX - translateX) / scaleX
+   */
+  const dwgToPageCoords = useCallback((dwgX: number, dwgY: number): { x: number; y: number } => {
+    // Ensure transform is loaded (uses same lazy extraction)
+    if (!pageToModelTransformRef.current && viewerRef.current?.model) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const model = viewerRef.current.model as any
+      const matrix = model.getPageToModelTransform?.(1)
+      if (matrix?.elements) {
+        const e = matrix.elements
+        pageToModelTransformRef.current = [e[0], e[5], e[12], e[13]]
+        console.log('[PlannerViewer] Lazy-loaded page-to-model transform:', pageToModelTransformRef.current)
+      }
+    }
+
+    const transform = pageToModelTransformRef.current
+    if (!transform) {
+      return { x: dwgX, y: dwgY }
+    }
+
+    const [scaleX, scaleY, translateX, translateY] = transform
+
+    // Inverse affine: pageX = (dwgX - translateX) / scaleX
+    const pageX = (dwgX - translateX) / scaleX
+    const pageY = (dwgY - translateY) / scaleY
+
+    return { x: pageX, y: pageY }
+  }, [])
 
   // Get viewer token from API
   const getAccessToken = useCallback(async (): Promise<{ access_token: string; expires_in: number }> => {
@@ -344,13 +424,10 @@ export function PlannerViewer({
             }
 
             try {
-              // Load with globalOffset: { x: 0, y: 0, z: 0 } to reset coordinate origin
-              // This prevents INT32 overflow issues in the transformation matrix
-              const loadOptions = {
-                globalOffset: { x: 0, y: 0, z: 0 }
-              }
+              // Load without globalOffset - let viewer use natural page-to-model transform
+              // This allows getPageToModelTransform() to return the correct matrix
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              await (viewer as any).loadDocumentNode(doc, viewable, loadOptions)
+              await (viewer as any).loadDocumentNode(doc, viewable)
 
               // Set background color AFTER document loads (loading resets it)
               // API: (topR, topG, topB, bottomR, bottomG, bottomB) - colors are inverted (255-x)
@@ -384,6 +461,8 @@ export function PlannerViewer({
                 // Store unit string for coordinate display
                 setDwgUnitString(unitInfo.modelUnits || unitInfo.unitString)
                 onUnitInfoAvailableRef.current?.(unitInfo)
+                // Note: page-to-model transform is lazily extracted in pageToDwgCoords()
+                // because it's not reliable during geometry load event
               }
 
               // Initialize MarkupMarkers for product placement
@@ -426,11 +505,11 @@ export function PlannerViewer({
 
                     let markerData
                     if (coords.isSnapped) {
-                      // Use viewer coordinates for marker placement (snapped)
+                      // Use world coordinates for marker placement (snapped)
                       markerData = markupMarkersRef.current.addMarkerAtWorld(
-                        coords.viewerX,
-                        coords.viewerY,
-                        coords.viewerZ,
+                        coords.worldX,
+                        coords.worldY,
+                        coords.worldZ,
                         productData,
                         placementId
                       )
@@ -458,22 +537,26 @@ export function PlannerViewer({
                       // Track this placement as rendered to prevent duplicate markers
                       renderedPlacementIdsRef.current.add(placementId)
 
+                      // Convert page coords to DWG model space for storage/export
+                      const dwg = pageToDwgCoords(coords.worldX, coords.worldY)
                       console.log('[PlannerViewer] Placed marker:', {
                         id: placementId,
-                        dwgX: coords.dwgX.toFixed(2),
-                        dwgY: coords.dwgY.toFixed(2),
+                        pageX: coords.worldX.toFixed(2),
+                        pageY: coords.worldY.toFixed(2),
+                        dwgX: dwg.x.toFixed(2),
+                        dwgY: dwg.y.toFixed(2),
                         isSnapped: coords.isSnapped,
                         snapType: coords.snapType,
                       })
-                      // Store DWG model space coordinates for data persistence / LISP export
+                      // Store DWG model space coordinates for persistence / LISP export
                       onPlacementAddRef.current?.({
                         id: placementId,
                         productId: mode.productId,
                         projectProductId: mode.projectProductId,
                         productName: mode.fossPid || mode.description,
                         symbol: mode.symbol,  // Symbol label for persistence
-                        worldX: coords.dwgX,  // DWG X coordinate
-                        worldY: coords.dwgY,  // DWG Y coordinate
+                        worldX: dwg.x,
+                        worldY: dwg.y,
                         rotation: 0,
                       })
                     } else {
@@ -482,30 +565,37 @@ export function PlannerViewer({
                   }
                 },
                 undefined, // onSnapChange - not used currently
-                setDwgCoordinates // onCoordinateChange - updates coordinate display
+                // onCoordinateChange - convert page coords to DWG model coords for display
+                (coords) => {
+                  if (!coords) {
+                    setDwgCoordinates(null)
+                    return
+                  }
+                  // Convert page coords (from viewer) to DWG model space
+                  const dwg = pageToDwgCoords(coords.x, coords.y)
+                  setDwgCoordinates({
+                    x: dwg.x,
+                    y: dwg.y,
+                    isSnapped: coords.isSnapped,
+                    snapType: coords.snapType,
+                  })
+                }
               )
               viewer.toolController.registerTool(tool)
               placementToolRef.current = tool
 
-              // Cache page dimensions for loading placements
-              pageDimensionsRef.current = tool.getPageDimensions()
-
               // Render initial placements (loaded from database)
-              if (initialPlacementsRef.current?.length && markupMarkersRef.current && pageDimensionsRef.current) {
+              // Placements store DWG coords, convert to page coords for marker positioning
+              if (initialPlacementsRef.current?.length && markupMarkersRef.current) {
                 console.log('[PlannerViewer] Rendering', initialPlacementsRef.current.length, 'initial placements')
                 for (const placement of initialPlacementsRef.current) {
                   if (renderedPlacementIdsRef.current.has(placement.id)) continue
 
-                  // Convert DWG coords back to viewer coords
-                  const viewerCoords = dwgToViewerCoords(
-                    placement.worldX,
-                    placement.worldY,
-                    pageDimensionsRef.current
-                  )
-
+                  // Convert DWG coords (from database) to page coords for marker positioning
+                  const pageCoords = dwgToPageCoords(placement.worldX, placement.worldY)
                   markupMarkersRef.current.addMarkerAtWorld(
-                    viewerCoords.viewerX,
-                    viewerCoords.viewerY,
+                    pageCoords.x,
+                    pageCoords.y,
                     0, // Z coord
                     {
                       productId: placement.productId,
@@ -685,35 +775,25 @@ export function PlannerViewer({
       let viewerX: number | undefined
       let viewerY: number | undefined
 
-      // Try clientToWorld first
-      const clientToWorldResult = viewer.clientToWorld?.(e.clientX, e.clientY)
-      if (clientToWorldResult?.point?.x !== undefined) {
-        viewerX = clientToWorldResult.point.x
-        viewerY = clientToWorldResult.point.y
-      } else {
-        // Fallback: use visible bounds conversion for 2D
-        const impl = viewer.impl
-        const visibleBounds = impl?.getVisibleBounds?.()
-        if (visibleBounds) {
-          const rect = container.getBoundingClientRect()
-          const localX = e.clientX - rect.left
-          const localY = e.clientY - rect.top
-          const visWidth = visibleBounds.max.x - visibleBounds.min.x
-          const visHeight = visibleBounds.max.y - visibleBounds.min.y
-          viewerX = visibleBounds.min.x + (localX / rect.width) * visWidth
-          viewerY = visibleBounds.max.y - (localY / rect.height) * visHeight
-        }
+      // Calculate page coords from visible bounds
+      // Note: clientToWorld() is unreliable for 2D DWGs, so we always use visible bounds
+      const impl = viewer.impl
+      const visibleBounds = impl?.getVisibleBounds?.()
+      if (visibleBounds) {
+        const rect = container.getBoundingClientRect()
+        const localX = e.clientX - rect.left
+        const localY = e.clientY - rect.top
+        const visWidth = visibleBounds.max.x - visibleBounds.min.x
+        const visHeight = visibleBounds.max.y - visibleBounds.min.y
+        // Page coords: X increases right, Y increases up (flip from screen)
+        viewerX = visibleBounds.min.x + (localX / rect.width) * visWidth
+        viewerY = visibleBounds.max.y - (localY / rect.height) * visHeight
       }
 
-      // Convert to DWG coordinates
+      // Convert page coords to DWG model coords for display
       if (viewerX !== undefined && viewerY !== undefined) {
-        const pageDim = pageDimensionsRef.current
-        if (pageDim) {
-          const { dwgX, dwgY } = viewerToDwgCoords(viewerX, viewerY, pageDim)
-          setDwgCoordinates({ x: dwgX, y: dwgY, isSnapped: false })
-        } else {
-          setDwgCoordinates({ x: viewerX, y: viewerY, isSnapped: false })
-        }
+        const dwg = pageToDwgCoords(viewerX, viewerY)
+        setDwgCoordinates({ x: dwg.x, y: dwg.y, isSnapped: false })
       }
     }
 
@@ -768,24 +848,21 @@ export function PlannerViewer({
   // Effect to render late-arriving placements (handles race condition)
   // This runs when initialPlacements changes after viewer is ready
   useEffect(() => {
-    if (!initialPlacements?.length || !markupMarkersRef.current || !pageDimensionsRef.current || isLoading) {
+    if (!initialPlacements?.length || !markupMarkersRef.current || isLoading) {
       return
     }
 
     // Render any placements that haven't been rendered yet
+    // Placements store DWG coords, convert to page coords for marker positioning
     let newlyRendered = 0
     for (const placement of initialPlacements) {
       if (renderedPlacementIdsRef.current.has(placement.id)) continue
 
-      const viewerCoords = dwgToViewerCoords(
-        placement.worldX,
-        placement.worldY,
-        pageDimensionsRef.current
-      )
-
+      // Convert DWG coords (from database) to page coords for marker positioning
+      const pageCoords = dwgToPageCoords(placement.worldX, placement.worldY)
       markupMarkersRef.current.addMarkerAtWorld(
-        viewerCoords.viewerX,
-        viewerCoords.viewerY,
+        pageCoords.x,
+        pageCoords.y,
         0,
         {
           productId: placement.productId,
