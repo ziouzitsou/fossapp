@@ -300,57 +300,67 @@ A tile is a **vertical assembly** of a luminaire + its accessories for the BOM t
 
 ```
 src/app/case-study/
-├── page.tsx                    # ~100 lines - Layout + state orchestration
+├── page.tsx                    # Redirect → /gf/products
+├── types.ts                    # ~210 lines - Types + mock data
 ├── components/
 │   ├── index.ts                # Barrel export
-│   ├── case-study-toolbar.tsx  # ~80 lines - Area selector, view toggle, buttons
-│   ├── products-view.tsx       # ~150 lines - Horizontal scroll container
-│   ├── viewer-view.tsx         # ~200 lines - DWG canvas + right panel
-│   ├── luminaire-card.tsx      # ~120 lines - Symbol + tile preview + actions
-│   ├── accessory-card.tsx      # ~80 lines - Simpler card for drivers/optics
-│   ├── symbol-modal.tsx        # ~150 lines - Symbol generation (extract from existing)
-│   ├── tile-modal.tsx          # ~150 lines - Tile assembly (extract from existing)
-│   └── status-bar.tsx          # ~50 lines - Coordinates display
+│   ├── case-study-toolbar.tsx  # ~107 lines - Area selector, view toggle, buttons
+│   ├── products-view.tsx       # ~95 lines - Horizontal scroll container
+│   ├── viewer-view.tsx         # ~270 lines - DWG canvas + right panel
+│   ├── luminaire-card.tsx      # ~130 lines - Symbol + tile preview + actions
+│   ├── accessory-card.tsx      # ~94 lines - Simpler card for drivers/optics
+│   ├── status-bar.tsx          # ~48 lines - Coordinates display
+│   ├── symbol-modal.tsx        # (Phase 5) Symbol generation
+│   └── tile-modal.tsx          # (Phase 5) Tile assembly
 ├── hooks/
 │   ├── index.ts                # Barrel export
-│   ├── use-case-study-state.ts # ~200 lines - Clean state management
-│   └── use-viewer-controls.ts  # ~100 lines - Pan, zoom, placement
-└── types.ts                    # ~50 lines - Local types
+│   ├── use-case-study-state.ts # ~173 lines - Data state management
+│   └── use-viewer-controls.ts  # ~173 lines - Viewer interactions
+└── [areaCode]/                 # URL-based routing
+    ├── layout.tsx              # ~17 lines - Server component wrapper
+    ├── case-study-shell.tsx    # ~95 lines - Client shell + context
+    ├── page.tsx                # Redirect → products
+    ├── products/
+    │   └── page.tsx            # ~26 lines - Products view route
+    └── viewer/
+        └── page.tsx            # ~24 lines - Viewer route
 ```
 
-**Target**: ~1,300 lines across 12 files (~108 lines average)
+**Actual**: ~1,517 lines across 16 files (~95 lines average) ✅
 **Compare**: Current planner has 2,575 lines in 3 files (~858 lines average)
 
 ---
 
 ## 11. Development Phases
 
-### Phase 1: UI Shell (Mock Data) ✅ IN PROGRESS
+### Phase 1: UI Shell (Mock Data) ✅ COMPLETE
 
 Build UI components with hardcoded mock data. Focus on layout and interactions.
 
 | Task | File | Status |
 |------|------|--------|
-| Create page with view toggle | `page.tsx` | [ ] |
-| Toolbar component | `case-study-toolbar.tsx` | [ ] |
-| Products view (horizontal scroll) | `products-view.tsx` | [ ] |
-| Luminaire card | `luminaire-card.tsx` | [ ] |
-| Accessory card | `accessory-card.tsx` | [ ] |
-| Viewer view with right panel | `viewer-view.tsx` | [ ] |
-| Status bar | `status-bar.tsx` | [ ] |
-| Symbol modal (shell) | `symbol-modal.tsx` | [ ] |
-| Tile modal (shell) | `tile-modal.tsx` | [ ] |
+| Create page with view toggle | `page.tsx` | [x] |
+| Toolbar component | `case-study-toolbar.tsx` | [x] |
+| Products view (horizontal scroll) | `products-view.tsx` | [x] |
+| Luminaire card | `luminaire-card.tsx` | [x] |
+| Accessory card | `accessory-card.tsx` | [x] |
+| Viewer view with right panel | `viewer-view.tsx` | [x] |
+| Status bar | `status-bar.tsx` | [x] |
+| Symbol modal (shell) | `symbol-modal.tsx` | [ ] deferred to Phase 5 |
+| Tile modal (shell) | `tile-modal.tsx` | [ ] deferred to Phase 5 |
 
-### Phase 2: State & Hooks (Real Types)
+### Phase 2: State & Hooks (Real Types) ✅ COMPLETE
 
-Wire up state management with proper TypeScript types.
+Wire up state management with proper TypeScript types. Added URL-based routing.
 
 | Task | File | Status |
 |------|------|--------|
-| Define local types | `types.ts` | [ ] |
-| Main state hook | `use-case-study-state.ts` | [ ] |
-| Viewer controls hook | `use-viewer-controls.ts` | [ ] |
-| Connect components to state | All components | [ ] |
+| Define local types | `types.ts` | [x] |
+| Main state hook | `use-case-study-state.ts` | [x] |
+| Viewer controls hook | `use-viewer-controls.ts` | [x] |
+| Connect components to state | All components | [x] |
+| URL-based routing | `[areaCode]/products\|viewer` | [x] |
+| Server/client split (hydration fix) | `layout.tsx` + `case-study-shell.tsx` | [x] |
 
 ### Phase 3: Data Integration (Supabase)
 
@@ -444,4 +454,6 @@ Final touches and migration from old planner.
 | 2026-01-01 | Initial skeleton created |
 | 2026-01-01 | Added layout diagrams, UX principles |
 | 2026-01-01 | Added file structure and development phases |
+| 2026-01-01 | Phase 1 complete - UI shell with mock data |
+| 2026-01-02 | Phase 2 complete - State hooks, URL-based routing, hydration fix |
 
