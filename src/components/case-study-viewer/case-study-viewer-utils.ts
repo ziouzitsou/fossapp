@@ -1,6 +1,6 @@
 /**
- * Planner Viewer Utilities
- * Helper functions for the PlannerViewer component
+ * Case Study Viewer Utilities
+ * Helper functions for the CaseStudyViewer component
  */
 
 /**

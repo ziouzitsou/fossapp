@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * PlannerViewerToolbar - Custom toolbar for the planner viewer
+ * CaseStudyViewerToolbar - Custom toolbar for the case study viewer
  *
  * Provides measurement tools and placement controls outside the WebGL canvas.
  * This allows full control over styling and interaction.
@@ -33,7 +33,7 @@ export interface ViewerToolbarProps {
   onExitPlacementMode?: () => void
 }
 
-export function PlannerViewerToolbar({
+export function CaseStudyViewerToolbar({
   measureMode,
   hasMeasurement,
   hasSelectedMarker,

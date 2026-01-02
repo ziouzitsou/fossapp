@@ -6,17 +6,17 @@ import { Button } from '@fossapp/ui'
 import { ScrollArea } from '@fossapp/ui'
 import { Plus, Upload } from 'lucide-react'
 import { cn } from '@fossapp/ui'
-import { PlannerViewer } from '@/components/planner'
-import type { PlacementModeProduct, Placement as PlannerPlacement } from '@/components/planner/types'
+import { CaseStudyViewer } from '@/components/case-study-viewer'
+import type { PlacementModeProduct, Placement as PlannerPlacement } from '@/components/case-study-viewer/types'
 import type { LuminaireProduct, Placement, ViewerCoordinates } from '../types'
 import type { ViewerControlsValue, FloorPlanUploadValue } from '../hooks'
 
 // ============================================================================
-// TYPE CONVERSIONS - Case Study ↔ Planner
+// TYPE CONVERSIONS - Case Study ↔ CaseStudyViewer
 // ============================================================================
 
 /**
- * Convert case-study PlacementMode to planner's PlacementModeProduct
+ * Convert case-study PlacementMode to viewer's PlacementModeProduct
  */
 function toPlacementModeProduct(
   mode: { productId: string; symbol: string; productName: string } | null,
@@ -37,10 +37,10 @@ function toPlacementModeProduct(
 }
 
 /**
- * Convert case-study Placements to planner Placements format
+ * Convert case-study Placements to viewer Placements format
  * (adds productName, dbId placeholder)
  */
-function toPlannerPlacements(
+function toViewerPlacements(
   placements: Placement[],
   luminaires: LuminaireProduct[]
 ): PlannerPlacement[] {
@@ -126,30 +126,30 @@ export function ViewerView({
   const showViewer = Boolean(selectedFile || existingUrn)
 
   // ============================================================================
-  // MEMOIZED CONVERSIONS - Case Study → Planner format
+  // MEMOIZED CONVERSIONS - Case Study → Viewer format
   // ============================================================================
 
-  /** Convert case-study placementMode to planner format */
-  const plannerPlacementMode = useMemo(
+  /** Convert case-study placementMode to viewer format */
+  const viewerPlacementMode = useMemo(
     () => toPlacementModeProduct(placementMode, luminaires),
     [placementMode, luminaires]
   )
 
-  /** Convert case-study placements to planner format */
-  const plannerPlacements = useMemo(
-    () => toPlannerPlacements(placements, luminaires),
+  /** Convert case-study placements to viewer format */
+  const viewerPlacements = useMemo(
+    () => toViewerPlacements(placements, luminaires),
     [placements, luminaires]
   )
 
   // ============================================================================
-  // CALLBACKS - Handle placement events from PlannerViewer
+  // CALLBACKS - Handle placement events from CaseStudyViewer
   // ============================================================================
 
   /** Handle new placement from viewer click */
   const handlePlacementAdd = useCallback(
     (placement: Omit<PlannerPlacement, 'dbId'>) => {
-      // Pass the ID from PlannerViewer to prevent duplicate markers
-      // (PlannerViewer already registered this ID in renderedPlacementIdsRef)
+      // Pass the ID from CaseStudyViewer to prevent duplicate markers
+      // (CaseStudyViewer already registered this ID in renderedPlacementIdsRef)
       onAddPlacement(
         placement.id,
         placement.projectProductId,
@@ -176,7 +176,7 @@ export function ViewerView({
         <div className="flex-1 flex flex-col">
           {showViewer && projectId && areaRevisionId ? (
             /* APS Viewer - shows when file is selected or URN exists */
-            <PlannerViewer
+            <CaseStudyViewer
               file={selectedFile ?? undefined}
               urn={existingUrn ?? undefined}
               projectId={projectId}
@@ -187,8 +187,8 @@ export function ViewerView({
               markerMinScreenPx={markerMinScreenPx}
               reverseZoomDirection={reverseZoomDirection}
               // Placement props
-              placementMode={plannerPlacementMode}
-              initialPlacements={plannerPlacements}
+              placementMode={viewerPlacementMode}
+              initialPlacements={viewerPlacements}
               onPlacementAdd={handlePlacementAdd}
               onPlacementDelete={handlePlacementDelete}
               onExitPlacementMode={cancelPlacement}

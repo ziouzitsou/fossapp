@@ -3,12 +3,12 @@
 import { useState, useCallback } from 'react'
 import { ProductsView } from '../../components/products-view'
 import { useCaseStudyContext } from '../case-study-shell'
-import { SymbolModal } from '@/app/planner/components/symbol-modal'
+import { SymbolModal } from '@/components/symbols'
 import type { AreaRevisionProduct } from '@/lib/actions/areas/revision-products-actions'
 import type { LuminaireProduct } from '../../types'
 
 /**
- * Adapt case-study LuminaireProduct to planner's AreaRevisionProduct format
+ * Adapt case-study LuminaireProduct to AreaRevisionProduct format
  * for use with SymbolModal.
  */
 function toAreaRevisionProduct(product: LuminaireProduct): AreaRevisionProduct {

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Symbol Gallery Component for Planner Modal
+ * Symbol Gallery Component
  * Displays PNG (DWG screenshot) and SVG with carousel navigation
  * Modeled after the Product Media carousel pattern
  */

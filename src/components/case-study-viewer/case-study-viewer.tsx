@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * PlannerViewer - Dedicated APS Viewer for the Planner feature
+ * CaseStudyViewer - Dedicated APS Viewer for the Case Study feature
  *
  * Uses Viewer3D (no built-in GUI) with custom external toolbar controls.
  * This allows full control over the UI layout and styling.
@@ -20,9 +20,9 @@ import type { Viewer3DInstance, WorldCoordinates as WorldCoordsType, ViewerInitO
 import type { PlacementModeProduct, Placement, DwgUnitInfo } from './types'
 import { PlacementTool, type DwgCoordinates } from './placement-tool'
 import { MarkupMarkers } from './markup-markers'
-import { PlannerViewerToolbar, type MeasureMode } from './viewer-toolbar'
+import { CaseStudyViewerToolbar, type MeasureMode } from './viewer-toolbar'
 import { ViewerLoadingOverlay, ViewerErrorOverlay, CoordinateOverlay, ViewerQuickActions, type LoadingStage } from './viewer-overlays'
-import { hexToRgb, loadAutodeskScripts } from './planner-viewer-utils'
+import { hexToRgb, loadAutodeskScripts } from './case-study-viewer-utils'
 
 // Re-export the Viewer3DInstance type for consumers
 export type { Viewer3DInstance }
@@ -40,7 +40,7 @@ export type WorldCoordinates = WorldCoordsType
 // Navigation tool modes
 export type ViewerTool = 'pan' | 'orbit' | 'zoom' | 'select'
 
-export interface PlannerViewerProps {
+export interface CaseStudyViewerProps {
   /** File to upload and view */
   file?: File
   /** URN of already uploaded file */
@@ -85,7 +85,7 @@ export interface PlannerViewerProps {
   className?: string
 }
 
-export function PlannerViewer({
+export function CaseStudyViewer({
   file,
   urn: initialUrn,
   projectId,
@@ -107,7 +107,7 @@ export function PlannerViewer({
   onTranslationComplete,
   onUnitInfoAvailable,
   className,
-}: PlannerViewerProps) {
+}: CaseStudyViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<Viewer3DInstance | null>(null)
 
@@ -194,7 +194,7 @@ export function PlannerViewer({
         const e = matrix.elements
         // Extract [scaleX, scaleY, translateX, translateY] from Matrix4 (column-major)
         pageToModelTransformRef.current = [e[0], e[5], e[12], e[13]]
-        console.log('[PlannerViewer] Lazy-loaded page-to-model transform:', pageToModelTransformRef.current)
+        console.log('[CaseStudyViewer] Lazy-loaded page-to-model transform:', pageToModelTransformRef.current)
       }
     }
 
@@ -225,7 +225,7 @@ export function PlannerViewer({
       if (matrix?.elements) {
         const e = matrix.elements
         pageToModelTransformRef.current = [e[0], e[5], e[12], e[13]]
-        console.log('[PlannerViewer] Lazy-loaded page-to-model transform:', pageToModelTransformRef.current)
+        console.log('[CaseStudyViewer] Lazy-loaded page-to-model transform:', pageToModelTransformRef.current)
       }
     }
 
@@ -456,8 +456,8 @@ export function PlannerViewer({
                   modelUnits: (model.getMetadata?.('page_dimensions', 'model_units', null) as string | null) ?? null,
                 }
                 modelUnitScale = unitInfo.unitScale
-                console.log('[PlannerViewer] DWG unit info:', unitInfo)
-                console.log('[PlannerViewer] Raw getUnitScale():', model.getUnitScale?.())
+                console.log('[CaseStudyViewer] DWG unit info:', unitInfo)
+                console.log('[CaseStudyViewer] Raw getUnitScale():', model.getUnitScale?.())
                 // Store unit string for coordinate display
                 setDwgUnitString(unitInfo.modelUnits || unitInfo.unitString)
                 onUnitInfoAvailableRef.current?.(unitInfo)
@@ -479,14 +479,14 @@ export function PlannerViewer({
                 markers.setCallbacks(
                   (id) => setHasSelectedMarker(id !== null),
                   (id) => {
-                    console.log('[PlannerViewer] Marker deleted:', id)
+                    console.log('[CaseStudyViewer] Marker deleted:', id)
                     // Also remove from parent's placements state
                     onPlacementDeleteRef.current?.(id)
                   }
                 )
-                console.log('[PlannerViewer] MarkupMarkers initialized')
+                console.log('[CaseStudyViewer] MarkupMarkers initialized')
               } else {
-                console.warn('[PlannerViewer] MarkupMarkers failed to initialize')
+                console.warn('[CaseStudyViewer] MarkupMarkers failed to initialize')
               }
 
               // Register the placement tool with snapping support and coordinate tracking
@@ -515,7 +515,7 @@ export function PlannerViewer({
                       )
                       // Fallback to screen coords if world conversion fails
                       if (!markerData) {
-                        console.warn('[PlannerViewer] World coords failed, using screen coords')
+                        console.warn('[CaseStudyViewer] World coords failed, using screen coords')
                         markerData = markupMarkersRef.current.addMarkerAtScreen(
                           coords.screenX,
                           coords.screenY,
@@ -539,7 +539,7 @@ export function PlannerViewer({
 
                       // Convert page coords to DWG model space for storage/export
                       const dwg = pageToDwgCoords(coords.worldX, coords.worldY)
-                      console.log('[PlannerViewer] Placed marker:', {
+                      console.log('[CaseStudyViewer] Placed marker:', {
                         id: placementId,
                         pageX: coords.worldX.toFixed(2),
                         pageY: coords.worldY.toFixed(2),
@@ -560,7 +560,7 @@ export function PlannerViewer({
                         rotation: 0,
                       })
                     } else {
-                      console.warn('[PlannerViewer] markerData is null - marker not placed')
+                      console.warn('[CaseStudyViewer] markerData is null - marker not placed')
                     }
                   }
                 },
@@ -587,7 +587,7 @@ export function PlannerViewer({
               // Render initial placements (loaded from database)
               // Placements store DWG coords, convert to page coords for marker positioning
               if (initialPlacementsRef.current?.length && markupMarkersRef.current) {
-                console.log('[PlannerViewer] Rendering', initialPlacementsRef.current.length, 'initial placements')
+                console.log('[CaseStudyViewer] Rendering', initialPlacementsRef.current.length, 'initial placements')
                 for (const placement of initialPlacementsRef.current) {
                   if (renderedPlacementIdsRef.current.has(placement.id)) continue
 
@@ -607,7 +607,7 @@ export function PlannerViewer({
                   )
                   renderedPlacementIdsRef.current.add(placement.id)
                 }
-                console.log('[PlannerViewer] Initial placements rendered')
+                console.log('[CaseStudyViewer] Initial placements rendered')
               }
 
               // Activate pan tool by default (mouse wheel zooms, drag pans)
@@ -877,7 +877,7 @@ export function PlannerViewer({
     }
 
     if (newlyRendered > 0) {
-      console.log('[PlannerViewer] Rendered', newlyRendered, 'late-arriving placements')
+      console.log('[CaseStudyViewer] Rendered', newlyRendered, 'late-arriving placements')
     }
   }, [initialPlacements, isLoading])
 
@@ -1004,7 +1004,7 @@ export function PlannerViewer({
 
       {/* Custom Toolbar - OUTSIDE the canvas */}
       {showToolbar && (
-        <PlannerViewerToolbar
+        <CaseStudyViewerToolbar
           measureMode={measureMode}
           hasMeasurement={hasMeasurement}
           hasSelectedMarker={hasSelectedMarker}

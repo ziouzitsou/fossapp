@@ -1,17 +1,17 @@
 /**
- * Planner Components
+ * Case Study Viewer Components
  *
- * Dedicated components for the Planner feature.
+ * Dedicated components for the Case Study feature (floor plan viewing with symbol placement).
  * Kept separate from tiles/playground to evolve independently.
  */
 
-export { PlannerViewer } from './planner-viewer'
+export { CaseStudyViewer } from './case-study-viewer'
 export type {
-  PlannerViewerProps,
+  CaseStudyViewerProps,
   WorldCoordinates,
   ViewerTool,
   Viewer3DInstance,
-} from './planner-viewer'
+} from './case-study-viewer'
 
 export { ProductsPanel } from './products-panel'
 // Note: PlannerMarkups removed - using MarkupMarkers (SVG) instead of HTML overlay
