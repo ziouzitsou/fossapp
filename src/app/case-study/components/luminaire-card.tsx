@@ -53,12 +53,12 @@ export function LuminaireCard({
             : 'hover:border-muted-foreground/50'
       )}
     >
-      {/* Floating Symbol Badge - top left */}
+      {/* Floating Symbol Badge - top left (yellow/amber for unclassified "?") */}
       <Badge
-        variant={product.symbol ? 'default' : 'outline'}
+        variant={product.symbol && product.symbol !== '?' ? 'default' : 'outline'}
         className={cn(
           'absolute -top-2 -left-2 z-10 text-xs font-bold px-2 py-0.5',
-          !product.symbol && 'bg-amber-500 text-white border-amber-500 hover:bg-amber-500'
+          (!product.symbol || product.symbol === '?') && 'bg-amber-500 text-white border-amber-500 hover:bg-amber-500'
         )}
       >
         {product.symbol || '?'}

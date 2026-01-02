@@ -206,12 +206,16 @@ export async function getCaseStudyProductsAction(
       for (const m of multimediaResult.data) {
         const codes = m.multimedia_codes as Array<{ code: string; url: string }> | null
         if (codes && Array.isArray(codes)) {
-          // MD01/MD02 = product photo, MD12/MD64 = line drawing
-          const photoCode = codes.find((c) => ['MD01', 'MD02'].includes(c.code))
-          const drawingCode = codes.find((c) => ['MD12', 'MD64'].includes(c.code))
+          // Photo: MD02 (Supabase) -> MD01 (Supplier) - consistent with symbol-modal
+          const md02 = codes.find((c) => c.code === 'MD02')
+          const md01 = codes.find((c) => c.code === 'MD01')
+          // Drawing: MD64 (Supabase) -> MD12 (Supplier) - consistent with symbol-modal
+          const md64 = codes.find((c) => c.code === 'MD64')
+          const md12 = codes.find((c) => c.code === 'MD12')
+
           multimediaMap[m.foss_pid] = {
-            imageUrl: photoCode?.url,
-            drawingUrl: drawingCode?.url,
+            imageUrl: md02?.url || md01?.url,
+            drawingUrl: md64?.url || md12?.url,
           }
         }
       }

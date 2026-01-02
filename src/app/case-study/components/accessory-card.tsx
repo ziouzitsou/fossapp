@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent } from '@fossapp/ui'
 import { Button } from '@fossapp/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@fossapp/ui'
@@ -30,7 +31,7 @@ function getTypeIcon(type: AccessoryProduct['type']) {
  * Accessory Card - Simple card for drivers, optics, mounts
  *
  * Simpler than LuminaireCard - no symbols or placements.
- * Shows: Type icon, name, code, quantity controls, Add to Tile button.
+ * Shows: Product image (MD02→MD01 or MD64→MD12), name, code, quantity, Add to Tile.
  */
 export function AccessoryCard({
   product,
@@ -38,13 +39,29 @@ export function AccessoryCard({
   onQuantityChange,
 }: AccessoryCardProps) {
   const TypeIcon = getTypeIcon(product.type)
+  // Track image load failures for fallback chain: imageUrl → drawingUrl → icon
+  const [imgError, setImgError] = useState(false)
+
+  // Use imageUrl first, then drawingUrl as fallback
+  const displayUrl = !imgError ? (product.imageUrl || product.drawingUrl) : product.drawingUrl
+  const showImage = displayUrl && !(imgError && !product.drawingUrl)
 
   return (
     <Card className="w-36 shrink-0">
       <CardContent className="p-2 space-y-2">
-        {/* Product icon */}
-        <div className="aspect-square rounded bg-muted flex items-center justify-center">
-          <TypeIcon className="h-8 w-8 text-muted-foreground" />
+        {/* Product image or icon fallback */}
+        <div className="aspect-square rounded bg-muted flex items-center justify-center overflow-hidden">
+          {showImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={displayUrl}
+              alt={product.name}
+              className="w-full h-full object-contain"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <TypeIcon className="h-8 w-8 text-muted-foreground" />
+          )}
         </div>
 
         {/* Product info */}
