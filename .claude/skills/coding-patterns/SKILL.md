@@ -616,8 +616,90 @@ export function ProductSearch() {
 
 ---
 
+## JSDoc Documentation (MANDATORY)
+
+**All new code MUST include JSDoc documentation.** This improves IDE experience and AI agent comprehension.
+
+### What Requires JSDoc
+
+| Element | Required | Optional |
+|---------|----------|----------|
+| Exported functions | ✅ Always | - |
+| Hooks | ✅ Always | - |
+| Interfaces/Types | ✅ Always | - |
+| Complex internal functions | ✅ When non-obvious | - |
+| File-level module docs | ✅ For complex files | Simple files |
+| Trivial getters/setters | - | ❌ Skip |
+
+### Standard Patterns
+
+**Functions/Hooks:**
+```typescript
+/**
+ * Fetches products with ETIM classification and symbol assignments.
+ *
+ * @remarks
+ * Products are joined with `etim.ec_class` to get the symbol letter.
+ * Symbol numbers (A1, A2) are assigned per-area based on insertion order.
+ *
+ * @param areaRevisionId - The active area revision UUID
+ * @returns Products grouped by type, or empty arrays on error
+ *
+ * @see {@link docs/features/symbol-classification.md}
+ */
+export async function getCaseStudyProductsAction(areaRevisionId: string) {
+```
+
+**Interfaces:**
+```typescript
+/**
+ * A product placement on the floor plan.
+ * Coordinates are stored in DWG model space (mm) for LISP export.
+ */
+export interface Placement {
+  /** Unique placement identifier */
+  id: string
+  /** DWG X coordinate in model units (typically mm) */
+  worldX: number
+  /** DWG Y coordinate in model units (typically mm) */
+  worldY: number
+}
+```
+
+**File-level (for complex modules):**
+```typescript
+/**
+ * useCoordinateTransform Hook
+ *
+ * Handles coordinate transformation between APS Viewer page coordinates
+ * and DWG model space coordinates. Essential for marker placement and
+ * LISP script export.
+ *
+ * @see {@link https://aps.autodesk.com/blog/parsing-line-points-viewer}
+ */
+```
+
+### Key Principles
+
+1. **"Why" not "what"** - Code shows what, docs explain why
+2. **Domain terms** - Define FOSSAPP-specific terms (ETIM, symbols, tiles, placements)
+3. **Cross-references** - Link related files with `@see`
+4. **External APIs** - Reference Supabase, APS, ETIM docs
+5. **Skip the obvious** - Don't document trivial code
+
+### Good Examples
+
+See `src/components/case-study-viewer/hooks/` for well-documented hook examples.
+
+### Enhancement Prompt
+
+For systematic JSDoc enhancement passes, use: `.claude/prompts/jsdoc-enhancement.md`
+
+---
+
 ## See Also
 
 - Full architecture docs: [docs/architecture/](../../docs/architecture/)
 - API patterns: [docs/architecture/api-patterns.md](../../docs/architecture/api-patterns.md)
 - Component guide: [docs/architecture/components.md](../../docs/architecture/components.md)
+- JSDoc enhancement prompt: [.claude/prompts/jsdoc-enhancement.md](../../prompts/jsdoc-enhancement.md)

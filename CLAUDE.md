@@ -77,6 +77,27 @@ src/app/projects/[id]/
 
 ---
 
+## 📝 JSDoc Documentation (MANDATORY)
+
+**All new code MUST include JSDoc.** This improves IDE experience and AI agent comprehension.
+
+```typescript
+/**
+ * [What it does in one line]
+ *
+ * @param paramName - [Description]
+ * @returns [What's returned]
+ */
+```
+
+**Required for**: Exported functions, hooks, interfaces/types, complex logic.
+**Skip**: Trivial getters, obvious one-liners, barrel exports.
+
+**Full details**: `.claude/skills/coding-patterns/SKILL.md` → "JSDoc Documentation"
+**Enhancement prompt**: `.claude/prompts/jsdoc-enhancement.md`
+
+---
+
 ## 🤖 Claude Code Skills
 
 Claude Code has access to specialized skills that provide domain knowledge automatically:

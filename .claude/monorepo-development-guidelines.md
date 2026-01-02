@@ -213,6 +213,51 @@ export * from './areas'
 
 ---
 
+## 📝 JSDoc Documentation (MANDATORY)
+
+**All new code MUST include JSDoc documentation.** This is now a standard requirement.
+
+### Why JSDoc Matters
+
+1. **IDE experience** - Hover docs, better autocomplete
+2. **AI agent comprehension** - Claude Code understands context faster
+3. **Self-documenting code** - "Why" explanations for future developers
+
+### Quick Reference
+
+```typescript
+/**
+ * [One-line description of what it does]
+ *
+ * @remarks
+ * [Non-obvious behavior or "why" explanation]
+ *
+ * @param paramName - [Description with units/format if relevant]
+ * @returns [What's returned, when it might be null]
+ */
+export function myFunction(paramName: string): Result {
+```
+
+### What Requires JSDoc
+
+| ✅ Required | ❌ Skip |
+|-------------|---------|
+| Exported functions | Trivial getters |
+| Hooks | Obvious one-liners |
+| Interfaces/Types | Re-export files |
+| Complex internal logic | Barrel exports |
+
+### Good Example
+
+See `src/components/case-study-viewer/hooks/` for well-documented hooks.
+
+### Full Reference
+
+- Detailed patterns: `.claude/skills/coding-patterns/SKILL.md` (JSDoc section)
+- Enhancement prompt: `.claude/prompts/jsdoc-enhancement.md`
+
+---
+
 ## 🔧 Development Patterns
 
 ### Pattern #1: API Routes (Use Middleware)
