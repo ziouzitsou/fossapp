@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, usePathname, useRouter } from 'next/navigation'
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { ProtectedPageLayout } from '@/components/protected-page-layout'
 import { useUserSettings } from '@/lib/user-settings-context'
@@ -9,7 +9,7 @@ import { Skeleton } from '@fossapp/ui'
 import { getCaseStudyAreasAction } from '../actions'
 import { getUserPreferencesAction } from '@/lib/actions/user-preferences'
 import { DEFAULT_VIEW_PREFERENCES, type ViewPreferences } from '@/lib/actions/user-preferences-types'
-import { CaseStudyToolbar } from '../components'
+import { CaseStudyToolbar, DeleteFloorPlanDialog } from '../components'
 import { useCaseStudyState, useViewerControls, useFloorPlanUpload } from '../hooks'
 import type { CaseStudyStateValue, ViewerControlsValue, FloorPlanUploadValue } from '../hooks'
 import type { CaseStudyArea, ViewMode } from '../types'
@@ -183,7 +183,33 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
   // State hook - pass selected area's revision ID
   const state = useCaseStudyState(selectedArea?.revisionId ?? null)
   const viewerControls = useViewerControls()
-  const floorPlanUpload = useFloorPlanUpload(selectedArea, activeProject?.id ?? null)
+
+  // Refresh areas after floor plan deletion
+  const refreshAreas = useCallback(async () => {
+    if (!activeProject?.id) return
+    try {
+      const result = await getCaseStudyAreasAction(activeProject.id)
+      if (result.success && result.data) {
+        setAreas(result.data)
+      }
+    } catch (err) {
+      console.error('Failed to refresh areas:', err)
+    }
+  }, [activeProject?.id])
+
+  // Navigate to viewer after successful translation
+  const navigateToViewer = useCallback(() => {
+    if (viewMode !== 'viewer') {
+      router.push(`/case-study/${areaCode.toLowerCase()}/viewer`)
+    }
+  }, [router, areaCode, viewMode])
+
+  const floorPlanUpload = useFloorPlanUpload(
+    selectedArea,
+    activeProject?.id ?? null,
+    refreshAreas,
+    navigateToViewer
+  )
 
   // Handle area change - navigate to new URL
   const handleAreaChange = (areaId: string) => {
@@ -298,6 +324,7 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
             viewMode={viewMode}
             onViewModeChange={handleViewModeChange}
             onUploadClick={floorPlanUpload.triggerFileSelect}
+            onDeleteClick={floorPlanUpload.triggerDelete}
             isUploading={floorPlanUpload.isUploading}
             hasFloorPlan={floorPlanUpload.hasExistingFloorPlan}
             floorPlanFilename={floorPlanUpload.existingFilename}
@@ -309,6 +336,18 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
               {floorPlanUpload.uploadError}
             </div>
           )}
+
+          {/* Delete floor plan confirmation dialog */}
+          <DeleteFloorPlanDialog
+            open={floorPlanUpload.showDeleteDialog}
+            onOpenChange={(open) => {
+              if (!open) floorPlanUpload.cancelDelete()
+            }}
+            filename={floorPlanUpload.existingFilename}
+            placementCount={floorPlanUpload.placementCount}
+            onConfirm={floorPlanUpload.confirmDelete}
+            isDeleting={floorPlanUpload.isDeleting}
+          />
 
           {/* Child route content */}
           <div className="flex-1 overflow-hidden">{children}</div>

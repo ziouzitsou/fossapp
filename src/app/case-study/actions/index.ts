@@ -11,6 +11,8 @@ import { supabaseServer } from '@fossapp/core/db/server'
 import {
   loadAreaPlacementsAction,
   saveAreaPlacementsAction,
+  countAreaPlacementsAction,
+  deleteFloorPlanWithPlacementsAction,
   type PlacementData,
 } from '@/lib/actions/areas/floorplan-actions'
 import { updateProjectProductQuantityAction } from '@/lib/actions/projects/project-product-actions'
@@ -30,6 +32,8 @@ import type {
 export {
   loadAreaPlacementsAction,
   saveAreaPlacementsAction,
+  countAreaPlacementsAction,
+  deleteFloorPlanWithPlacementsAction,
   updateProjectProductQuantityAction,
   type PlacementData,
 }

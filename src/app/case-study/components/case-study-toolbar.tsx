@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@fossapp/ui'
-import { LayoutGrid, Map, Upload, Sparkles, Loader2, FileCheck } from 'lucide-react'
+import { LayoutGrid, Map, Upload, Sparkles, Loader2, Trash2 } from 'lucide-react'
 import { cn } from '@fossapp/ui'
 import type { ViewMode, CaseStudyArea } from '../types'
 
@@ -20,11 +20,13 @@ interface CaseStudyToolbarProps {
   onViewModeChange: (mode: ViewMode) => void
   /** Called when Upload DWG button is clicked */
   onUploadClick?: () => void
+  /** Called when Delete DWG button is clicked */
+  onDeleteClick?: () => void
   /** Whether a file is currently being uploaded */
   isUploading?: boolean
   /** Whether the current area has a floor plan */
   hasFloorPlan?: boolean
-  /** Existing floor plan filename (for tooltip) */
+  /** Existing floor plan filename (for display) */
   floorPlanFilename?: string | null
 }
 
@@ -44,6 +46,7 @@ export function CaseStudyToolbar({
   viewMode,
   onViewModeChange,
   onUploadClick,
+  onDeleteClick,
   isUploading = false,
   hasFloorPlan = false,
   floorPlanFilename,
@@ -105,28 +108,35 @@ export function CaseStudyToolbar({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Action buttons */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-1.5"
-        onClick={onUploadClick}
-        disabled={isUploading}
-        title={
-          floorPlanFilename
-            ? `Current: ${floorPlanFilename} (click to replace)`
-            : 'Upload architectural floor plan (.dwg)'
-        }
-      >
-        {isUploading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : hasFloorPlan ? (
-          <FileCheck className="h-4 w-4" />
-        ) : (
-          <Upload className="h-4 w-4" />
-        )}
-        {isUploading ? 'Uploading...' : hasFloorPlan ? 'Replace DWG' : 'Upload DWG'}
-      </Button>
+      {/* Floor plan action button - Upload or Delete */}
+      {hasFloorPlan ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={onDeleteClick}
+          title={`Delete ${floorPlanFilename || 'floor plan'}`}
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete DWG
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={onUploadClick}
+          disabled={isUploading}
+          title="Upload architectural floor plan (.dwg)"
+        >
+          {isUploading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Upload className="h-4 w-4" />
+          )}
+          {isUploading ? 'Uploading...' : 'Upload DWG'}
+        </Button>
+      )}
       <Button size="sm" className="gap-1.5">
         <Sparkles className="h-4 w-4" />
         Generate

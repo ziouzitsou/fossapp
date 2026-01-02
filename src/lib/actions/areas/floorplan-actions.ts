@@ -100,6 +100,106 @@ export async function deleteAreaRevisionFloorPlanAction(
   }
 }
 
+/**
+ * Delete floor plan AND all placements from an area revision
+ * Combines deleteAreaRevisionFloorPlanAction + clearAreaPlacementsAction
+ */
+export async function deleteFloorPlanWithPlacementsAction(
+  areaRevisionId: string
+): Promise<ActionResult<{ placementsDeleted: number }>> {
+  try {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(areaRevisionId)) {
+      return { success: false, error: 'Invalid area revision ID format' }
+    }
+
+    // Count placements before deletion (for feedback)
+    const countResult = await countAreaPlacementsAction(areaRevisionId)
+    const placementCount = countResult.success ? countResult.data ?? 0 : 0
+
+    // Delete placements first
+    const clearResult = await clearAreaPlacementsAction(areaRevisionId)
+    if (!clearResult.success) {
+      return { success: false, error: clearResult.error || 'Failed to clear placements' }
+    }
+
+    // Then delete floor plan
+    const deleteResult = await deleteAreaRevisionFloorPlanAction(areaRevisionId)
+    if (!deleteResult.success) {
+      return { success: false, error: deleteResult.error || 'Failed to delete floor plan' }
+    }
+
+    return { success: true, data: { placementsDeleted: placementCount } }
+  } catch (error) {
+    console.error('Delete floor plan with placements error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+/**
+ * Count placements for an area revision
+ * Used to show user how many placements will be deleted
+ */
+export async function countAreaPlacementsAction(
+  areaRevisionId: string
+): Promise<ActionResult<number>> {
+  try {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(areaRevisionId)) {
+      return { success: false, error: 'Invalid area revision ID format' }
+    }
+
+    const { count, error } = await supabaseServer
+      .schema('projects')
+      .from('planner_placements')
+      .select('*', { count: 'exact', head: true })
+      .eq('area_version_id', areaRevisionId)
+
+    if (error) {
+      console.error('Count placements error:', error)
+      return { success: false, error: 'Failed to count placements' }
+    }
+
+    return { success: true, data: count ?? 0 }
+  } catch (error) {
+    console.error('Count area placements error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+/**
+ * Clear all placements for an area revision
+ */
+export async function clearAreaPlacementsAction(
+  areaRevisionId: string
+): Promise<ActionResult> {
+  try {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(areaRevisionId)) {
+      return { success: false, error: 'Invalid area revision ID format' }
+    }
+
+    const { error } = await supabaseServer
+      .schema('projects')
+      .from('planner_placements')
+      .delete()
+      .eq('area_version_id', areaRevisionId)
+
+    if (error) {
+      console.error('Clear placements error:', error)
+      return { success: false, error: 'Failed to clear placements' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Clear area placements error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
 // ============================================================================
 // PLANNER PLACEMENTS
 // ============================================================================

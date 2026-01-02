@@ -1,17 +1,24 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import {
+  countAreaPlacementsAction,
+  deleteFloorPlanWithPlacementsAction,
+} from '../actions'
 import type { CaseStudyArea } from '../types'
 
 /**
  * Floor plan upload hook for Case Study
  *
  * Manages file selection state and triggers for DWG upload.
+ * Also handles deletion of floor plans with confirmation.
  * The actual upload is handled by PlannerViewer component via /api/planner/upload
  */
 export function useFloorPlanUpload(
   selectedArea: CaseStudyArea | null,
-  projectId: string | null
+  projectId: string | null,
+  onFloorPlanDeleted?: () => void,
+  onNavigateToViewer?: () => void
 ) {
   // ============================================================================
   // FILE STATE
@@ -29,6 +36,14 @@ export function useFloorPlanUpload(
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ============================================================================
+  // DELETE DIALOG STATE
+  // ============================================================================
+
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [placementCount, setPlacementCount] = useState(0)
+
+  // ============================================================================
   // SYNC LOCAL STATE WITH AREA DATA
   // ============================================================================
 
@@ -38,6 +53,7 @@ export function useFloorPlanUpload(
     setLocalFilename(null)
     setSelectedFile(null)
     setUploadError(null)
+    setShowDeleteDialog(false)
   }, [selectedArea?.id])
 
   // ============================================================================
@@ -100,14 +116,82 @@ export function useFloorPlanUpload(
 
       // Reset input so same file can be selected again
       e.target.value = ''
+
+      // Navigate to viewer page immediately so PlannerViewer can start translation
+      onNavigateToViewer?.()
     },
-    []
+    [onNavigateToViewer]
   )
 
   /** Clear selected file (cancel upload before it starts) */
   const clearSelectedFile = useCallback(() => {
     setSelectedFile(null)
     setUploadError(null)
+  }, [])
+
+  // ============================================================================
+  // DELETE HANDLERS
+  // ============================================================================
+
+  /** Open delete confirmation dialog */
+  const triggerDelete = async () => {
+    if (!selectedArea?.revisionId) {
+      setUploadError('No area selected')
+      return
+    }
+
+    // Fetch placement count to show in dialog
+    try {
+      const result = await countAreaPlacementsAction(selectedArea.revisionId)
+      setPlacementCount(result.success ? result.data ?? 0 : 0)
+    } catch {
+      setPlacementCount(0)
+    }
+
+    setShowDeleteDialog(true)
+  }
+
+  /** Confirm and execute deletion */
+  const confirmDelete = async () => {
+    if (!selectedArea?.revisionId) return
+
+    setIsDeleting(true)
+    setUploadError(null)
+
+    try {
+      const result = await deleteFloorPlanWithPlacementsAction(selectedArea.revisionId)
+
+      if (!result.success) {
+        setUploadError(result.error || 'Failed to delete floor plan')
+        setIsDeleting(false)
+        setShowDeleteDialog(false)
+        return
+      }
+
+      // Clear local state
+      setLocalUrn(null)
+      setLocalFilename(null)
+      setSelectedFile(null)
+      setShowDeleteDialog(false)
+      setIsDeleting(false)
+
+      // Notify parent to refresh data
+      onFloorPlanDeleted?.()
+
+      console.log(
+        `[FloorPlanUpload] Deleted floor plan and ${result.data?.placementsDeleted ?? 0} placements`
+      )
+    } catch (err) {
+      console.error('Delete floor plan error:', err)
+      setUploadError('An unexpected error occurred')
+      setIsDeleting(false)
+      setShowDeleteDialog(false)
+    }
+  }
+
+  /** Cancel delete dialog */
+  const cancelDelete = useCallback(() => {
+    setShowDeleteDialog(false)
   }, [])
 
   // ============================================================================
@@ -168,6 +252,14 @@ export function useFloorPlanUpload(
     triggerFileSelect,
     handleFileChange,
     clearSelectedFile,
+
+    // Delete dialog
+    showDeleteDialog,
+    isDeleting,
+    placementCount,
+    triggerDelete,
+    confirmDelete,
+    cancelDelete,
 
     // Viewer callbacks
     handleUploadStart,

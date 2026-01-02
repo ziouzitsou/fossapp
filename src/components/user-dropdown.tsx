@@ -71,6 +71,26 @@ export function UserDropdown({ user }: UserDropdownProps) {
 
   if (!user) return null
 
+  // Render static button until mounted to prevent Radix ID hydration mismatch
+  if (!mounted) {
+    return (
+      <Button variant="ghost" className="flex items-center gap-2 h-auto px-2 py-2 rounded-full">
+        <div className="relative w-8 h-8">
+          <Image
+            src={user?.image || '/default-avatar.png'}
+            alt="Profile"
+            fill
+            sizes="32px"
+            className="rounded-full object-cover"
+          />
+        </div>
+        <span className="hidden md:block font-medium text-foreground">
+          {user?.name}
+        </span>
+      </Button>
+    )
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
