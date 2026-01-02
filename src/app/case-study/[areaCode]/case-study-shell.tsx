@@ -95,7 +95,7 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
 
     async function loadPreferences() {
       try {
-        const result = await getUserPreferencesAction(email)
+        const result = await getUserPreferencesAction(email as string)
         if (result.success && result.data) {
           setViewPreferences({
             ...DEFAULT_VIEW_PREFERENCES,

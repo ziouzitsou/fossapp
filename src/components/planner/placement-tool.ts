@@ -47,6 +47,28 @@ export interface PageDimensions {
 }
 
 /**
+ * Detect and correct INT32 overflow corruption in transformation values.
+ *
+ * The Autodesk Model Derivative API sometimes produces corrupted translation
+ * values near ±2^31 (INT32_MAX) due to integer overflow during processing.
+ * When detected, we substitute the logical center value instead, assuming
+ * the DWG origin maps to the page center (standard for architectural drawings).
+ */
+function correctOverflowedTranslation(
+  value: number,
+  logicalCenter: number
+): number {
+  const INT32_MAX = 2147483648 // 2^31
+  const OVERFLOW_THRESHOLD = INT32_MAX * 0.9
+
+  if (Math.abs(value) > OVERFLOW_THRESHOLD) {
+    // Value is corrupted - substitute with logical center
+    return logicalCenter
+  }
+  return value
+}
+
+/**
  * Transform viewer coordinates to DWG model space coordinates.
  * The Model Derivative creates a viewable with transformed coordinates.
  * This function reverses that transformation to get original DWG coords.
@@ -54,6 +76,8 @@ export interface PageDimensions {
  * Formula:
  * 1. Viewer to logical: logicalX = viewerX * (logicalWidth / pageWidth)
  * 2. Logical to DWG: dwgX = (logicalX - translateX) / scaleX
+ *
+ * Note: Includes INT32 overflow detection/correction for corrupted tx/ty values.
  */
 export function viewerToDwgCoords(
   viewerX: number,
@@ -66,8 +90,12 @@ export function viewerToDwgCoords(
   // [sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, sz, 0, tx, ty, tz, 1]
   const sx = source_to_logical_xform[0]
   const sy = source_to_logical_xform[5]
-  const tx = source_to_logical_xform[12]
-  const ty = source_to_logical_xform[13]
+  const rawTx = source_to_logical_xform[12]
+  const rawTy = source_to_logical_xform[13]
+
+  // Correct for INT32 overflow corruption (common in some DWG translations)
+  const tx = correctOverflowedTranslation(rawTx, logical_width / 2)
+  const ty = correctOverflowedTranslation(rawTy, logical_height / 2)
 
   // Step 1: Convert viewer coords to logical coords
   const logicalX = viewerX * (logical_width / page_width)
@@ -88,6 +116,8 @@ export function viewerToDwgCoords(
  * Formula (inverse of viewerToDwgCoords):
  * 1. DWG to logical: logicalX = dwgX * scaleX + translateX
  * 2. Logical to viewer: viewerX = logicalX * (pageWidth / logicalWidth)
+ *
+ * Note: Includes INT32 overflow detection/correction for corrupted tx/ty values.
  */
 export function dwgToViewerCoords(
   dwgX: number,
@@ -99,8 +129,12 @@ export function dwgToViewerCoords(
   // Extract scale and translation from the 4x4 transform matrix (column-major)
   const sx = source_to_logical_xform[0]
   const sy = source_to_logical_xform[5]
-  const tx = source_to_logical_xform[12]
-  const ty = source_to_logical_xform[13]
+  const rawTx = source_to_logical_xform[12]
+  const rawTy = source_to_logical_xform[13]
+
+  // Correct for INT32 overflow corruption (common in some DWG translations)
+  const tx = correctOverflowedTranslation(rawTx, logical_width / 2)
+  const ty = correctOverflowedTranslation(rawTy, logical_height / 2)
 
   // Step 1: Apply source_to_logical_xform (DWG to logical)
   const logicalX = dwgX * sx + tx
