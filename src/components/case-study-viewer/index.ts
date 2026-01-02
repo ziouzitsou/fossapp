@@ -3,6 +3,14 @@
  *
  * Dedicated components for the Case Study feature (floor plan viewing with symbol placement).
  * Kept separate from tiles/playground to evolve independently.
+ *
+ * Architecture:
+ * The CaseStudyViewer component is organized using custom hooks for separation of concerns:
+ * - useCoordinateTransform: Page ↔ DWG coordinate conversion
+ * - useViewerApi: Authentication, upload, translation polling
+ * - useMeasurement: Measurement tool state and handlers
+ * - useViewerEvents: DOM events and keyboard handlers
+ * - useViewerInit: Complete viewer initialization lifecycle
  */
 
 export { CaseStudyViewer } from './case-study-viewer'
@@ -22,4 +30,15 @@ export type {
   DragProductData,
   PlacementModeProduct,
   DwgUnitInfo,
+  TranslationStatus,
+  PageToModelTransform,
 } from './types'
+
+// Export hooks for potential reuse or testing
+export {
+  useCoordinateTransform,
+  useViewerApi,
+  useMeasurement,
+  useViewerEvents,
+  useViewerInit,
+} from './hooks'

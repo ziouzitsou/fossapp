@@ -2,7 +2,7 @@
 
 **Status**: Active Development (Phase 4)
 **Route**: `/case-study`
-**Last Updated**: 2026-01-02
+**Last Updated**: 2026-01-02 (Hook architecture refactor)
 
 ---
 
@@ -22,6 +22,7 @@ The Case Study page allows lighting designers to visualize product placements on
 | **Entry Point** | `src/app/case-study/page.tsx` |
 | **State Hook** | `src/app/case-study/hooks/use-case-study-state.ts` |
 | **Viewer Component** | `src/components/case-study-viewer/case-study-viewer.tsx` |
+| **Viewer Hooks** | `src/components/case-study-viewer/hooks/` (5 specialized hooks) |
 | **Server Actions** | `src/app/case-study/actions/index.ts` |
 
 ---
@@ -185,7 +186,7 @@ src/app/case-study/
 
 src/components/case-study-viewer/
 ├── index.ts                          # Barrel export
-├── case-study-viewer.tsx             # Main APS viewer wrapper
+├── case-study-viewer.tsx             # Main APS viewer wrapper (~360 lines)
 ├── case-study-viewer-utils.ts        # Utility functions
 ├── viewer-toolbar.tsx                # Bottom toolbar controls
 ├── viewer-overlays.tsx               # Loading/error overlays
@@ -193,7 +194,14 @@ src/components/case-study-viewer/
 ├── markup-markers.ts                 # Marker creation/management
 ├── placement-tool.ts                 # Click-to-place coordinate logic
 ├── products-panel.tsx                # Product selection panel
-└── types.ts                          # Viewer-specific types
+├── types.ts                          # Viewer-specific types
+└── hooks/                            # Extracted viewer hooks (see below)
+    ├── index.ts                      # Barrel export
+    ├── use-coordinate-transform.ts   # Page ↔ DWG coordinate conversion
+    ├── use-viewer-api.ts             # Auth, upload, translation polling
+    ├── use-measurement.ts            # Measurement tool state & handlers
+    ├── use-viewer-events.ts          # DOM events, keyboard, mouse tracking
+    └── use-viewer-init.ts            # Viewer initialization lifecycle (~510 lines)
 
 src/components/symbols/
 ├── index.ts                          # Barrel export
@@ -203,9 +211,54 @@ src/components/symbols/
 ```
 
 **Statistics:**
-- ~2,225 lines across ~20 files
+- ~2,850 lines across ~26 files
 - Average ~110 lines per file
+- Main viewer component: 360 lines (was 1,032 before hook extraction)
 - Compared to old planner: 2,575 lines in 3 files (858 lines average)
+
+---
+
+## CaseStudyViewer Hook Architecture
+
+The `CaseStudyViewer` component uses a modular hook architecture for maintainability. Each hook encapsulates a specific concern:
+
+### Hook Overview
+
+| Hook | Lines | Responsibility |
+|------|-------|----------------|
+| `useCoordinateTransform` | ~140 | Page ↔ DWG coordinate conversion |
+| `useViewerApi` | ~200 | Auth tokens, file upload, translation polling |
+| `useMeasurement` | ~130 | Distance/area measurement tool state |
+| `useViewerEvents` | ~200 | Click, resize, wheel, keyboard events |
+| `useViewerInit` | ~510 | Complete viewer initialization lifecycle |
+
+### Adding New Features
+
+When extending the Case Study Viewer:
+
+| Feature Type | Add To |
+|--------------|--------|
+| New event handlers | `use-viewer-events.ts` |
+| New API calls | `use-viewer-api.ts` |
+| New measurement modes | `use-measurement.ts` |
+| Coordinate-related logic | `use-coordinate-transform.ts` |
+| New tool modes | Create new hook (e.g., `use-viewer-tools.ts`) |
+
+### Example: Adding a New Tool
+
+```typescript
+// hooks/use-viewer-tools.ts
+export function useViewerTools({ viewerRef }: Options) {
+  const [activeTool, setActiveTool] = useState<'pan' | 'rotate' | 'custom'>('pan')
+
+  const handleToolChange = useCallback((tool) => {
+    viewerRef.current?.toolController.activateTool(tool)
+    setActiveTool(tool)
+  }, [viewerRef])
+
+  return { activeTool, handleToolChange }
+}
+```
 
 ---
 
@@ -311,13 +364,17 @@ CREATE TABLE projects.planner_placements (
 
 ## Coordinate Systems
 
-The viewer works with multiple coordinate systems:
+The viewer works with multiple coordinate systems, handled by `useCoordinateTransform` hook:
 
 | System | Use | Conversion |
 |--------|-----|------------|
 | Screen (pixels) | Mouse events | `clientToMarkups()` |
-| Markup (SVG) | Marker positioning | Native to MarkupsCore |
-| DWG World (mm) | Persistence | `viewerToDwgCoords()` |
+| Page (viewer internal) | Marker positioning | Native to MarkupsCore |
+| DWG Model Space (mm) | Persistence/Export | `pageToDwgCoords()` / `dwgToPageCoords()` |
+
+**Implementation**: The `useCoordinateTransform` hook extracts the page-to-model transform matrix from `model.getPageToModelTransform(1)` and provides bidirectional conversion functions. This is essential for:
+- Storing placements in DWG coordinates for LISP script export
+- Rendering markers at correct positions when loading from database
 
 **Important**: MarkupsCore handles zoom/pan transforms automatically.
 

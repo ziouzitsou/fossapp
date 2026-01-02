@@ -1,9 +1,34 @@
 /**
- * Planner Types
+ * Case Study Viewer Types
  *
- * Shared types for the planner feature including placements,
- * markers, and coordinate handling.
+ * Shared types for the case study feature including placements,
+ * markers, coordinate handling, and viewer state.
  */
+
+import type { WorldCoordinates as WorldCoordsType } from '@/types/autodesk-viewer'
+
+// Re-export WorldCoordinates for consumers
+export type WorldCoordinates = WorldCoordsType
+
+/**
+ * Navigation tool modes for the viewer
+ */
+export type ViewerTool = 'pan' | 'orbit' | 'zoom' | 'select'
+
+/**
+ * Translation status from APS Model Derivative API
+ */
+export interface TranslationStatus {
+  status: 'pending' | 'inprogress' | 'success' | 'failed'
+  progress: string
+  messages?: string[]
+}
+
+/**
+ * Page-to-model transform values extracted from Matrix4
+ * Format: [scaleX, scaleY, translateX, translateY] from column-major layout
+ */
+export type PageToModelTransform = [number, number, number, number]
 
 /**
  * A product placement on the floor plan
