@@ -88,6 +88,9 @@ export class MarkupMarkers {
   // Pending SVG fetches to avoid duplicate requests
   private svgFetchPromises: Map<string, Promise<string | null>> = new Map()
 
+  // Track which symbol groups are hidden (by first letter, e.g., "A", "B")
+  private hiddenGroups: Set<string> = new Set()
+
   constructor(viewer: ViewerInstance, minScreenPx: number = DEFAULT_MIN_SCREEN_RADIUS) {
     this.viewer = viewer
     this.minScreenRadius = minScreenPx
@@ -589,13 +592,19 @@ export class MarkupMarkers {
       this.selectMarker(markerId)
     })
 
-    svg.appendChild(group)
+    // Check if this symbol is hidden
+    const isHidden = data.symbol ? this.hiddenGroups.has(data.symbol) : false
 
-    // Store references
+    // Only append to DOM if group is visible
+    if (!isHidden) {
+      svg.appendChild(group)
+    }
+
+    // Store references (always, even if hidden)
     this.markers.set(markerId, group)
     this.markerData.set(markerId, markerData)
 
-    // Try to load SVG symbol asynchronously
+    // Try to load SVG symbol asynchronously (even if hidden, for cache)
     const fossPid = data.fossPid || data.productName
     if (fossPid) {
       this.fetchSymbolSvg(fossPid).then((svgContent) => {
@@ -605,7 +614,8 @@ export class MarkupMarkers {
       })
     }
 
-    console.log('[MarkupMarkers] Added marker:', markerId, 'at markup coords:', markupX, markupY)
+    const hiddenNote = isHidden ? ' (hidden)' : ''
+    console.log(`[MarkupMarkers] Added marker: ${markerId} at markup coords: ${markupX}, ${markupY}${hiddenNote}`)
     return markerData
   }
 
@@ -961,6 +971,7 @@ export class MarkupMarkers {
     }
     this.markers.clear()
     this.markerData.clear()
+    this.hiddenGroups.clear()
     this.selectedId = null
   }
 
@@ -985,5 +996,116 @@ export class MarkupMarkers {
 
     this.clearAll()
     this.markupsExt = null
+  }
+
+  // ============================================================================
+  // SYMBOL GROUP VISIBILITY
+  // ============================================================================
+
+  /**
+   * Check if a symbol is currently hidden
+   *
+   * @param symbol - The full symbol (e.g., "A1", "B2")
+   */
+  isSymbolHidden(symbol: string): boolean {
+    return this.hiddenGroups.has(symbol)
+  }
+
+  /**
+   * Hide all markers with the given symbol
+   * Removes from DOM but keeps markerData intact for restoration
+   *
+   * @param symbol - The full symbol to hide (e.g., "A1", "B2")
+   */
+  hideSymbolGroup(symbol: string) {
+    if (this.hiddenGroups.has(symbol)) return
+
+    this.hiddenGroups.add(symbol)
+    let hiddenCount = 0
+
+    for (const [id, group] of this.markers) {
+      const data = this.markerData.get(id)
+      if (data?.symbol === symbol && group.parentNode) {
+        group.remove()
+        hiddenCount++
+      }
+    }
+
+    console.log(`[MarkupMarkers] Hidden symbol ${symbol}: ${hiddenCount} markers`)
+  }
+
+  /**
+   * Show all markers with the given symbol
+   * Re-creates markers from stored markerData
+   *
+   * @param symbol - The full symbol to show (e.g., "A1", "B2")
+   */
+  showSymbolGroup(symbol: string) {
+    if (!this.hiddenGroups.has(symbol)) return
+
+    this.hiddenGroups.delete(symbol)
+    let restoredCount = 0
+
+    for (const [id, data] of this.markerData) {
+      if (data.symbol === symbol) {
+        const existingGroup = this.markers.get(id)
+        // Only re-add if not in DOM
+        if (existingGroup && !existingGroup.parentNode) {
+          this.restoreMarkerToDOM(id, existingGroup, data)
+          restoredCount++
+        }
+      }
+    }
+
+    console.log(`[MarkupMarkers] Restored symbol ${symbol}: ${restoredCount} markers`)
+  }
+
+  /**
+   * Restore a marker SVG element back to the DOM
+   */
+  private restoreMarkerToDOM(id: string, group: SVGElement, data: MarkerData) {
+    if (!this.markupsExt?.svg) return
+
+    const svg = this.markupsExt.svg as SVGSVGElement
+    svg.appendChild(group)
+
+    // Re-fetch SVG symbol if needed (might have been upgraded from circle)
+    const fossPid = data.fossPid
+    if (fossPid && group.getAttribute('data-marker-type') === 'circle') {
+      // Check if we have the SVG cached, try to upgrade
+      const cachedSvg = this.svgCache.get(fossPid)
+      if (cachedSvg) {
+        this.upgradeToSvgMarker(id, cachedSvg, data.symbol)
+      }
+    }
+  }
+
+  /**
+   * Apply visibility from a Set of hidden symbol letters
+   * Efficiently shows/hides groups based on the difference from current state
+   *
+   * @param newHiddenGroups - Set of symbol letters that should be hidden
+   */
+  applyHiddenGroups(newHiddenGroups: Set<string>) {
+    // Show groups that are no longer hidden
+    for (const letter of this.hiddenGroups) {
+      if (!newHiddenGroups.has(letter)) {
+        this.showSymbolGroup(letter)
+      }
+    }
+
+    // Hide groups that are now hidden
+    for (const letter of newHiddenGroups) {
+      if (!this.hiddenGroups.has(letter)) {
+        this.hideSymbolGroup(letter)
+      }
+    }
+  }
+
+  /**
+   * Get all currently hidden symbol groups
+   */
+  getHiddenGroups(): Set<string> {
+    return new Set(this.hiddenGroups)
   }
 }

@@ -36,6 +36,8 @@ export default function ViewerPage() {
       onRotatePlacement={state.updatePlacementRotation}
       onRefresh={state.refetchProducts}
       isRefreshing={state.isLoading}
+      hiddenSymbolGroups={state.hiddenSymbolGroups}
+      toggleSymbolGroupVisibility={state.toggleSymbolGroupVisibility}
     />
   )
 }

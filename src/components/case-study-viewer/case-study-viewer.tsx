@@ -68,6 +68,8 @@ export interface CaseStudyViewerProps {
   viewerBgBottomColor?: string
   /** Reverse mouse wheel zoom direction (from user preferences) */
   reverseZoomDirection?: boolean
+  /** Hidden symbol groups - markers for these groups are removed from DOM */
+  hiddenSymbolGroups?: Set<string>
   /** Callback when a placement is added via click-to-place (includes generated id) */
   onPlacementAdd?: (placement: Omit<Placement, 'dbId'>) => void
   /** Callback when a placement is deleted */
@@ -117,6 +119,7 @@ export function CaseStudyViewer({
   viewerBgTopColor = '#2a2a2a',
   viewerBgBottomColor = '#0a0a0a',
   reverseZoomDirection = false,
+  hiddenSymbolGroups,
   onPlacementAdd,
   onPlacementDelete,
   onPlacementRotate,
@@ -316,6 +319,15 @@ export function CaseStudyViewer({
       console.log('[CaseStudyViewer] Rendered', newlyRendered, 'late-arriving placements')
     }
   }, [initialPlacements, isLoading, dwgToPageCoords])
+
+  // Effect to apply symbol group visibility
+  // When hiddenSymbolGroups changes, show/hide markers accordingly
+  useEffect(() => {
+    if (!markupMarkersRef.current || isLoading) return
+    if (!hiddenSymbolGroups) return
+
+    markupMarkersRef.current.applyHiddenGroups(hiddenSymbolGroups)
+  }, [hiddenSymbolGroups, isLoading])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TOOLBAR HANDLERS

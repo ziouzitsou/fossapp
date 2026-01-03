@@ -4,7 +4,7 @@ import { useMemo, useCallback } from 'react'
 import { Card, CardContent } from '@fossapp/ui'
 import { Button } from '@fossapp/ui'
 import { ScrollArea } from '@fossapp/ui'
-import { RefreshCw, Upload } from 'lucide-react'
+import { RefreshCw, Upload, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@fossapp/ui'
 import { CaseStudyViewer } from '@/components/case-study-viewer'
 import type { PlacementModeProduct, Placement as PlannerPlacement } from '@/components/case-study-viewer/types'
@@ -91,6 +91,10 @@ interface ViewerViewProps {
   onRefresh?: () => void
   /** Whether refresh is in progress */
   isRefreshing?: boolean
+  /** Set of hidden symbol group letters (e.g., "A", "B") */
+  hiddenSymbolGroups?: Set<string>
+  /** Toggle visibility of a symbol group */
+  toggleSymbolGroupVisibility?: (symbolLetter: string) => void
 }
 
 /**
@@ -115,6 +119,8 @@ export function ViewerView({
   onRotatePlacement,
   onRefresh,
   isRefreshing = false,
+  hiddenSymbolGroups,
+  toggleSymbolGroupVisibility,
 }: ViewerViewProps) {
   const {
     placementMode,
@@ -204,6 +210,7 @@ export function ViewerView({
               viewerBgBottomColor={viewerBgBottomColor}
               markerMinScreenPx={markerMinScreenPx}
               reverseZoomDirection={reverseZoomDirection}
+              hiddenSymbolGroups={hiddenSymbolGroups}
               // Placement props
               placementMode={viewerPlacementMode}
               initialPlacements={viewerPlacements}
@@ -243,7 +250,7 @@ export function ViewerView({
         </div>
 
         {/* Right panel - Products for placement */}
-        <div className="w-56 border-l bg-background flex flex-col">
+        <div className="w-52 border-l bg-background flex flex-col">
           <div className="p-3 border-b">
             <h3 className="text-sm font-medium">Products</h3>
             <p className="text-xs text-muted-foreground">
@@ -256,31 +263,51 @@ export function ViewerView({
                 const isFullyPlaced = product.placed >= product.quantity
                 const canPlace = product.placed < product.quantity
                 const isCurrentlyPlacing = isPlacing(product.id)
+                const isHidden = hiddenSymbolGroups?.has(product.symbol) ?? false
 
                 return (
                   <Card
                     key={product.id}
                     className={cn(
-                      'transition-all',
-                      canPlace && 'cursor-pointer hover:bg-muted/50',
+                      'transition-all overflow-hidden',
+                      canPlace && !isHidden && 'cursor-pointer hover:bg-muted/50',
                       isFullyPlaced && 'opacity-50',
-                      isCurrentlyPlacing && 'ring-2 ring-primary bg-primary/5'
+                      isCurrentlyPlacing && 'ring-2 ring-primary bg-primary/5',
+                      isHidden && 'opacity-50'
                     )}
                     onClick={() => {
                       if (isCurrentlyPlacing) {
-                        // Click on highlighted product → deselect
                         cancelPlacement()
                       } else if (canPlace) {
-                        // Click on different product → select it
                         startPlacement(product)
                       }
                     }}
                   >
-                    <CardContent className="p-2">
-                      <div className="flex items-center gap-2">
+                    <CardContent className="p-1.5">
+                      <div className="flex items-center gap-1.5">
+                        {/* Eye toggle - left of symbol */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleSymbolGroupVisibility?.(product.symbol)
+                          }}
+                          className={cn(
+                            'p-0.5 rounded hover:bg-muted transition-colors flex-shrink-0',
+                            isHidden && 'text-muted-foreground'
+                          )}
+                          title={isHidden ? `Show ${product.symbol}` : `Hide ${product.symbol}`}
+                        >
+                          {isHidden ? (
+                            <EyeOff className="h-3 w-3" />
+                          ) : (
+                            <Eye className="h-3 w-3" />
+                          )}
+                        </button>
+                        {/* Symbol badge */}
                         <div
                           className={cn(
-                            'h-8 w-8 rounded flex items-center justify-center text-sm font-bold transition-colors',
+                            'h-6 w-6 rounded flex items-center justify-center text-xs font-bold transition-colors flex-shrink-0',
                             isCurrentlyPlacing
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-muted'
@@ -288,12 +315,13 @@ export function ViewerView({
                         >
                           {product.symbol}
                         </div>
+                        {/* Product info */}
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs font-medium truncate">
+                          <div className="text-[11px] font-medium leading-tight">
                             {product.name}
                           </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {product.placed}/{product.quantity} placed
+                          <div className="text-[9px] text-muted-foreground">
+                            {product.placed}/{product.quantity}
                             {isFullyPlaced && ' ✓'}
                           </div>
                         </div>
@@ -302,7 +330,7 @@ export function ViewerView({
                   </Card>
                 )
               })}
-              {/* Refresh button - use after adding products via search */}
+              {/* Refresh button */}
               <Button
                 variant="outline"
                 className="w-full h-10 gap-2"

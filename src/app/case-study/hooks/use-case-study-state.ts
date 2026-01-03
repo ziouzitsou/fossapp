@@ -38,6 +38,12 @@ export function useCaseStudyState(areaRevisionId: string | null) {
   const [error, setError] = useState<string | null>(null)
 
   // ============================================================================
+  // VISIBILITY STATE (for symbol group show/hide)
+  // ============================================================================
+
+  const [hiddenSymbolGroups, setHiddenSymbolGroups] = useState<Set<string>>(new Set())
+
+  // ============================================================================
   // REFS FOR DEBOUNCING
   // ============================================================================
 
@@ -343,6 +349,26 @@ export function useCaseStudyState(areaRevisionId: string | null) {
   )
 
   // ============================================================================
+  // VISIBILITY ACTIONS
+  // ============================================================================
+
+  /**
+   * Toggle visibility of a symbol group (e.g., "A", "B")
+   * Hidden groups have their markers removed from the viewer
+   */
+  const toggleSymbolGroupVisibility = useCallback((symbolLetter: string) => {
+    setHiddenSymbolGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(symbolLetter)) {
+        next.delete(symbolLetter)
+      } else {
+        next.add(symbolLetter)
+      }
+      return next
+    })
+  }, [])
+
+  // ============================================================================
   // RETURN VALUE
   // ============================================================================
 
@@ -365,6 +391,10 @@ export function useCaseStudyState(areaRevisionId: string | null) {
     removePlacement,
     updatePlacementRotation,
     updatePlacementPosition,
+
+    // Visibility actions
+    hiddenSymbolGroups,
+    toggleSymbolGroupVisibility,
 
     // Refresh
     refetchProducts: fetchData,
