@@ -393,12 +393,12 @@ export class MarkupMarkers {
     group.setAttribute('transform', `translate(${data.markupX}, ${data.markupY}) rotate(${-rotation})`)
 
     // Keep badge text upright by counter-rotating it
-    // Normalize rotation so text is never upside-down (readable from bottom of screen)
-    // At 90° and 270° the Y-flip causes inversion, so we add 180° to fix it
-    let textRotation = rotation
+    // The Y-flip scale(1,-1) reverses rotation direction, so we use -rotation
+    // Text is correct 0-180°, needs 180° flip at 181-359° (bottom half of circle)
+    let textRotation = -rotation
     const normalizedRot = ((rotation % 360) + 360) % 360  // Normalize to 0-359
-    if (normalizedRot > 90 && normalizedRot <= 270) {
-      textRotation = rotation + 180
+    if (normalizedRot > 180) {
+      textRotation = -rotation + 180
     }
 
     const badgeText = group.querySelector('.symbol-badge text')

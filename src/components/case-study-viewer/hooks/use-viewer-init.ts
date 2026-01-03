@@ -258,40 +258,51 @@ export function useViewerInit({
                 //
                 // IMPORTANT: The transform is not immediately available after loadDocumentNode.
                 // We defer extraction to allow the viewer to complete its setup.
-                const extractPageToModelScale = () => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const m = (model as any).getPageToModelTransform?.(1)
-                  if (m?.elements) {
-                    // elements[0] is the X scale factor: 1 page unit = scaleX model units
-                    const scaleX = Math.abs(m.elements[0])
-                    const scaleY = Math.abs(m.elements[5])
-                    const translateX = m.elements[12]
-                    const translateY = m.elements[13]
-                    // Only use if it's a real transform (not identity)
-                    if (scaleX > 1.001 || scaleX < 0.999) {
-                      console.log('[useViewerInit] Page-to-model transform:', {
-                        scaleX,
-                        scaleY,
-                        translateX,
-                        translateY,
-                      })
-                      // Update both MarkupMarkers (for SVG scaling) and coordinate transform (for DB storage)
-                      markers.setPageToModelScale(scaleX)
-                      setTransform(scaleX, scaleY, translateX, translateY)
-                      return true
+                // Returns a Promise that resolves when the transform is ready.
+                const waitForTransform = (): Promise<void> => {
+                  return new Promise((resolveTransform) => {
+                    const tryExtract = (): boolean => {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const m = (model as any).getPageToModelTransform?.(1)
+                      if (m?.elements) {
+                        // elements[0] is the X scale factor: 1 page unit = scaleX model units
+                        const scaleX = Math.abs(m.elements[0])
+                        const scaleY = Math.abs(m.elements[5])
+                        const translateX = m.elements[12]
+                        const translateY = m.elements[13]
+                        // Only use if it's a real transform (not identity)
+                        if (scaleX > 1.001 || scaleX < 0.999) {
+                          console.log('[useViewerInit] Page-to-model transform:', {
+                            scaleX,
+                            scaleY,
+                            translateX,
+                            translateY,
+                          })
+                          // Update both MarkupMarkers (for SVG scaling) and coordinate transform (for DB storage)
+                          markers.setPageToModelScale(scaleX)
+                          setTransform(scaleX, scaleY, translateX, translateY)
+                          return true
+                        }
+                      }
+                      return false
                     }
-                  }
-                  return false
-                }
 
-                // Try immediately, then retry after render frame if we get identity
-                if (!extractPageToModelScale()) {
-                  // Defer to next frame when viewer has completed setup
-                  requestAnimationFrame(() => {
-                    if (!extractPageToModelScale()) {
+                    // Try immediately
+                    if (tryExtract()) {
+                      resolveTransform()
+                      return
+                    }
+
+                    // Defer to next frame when viewer has completed setup
+                    requestAnimationFrame(() => {
+                      if (tryExtract()) {
+                        resolveTransform()
+                        return
+                      }
+
                       // Still identity? Try one more time after a short delay
                       setTimeout(() => {
-                        if (!extractPageToModelScale()) {
+                        if (!tryExtract()) {
                           console.warn('[useViewerInit] getPageToModelTransform returned identity, using empirical fallback')
                           // Fallback based on unit scale (old empirical approach)
                           // For mm DWGs, the markup layer typically uses ~13-14 mm per page unit
@@ -300,10 +311,14 @@ export function useViewerInit({
                           // Also set coordinate transform (with 0,0 translate as approximation)
                           setTransform(fallbackScale, fallbackScale, 0, 0)
                         }
+                        resolveTransform()
                       }, 100)
-                    }
+                    })
                   })
                 }
+
+                // Wait for transform before continuing (needed for correct initial placement positioning)
+                await waitForTransform()
                 // Set callbacks for marker selection/deletion/rotation
                 markers.setCallbacks(
                   (id) => setHasSelectedMarker(id !== null),
