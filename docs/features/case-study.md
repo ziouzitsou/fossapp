@@ -1,8 +1,8 @@
 # Case Study Feature
 
-**Status**: Active Development (Phase 4)
+**Status**: Active Development (Phase 5 planned)
 **Route**: `/case-study`
-**Last Updated**: 2026-01-02 (Hook architecture refactor)
+**Last Updated**: 2026-01-03 (Phase 4 complete)
 
 ---
 
@@ -400,12 +400,14 @@ Stored in `projects.user_preferences`:
 - [x] **Phase 1**: UI Shell - Components with mock data
 - [x] **Phase 2**: State & Hooks - Real types, URL-based routing
 - [x] **Phase 3**: Data Integration - Supabase connection, optimistic updates
-- [x] **Phase 4 (partial)**: Viewer Integration - APS viewer, placements
-
-### In Progress
-
-- [ ] Symbol images on markers (SVG approach)
-- [ ] Keyboard shortcuts (R=rotate, Del=delete, Esc=cancel)
+- [x] **Phase 4**: Viewer Integration - APS viewer, placements, symbols, shortcuts
+  - APS Viewer with DWG floor plan loading
+  - Pick-and-place workflow with snapping
+  - SVG symbol rendering on markers (with fossPid lookup)
+  - Coordinate transforms (Page ↔ DWG) for correct positioning
+  - Keyboard shortcuts (R=rotate, Del=delete, Esc=exit)
+  - DWG info popover with unit info and shortcuts reference
+  - Placement coordinates saved with 0.1mm precision
 
 ### Planned (Phase 5)
 
