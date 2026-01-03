@@ -128,6 +128,9 @@ const KEYBOARD_SHORTCUTS = {
     { key: 'Esc', description: 'Exit placement mode' },
   ],
   navigation: [
+    { key: '↑ ↓', description: 'Zoom in/out' },
+    { key: '← →', description: 'Pan left/right' },
+    { key: 'PgUp / PgDn', description: 'Pan up/down' },
     { key: 'Scroll', description: 'Zoom in/out' },
     { key: 'Drag', description: 'Pan the view' },
   ],
