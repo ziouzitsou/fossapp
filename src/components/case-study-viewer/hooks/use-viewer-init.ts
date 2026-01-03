@@ -450,6 +450,7 @@ export function useViewerInit({
                       productId: placement.productId,
                       projectProductId: placement.projectProductId,
                       productName: placement.productName,
+                      fossPid: placement.fossPid,  // FOSS product ID for SVG symbol lookup
                       symbol: placement.symbol,  // Symbol label from database
                     },
                     placement.id,

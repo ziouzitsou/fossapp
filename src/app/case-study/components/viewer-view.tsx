@@ -38,7 +38,7 @@ function toPlacementModeProduct(
 
 /**
  * Convert case-study Placements to viewer Placements format
- * (adds productName, dbId placeholder)
+ * (adds productName, fossPid, dbId placeholder)
  */
 function toViewerPlacements(
   placements: Placement[],
@@ -51,6 +51,7 @@ function toViewerPlacements(
       productId: p.productId,
       projectProductId: p.projectProductId,
       productName: luminaire?.name || p.symbol,
+      fossPid: luminaire?.code,  // FOSS product ID for SVG symbol lookup
       worldX: p.worldX,
       worldY: p.worldY,
       dbId: index + 1,  // Placeholder - viewer regenerates on render

@@ -38,7 +38,8 @@ export interface Placement {
   id: string
   productId: string          // Reference to project_products.product_id
   projectProductId: string   // Reference to project_products.id
-  productName: string        // Display name (foss_pid or description)
+  productName: string        // Display name (description)
+  fossPid?: string           // FOSS product ID for symbol lookup (e.g., "DT285029320B")
   worldX: number             // DWG world X coordinate
   worldY: number             // DWG world Y coordinate
   dbId: number               // Unique dbId for the marker
