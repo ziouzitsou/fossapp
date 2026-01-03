@@ -119,14 +119,25 @@ export interface CoordinateOverlayProps {
 
 /**
  * Keyboard shortcuts for the viewer
+ * Grouped by category for better organization
  */
-const KEYBOARD_SHORTCUTS = [
-  { key: 'R', description: 'Rotate selected marker 15°' },
-  { key: 'Del / Backspace', description: 'Delete selected marker' },
-  { key: 'Esc', description: 'Exit placement mode' },
-  { key: 'Scroll', description: 'Zoom in/out' },
-  { key: 'Drag', description: 'Pan the view' },
-]
+const KEYBOARD_SHORTCUTS = {
+  placement: [
+    { key: 'R', description: 'Rotate selected marker 15°' },
+    { key: 'Del / ⌫', description: 'Delete selected marker' },
+    { key: 'Esc', description: 'Exit placement mode' },
+  ],
+  navigation: [
+    { key: '← →', description: 'Pan left/right' },
+    { key: '↑ ↓', description: 'Pan up/down' },
+    { key: 'Scroll', description: 'Zoom in/out' },
+    { key: 'Drag', description: 'Pan the view' },
+  ],
+  view: [
+    { key: 'Home', description: 'Fit all in view' },
+    { key: '1', description: 'Front view (top-down)' },
+  ],
+}
 
 /**
  * DwgInfoPopover - Info button with DWG details and keyboard shortcuts
@@ -201,19 +212,59 @@ function DwgInfoPopover({ dwgUnitInfo }: { dwgUnitInfo?: DwgUnitInfo | null }) {
 
           {/* Keyboard Shortcuts */}
           <div>
-            <h4 className="font-medium text-sm flex items-center gap-2 mb-2">
+            <h4 className="font-medium text-sm flex items-center gap-2 mb-3">
               <Keyboard className="h-4 w-4" />
               Keyboard Shortcuts
             </h4>
-            <div className="space-y-1.5 text-sm">
-              {KEYBOARD_SHORTCUTS.map((shortcut) => (
-                <div key={shortcut.key} className="flex justify-between items-center">
-                  <span className="text-muted-foreground">{shortcut.description}</span>
-                  <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
-                    {shortcut.key}
-                  </kbd>
+            <div className="space-y-3 text-sm">
+              {/* Placement shortcuts */}
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
+                  Placement
                 </div>
-              ))}
+                <div className="space-y-1">
+                  {KEYBOARD_SHORTCUTS.placement.map((shortcut) => (
+                    <div key={shortcut.key} className="flex justify-between items-center">
+                      <span className="text-muted-foreground">{shortcut.description}</span>
+                      <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
+                        {shortcut.key}
+                      </kbd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Navigation shortcuts */}
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
+                  Navigation
+                </div>
+                <div className="space-y-1">
+                  {KEYBOARD_SHORTCUTS.navigation.map((shortcut) => (
+                    <div key={shortcut.key} className="flex justify-between items-center">
+                      <span className="text-muted-foreground">{shortcut.description}</span>
+                      <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
+                        {shortcut.key}
+                      </kbd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* View shortcuts */}
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
+                  View
+                </div>
+                <div className="space-y-1">
+                  {KEYBOARD_SHORTCUTS.view.map((shortcut) => (
+                    <div key={shortcut.key} className="flex justify-between items-center">
+                      <span className="text-muted-foreground">{shortcut.description}</span>
+                      <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
+                        {shortcut.key}
+                      </kbd>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
