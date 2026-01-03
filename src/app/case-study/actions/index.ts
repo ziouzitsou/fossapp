@@ -369,7 +369,17 @@ export async function getCaseStudyPlacementsAction(
 // ============================================================================
 
 /**
+ * Round a number to 0.1mm precision (1 decimal place).
+ * This avoids storing excessive precision in the database and
+ * prevents potential floating-point comparison issues.
+ */
+function roundTo01mm(value: number): number {
+  return Math.round(value * 10) / 10
+}
+
+/**
  * Save all placements for an area revision (atomic replace).
+ * Coordinates are rounded to 0.1mm precision before saving.
  */
 export async function saveCaseStudyPlacementsAction(
   areaRevisionId: string,
@@ -377,7 +387,7 @@ export async function saveCaseStudyPlacementsAction(
   luminaires: LuminaireProduct[]
 ): Promise<ActionResult> {
   try {
-    // Convert to PlacementData format
+    // Convert to PlacementData format with 0.1mm precision
     const placementData: PlacementData[] = placements.map((p) => {
       const luminaire = luminaires.find((l) => l.id === p.projectProductId)
       return {
@@ -386,9 +396,9 @@ export async function saveCaseStudyPlacementsAction(
         productId: p.productId,
         productName: luminaire?.name || '',
         symbol: p.symbol,
-        worldX: p.worldX,
-        worldY: p.worldY,
-        rotation: p.rotation,
+        worldX: roundTo01mm(p.worldX),
+        worldY: roundTo01mm(p.worldY),
+        rotation: roundTo01mm(p.rotation),
       }
     })
 
