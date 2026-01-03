@@ -119,7 +119,7 @@ export interface CoordinateOverlayProps {
 
 /**
  * Keyboard shortcuts for the viewer
- * Grouped by category for better organization
+ * Only includes verified working shortcuts
  */
 const KEYBOARD_SHORTCUTS = {
   placement: [
@@ -128,14 +128,8 @@ const KEYBOARD_SHORTCUTS = {
     { key: 'Esc', description: 'Exit placement mode' },
   ],
   navigation: [
-    { key: '← →', description: 'Pan left/right' },
-    { key: '↑ ↓', description: 'Pan up/down' },
     { key: 'Scroll', description: 'Zoom in/out' },
     { key: 'Drag', description: 'Pan the view' },
-  ],
-  view: [
-    { key: 'Home', description: 'Fit all in view' },
-    { key: '1', description: 'Front view (top-down)' },
   ],
 }
 
@@ -240,22 +234,6 @@ function DwgInfoPopover({ dwgUnitInfo }: { dwgUnitInfo?: DwgUnitInfo | null }) {
                 </div>
                 <div className="space-y-1">
                   {KEYBOARD_SHORTCUTS.navigation.map((shortcut) => (
-                    <div key={shortcut.key} className="flex justify-between items-center">
-                      <span className="text-muted-foreground">{shortcut.description}</span>
-                      <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
-                        {shortcut.key}
-                      </kbd>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* View shortcuts */}
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
-                  View
-                </div>
-                <div className="space-y-1">
-                  {KEYBOARD_SHORTCUTS.view.map((shortcut) => (
                     <div key={shortcut.key} className="flex justify-between items-center">
                       <span className="text-muted-foreground">{shortcut.description}</span>
                       <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
