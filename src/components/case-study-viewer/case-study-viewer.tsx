@@ -72,6 +72,8 @@ export interface CaseStudyViewerProps {
   onPlacementAdd?: (placement: Omit<Placement, 'dbId'>) => void
   /** Callback when a placement is deleted */
   onPlacementDelete?: (id: string) => void
+  /** Callback when a placement is rotated (R key shortcut) */
+  onPlacementRotate?: (id: string, rotation: number) => void
   /** Callback to exit placement mode */
   onExitPlacementMode?: () => void
   /** Callback when viewer is ready */
@@ -117,6 +119,7 @@ export function CaseStudyViewer({
   reverseZoomDirection = false,
   onPlacementAdd,
   onPlacementDelete,
+  onPlacementRotate,
   onExitPlacementMode,
   onReady,
   onError,
@@ -240,6 +243,7 @@ export function CaseStudyViewer({
     onUnitInfoAvailable,
     onPlacementAdd,
     onPlacementDelete,
+    onPlacementRotate,
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -293,7 +297,8 @@ export function CaseStudyViewer({
           productName: placement.productName,
           symbol: placement.symbol,  // Symbol label from database
         },
-        placement.id
+        placement.id,
+        placement.rotation  // Initial rotation from database
       )
       renderedPlacementIdsRef.current.add(placement.id)
       newlyRendered++

@@ -75,6 +75,7 @@ interface UseViewerInitOptions {
   onUnitInfoAvailable?: (info: DwgUnitInfo) => void
   onPlacementAdd?: (placement: Omit<Placement, 'dbId'>) => void
   onPlacementDelete?: (id: string) => void
+  onPlacementRotate?: (id: string, rotation: number) => void
 }
 
 interface UseViewerInitReturn {
@@ -117,6 +118,7 @@ export function useViewerInit({
   onUnitInfoAvailable,
   onPlacementAdd,
   onPlacementDelete,
+  onPlacementRotate,
 }: UseViewerInitOptions): UseViewerInitReturn {
   // Track if viewer has been initialized to prevent double init
   const isInitializedRef = useRef(false)
@@ -127,13 +129,15 @@ export function useViewerInit({
   const onUnitInfoAvailableRef = useRef(onUnitInfoAvailable)
   const onPlacementAddRef = useRef(onPlacementAdd)
   const onPlacementDeleteRef = useRef(onPlacementDelete)
+  const onPlacementRotateRef = useRef(onPlacementRotate)
   useLayoutEffect(() => {
     onReadyRef.current = onReady
     onErrorRef.current = onError
     onUnitInfoAvailableRef.current = onUnitInfoAvailable
     onPlacementAddRef.current = onPlacementAdd
     onPlacementDeleteRef.current = onPlacementDelete
-  }, [onReady, onError, onUnitInfoAvailable, onPlacementAdd, onPlacementDelete])
+    onPlacementRotateRef.current = onPlacementRotate
+  }, [onReady, onError, onUnitInfoAvailable, onPlacementAdd, onPlacementDelete, onPlacementRotate])
 
   /**
    * Initialize viewer with Viewer3D (no GUI)
@@ -245,13 +249,18 @@ export function useViewerInit({
                 if (modelUnitScale !== null) {
                   markers.setModelUnitScale(modelUnitScale)
                 }
-                // Set callbacks for marker selection/deletion
+                // Set callbacks for marker selection/deletion/rotation
                 markers.setCallbacks(
                   (id) => setHasSelectedMarker(id !== null),
                   (id) => {
                     console.log('[useViewerInit] Marker deleted:', id)
                     // Also remove from parent's placements state
                     onPlacementDeleteRef.current?.(id)
+                  },
+                  (id, rotation) => {
+                    console.log('[useViewerInit] Marker rotated:', id, rotation)
+                    // Update rotation in parent's placements state
+                    onPlacementRotateRef.current?.(id, rotation)
                   }
                 )
                 console.log('[useViewerInit] MarkupMarkers initialized')
@@ -373,7 +382,8 @@ export function useViewerInit({
                       productName: placement.productName,
                       symbol: placement.symbol,  // Symbol label from database
                     },
-                    placement.id
+                    placement.id,
+                    placement.rotation  // Initial rotation from database
                   )
                   renderedPlacementIdsRef.current.add(placement.id)
                 }

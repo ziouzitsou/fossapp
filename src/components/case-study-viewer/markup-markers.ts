@@ -48,7 +48,11 @@ export interface MarkerData {
   // Markup space coordinates (not world coords!)
   markupX: number
   markupY: number
+  rotation: number  // Rotation in degrees (0-360)
 }
+
+// Rotation increment in degrees (standard CAD behavior)
+const ROTATION_INCREMENT = 15
 
 export class MarkupMarkers {
   private viewer: ViewerInstance
@@ -58,6 +62,7 @@ export class MarkupMarkers {
   private selectedId: string | null = null
   private onSelect: ((id: string | null) => void) | null = null
   private onDelete: ((id: string) => void) | null = null
+  private onRotate: ((id: string, rotation: number) => void) | null = null
   private minScreenRadius: number
 
   // Model unit scale from Autodesk viewer (meters=1, mm=0.001, inches=0.0254)
@@ -309,6 +314,52 @@ export class MarkupMarkers {
       e.preventDefault()
       this.deleteSelected()
     }
+
+    // R key rotates selected marker by 15° (standard CAD increment)
+    if (this.selectedId && (e.key === 'r' || e.key === 'R')) {
+      e.preventDefault()
+      this.rotateSelected(ROTATION_INCREMENT)
+    }
+  }
+
+  /**
+   * Rotate the selected marker by a given delta (in degrees)
+   */
+  rotateSelected(delta: number) {
+    if (!this.selectedId) return
+
+    const data = this.markerData.get(this.selectedId)
+    if (!data) return
+
+    // Calculate new rotation (wrap at 360)
+    const newRotation = (data.rotation + delta) % 360
+
+    // Update stored data
+    data.rotation = newRotation
+    this.markerData.set(this.selectedId, data)
+
+    // Apply visual rotation to the marker
+    this.applyMarkerRotation(this.selectedId, newRotation)
+
+    // Notify parent
+    this.onRotate?.(this.selectedId, newRotation)
+    console.log(`[MarkupMarkers] Rotated marker ${this.selectedId} to ${newRotation}°`)
+  }
+
+  /**
+   * Apply rotation transform to a marker's SVG group
+   */
+  private applyMarkerRotation(id: string, rotation: number) {
+    const group = this.markers.get(id)
+    if (!group) return
+
+    const data = this.markerData.get(id)
+    if (!data) return
+
+    // Update the transform to include rotation
+    // Note: rotation is applied at the marker position, then translate
+    // DWG Y-axis is up, so we negate the rotation for correct visual
+    group.setAttribute('transform', `translate(${data.markupX}, ${data.markupY}) rotate(${-rotation})`)
   }
 
   /**
@@ -316,10 +367,12 @@ export class MarkupMarkers {
    */
   setCallbacks(
     onSelect: (id: string | null) => void,
-    onDelete: (id: string) => void
+    onDelete: (id: string) => void,
+    onRotate?: (id: string, rotation: number) => void
   ) {
     this.onSelect = onSelect
     this.onDelete = onDelete
+    this.onRotate = onRotate ?? null
   }
 
   /**
@@ -403,8 +456,9 @@ export class MarkupMarkers {
     worldX: number,
     worldY: number,
     worldZ: number,
-    data: Omit<MarkerData, 'id' | 'markupX' | 'markupY'>,
-    id?: string
+    data: Omit<MarkerData, 'id' | 'markupX' | 'markupY' | 'rotation'>,
+    id?: string,
+    rotation: number = 0
   ): MarkerData | null {
     const markupCoords = this.worldToMarkup(worldX, worldY, worldZ)
     if (!markupCoords) {
@@ -413,34 +467,38 @@ export class MarkupMarkers {
       return null
     }
 
-    return this.addMarkerAtMarkup(markupCoords.x, markupCoords.y, data, id)
+    return this.addMarkerAtMarkup(markupCoords.x, markupCoords.y, data, id, rotation)
   }
 
   /**
    * Add a marker at screen coordinates
    * @param id - Optional external ID (if not provided, generates UUID)
+   * @param rotation - Initial rotation in degrees (default 0)
    */
   addMarkerAtScreen(
     screenX: number,
     screenY: number,
-    data: Omit<MarkerData, 'id' | 'markupX' | 'markupY'>,
-    id?: string
+    data: Omit<MarkerData, 'id' | 'markupX' | 'markupY' | 'rotation'>,
+    id?: string,
+    rotation: number = 0
   ): MarkerData | null {
     const markupCoords = this.screenToMarkup(screenX, screenY)
     if (!markupCoords) return null
 
-    return this.addMarkerAtMarkup(markupCoords.x, markupCoords.y, data, id)
+    return this.addMarkerAtMarkup(markupCoords.x, markupCoords.y, data, id, rotation)
   }
 
   /**
    * Add a marker at markup coordinates
    * @param id - Optional external ID (if not provided, generates UUID)
+   * @param rotation - Initial rotation in degrees (default 0)
    */
   addMarkerAtMarkup(
     markupX: number,
     markupY: number,
-    data: Omit<MarkerData, 'id' | 'markupX' | 'markupY'>,
-    id?: string
+    data: Omit<MarkerData, 'id' | 'markupX' | 'markupY' | 'rotation'>,
+    id?: string,
+    rotation: number = 0
   ): MarkerData | null {
     if (!this.markupsExt?.svg) {
       console.error('[MarkupMarkers] SVG layer not available')
@@ -453,15 +511,19 @@ export class MarkupMarkers {
       id: markerId,
       markupX,
       markupY,
+      rotation,
     }
 
     const svg = this.markupsExt.svg as SVGSVGElement
     const ns = 'http://www.w3.org/2000/svg'
 
     // Create a group for the marker
+    // Apply initial rotation if non-zero (DWG Y-up means we negate rotation)
     const group = document.createElementNS(ns, 'g')
     group.setAttribute('id', `marker-${markerId}`)
-    group.setAttribute('transform', `translate(${markupX}, ${markupY})`)
+    group.setAttribute('transform', rotation === 0
+      ? `translate(${markupX}, ${markupY})`
+      : `translate(${markupX}, ${markupY}) rotate(${-rotation})`)
     group.setAttribute('data-marker-type', 'circle')  // Track marker type for updates
     group.style.cursor = 'pointer'
 

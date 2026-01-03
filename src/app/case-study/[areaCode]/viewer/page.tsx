@@ -33,6 +33,7 @@ export default function ViewerPage() {
       reverseZoomDirection={viewPreferences.reverse_zoom_direction}
       onAddPlacement={state.addPlacement}
       onRemovePlacement={state.removePlacement}
+      onRotatePlacement={state.updatePlacementRotation}
       onRefresh={state.refetchProducts}
       isRefreshing={state.isLoading}
     />
