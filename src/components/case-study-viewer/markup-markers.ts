@@ -391,6 +391,25 @@ export class MarkupMarkers {
     // Note: rotation is applied at the marker position, then translate
     // DWG Y-axis is up, so we negate the rotation for correct visual
     group.setAttribute('transform', `translate(${data.markupX}, ${data.markupY}) rotate(${-rotation})`)
+
+    // Keep badge text upright by counter-rotating it
+    // Normalize rotation so text is never upside-down (readable from bottom of screen)
+    // At 90° and 270° the Y-flip causes inversion, so we add 180° to fix it
+    let textRotation = rotation
+    const normalizedRot = ((rotation % 360) + 360) % 360  // Normalize to 0-359
+    if (normalizedRot > 90 && normalizedRot <= 270) {
+      textRotation = rotation + 180
+    }
+
+    const badgeText = group.querySelector('.symbol-badge text')
+    if (badgeText) {
+      badgeText.setAttribute('transform', `scale(1, -1) rotate(${textRotation})`)
+    }
+    // Also handle circle marker text
+    const circleText = group.querySelector('text:not(.symbol-badge text)')
+    if (circleText && group.getAttribute('data-marker-type') === 'circle') {
+      circleText.setAttribute('transform', `scale(1, -1) rotate(${textRotation})`)
+    }
   }
 
   /**
