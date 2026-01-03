@@ -28,11 +28,11 @@ const STROKE_RATIO = 0.2            // Stroke width as ratio of radius
 const FONT_RATIO = 0.8              // Font size as ratio of radius
 
 // SVG Symbol sizing - TRUE SCALE (like AutoCAD)
-// SVG symbols are always in mm. Convert to model units using:
-//   svgMm * MM_TO_METERS / modelUnitScale
-// where modelUnitScale is from Autodesk viewer (meters=1, mm=0.001, inches=0.0254)
-const LEGACY_SYMBOL_SIZE_M = 0.1    // 100mm = 0.1 meters (for old 100x100 viewBox symbols)
-const MM_TO_METERS = 0.001          // 1mm = 0.001 meters
+// SVG symbols are always in mm. Convert to page units using:
+//   svgMm / pageToModelScale
+// where pageToModelScale is from getPageToModelTransform(1).elements[0]
+// (tells us how many model units = 1 page unit)
+const MM_TO_METERS = 0.001          // 1mm = 0.001 meters (for logging)
 const DEFAULT_MODEL_UNIT_SCALE = 1  // Default: meters (unitScale=1)
 
 // Supabase storage URL for product symbols
@@ -69,6 +69,11 @@ export class MarkupMarkers {
   // Used to convert SVG mm to model units
   private modelUnitScale: number = DEFAULT_MODEL_UNIT_SCALE
 
+  // Page-to-model scale factor from getPageToModelTransform(1).elements[0]
+  // This is the ACTUAL conversion: 1 page unit = pageToModelScale model units (mm)
+  // SVG symbols in mm should be scaled by 1/pageToModelScale to appear at correct size
+  private pageToModelScale: number = 1
+
   // SVG symbol cache: fossPid -> SVG content (or null if no symbol)
   private svgCache: Map<string, string | null> = new Map()
   // Pending SVG fetches to avoid duplicate requests
@@ -92,6 +97,22 @@ export class MarkupMarkers {
   setModelUnitScale(unitScale: number | null) {
     this.modelUnitScale = unitScale ?? DEFAULT_MODEL_UNIT_SCALE
     console.log(`[MarkupMarkers] Model unit scale set to ${this.modelUnitScale} (SVG mm → model units factor: ${MM_TO_METERS / this.modelUnitScale})`)
+    // Re-render existing markers with new scale
+    this.updateMarkerSizes()
+  }
+
+  /**
+   * Set the page-to-model scale factor from getPageToModelTransform(1)
+   *
+   * This is the definitive conversion between markup SVG coordinates and model coordinates.
+   * SVG symbols in mm are scaled by (1 / pageToModelScale) to appear at correct size.
+   *
+   * @param scaleX - The X scale factor from the transformation matrix (elements[0])
+   *                 1 page unit = scaleX model units (typically mm)
+   */
+  setPageToModelScale(scaleX: number) {
+    this.pageToModelScale = scaleX
+    console.log(`[MarkupMarkers] Page-to-model scale set to ${scaleX.toFixed(4)} (SVG scale: ${(1 / scaleX).toFixed(6)})`)
     // Re-render existing markers with new scale
     this.updateMarkerSizes()
   }
@@ -260,8 +281,9 @@ export class MarkupMarkers {
     // Symbol stays at fixed real scale - no updates needed
     // Only update click target and badge (dynamic sizing for visibility)
 
-    // Read stored symbol dimensions in model units (or use legacy fallback)
-    const legacyFallback = LEGACY_SYMBOL_SIZE_M / this.modelUnitScale
+    // Read stored symbol dimensions in page units (or use legacy fallback)
+    // Legacy symbols are 100mm, convert to page units using pageToModelScale
+    const legacyFallback = 100 / this.pageToModelScale  // 100mm in page units
     const symbolWidth = parseFloat(group.getAttribute('data-symbol-width') || String(legacyFallback))
     const symbolHeight = parseFloat(group.getAttribute('data-symbol-height') || String(legacyFallback))
     const symbolMaxDim = Math.max(symbolWidth, symbolHeight)
@@ -611,7 +633,9 @@ export class MarkupMarkers {
 
   /**
    * Parse viewBox dimensions and determine if it's a real-mm SVG or legacy normalized
-   * Returns dimensions in MODEL UNITS (adjusted for DWG unit scale)
+   * Returns dimensions in PAGE UNITS (for MarkupsCore SVG layer positioning)
+   *
+   * Uses pageToModelScale from getPageToModelTransform(1) for accurate conversion.
    */
   private parseSymbolDimensions(svg: Element): { width: number; height: number; isRealMm: boolean } {
     const viewBox = svg.getAttribute('viewBox') || '0 0 100 100'
@@ -621,24 +645,24 @@ export class MarkupMarkers {
     const dataUnit = svg.getAttribute('data-unit')
     const isRealMm = dataUnit === 'mm'
 
-    // Conversion factor: SVG mm → markup SVG units
-    // Includes the 0.5 correction for non-meter DWGs (see upgradeToSvgMarker comment)
-    const mmToModelUnits = MM_TO_METERS / this.modelUnitScale
-    const markupScaleCorrection = this.modelUnitScale === 1 ? 1 : 0.5
+    // The pageToModelScale tells us: 1 page unit = X mm (model units)
+    // So to convert mm to page units: pageUnits = mm / pageToModelScale
+    const mmToPageUnits = 1 / this.pageToModelScale
 
     if (isRealMm) {
-      // New format: viewBox values ARE millimeters, convert to markup units
+      // New format: viewBox values ARE millimeters, convert to page units
       return {
-        width: vbWidth * mmToModelUnits * markupScaleCorrection,
-        height: vbHeight * mmToModelUnits * markupScaleCorrection,
+        width: vbWidth * mmToPageUnits,
+        height: vbHeight * mmToPageUnits,
         isRealMm: true
       }
     } else {
       // Legacy format: 100x100 normalized viewBox = 100mm
-      // Convert to markup units using same scale
-      const legacySizeModelUnits = LEGACY_SYMBOL_SIZE_M / this.modelUnitScale * markupScaleCorrection
+      // Convert 100mm to page units, then scale proportionally
+      const legacySizeMm = 100  // Legacy symbols are 100mm
+      const legacySizePageUnits = legacySizeMm * mmToPageUnits
       const maxDim = Math.max(vbWidth, vbHeight)
-      const scale = legacySizeModelUnits / maxDim
+      const scale = legacySizePageUnits / maxDim
       return {
         width: vbWidth * scale,
         height: vbHeight * scale,
@@ -685,23 +709,23 @@ export class MarkupMarkers {
     group.setAttribute('data-symbol-width', String(dimensions.width))
     group.setAttribute('data-symbol-height', String(dimensions.height))
 
-    // TRUE SCALE: Calculate scale to convert viewBox units to markup SVG units
+    // TRUE SCALE: Calculate scale to convert viewBox units (mm) to page units
     //
-    // IMPORTANT: MarkupsCore SVG coordinate system has a 2x relationship with model units
-    // for non-meter DWGs. Empirically determined: when DWG is in mm (unitScale=0.001),
-    // the markups layer uses 0.5mm per SVG unit, not 1mm.
+    // The pageToModelScale from getPageToModelTransform(1) tells us:
+    //   1 page unit = pageToModelScale model units (mm)
     //
-    // Formula: scale = MM_TO_METERS / modelUnitScale / 2
-    //   - For meters (unitScale=1): 0.001 / 1 / 2 = 0.0005 (but we use 0.001, see below)
-    //   - For mm (unitScale=0.001): 0.001 / 0.001 / 2 = 0.5
+    // So to convert mm → page units: scale = 1 / pageToModelScale
     //
-    // Note: The /2 correction is only needed for non-meter DWGs. For meters, the
-    // markups layer is 1:1 with model space.
-    const mmToModelUnits = MM_TO_METERS / this.modelUnitScale
-    const markupScaleCorrection = this.modelUnitScale === 1 ? 1 : 0.5
+    // For test DWG with pageToModelScale = 13.455:
+    //   scale = 1 / 13.455 = 0.074
+    //   A 148mm symbol becomes: 148 * 0.074 = 10.95 page units
+    //
+    // This replaces the old empirical 0.5 correction factor with the actual
+    // transformation matrix from the viewer.
+    const mmToPageUnits = 1 / this.pageToModelScale
     const scale = dimensions.isRealMm
-      ? mmToModelUnits * markupScaleCorrection
-      : (LEGACY_SYMBOL_SIZE_M / this.modelUnitScale) * markupScaleCorrection / Math.max(vbWidth, vbHeight)
+      ? mmToPageUnits
+      : (100 * mmToPageUnits) / Math.max(vbWidth, vbHeight)  // Legacy: 100mm scaled to viewBox
 
     // Center the symbol (offset by half the scaled size)
     const offsetX = -(vbWidth * scale) / 2
@@ -741,23 +765,23 @@ export class MarkupMarkers {
     group.setAttribute('data-marker-type', 'svg')
 
     // Log with dimensions converted back to mm for readability
-    const widthMm = dimensions.width * this.modelUnitScale / MM_TO_METERS
-    const heightMm = dimensions.height * this.modelUnitScale / MM_TO_METERS
+    const widthMm = dimensions.width * this.pageToModelScale
+    const heightMm = dimensions.height * this.pageToModelScale
     console.log(`[MarkupMarkers] Upgraded marker to SVG: ${markerId}`)
     console.log(`  - Format: ${dimensions.isRealMm ? 'real-mm' : 'legacy'}, viewBox: ${vbWidth}x${vbHeight}`)
-    console.log(`  - modelUnitScale: ${this.modelUnitScale} (${this.modelUnitScale === 1 ? 'meters' : this.modelUnitScale === 0.001 ? 'mm' : 'other'})`)
-    console.log(`  - mmToModelUnits: ${mmToModelUnits}, scale: ${scale}`)
-    console.log(`  - Dimensions: ${widthMm.toFixed(0)}x${heightMm.toFixed(0)}mm → ${dimensions.width.toFixed(4)}x${dimensions.height.toFixed(4)} model units`)
-    console.log(`  - Transform: translate(${offsetX.toFixed(4)}, ${(-offsetY).toFixed(4)}) scale(${scale}, ${-scale})`)
+    console.log(`  - pageToModelScale: ${this.pageToModelScale.toFixed(4)} (1 page unit = ${this.pageToModelScale.toFixed(2)}mm)`)
+    console.log(`  - mmToPageUnits (scale): ${mmToPageUnits.toFixed(6)}`)
+    console.log(`  - Dimensions: ${widthMm.toFixed(0)}x${heightMm.toFixed(0)}mm → ${dimensions.width.toFixed(4)}x${dimensions.height.toFixed(4)} page units`)
+    console.log(`  - Transform: translate(${offsetX.toFixed(4)}, ${(-offsetY).toFixed(4)}) scale(${scale.toFixed(6)}, ${(-scale).toFixed(6)})`)
   }
 
   /**
    * Create a badge with the symbol letter (same size as circle markers)
-   * @param markerRadius - The radius for the badge circle (in model units)
+   * @param markerRadius - The radius for the badge circle (in page units)
    * @param label - The label text to display
-   * @param symbolHeight - The actual symbol height in model units (for positioning)
+   * @param symbolHeight - The actual symbol height in page units (for positioning)
    */
-  private createBadge(markerRadius: number, label: string, symbolHeight: number = LEGACY_SYMBOL_SIZE_M): SVGElement {
+  private createBadge(markerRadius: number, label: string, symbolHeight: number): SVGElement {
     const ns = 'http://www.w3.org/2000/svg'
     // Badge should be same size as circle markers for consistency
     const badgeRadius = markerRadius
