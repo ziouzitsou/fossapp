@@ -1,8 +1,8 @@
 # Case Study Feature
 
-**Status**: Active Development (Phase 5 planned)
+**Status**: Active Development (Phase 4B in progress)
 **Route**: `/case-study`
-**Last Updated**: 2026-01-03 (Phase 4 complete)
+**Last Updated**: 2026-01-03 (Phase 4B: Edit2D migration research complete)
 
 ---
 
@@ -409,6 +409,21 @@ Stored in `projects.user_preferences`:
   - DWG info popover with unit info and shortcuts reference
   - Placement coordinates saved with 0.1mm precision
 
+### In Progress (Phase 4B) - Edit2D Refactoring
+
+**Goal**: Replace MarkupsCore SVG manipulation with Edit2D extension for proper shape management.
+
+**Problem with Current MarkupsCore Approach**:
+- We manipulate the MarkupsCore SVG layer directly (`markupsExt.svg.appendChild()`)
+- Shapes are NOT registered with MarkupsCore's internal tracking
+- Result: "Phantom clicks" - hidden markers still capture mouse events
+- No built-in move/resize tools
+- No undo/redo support
+
+**Solution**: Migrate to `Autodesk.Edit2D` extension which provides managed shape objects.
+
+See **[Phase 4B: Edit2D Migration](#phase-4b-edit2d-migration)** section below for full details.
+
 ### Planned (Phase 5)
 
 - [ ] Symbol generation modal integration
@@ -448,3 +463,284 @@ Stored in `projects.user_preferences`:
 ---
 
 **Migration Note**: This page replaced the legacy `/planner` route. The old planner code was removed in commit `6926857` (2026-01-02). See [../archive/planner-legacy.md](../archive/planner-legacy.md) for historical reference.
+
+---
+
+## Phase 4B: Edit2D Migration
+
+**Branch**: `feature/edit2d-markers`
+**Status**: Research Complete, Implementation Pending
+
+### Background
+
+The current implementation uses `Autodesk.Viewing.MarkupsCore` extension with direct SVG manipulation. While this works for basic placement, it has fundamental limitations that prevent advanced features.
+
+### Current Architecture (MarkupsCore)
+
+```typescript
+// Current approach - direct SVG manipulation
+this.markupsExt = viewer.getExtension('Autodesk.Viewing.MarkupsCore')
+this.markupsExt.enterEditMode()
+const svg = this.markupsExt.svg as SVGSVGElement
+svg.appendChild(group)  // Raw SVG - NOT tracked by MarkupsCore
+```
+
+**Problems:**
+| Issue | Impact |
+|-------|--------|
+| Phantom clicks | Hidden markers still capture mouse events |
+| No move/drag | Had to implement manually (not done) |
+| No resize | Had to implement manually (not done) |
+| No undo/redo | State changes are permanent |
+| Manual hit-testing | Selection logic is fragile |
+| Visibility broken | `removeShape()` doesn't prevent interaction |
+
+### Target Architecture (Edit2D)
+
+```typescript
+// Target approach - managed shapes
+const edit2d = await viewer.loadExtension('Autodesk.Edit2D')
+edit2d.registerDefaultTools()
+
+const ctx = edit2d.defaultContext
+const layer = ctx.layer
+
+// Import SVG as managed shape
+const shape = Autodesk.Edit2D.Shape.fromSVG('<path d="..."/>')
+ctx.addShape(shape)  // Tracked, with undo support
+
+// Add label
+const label = new Autodesk.Edit2D.ShapeLabel(shape, layer)
+label.setText('A1')
+
+// Hide: remove from layer (proper hit-testing removal)
+ctx.removeShape(shape)
+
+// Show: restore
+ctx.addShape(shape)
+```
+
+### Edit2D API Reference
+
+#### Core Structure
+
+```typescript
+const edit2d = viewer.getExtension('Autodesk.Edit2D')
+const ctx = edit2d.defaultContext
+
+ctx.layer        // EditLayer - contains shapes
+ctx.gizmoLayer   // Temporary shapes (snap indicators)
+ctx.undoStack    // Undo/redo manager
+ctx.selection    // Selection & hover manager
+ctx.snapper      // Geometry snapping
+```
+
+#### Shape Operations
+
+| Operation | API | Notes |
+|-----------|-----|-------|
+| Add shape | `ctx.addShape(shape)` | With undo tracking |
+| Remove shape | `ctx.removeShape(shape)` | With undo tracking |
+| Clear all | `ctx.clearLayer()` | Removes all shapes |
+| Update display | `layer.update()` | After style changes |
+
+#### SVG Import/Export
+
+```typescript
+// Import from SVG path
+const shape = Autodesk.Edit2D.Shape.fromSVG('<path d="M 10,20 L 30,40 Z"/>')
+
+// Export single shape
+const svgString = shape.toSVG({ exportStyle: true })
+
+// Export entire layer
+const svgElement = Autodesk.Edit2D.Svg.createSvgElement(layer.shapes, { dstBox: pixelBox })
+```
+
+#### Built-in Tools (`edit2d.defaultTools`)
+
+| Tool | Purpose | Our Use Case |
+|------|---------|--------------|
+| `insertSymbolTool` | Click to place custom symbol | ⭐ Luminaire placement |
+| `polygonTool` | Draw polygons/rectangles | Room zones (future) |
+| `polylineTool` | Draw lines | Wiring paths (future) |
+| `polygonEditTool` | Edit existing polygons | - |
+
+**Using insertSymbolTool:**
+```typescript
+// Set custom symbol
+const symbol = Autodesk.Edit2D.Shape.fromSVG('<path d="..."/>')
+tools.insertSymbolTool.symbol = symbol
+
+// Activate tool
+viewer.toolController.activateTool(tools.insertSymbolTool.getName())
+// User clicks → symbol placed at click location
+```
+
+#### Labels
+
+```typescript
+// Shape label (attached to shape center)
+const label = new Autodesk.Edit2D.ShapeLabel(shape, layer)
+label.setText('A1')
+
+// Edge label (attached to specific edge)
+const edgeLabel = new Autodesk.Edit2D.EdgeLabel(layer)
+edgeLabel.attachToEdge(shape, 0)  // Edge index 0
+edgeLabel.setText('A1')
+
+// Built-in measurement labels
+tools.polygonEditTool.setAreaLabelVisible(true)
+tools.polygonEditTool.setLengthLabelVisible(true)
+```
+
+#### Selection & Events
+
+```typescript
+// Listen for selection changes
+ctx.selection.addEventListener(
+  Autodesk.Edit2D.Selection.Events.SELECTION_CHANGED,
+  (event) => { /* handle */ }
+)
+
+// Listen for hover changes
+ctx.selection.addEventListener(
+  Autodesk.Edit2D.Selection.Events.SELECTION_HOVER_CHANGED,
+  (event) => { /* handle */ }
+)
+
+// Programmatic selection
+ctx.selection.selectOnly(shape)
+ctx.selection.setHoverID(shape.id)
+```
+
+#### Styling
+
+```typescript
+// Shape style
+shape.style.fillColor = 'rgb(255, 128, 0)'
+shape.style.fillAlpha = 0.3
+shape.style.lineWidth = 2.0
+shape.style.lineStyle = 11  // Dashed
+layer.update()
+
+// Custom highlight modifier
+layer.addStyleModifier((shape, style) => {
+  if (isMyHighlight(shape)) {
+    const modified = style.clone()
+    modified.fillColor = 'rgb(255, 200, 0)'
+    return modified
+  }
+  return undefined  // No change
+})
+```
+
+#### Unit Handling
+
+```typescript
+const unitHandler = new Autodesk.Edit2D.SimpleUnitHandler(viewer)
+unitHandler.layerUnit = 'mm'     // Layer coordinates in mm
+unitHandler.displayUnits = 'mm'  // Display in mm
+unitHandler.digits = 1           // Decimal places
+
+// Query model units
+model.getUnitScale()    // → 0.001 (mm to meters)
+model.getUnitString()   // → "mm"
+```
+
+### Verification Required
+
+The following must be verified during implementation:
+
+| Question | Risk | Verification Method |
+|----------|------|---------------------|
+| **1:1 Symbol Scaling** | 🔴 High | Place 300mm symbol, measure in DWG |
+| **Coordinate System** | 🔴 High | Compare Edit2D coords with DWG world coords |
+| **Label Rotation** | 🟡 Medium | Rotate shape, check if ShapeLabel stays upright |
+| **SVG Path Import** | 🟡 Medium | Import our luminaire SVGs, verify rendering |
+| **Hit-testing** | 🟢 Low | Remove shape, verify no click capture |
+
+### Migration Plan
+
+#### Phase 4B.1: Extension Setup
+- [ ] Load `Autodesk.Edit2D` alongside existing extensions
+- [ ] Call `registerDefaultTools()` after model load
+- [ ] Verify Edit2D layer renders on top of DWG
+
+#### Phase 4B.2: Symbol Placement
+- [ ] Create `Edit2DMarkers` class (parallel to `MarkupMarkers`)
+- [ ] Implement `Shape.fromSVG()` for luminaire symbols
+- [ ] Wire `insertSymbolTool` to placement workflow
+- [ ] Add `ShapeLabel` for symbol letters (A1, B2)
+- [ ] Verify 1:1 scaling with DWG units
+
+#### Phase 4B.3: Selection & Manipulation
+- [ ] Selection events → update sidebar highlighting
+- [ ] Delete key → `ctx.removeShape()`
+- [ ] R key → rotation (via transform or recreate)
+- [ ] Drag → built-in move (verify it works)
+
+#### Phase 4B.4: Visibility Toggle
+- [ ] Store hidden shapes in Map (symbol → Shape[])
+- [ ] Hide: `ctx.removeShape()` for each
+- [ ] Show: `ctx.addShape()` for each
+- [ ] Verify no phantom clicks when hidden
+
+#### Phase 4B.5: Persistence
+- [ ] Extract coordinates from Edit2D shapes
+- [ ] Convert to DWG coordinates for database
+- [ ] Load placements → create shapes at positions
+- [ ] Ensure rotation is preserved
+
+#### Phase 4B.6: Cleanup
+- [ ] Remove `MarkupMarkers` class
+- [ ] Remove `markup-markers.ts`
+- [ ] Update hook imports
+- [ ] Update documentation
+
+### Files to Modify
+
+| File | Action |
+|------|--------|
+| `use-viewer-init.ts` | Load Edit2D, register tools |
+| `markup-markers.ts` | Replace with `edit2d-markers.ts` |
+| `placement-tool.ts` | May be replaced by `insertSymbolTool` |
+| `case-study-viewer.tsx` | Update refs and callbacks |
+| `viewer-view.tsx` | Update visibility toggle logic |
+| `use-case-study-state.ts` | Visibility state already done |
+
+### API Documentation Sources
+
+- [Edit2D Manual Drawing](https://aps.autodesk.com/en/docs/viewer/v7/developers_guide/advanced_options/edit2d-manual)
+- [Edit2D Toolset Usage](https://aps.autodesk.com/en/docs/viewer/v7/developers_guide/advanced_options/edit2d-use)
+- [Edit2D Setup](https://aps.autodesk.com/en/docs/viewer/v7/developers_guide/advanced_options/edit2d-setup)
+- [Edit2D Customization](https://aps.autodesk.com/en/docs/viewer/v7/developers_guide/advanced_options/edit2d-customize)
+
+### Feature Comparison
+
+| Feature | MarkupsCore (Current) | Edit2D (Target) |
+|---------|----------------------|-----------------|
+| Shape tracking | ❌ Manual | ✅ Built-in |
+| Selection | ❌ Manual | ✅ `ctx.selection` |
+| Move/drag | ❌ Not implemented | ✅ Built-in gizmo |
+| Rotate | ⚠️ Manual (R key) | ✅ Built-in gizmo |
+| Scale/resize | ❌ Not implemented | ✅ Built-in gizmo |
+| Delete | ⚠️ Manual | ✅ With undo |
+| Undo/redo | ❌ None | ✅ `ctx.undoStack` |
+| Hide/show | ❌ Phantom clicks | ✅ Proper removal |
+| Snapping | ⚠️ Partial | ✅ `ctx.snapper` |
+| Labels | ⚠️ Manual badge | ✅ `ShapeLabel` |
+| SVG import | ⚠️ Manual parsing | ✅ `Shape.fromSVG()` |
+| SVG export | ❌ Not implemented | ✅ `shape.toSVG()` |
+
+### Notes from Research
+
+1. **Gemini Recommendation**: Edit2D is the correct tool for SVG-based shape manipulation with selection/move/rotate support.
+
+2. **SVG Path Limitation**: Edit2D works best with SVG `<path>` elements. Complex groups may need flattening. Our luminaire symbols use paths, so this should work.
+
+3. **Coordinate System**: Edit2D likely uses page coordinates like MarkupsCore. The `getPageToModelTransform()` approach may still be needed for DWG unit conversion.
+
+4. **Label Rotation**: Unknown if `ShapeLabel` stays upright when shape rotates. May need to counter-rotate or use alternative approach.
+
+5. **Viewer Configuration**: We're already using SVF2 (`AutodeskProduction2` + `streamingV2_EU`) which is compatible with Edit2D.
