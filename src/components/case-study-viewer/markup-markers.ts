@@ -29,10 +29,19 @@ const FONT_RATIO = 0.8              // Font size as ratio of radius
 
 // SVG Symbol sizing - TRUE SCALE (like AutoCAD)
 // SVG symbols are always in mm. Convert to page units using:
-//   svgMm / pageToModelScale
-// where pageToModelScale is from getPageToModelTransform(1).elements[0]
-// (tells us how many model units = 1 page unit)
-const MM_TO_METERS = 0.001          // 1mm = 0.001 meters (for logging)
+//   scale = MM_TO_METERS / (modelUnitScale × pageToModelScale)
+//
+// where:
+//   - MM_TO_METERS = 0.001 (converts mm to meters)
+//   - modelUnitScale = getUnitScale() - conversion from model units to meters:
+//       meters: 1, mm: 0.001, cm: 0.01, inches: 0.0254, feet: 0.3048
+//   - pageToModelScale = getPageToModelTransform(1).elements[0]
+//       (1 page unit = pageToModelScale model units)
+//
+// AutoCAD DWGUNITS values for reference:
+//   1=Inches, 2=Feet, 3=Miles, 4=Millimeters, 5=Centimeters,
+//   6=Meters, 7=Kilometers, 8=Microinches, etc.
+const MM_TO_METERS = 0.001          // 1mm = 0.001 meters
 const DEFAULT_MODEL_UNIT_SCALE = 1  // Default: meters (unitScale=1)
 
 // Supabase storage URL for product symbols
@@ -282,8 +291,8 @@ export class MarkupMarkers {
     // Only update click target and badge (dynamic sizing for visibility)
 
     // Read stored symbol dimensions in page units (or use legacy fallback)
-    // Legacy symbols are 100mm, convert to page units using pageToModelScale
-    const legacyFallback = 100 / this.pageToModelScale  // 100mm in page units
+    // Legacy symbols are 100mm, convert to page units using both scales
+    const legacyFallback = 100 * MM_TO_METERS / (this.modelUnitScale * this.pageToModelScale)
     const symbolWidth = parseFloat(group.getAttribute('data-symbol-width') || String(legacyFallback))
     const symbolHeight = parseFloat(group.getAttribute('data-symbol-height') || String(legacyFallback))
     const symbolMaxDim = Math.max(symbolWidth, symbolHeight)
@@ -635,7 +644,8 @@ export class MarkupMarkers {
    * Parse viewBox dimensions and determine if it's a real-mm SVG or legacy normalized
    * Returns dimensions in PAGE UNITS (for MarkupsCore SVG layer positioning)
    *
-   * Uses pageToModelScale from getPageToModelTransform(1) for accurate conversion.
+   * Uses both modelUnitScale and pageToModelScale for unit-aware conversion.
+   * Supports all AutoCAD units: meters, mm, cm, inches, feet, etc.
    */
   private parseSymbolDimensions(svg: Element): { width: number; height: number; isRealMm: boolean } {
     const viewBox = svg.getAttribute('viewBox') || '0 0 100 100'
@@ -645,9 +655,12 @@ export class MarkupMarkers {
     const dataUnit = svg.getAttribute('data-unit')
     const isRealMm = dataUnit === 'mm'
 
-    // The pageToModelScale tells us: 1 page unit = X mm (model units)
-    // So to convert mm to page units: pageUnits = mm / pageToModelScale
-    const mmToPageUnits = 1 / this.pageToModelScale
+    // Convert SVG mm to page units:
+    // 1. SVG mm → meters: mm * 0.001
+    // 2. meters → model units: meters / modelUnitScale
+    // 3. model units → page units: modelUnits / pageToModelScale
+    // Combined: mm * 0.001 / (modelUnitScale * pageToModelScale)
+    const mmToPageUnits = MM_TO_METERS / (this.modelUnitScale * this.pageToModelScale)
 
     if (isRealMm) {
       // New format: viewBox values ARE millimeters, convert to page units
@@ -711,18 +724,17 @@ export class MarkupMarkers {
 
     // TRUE SCALE: Calculate scale to convert viewBox units (mm) to page units
     //
-    // The pageToModelScale from getPageToModelTransform(1) tells us:
-    //   1 page unit = pageToModelScale model units (mm)
+    // Formula: scale = MM_TO_METERS / (modelUnitScale × pageToModelScale)
     //
-    // So to convert mm → page units: scale = 1 / pageToModelScale
+    // This handles ALL AutoCAD unit types:
+    //   - mm DWG (unitScale=0.001): 0.001 / (0.001 × 13.455) = 0.074
+    //   - meters DWG (unitScale=1): 0.001 / (1 × X) = appropriate scale
+    //   - inches, feet, cm, etc. all work correctly
     //
-    // For test DWG with pageToModelScale = 13.455:
-    //   scale = 1 / 13.455 = 0.074
-    //   A 148mm symbol becomes: 148 * 0.074 = 10.95 page units
-    //
-    // This replaces the old empirical 0.5 correction factor with the actual
-    // transformation matrix from the viewer.
-    const mmToPageUnits = 1 / this.pageToModelScale
+    // Example for mm DWG with pageToModelScale = 13.455:
+    //   scale = 0.001 / (0.001 × 13.455) = 0.074
+    //   A 148mm symbol becomes: 148 × 0.074 = 10.95 page units
+    const mmToPageUnits = MM_TO_METERS / (this.modelUnitScale * this.pageToModelScale)
     const scale = dimensions.isRealMm
       ? mmToPageUnits
       : (100 * mmToPageUnits) / Math.max(vbWidth, vbHeight)  // Legacy: 100mm scaled to viewBox
@@ -765,11 +777,17 @@ export class MarkupMarkers {
     group.setAttribute('data-marker-type', 'svg')
 
     // Log with dimensions converted back to mm for readability
-    const widthMm = dimensions.width * this.pageToModelScale
-    const heightMm = dimensions.height * this.pageToModelScale
+    const widthMm = dimensions.width * this.modelUnitScale * this.pageToModelScale / MM_TO_METERS
+    const heightMm = dimensions.height * this.modelUnitScale * this.pageToModelScale / MM_TO_METERS
+    const unitName = this.modelUnitScale === 1 ? 'meters' :
+                     this.modelUnitScale === 0.001 ? 'mm' :
+                     this.modelUnitScale === 0.01 ? 'cm' :
+                     this.modelUnitScale === 0.0254 ? 'inches' :
+                     this.modelUnitScale === 0.3048 ? 'feet' : 'other'
     console.log(`[MarkupMarkers] Upgraded marker to SVG: ${markerId}`)
     console.log(`  - Format: ${dimensions.isRealMm ? 'real-mm' : 'legacy'}, viewBox: ${vbWidth}x${vbHeight}`)
-    console.log(`  - pageToModelScale: ${this.pageToModelScale.toFixed(4)} (1 page unit = ${this.pageToModelScale.toFixed(2)}mm)`)
+    console.log(`  - DWG units: ${unitName} (modelUnitScale=${this.modelUnitScale})`)
+    console.log(`  - pageToModelScale: ${this.pageToModelScale.toFixed(4)} (1 page = ${this.pageToModelScale.toFixed(2)} model units)`)
     console.log(`  - mmToPageUnits (scale): ${mmToPageUnits.toFixed(6)}`)
     console.log(`  - Dimensions: ${widthMm.toFixed(0)}x${heightMm.toFixed(0)}mm → ${dimensions.width.toFixed(4)}x${dimensions.height.toFixed(4)} page units`)
     console.log(`  - Transform: translate(${offsetX.toFixed(4)}, ${(-offsetY).toFixed(4)}) scale(${scale.toFixed(6)}, ${(-scale).toFixed(6)})`)
