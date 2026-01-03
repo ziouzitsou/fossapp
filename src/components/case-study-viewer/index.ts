@@ -24,6 +24,10 @@ export type {
 export { ProductsPanel } from './products-panel'
 // Note: PlannerMarkups removed - using MarkupMarkers (SVG) instead of HTML overlay
 
+// Phase 4B: Edit2D-based markers (managed shapes, proper selection)
+export { Edit2DMarkers } from './edit2d-markers'
+export type { Edit2DMarkerData, Edit2DMarkerCallbacks } from './edit2d-markers'
+
 export type {
   Placement,
   PanelProduct,

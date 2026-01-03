@@ -7,7 +7,7 @@
  * as overlays on top of the viewer container.
  */
 
-import { Loader2, AlertCircle, CheckCircle2, Crosshair, Maximize, Info, Keyboard } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2, Crosshair, Maximize, Info, Keyboard, FlaskConical } from 'lucide-react'
 import { Progress, cn, Button } from '@fossapp/ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@fossapp/ui'
 import type { DwgCoordinates } from './placement-tool'
@@ -321,6 +321,8 @@ export function CoordinateOverlay({ coordinates, unitString, dwgUnitInfo }: Coor
 export interface ViewerQuickActionsProps {
   /** Callback to fit all geometry in view */
   onFitAll: () => void
+  /** Callback to test Edit2D marker placement (Phase 4B development) */
+  onTestEdit2D?: () => void
 }
 
 /**
@@ -328,9 +330,21 @@ export interface ViewerQuickActionsProps {
  *
  * Provides one-click access to common viewer operations like Fit All.
  */
-export function ViewerQuickActions({ onFitAll }: ViewerQuickActionsProps) {
+export function ViewerQuickActions({ onFitAll, onTestEdit2D }: ViewerQuickActionsProps) {
   return (
     <div className="absolute top-3 right-3 z-20 flex gap-1">
+      {/* Phase 4B: Edit2D Test Button (development only) */}
+      {onTestEdit2D && (
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 bg-amber-500/20 backdrop-blur-sm border-amber-500/50 shadow-sm hover:bg-amber-500/30 text-amber-600"
+          onClick={onTestEdit2D}
+          title="Test Edit2D Marker (Phase 4B development)"
+        >
+          <FlaskConical className="h-4 w-4" />
+        </Button>
+      )}
       <Button
         variant="outline"
         size="icon"

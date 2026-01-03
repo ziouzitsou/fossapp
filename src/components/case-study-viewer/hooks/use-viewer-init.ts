@@ -16,11 +16,12 @@
  */
 
 import { useEffect, useRef, useCallback, useLayoutEffect, type RefObject, type MutableRefObject } from 'react'
-import type { Viewer3DInstance, ViewerInitOptions } from '@/types/autodesk-viewer'
+import type { Viewer3DInstance, ViewerInitOptions, Edit2DExtension, Edit2DContext } from '@/types/autodesk-viewer'
 import type { Placement, PlacementModeProduct, DwgUnitInfo } from '../types'
 import type { LoadingStage } from '../viewer-overlays'
 import { PlacementTool, type DwgCoordinates } from '../placement-tool'
 import { MarkupMarkers } from '../markup-markers'
+import { Edit2DMarkers } from '../edit2d-markers'
 import { hexToRgb, loadAutodeskScripts } from '../case-study-viewer-utils'
 
 interface UseViewerInitOptions {
@@ -30,6 +31,10 @@ interface UseViewerInitOptions {
   placementToolRef: MutableRefObject<PlacementTool | null>
   markupMarkersRef: MutableRefObject<MarkupMarkers | null>
   renderedPlacementIdsRef: MutableRefObject<Set<string>>
+  /** Edit2D extension context ref - for Phase 4B migration */
+  edit2dContextRef: MutableRefObject<Edit2DContext | null>
+  /** Edit2D markers manager ref - for Phase 4B migration */
+  edit2dMarkersRef: MutableRefObject<Edit2DMarkers | null>
 
   // File/URN
   file?: File
@@ -92,6 +97,8 @@ export function useViewerInit({
   placementToolRef,
   markupMarkersRef,
   renderedPlacementIdsRef,
+  edit2dContextRef,
+  edit2dMarkersRef,
   file,
   urn,
   setUrn,
@@ -244,6 +251,8 @@ export function useViewerInit({
               // Initialize MarkupMarkers for product placement
               const markers = new MarkupMarkers(viewer, markerMinScreenPx)
               const markersInitialized = await markers.initialize()
+              // Track pageToModelScale for use by Edit2DMarkers later
+              let extractedPageToModelScale = 1
               if (markersInitialized) {
                 markupMarkersRef.current = markers
                 // Set model unit scale for proper SVG symbol sizing
@@ -281,6 +290,8 @@ export function useViewerInit({
                           // Update both MarkupMarkers (for SVG scaling) and coordinate transform (for DB storage)
                           markers.setPageToModelScale(scaleX)
                           setTransform(scaleX, scaleY, translateX, translateY)
+                          // Store for Edit2DMarkers
+                          extractedPageToModelScale = scaleX
                           return true
                         }
                       }
@@ -310,6 +321,8 @@ export function useViewerInit({
                           markers.setPageToModelScale(fallbackScale)
                           // Also set coordinate transform (with 0,0 translate as approximation)
                           setTransform(fallbackScale, fallbackScale, 0, 0)
+                          // Store for Edit2DMarkers
+                          extractedPageToModelScale = fallbackScale
                         }
                         resolveTransform()
                       }, 100)
@@ -337,6 +350,55 @@ export function useViewerInit({
               } else {
                 console.warn('[useViewerInit] MarkupMarkers failed to initialize')
               }
+
+              // ============================================================================
+              // Phase 4B: Initialize Edit2D Extension
+              // ============================================================================
+              // Edit2D provides managed shapes with built-in selection, move, rotate gizmos.
+              // This will eventually replace the MarkupsCore direct SVG manipulation.
+              // For now, we load it in parallel to verify it works correctly.
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const edit2d = await (viewer as any).loadExtension('Autodesk.Edit2D') as Edit2DExtension
+                if (edit2d) {
+                  // Register default tools (insertSymbolTool, polygonTool, etc.)
+                  edit2d.registerDefaultTools()
+
+                  // Store the context for future marker operations
+                  edit2dContextRef.current = edit2d.defaultContext
+
+                  // Log Edit2D initialization info
+                  console.log('[useViewerInit] Edit2D extension initialized')
+                  console.log('[useViewerInit] Edit2D context:', {
+                    layer: edit2d.defaultContext.layer,
+                    hasSelection: !!edit2d.defaultContext.selection,
+                    hasUndoStack: !!edit2d.defaultContext.undoStack,
+                    tools: Object.keys(edit2d.defaultTools || {}),
+                  })
+
+                  // Initialize Edit2DMarkers (runs in parallel with MarkupsCore for now)
+                  const edit2dMarkers = new Edit2DMarkers(viewer)
+                  const edit2dMarkersInitialized = await edit2dMarkers.initialize(edit2d.defaultContext)
+
+                  if (edit2dMarkersInitialized) {
+                    edit2dMarkersRef.current = edit2dMarkers
+
+                    // Set unit scales for proper symbol sizing
+                    // Use the same scales as MarkupMarkers (extracted in waitForTransform)
+                    if (modelUnitScale !== null) {
+                      edit2dMarkers.setUnitScales(modelUnitScale, extractedPageToModelScale)
+                    }
+
+                    console.log('[useViewerInit] Edit2DMarkers initialized')
+                  } else {
+                    console.warn('[useViewerInit] Edit2DMarkers failed to initialize')
+                  }
+                }
+              } catch (edit2dError) {
+                // Edit2D is optional for now - MarkupsCore will continue to work
+                console.warn('[useViewerInit] Edit2D extension failed to load:', edit2dError)
+              }
+              // ============================================================================
 
               // Register the placement tool with snapping support and coordinate tracking
               const tool = new PlacementTool(
@@ -482,6 +544,8 @@ export function useViewerInit({
     placementToolRef,
     markupMarkersRef,
     renderedPlacementIdsRef,
+    edit2dContextRef,
+    edit2dMarkersRef,
     initialTheme,
     markerMinScreenPx,
     viewerBgTopColor,
@@ -541,6 +605,14 @@ export function useViewerInit({
           // Dispose MarkupMarkers to remove event listeners
           markupMarkersRef.current?.dispose()
           markupMarkersRef.current = null
+
+          // Dispose Edit2DMarkers (Phase 4B)
+          edit2dMarkersRef.current?.dispose()
+          edit2dMarkersRef.current = null
+
+          // Clear Edit2D context (Phase 4B)
+          // The extension is unloaded automatically when viewer.finish() is called
+          edit2dContextRef.current = null
 
           // Dispose PlacementTool (deactivates snapper)
           if (placementToolRef.current && viewerRef.current) {

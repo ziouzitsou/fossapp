@@ -24,10 +24,11 @@
 
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react'
 import { cn } from '@fossapp/ui'
-import type { Viewer3DInstance } from '@/types/autodesk-viewer'
+import type { Viewer3DInstance, Edit2DContext } from '@/types/autodesk-viewer'
 import type { PlacementModeProduct, Placement, DwgUnitInfo, WorldCoordinates } from './types'
 import { PlacementTool } from './placement-tool'
 import { MarkupMarkers } from './markup-markers'
+import { Edit2DMarkers } from './edit2d-markers'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
 import { ViewerLoadingOverlay, ViewerErrorOverlay, CoordinateOverlay, ViewerQuickActions, type LoadingStage } from './viewer-overlays'
 import {
@@ -140,6 +141,10 @@ export function CaseStudyViewer({
   const placementToolRef = useRef<PlacementTool | null>(null)
   const markupMarkersRef = useRef<MarkupMarkers | null>(null)
   const renderedPlacementIdsRef = useRef<Set<string>>(new Set())
+  // Phase 4B: Edit2D context for managed shape operations
+  const edit2dContextRef = useRef<Edit2DContext | null>(null)
+  // Phase 4B: Edit2D markers manager
+  const edit2dMarkersRef = useRef<Edit2DMarkers | null>(null)
 
   // Ref for placementMode so hooks can access latest value without re-registering
   const placementModeRef = useRef(placementMode)
@@ -226,6 +231,8 @@ export function CaseStudyViewer({
     placementToolRef,
     markupMarkersRef,
     renderedPlacementIdsRef,
+    edit2dContextRef,
+    edit2dMarkersRef,
     file,
     urn,
     setUrn,
@@ -337,6 +344,55 @@ export function CaseStudyViewer({
     markupMarkersRef.current?.deleteSelected()
   }, [])
 
+  /**
+   * Phase 4B Test: Place a test marker using Edit2D
+   * Uses a real product with SVG symbol to test SVG primitive parsing
+   */
+  const handleTestEdit2D = useCallback(async () => {
+    const viewer = viewerRef.current
+    const edit2dMarkers = edit2dMarkersRef.current
+
+    if (!viewer || !edit2dMarkers) {
+      console.warn('[CaseStudyViewer] Edit2D not ready for test')
+      return
+    }
+
+    // Get visible bounds to place marker at center
+    const visibleBounds = viewer.impl?.getVisibleBounds?.()
+    if (!visibleBounds) {
+      console.warn('[CaseStudyViewer] No visible bounds for test')
+      return
+    }
+
+    // Calculate center of visible area (page coordinates)
+    const centerX = (visibleBounds.min.x + visibleBounds.max.x) / 2
+    const centerY = (visibleBounds.min.y + visibleBounds.max.y) / 2
+
+    console.log('[CaseStudyViewer] Testing Edit2D marker at center:', { centerX, centerY })
+
+    // Add test marker - use real product foss_pid that has an SVG symbol
+    const testId = `test-${Date.now()}`
+    const marker = await edit2dMarkers.addMarker(
+      centerX,
+      centerY,
+      {
+        productId: 'test-product',
+        projectProductId: 'test-project-product',
+        productName: 'BOXY 2 L HE',  // Display name
+        fossPid: 'DT107489438BB',    // Real foss_pid with SVG symbol
+        symbol: 'T1',
+      },
+      testId,
+      0  // No rotation
+    )
+
+    if (marker) {
+      console.log('[CaseStudyViewer] Edit2D test marker placed:', marker)
+    } else {
+      console.error('[CaseStudyViewer] Failed to place Edit2D test marker')
+    }
+  }, [])
+
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
@@ -379,7 +435,10 @@ export function CaseStudyViewer({
 
         {/* Quick actions - top right corner */}
         {showToolbar && (
-          <ViewerQuickActions onFitAll={handleFitAll} />
+          <ViewerQuickActions
+            onFitAll={handleFitAll}
+            onTestEdit2D={handleTestEdit2D}
+          />
         )}
       </div>
 

@@ -130,6 +130,181 @@ interface Viewer3DInstance {
   }
 }
 
+// ============================================================================
+// Edit2D Extension Types
+// ============================================================================
+
+/**
+ * Edit2D Shape - Represents a 2D shape in the Edit2D layer
+ *
+ * Shapes are managed objects with built-in support for:
+ * - Selection and hover
+ * - Move/rotate/resize via gizmos
+ * - Undo/redo tracking
+ * - Style customization
+ */
+interface Edit2DShape {
+  id: number
+  style: Edit2DStyle
+  /** Export shape as SVG string */
+  toSVG: (options?: { exportStyle?: boolean }) => string
+  /** Get bounding box */
+  getBBox: () => { min: { x: number; y: number }; max: { x: number; y: number } }
+  /** Set position (world/page coordinates) */
+  setPosition: (x: number, y: number) => void
+  /** Get position */
+  getPosition: () => { x: number; y: number }
+  /** Apply transformation matrix */
+  applyMatrix: (matrix: number[]) => void
+}
+
+/**
+ * Edit2D Style - Visual styling for shapes
+ */
+interface Edit2DStyle {
+  fillColor: string
+  fillAlpha: number
+  lineColor: string
+  lineWidth: number
+  lineStyle: number
+  clone: () => Edit2DStyle
+}
+
+/**
+ * Edit2D Layer - Container for shapes
+ */
+interface Edit2DLayer {
+  shapes: Edit2DShape[]
+  /** Update layer display after style changes */
+  update: () => void
+  /** Add a style modifier function */
+  addStyleModifier: (modifier: (shape: Edit2DShape, style: Edit2DStyle) => Edit2DStyle | undefined) => void
+}
+
+/**
+ * Edit2D Selection Manager
+ */
+interface Edit2DSelection {
+  /** Select a single shape (deselects others) */
+  selectOnly: (shape: Edit2DShape) => void
+  /** Add shape to selection */
+  addToSelection: (shape: Edit2DShape) => void
+  /** Clear selection */
+  clear: () => void
+  /** Set hover highlight */
+  setHoverID: (id: number) => void
+  /** Get selected shapes */
+  getSelectedShapes: () => Edit2DShape[]
+  /** Event listener for selection changes */
+  addEventListener: (event: string, callback: (event: unknown) => void) => void
+  removeEventListener: (event: string, callback: (event: unknown) => void) => void
+}
+
+/**
+ * Edit2D Context - Main API for shape manipulation
+ */
+interface Edit2DContext {
+  /** The shape layer */
+  layer: Edit2DLayer
+  /** Temporary layer for gizmos/indicators */
+  gizmoLayer: Edit2DLayer
+  /** Undo/redo manager */
+  undoStack: {
+    undo: () => void
+    redo: () => void
+    canUndo: () => boolean
+    canRedo: () => boolean
+  }
+  /** Selection manager */
+  selection: Edit2DSelection
+  /** Snapping helper */
+  snapper: unknown
+  /** Add shape to layer (with undo tracking) */
+  addShape: (shape: Edit2DShape) => void
+  /** Remove shape from layer (with undo tracking) */
+  removeShape: (shape: Edit2DShape) => void
+  /** Clear all shapes */
+  clearLayer: () => void
+}
+
+/**
+ * Edit2D InsertSymbol Tool - Click to place custom symbols
+ */
+interface Edit2DInsertSymbolTool {
+  /** The symbol shape to insert on click */
+  symbol: Edit2DShape | null
+  getName: () => string
+  isActive: () => boolean
+}
+
+/**
+ * Edit2D Default Tools
+ */
+interface Edit2DDefaultTools {
+  insertSymbolTool: Edit2DInsertSymbolTool
+  polygonTool: unknown
+  polylineTool: unknown
+  polygonEditTool: {
+    setAreaLabelVisible: (visible: boolean) => void
+    setLengthLabelVisible: (visible: boolean) => void
+  }
+}
+
+/**
+ * Edit2D Shape Label - Text label attached to a shape
+ */
+interface Edit2DShapeLabel {
+  setText: (text: string) => void
+  getText: () => string
+  setVisible: (visible: boolean) => void
+}
+
+/**
+ * Edit2D Extension - Main entry point
+ */
+interface Edit2DExtension {
+  /** Register default drawing tools (polygon, polyline, insertSymbol, etc.) */
+  registerDefaultTools: () => void
+  /** Default drawing context with layer, selection, undoStack */
+  defaultContext: Edit2DContext
+  /** Default tools (available after registerDefaultTools) */
+  defaultTools: Edit2DDefaultTools
+}
+
+/**
+ * Edit2D Namespace - Static utilities
+ */
+interface Edit2DNamespace {
+  /** Create shape from SVG path string */
+  Shape: {
+    fromSVG: (svgString: string) => Edit2DShape
+  }
+  /** Shape label constructor */
+  ShapeLabel: new (shape: Edit2DShape, layer: Edit2DLayer) => Edit2DShapeLabel
+  /** Edge label constructor */
+  EdgeLabel: new (layer: Edit2DLayer) => {
+    attachToEdge: (shape: Edit2DShape, edgeIndex: number) => void
+    setText: (text: string) => void
+  }
+  /** SVG export utilities */
+  Svg: {
+    createSvgElement: (shapes: Edit2DShape[], options?: { dstBox?: DOMRect }) => SVGSVGElement
+  }
+  /** Selection event names */
+  Selection: {
+    Events: {
+      SELECTION_CHANGED: string
+      SELECTION_HOVER_CHANGED: string
+    }
+  }
+  /** Unit handler for coordinate conversion */
+  SimpleUnitHandler: new (viewer: Viewer3DInstance) => {
+    layerUnit: string
+    displayUnits: string
+    digits: number
+  }
+}
+
 declare global {
   interface Window {
     Autodesk: {
@@ -147,6 +322,8 @@ declare global {
         TOOL_CHANGE_EVENT: string
         CAMERA_CHANGE_EVENT: string
       }
+      /** Edit2D extension namespace with static utilities */
+      Edit2D: Edit2DNamespace
     }
   }
 }
@@ -163,5 +340,16 @@ export {
   ClientToWorldResult,
   ViewerModel,
   GuiViewer3DInstance,
-  Viewer3DInstance
+  Viewer3DInstance,
+  // Edit2D types
+  Edit2DExtension,
+  Edit2DContext,
+  Edit2DShape,
+  Edit2DStyle,
+  Edit2DLayer,
+  Edit2DSelection,
+  Edit2DDefaultTools,
+  Edit2DInsertSymbolTool,
+  Edit2DShapeLabel,
+  Edit2DNamespace,
 }
