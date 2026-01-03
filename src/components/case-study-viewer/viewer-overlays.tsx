@@ -7,9 +7,11 @@
  * as overlays on top of the viewer container.
  */
 
-import { Loader2, AlertCircle, CheckCircle2, Crosshair, Maximize } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2, Crosshair, Maximize, Info, Keyboard } from 'lucide-react'
 import { Progress, cn, Button } from '@fossapp/ui'
+import { Popover, PopoverContent, PopoverTrigger } from '@fossapp/ui'
 import type { DwgCoordinates } from './placement-tool'
+import type { DwgUnitInfo } from './types'
 
 export type LoadingStage = 'scripts' | 'upload' | 'translation' | 'viewer' | 'cache-hit'
 
@@ -111,6 +113,113 @@ export interface CoordinateOverlayProps {
   coordinates: DwgCoordinates | null
   /** DWG unit string (e.g., "mm", "m", "inch") */
   unitString?: string | null
+  /** Full DWG unit info for info popover */
+  dwgUnitInfo?: DwgUnitInfo | null
+}
+
+/**
+ * Keyboard shortcuts for the viewer
+ */
+const KEYBOARD_SHORTCUTS = [
+  { key: 'R', description: 'Rotate selected marker 15°' },
+  { key: 'Del / Backspace', description: 'Delete selected marker' },
+  { key: 'Esc', description: 'Exit placement mode' },
+  { key: 'Scroll', description: 'Zoom in/out' },
+  { key: 'Drag', description: 'Pan the view' },
+]
+
+/**
+ * DwgInfoPopover - Info button with DWG details and keyboard shortcuts
+ */
+function DwgInfoPopover({ dwgUnitInfo }: { dwgUnitInfo?: DwgUnitInfo | null }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="p-1 rounded hover:bg-muted/50 transition-colors"
+          title="Drawing info & shortcuts"
+        >
+          <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80" align="start" sideOffset={8}>
+        <div className="space-y-4">
+          {/* DWG Unit Information */}
+          <div>
+            <h4 className="font-medium text-sm flex items-center gap-2 mb-2">
+              <Info className="h-4 w-4" />
+              DWG Information
+            </h4>
+            {dwgUnitInfo ? (
+              <div className="space-y-1.5 text-sm">
+                {dwgUnitInfo.modelUnits && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Model Units:</span>
+                    <span className="font-mono">{dwgUnitInfo.modelUnits}</span>
+                  </div>
+                )}
+                {dwgUnitInfo.unitString && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Unit String:</span>
+                    <span className="font-mono">{dwgUnitInfo.unitString}</span>
+                  </div>
+                )}
+                {dwgUnitInfo.displayUnit && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Display Unit:</span>
+                    <span className="font-mono">{dwgUnitInfo.displayUnit}</span>
+                  </div>
+                )}
+                {dwgUnitInfo.unitScale !== null && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Scale to Meters:</span>
+                    <span className="font-mono">{dwgUnitInfo.unitScale}</span>
+                  </div>
+                )}
+                {dwgUnitInfo.pageUnits && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Page Units:</span>
+                    <span className="font-mono">{dwgUnitInfo.pageUnits}</span>
+                  </div>
+                )}
+                {!dwgUnitInfo.unitString && !dwgUnitInfo.displayUnit &&
+                 !dwgUnitInfo.modelUnits && !dwgUnitInfo.pageUnits && (
+                  <p className="text-muted-foreground italic text-xs">
+                    No unit information available
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-muted-foreground italic text-xs">
+                No DWG loaded
+              </p>
+            )}
+          </div>
+
+          {/* Separator */}
+          <div className="border-t" />
+
+          {/* Keyboard Shortcuts */}
+          <div>
+            <h4 className="font-medium text-sm flex items-center gap-2 mb-2">
+              <Keyboard className="h-4 w-4" />
+              Keyboard Shortcuts
+            </h4>
+            <div className="space-y-1.5 text-sm">
+              {KEYBOARD_SHORTCUTS.map((shortcut) => (
+                <div key={shortcut.key} className="flex justify-between items-center">
+                  <span className="text-muted-foreground">{shortcut.description}</span>
+                  <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
+                    {shortcut.key}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 /**
@@ -118,12 +227,15 @@ export interface CoordinateOverlayProps {
  *
  * Similar to AutoCAD's status bar coordinate display.
  * Shows X/Y in DWG model space units with snap indicator.
+ * Includes info button for DWG details and keyboard shortcuts.
  */
-export function CoordinateOverlay({ coordinates, unitString }: CoordinateOverlayProps) {
+export function CoordinateOverlay({ coordinates, unitString, dwgUnitInfo }: CoordinateOverlayProps) {
   if (!coordinates) {
     return (
       <div className="absolute top-3 left-3 z-20 px-2.5 py-1.5 bg-background/85 backdrop-blur-sm rounded border border-border/50 shadow-sm">
         <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+          <DwgInfoPopover dwgUnitInfo={dwgUnitInfo} />
+          <div className="w-px h-4 bg-border/50" />
           <Crosshair className="h-3.5 w-3.5" />
           <span>X: ---</span>
           <span>Y: ---</span>
@@ -147,6 +259,8 @@ export function CoordinateOverlay({ coordinates, unitString }: CoordinateOverlay
       )}
     >
       <div className="flex items-center gap-2 text-xs font-mono">
+        <DwgInfoPopover dwgUnitInfo={dwgUnitInfo} />
+        <div className="w-px h-4 bg-border/50" />
         <Crosshair
           className={cn(
             'h-3.5 w-3.5 transition-colors',

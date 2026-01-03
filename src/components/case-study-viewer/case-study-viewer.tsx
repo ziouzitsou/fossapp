@@ -162,6 +162,7 @@ export function CaseStudyViewer({
   const [isCacheHit, setIsCacheHit] = useState(false)
   const [hasSelectedMarker, setHasSelectedMarker] = useState(false)
   const [dwgUnitString, setDwgUnitString] = useState<string | null>(null)
+  const [dwgUnitInfo, setDwgUnitInfo] = useState<DwgUnitInfo | null>(null)
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HOOKS
@@ -209,6 +210,12 @@ export function CaseStudyViewer({
     onExitPlacementMode,
   })
 
+  // Handler to capture DWG unit info for local state AND pass to external callback
+  const handleUnitInfoAvailable = useCallback((info: DwgUnitInfo) => {
+    setDwgUnitInfo(info)
+    onUnitInfoAvailable?.(info)
+  }, [onUnitInfoAvailable])
+
   // Viewer initialization
   const { handleFitAll } = useViewerInit({
     containerRef,
@@ -241,7 +248,7 @@ export function CaseStudyViewer({
     pollTranslationStatus,
     onReady,
     onError,
-    onUnitInfoAvailable,
+    onUnitInfoAvailable: handleUnitInfoAvailable,
     onPlacementAdd,
     onPlacementDelete,
     onPlacementRotate,
@@ -354,6 +361,7 @@ export function CaseStudyViewer({
           <CoordinateOverlay
             coordinates={dwgCoordinates}
             unitString={dwgUnitString}
+            dwgUnitInfo={dwgUnitInfo}
           />
         )}
 
