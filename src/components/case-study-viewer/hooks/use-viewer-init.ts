@@ -52,6 +52,7 @@ interface UseViewerInitOptions {
   // Coordinate transformation functions
   pageToDwgCoords: (pageX: number, pageY: number) => { x: number; y: number }
   dwgToPageCoords: (dwgX: number, dwgY: number) => { x: number; y: number }
+  setTransform: (scaleX: number, scaleY: number, translateX: number, translateY: number) => void
 
   // State setters
   setIsLoading: (loading: boolean) => void
@@ -103,6 +104,7 @@ export function useViewerInit({
   initialPlacementsRef,
   pageToDwgCoords,
   dwgToPageCoords,
+  setTransform,
   setIsLoading,
   setLoadingStage,
   setError,
@@ -262,15 +264,20 @@ export function useViewerInit({
                   if (m?.elements) {
                     // elements[0] is the X scale factor: 1 page unit = scaleX model units
                     const scaleX = Math.abs(m.elements[0])
+                    const scaleY = Math.abs(m.elements[5])
+                    const translateX = m.elements[12]
+                    const translateY = m.elements[13]
                     // Only use if it's a real transform (not identity)
                     if (scaleX > 1.001 || scaleX < 0.999) {
                       console.log('[useViewerInit] Page-to-model transform:', {
                         scaleX,
-                        scaleY: m.elements[5],
-                        translateX: m.elements[12],
-                        translateY: m.elements[13],
+                        scaleY,
+                        translateX,
+                        translateY,
                       })
+                      // Update both MarkupMarkers (for SVG scaling) and coordinate transform (for DB storage)
                       markers.setPageToModelScale(scaleX)
+                      setTransform(scaleX, scaleY, translateX, translateY)
                       return true
                     }
                   }
@@ -290,6 +297,8 @@ export function useViewerInit({
                           // For mm DWGs, the markup layer typically uses ~13-14 mm per page unit
                           const fallbackScale = modelUnitScale === 0.001 ? 13.5 : 1
                           markers.setPageToModelScale(fallbackScale)
+                          // Also set coordinate transform (with 0,0 translate as approximation)
+                          setTransform(fallbackScale, fallbackScale, 0, 0)
                         }
                       }, 100)
                     }

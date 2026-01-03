@@ -47,6 +47,12 @@ interface UseCoordinateTransformReturn {
   resetTransform: () => void
 
   /**
+   * Directly set the transform values (call when transform is available).
+   * Use this to fix timing issues where lazy extraction gets identity matrix.
+   */
+  setTransform: (scaleX: number, scaleY: number, translateX: number, translateY: number) => void
+
+  /**
    * Reference to the transform for external access if needed
    */
   transformRef: RefObject<PageToModelTransform | null>
@@ -132,10 +138,26 @@ export function useCoordinateTransform({
     pageToModelTransformRef.current = null
   }, [])
 
+  /**
+   * Directly set the transform values.
+   * Use this when the correct transform is extracted after viewer initialization,
+   * to fix timing issues where lazy extraction got identity matrix.
+   */
+  const setTransform = useCallback((
+    scaleX: number,
+    scaleY: number,
+    translateX: number,
+    translateY: number
+  ) => {
+    pageToModelTransformRef.current = [scaleX, scaleY, translateX, translateY]
+    console.log('[useCoordinateTransform] Transform set directly:', pageToModelTransformRef.current)
+  }, [])
+
   return {
     pageToDwgCoords,
     dwgToPageCoords,
     resetTransform,
+    setTransform,
     transformRef: pageToModelTransformRef,
   }
 }

@@ -168,7 +168,7 @@ export function CaseStudyViewer({
   // ═══════════════════════════════════════════════════════════════════════════
 
   // Coordinate transformation (Page ↔ DWG)
-  const { pageToDwgCoords, dwgToPageCoords } = useCoordinateTransform({
+  const { pageToDwgCoords, dwgToPageCoords, setTransform } = useCoordinateTransform({
     viewerRef,
   })
 
@@ -228,6 +228,7 @@ export function CaseStudyViewer({
     initialPlacementsRef,
     pageToDwgCoords,
     dwgToPageCoords,
+    setTransform,
     setIsLoading,
     setLoadingStage,
     setError,
