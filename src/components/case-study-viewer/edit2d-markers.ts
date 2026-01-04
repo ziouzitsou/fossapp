@@ -103,8 +103,36 @@ export class Edit2DMarkers {
   // Camera change listener (for updating label sizes)
   private boundCameraListener: (() => void) | null = null
 
+  // CSS injection flag (only inject once per page)
+  private static cssInjected = false
+
   constructor(viewer: Viewer3DInstance) {
     this.viewer = viewer
+  }
+
+  /**
+   * Inject CSS for marker label hover effects (once per page)
+   *
+   * Creates smooth scale + glow animation on hover for better interactivity feel.
+   */
+  private static injectHoverStyles() {
+    if (Edit2DMarkers.cssInjected) return
+
+    const style = document.createElement('style')
+    style.id = 'edit2d-marker-hover-styles'
+    style.textContent = `
+      .edit2d-label.marker-hoverable {
+        transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+        cursor: pointer;
+      }
+      .edit2d-label.marker-hoverable:hover {
+        transform: scale(1.15) !important;
+        box-shadow: 0 0 10px rgba(59, 130, 246, 0.8) !important;
+      }
+    `
+    document.head.appendChild(style)
+    Edit2DMarkers.cssInjected = true
+    console.log('[Edit2DMarkers] Hover styles injected')
   }
 
   /**
@@ -132,6 +160,9 @@ export class Edit2DMarkers {
 
       // Set up camera change listener for dynamic label sizing
       this.setupCameraListener()
+
+      // Inject hover CSS (once per page)
+      Edit2DMarkers.injectHoverStyles()
 
       console.log('[Edit2DMarkers] Initialized successfully')
       return true
@@ -217,6 +248,12 @@ export class Edit2DMarkers {
       element.style.minHeight = `${minFontSize}px`
       element.style.fontWeight = '600'
       element.style.textShadow = '0 1px 2px rgba(0,0,0,0.5)'
+
+      // Add hover class to parent container (.edit2d-label)
+      const labelContainer = element.closest('.edit2d-label')
+      if (labelContainer) {
+        labelContainer.classList.add('marker-hoverable')
+      }
     }
   }
 

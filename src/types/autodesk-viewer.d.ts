@@ -367,6 +367,7 @@ declare global {
         }
         TOOL_CHANGE_EVENT: string
         CAMERA_CHANGE_EVENT: string
+        CAMERA_TRANSITION_COMPLETED: string
       }
       /** Edit2D extension namespace with static utilities */
       Edit2D: Edit2DNamespace
