@@ -20,8 +20,9 @@ import type {
   Edit2DExtension,
   Viewer3DInstance,
 } from '@/types/autodesk-viewer'
-// Note: svg-to-edit2d utility exists but Edit2D's Shape.fromSVG() doesn't handle
-// arc commands properly (produces Inf/NaN errors). We use Polygon class directly instead.
+// Note: Edit2D's Shape.fromSVG() doesn't handle arc commands in path strings.
+// Instead, we use native Edit2D classes: PolygonPath.setEllipseArc() for true circles,
+// Polygon for rectangles, and Polyline for lines - giving smooth, accurate shapes.
 
 // Supabase storage URL for product symbols
 const SYMBOLS_BUCKET_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-symbols`
@@ -408,11 +409,13 @@ export class Edit2DMarkers {
   /**
    * Create Edit2D shapes from SVG content
    *
-   * Handles SVG primitives (rect, circle, line) by converting them to Polygon shapes.
-   * Our product SVGs use these primitives rather than complex path data.
+   * Handles SVG primitives using Edit2D's native shape classes:
+   * - <rect> → Polygon (4-point closed shape)
+   * - <circle> → PolygonPath with setEllipseArc() (true circles, not polygon approximations)
+   * - <line> → Polyline (native line primitive)
    *
-   * Note: We use Polygon class directly because Edit2D's Shape.fromSVG() doesn't
-   * handle arc commands properly (produces Inf/NaN errors).
+   * This approach gives smooth, geometrically accurate shapes compared to
+   * polygon approximations or string-based fromSVG() parsing.
    *
    * @returns Array of all shapes created, or null on failure
    */
@@ -423,8 +426,8 @@ export class Edit2DMarkers {
     rotation: number
   ): Edit2DShape[] | null {
     const Edit2D = window.Autodesk?.Edit2D
-    if (!Edit2D?.Polygon) {
-      console.warn('[Edit2DMarkers] Autodesk.Edit2D.Polygon not available')
+    if (!Edit2D?.Polygon || !Edit2D?.PolygonPath || !Edit2D?.Polyline || !Edit2D?.EllipseArcParams) {
+      console.warn('[Edit2DMarkers] Autodesk.Edit2D shape classes not available')
       return null
     }
 
@@ -499,60 +502,66 @@ export class Edit2DMarkers {
         shapes.push(polygon as Edit2DShape)
       })
 
-      // Process <circle> elements → 16-point Polygon (approximation)
+      // Process <circle> elements → PolygonPath with ellipse arcs (true circles)
       svgElement.querySelectorAll('circle').forEach((circle) => {
         const cx = parseFloat(circle.getAttribute('cx') || '0')
         const cy = parseFloat(circle.getAttribute('cy') || '0')
         const r = parseFloat(circle.getAttribute('r') || '0')
         const stroke = circle.getAttribute('stroke') || '#000000'
 
-        const sides = 16
-        const points: Array<{ x: number; y: number }> = []
-        for (let i = 0; i < sides; i++) {
-          const angle = (i / sides) * Math.PI * 2
-          const svgX = cx + Math.cos(angle) * r
-          const svgY = cy + Math.sin(angle) * r
-          points.push(transformPoint(svgX, svgY))
-        }
+        if (r <= 0) return
 
-        const polygon = new Edit2D.Polygon(points)
-        if (polygon.style) {
-          polygon.style.lineColor = stroke
-          polygon.style.lineWidth = scale * 1.5
-          polygon.style.fillAlpha = 0
+        // Transform the two diametrically opposite points (left and right of center)
+        const leftPoint = transformPoint(cx - r, cy)
+        const rightPoint = transformPoint(cx + r, cy)
+
+        // Create PolygonPath with 2 points
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const polygonPath = new Edit2D.PolygonPath([leftPoint, rightPoint]) as any
+
+        // Calculate scaled radius (after transformation)
+        const scaledRadius = r * scale
+
+        // Create arc parameters for the semicircles
+        const params = new Edit2D.EllipseArcParams()
+        params.rx = scaledRadius
+        params.ry = scaledRadius
+        params.rotation = rotation // Apply marker rotation to arcs
+        params.largeArcFlag = false // Semicircle is not "large"
+        params.sweepFlag = true     // Clockwise
+
+        // Apply to both segments (top half and bottom half)
+        polygonPath.setEllipseArc(0, params) // Top arc
+        polygonPath.setEllipseArc(1, params) // Bottom arc
+
+        if (polygonPath.style) {
+          polygonPath.style.lineColor = stroke
+          polygonPath.style.lineWidth = scale * 1.5
+          polygonPath.style.fillAlpha = 0
         }
-        shapes.push(polygon as Edit2DShape)
+        shapes.push(polygonPath as Edit2DShape)
       })
 
-      // Process <line> elements → thin 4-point Polygon
+      // Process <line> elements → Polyline (native Edit2D primitive)
       svgElement.querySelectorAll('line').forEach((line) => {
         const x1 = parseFloat(line.getAttribute('x1') || '0')
         const y1 = parseFloat(line.getAttribute('y1') || '0')
         const x2 = parseFloat(line.getAttribute('x2') || '0')
         const y2 = parseFloat(line.getAttribute('y2') || '0')
         const stroke = line.getAttribute('stroke') || '#000000'
+        const strokeWidth = parseFloat(line.getAttribute('stroke-width') || '1')
 
-        // Create thin rectangle along the line
-        const dx = x2 - x1
-        const dy = y2 - y1
-        const len = Math.sqrt(dx * dx + dy * dy)
-        if (len > 0) {
-          const nx = -dy / len * 0.3  // Normal offset (0.3mm thick)
-          const ny = dx / len * 0.3
-          const linePoints = [
-            transformPoint(x1 + nx, y1 + ny),
-            transformPoint(x2 + nx, y2 + ny),
-            transformPoint(x2 - nx, y2 - ny),
-            transformPoint(x1 - nx, y1 - ny),
-          ]
-          const polygon = new Edit2D.Polygon(linePoints)
-          if (polygon.style) {
-            polygon.style.fillColor = stroke
-            polygon.style.fillAlpha = 1
-            polygon.style.lineWidth = 0
-          }
-          shapes.push(polygon as Edit2DShape)
+        const points = [
+          transformPoint(x1, y1),
+          transformPoint(x2, y2),
+        ]
+
+        const polyline = new Edit2D.Polyline(points)
+        if (polyline.style) {
+          polyline.style.lineColor = stroke
+          polyline.style.lineWidth = strokeWidth * scale
         }
+        shapes.push(polyline as Edit2DShape)
       })
 
       if (shapes.length === 0) {
@@ -569,11 +578,10 @@ export class Edit2DMarkers {
   }
 
   /**
-   * Create a simple polygon shape as fallback marker
+   * Create a circle shape as fallback marker
    *
-   * Uses Edit2D's native Polygon class (16-point circle approximation).
-   * We use Polygon instead of Shape.fromSVG() with arcs because Edit2D's
-   * SVG parser doesn't handle arc commands properly.
+   * Uses Edit2D's native PolygonPath with setEllipseArc() for true circles.
+   * This gives smooth, geometrically accurate circles instead of polygon approximations.
    *
    * @returns Array with single circle shape, or null on failure
    */
@@ -584,8 +592,8 @@ export class Edit2DMarkers {
     _symbol?: string
   ): Edit2DShape[] | null {
     const Edit2D = window.Autodesk?.Edit2D
-    if (!Edit2D?.Polygon) {
-      console.warn('[Edit2DMarkers] Autodesk.Edit2D.Polygon not available')
+    if (!Edit2D?.PolygonPath || !Edit2D?.EllipseArcParams) {
+      console.warn('[Edit2DMarkers] Autodesk.Edit2D PolygonPath/EllipseArcParams not available')
       return null
     }
 
@@ -595,29 +603,34 @@ export class Edit2DMarkers {
       const mmToPageUnits = MM_TO_METERS / (this.modelUnitScale * this.pageToModelScale)
       const radius = radiusMm * mmToPageUnits
 
-      // Create a polygon approximating a circle (16 sides)
-      const sides = 16
-      const points: Array<{ x: number; y: number }> = []
+      // Create PolygonPath with 2 diametrically opposite points
+      const leftPoint = { x: pageX - radius, y: pageY }
+      const rightPoint = { x: pageX + radius, y: pageY }
 
-      for (let i = 0; i < sides; i++) {
-        const angle = (i / sides) * Math.PI * 2
-        points.push({
-          x: pageX + Math.cos(angle) * radius,
-          y: pageY + Math.sin(angle) * radius,
-        })
-      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const polygonPath = new Edit2D.PolygonPath([leftPoint, rightPoint]) as any
 
-      const polygon = new Edit2D.Polygon(points)
+      // Create arc parameters for the semicircles
+      const params = new Edit2D.EllipseArcParams()
+      params.rx = radius
+      params.ry = radius
+      params.rotation = 0
+      params.largeArcFlag = false // Semicircle is not "large"
+      params.sweepFlag = true     // Clockwise
+
+      // Apply to both segments (top half and bottom half)
+      polygonPath.setEllipseArc(0, params) // Top arc
+      polygonPath.setEllipseArc(1, params) // Bottom arc
 
       // Set style (blue fill with white stroke)
-      if (polygon.style) {
-        polygon.style.fillColor = '#3b82f6'
-        polygon.style.fillAlpha = 1
-        polygon.style.lineColor = '#ffffff'
-        polygon.style.lineWidth = radius * 0.15
+      if (polygonPath.style) {
+        polygonPath.style.fillColor = '#3b82f6'
+        polygonPath.style.fillAlpha = 1
+        polygonPath.style.lineColor = '#ffffff'
+        polygonPath.style.lineWidth = radius * 0.15
       }
 
-      return [polygon as Edit2DShape]
+      return [polygonPath as Edit2DShape]
     } catch (err) {
       console.error('[Edit2DMarkers] Failed to create circle shape:', err)
       return null
