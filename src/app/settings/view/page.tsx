@@ -172,10 +172,11 @@ export default function ViewSettingsPage() {
             <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
               <span className="text-sm text-muted-foreground">Preview:</span>
               <span
-                className="font-semibold text-blue-400"
+                className="font-semibold text-white px-1.5 py-0.5 rounded"
                 style={{
                   fontSize: Math.max(8, Math.round(preferences.marker_min_screen_px * 0.6)),
                   textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                  backgroundColor: 'rgb(59, 130, 246)',
                 }}
               >
                 A1
