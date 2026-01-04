@@ -330,10 +330,14 @@ export function CaseStudyViewer({
   // Effect to apply symbol group visibility
   // When hiddenSymbolGroups changes, show/hide markers accordingly
   useEffect(() => {
-    if (!markupMarkersRef.current || isLoading) return
+    if (isLoading) return
     if (!hiddenSymbolGroups) return
 
-    markupMarkersRef.current.applyHiddenGroups(hiddenSymbolGroups)
+    // Apply to MarkupsCore markers (legacy)
+    markupMarkersRef.current?.applyHiddenGroups(hiddenSymbolGroups)
+
+    // Apply to Edit2D markers (Phase 4B)
+    edit2dMarkersRef.current?.applyHiddenGroups(hiddenSymbolGroups)
   }, [hiddenSymbolGroups, isLoading])
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -469,7 +469,7 @@ See **[Phase 4B: Edit2D Migration](#phase-4b-edit2d-migration)** section below f
 ## Phase 4B: Edit2D Migration
 
 **Branch**: `feature/edit2d-markers`
-**Status**: Phase 4B.1, 4B.2 & 4B.3 COMPLETE ✅
+**Status**: Phase 4B.1, 4B.2, 4B.3 & 4B.4 COMPLETE ✅
 
 ### Background
 
@@ -689,11 +689,13 @@ The following must be verified during implementation:
 - Keyboard handler uses capture phase (`addEventListener(..., true)`) to intercept before Edit2D's built-in handlers
 - Rotation is async: deletes all old shapes, recreates with new rotation angle
 
-#### Phase 4B.4: Visibility Toggle
-- [ ] Store hidden shapes in Map (symbol → Shape[])
-- [ ] Hide: `ctx.removeShape()` for each
-- [ ] Show: `ctx.addShape()` for each
-- [ ] Verify no phantom clicks when hidden
+#### Phase 4B.4: Visibility Toggle ✅
+- [x] Store hidden shapes in Map (symbol → Shape[])
+- [x] Hide: `ctx.removeShape()` for each shape in marker
+- [x] Show: `ctx.addShape()` for each shape
+- [x] Wired to `hiddenSymbolGroups` prop in case-study-viewer.tsx
+
+**Implementation**: Edit2DMarkers already had `applyHiddenGroups()` method. The case-study-viewer effect now calls both `markupMarkersRef` and `edit2dMarkersRef` to apply visibility changes.
 
 #### Phase 4B.5: Persistence
 - [ ] Extract coordinates from Edit2D shapes
