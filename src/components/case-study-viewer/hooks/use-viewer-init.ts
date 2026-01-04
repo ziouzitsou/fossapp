@@ -490,6 +490,24 @@ export function useViewerInit({
                         isSnapped: coords.isSnapped,
                         snapType: coords.snapType,
                       })
+
+                      // Phase 4B: Also create Edit2D marker (runs in parallel with MarkupMarkers)
+                      if (edit2dMarkersRef.current) {
+                        edit2dMarkersRef.current.addMarker(
+                          coords.worldX,  // page coords
+                          coords.worldY,
+                          {
+                            productId: mode.productId,
+                            projectProductId: mode.projectProductId,
+                            productName: mode.fossPid || mode.description,
+                            fossPid: mode.fossPid,
+                            symbol: mode.symbol,
+                          },
+                          placementId,
+                          0  // Initial rotation
+                        )
+                      }
+
                       // Store DWG model space coordinates for persistence / LISP export
                       onPlacementAddRef.current?.({
                         id: placementId,
@@ -528,34 +546,56 @@ export function useViewerInit({
 
               // Render initial placements (loaded from database)
               // Placements store DWG coords, convert to page coords for marker positioning
-              if (initialPlacementsRef.current?.length && markupMarkersRef.current) {
+              if (initialPlacementsRef.current?.length) {
                 console.log('[useViewerInit] Rendering', initialPlacementsRef.current.length, 'initial placements')
                 for (const placement of initialPlacementsRef.current) {
                   if (renderedPlacementIdsRef.current.has(placement.id)) continue
 
                   // Convert DWG coords (from database) to page coords for marker positioning
                   const pageCoords = dwgToPageCoords(placement.worldX, placement.worldY)
-                  markupMarkersRef.current.addMarkerAtWorld(
-                    pageCoords.x,
-                    pageCoords.y,
-                    0, // Z coord
-                    {
-                      productId: placement.productId,
-                      projectProductId: placement.projectProductId,
-                      productName: placement.productName,
-                      fossPid: placement.fossPid,  // FOSS product ID for SVG symbol lookup
-                      symbol: placement.symbol,  // Symbol label from database
-                    },
-                    placement.id,
-                    placement.rotation  // Initial rotation from database
-                  )
+
+                  // MarkupsCore markers (legacy)
+                  if (markupMarkersRef.current) {
+                    markupMarkersRef.current.addMarkerAtWorld(
+                      pageCoords.x,
+                      pageCoords.y,
+                      0, // Z coord
+                      {
+                        productId: placement.productId,
+                        projectProductId: placement.projectProductId,
+                        productName: placement.productName,
+                        fossPid: placement.fossPid,  // FOSS product ID for SVG symbol lookup
+                        symbol: placement.symbol,  // Symbol label from database
+                      },
+                      placement.id,
+                      placement.rotation  // Initial rotation from database
+                    )
+                  }
+
+                  // Phase 4B: Edit2D markers (runs in parallel)
+                  if (edit2dMarkersRef.current) {
+                    edit2dMarkersRef.current.addMarker(
+                      pageCoords.x,
+                      pageCoords.y,
+                      {
+                        productId: placement.productId,
+                        projectProductId: placement.projectProductId,
+                        productName: placement.productName,
+                        fossPid: placement.fossPid,
+                        symbol: placement.symbol,
+                      },
+                      placement.id,
+                      placement.rotation
+                    )
+                  }
+
                   renderedPlacementIdsRef.current.add(placement.id)
                 }
                 console.log('[useViewerInit] Initial placements rendered')
               }
 
-              // Activate pan tool by default (mouse wheel zooms, drag pans)
-              viewer.toolController.activateTool('pan')
+              // Note: polygonEditTool is already activated for Edit2D marker selection
+              // Pan/zoom still works via mouse wheel and right-click drag
               setIsLoading(false)
               onReadyRef.current?.(viewer)
               resolve()

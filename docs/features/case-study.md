@@ -469,7 +469,7 @@ See **[Phase 4B: Edit2D Migration](#phase-4b-edit2d-migration)** section below f
 ## Phase 4B: Edit2D Migration
 
 **Branch**: `feature/edit2d-markers`
-**Status**: Phase 4B.1, 4B.2, 4B.3 & 4B.4 COMPLETE ✅
+**Status**: Phase 4B.1 through 4B.5 COMPLETE ✅
 
 ### Background
 
@@ -697,11 +697,13 @@ The following must be verified during implementation:
 
 **Implementation**: Edit2DMarkers already had `applyHiddenGroups()` method. The case-study-viewer effect now calls both `markupMarkersRef` and `edit2dMarkersRef` to apply visibility changes.
 
-#### Phase 4B.5: Persistence
-- [ ] Extract coordinates from Edit2D shapes
-- [ ] Convert to DWG coordinates for database
-- [ ] Load placements → create shapes at positions
-- [ ] Ensure rotation is preserved
+#### Phase 4B.5: Persistence ✅
+- [x] Wire PlacementTool callback to also create Edit2D markers
+- [x] Load initial placements from database → create Edit2D markers
+- [x] Both MarkupsCore and Edit2D markers created in parallel for testing
+- [x] Rotation preserved when loading from database
+
+**Note**: Coordinate extraction already works - Edit2D markers store pageX/pageY which are converted to DWG coords for database storage. Move detection updates stored coords when shapes are dragged.
 
 #### Phase 4B.6: Cleanup
 - [ ] Remove `MarkupMarkers` class
