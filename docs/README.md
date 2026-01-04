@@ -6,7 +6,7 @@
 
 ---
 
-## Monorepo (v1.12.4+)
+## Monorepo (v1.13.4)
 
 FOSSAPP uses Turborepo with 5 shared packages. **Always check packages before writing new code.**
 
@@ -14,8 +14,6 @@ FOSSAPP uses Turborepo with 5 shared packages. **Always check packages before wr
 |----------|-------------|
 | [CLAUDE.md](../CLAUDE.md) | Package structure, import patterns, key guidelines |
 | [monorepo-development-guidelines.md](../.claude/monorepo-development-guidelines.md) | Full development patterns |
-| [MIGRATION_PROGRESS.md](../MIGRATION_PROGRESS.md) | Migration history and decisions |
-| [monorepo-examples/](./monorepo-examples/) | Example code patterns |
 
 ---
 
@@ -79,7 +77,7 @@ Feature-specific documentation.
 | [user-monitoring.md](./features/user-monitoring.md) | User access analytics |
 | [supplier-logos.md](./features/supplier-logos.md) | Supplier logo guidelines |
 | [whats-new.md](./features/whats-new.md) | What's New dialog system (releases.json) |
-| [project-management/](./features/project-management/) | Project management feature (6 docs) |
+| [project-management/](./features/project-management/) | Project management feature (7 docs) |
 
 ---
 
@@ -113,11 +111,13 @@ Historical and completed migration docs.
 | Document | Description |
 |----------|-------------|
 | [nextjs-16-migration.md](./archive/nextjs-16-migration.md) | Next.js 16 migration (completed) |
-| [nextauth-v5-guide.md](./archive/nextauth-v5-guide.md) | NextAuth v5 migration (future) |
+| [NEXTJS_16_UPGRADE.md](./archive/NEXTJS_16_UPGRADE.md) | Next.js 16 upgrade checklist |
+| [nextauth-v5-guide.md](./archive/nextauth-v5-guide.md) | NextAuth v5 migration guide |
 | [SHADCN_MIGRATION_TASKS.md](./archive/SHADCN_MIGRATION_TASKS.md) | shadcn migration (completed) |
 | [icons_migration.md](./archive/icons_migration.md) | Icons migration (completed) |
 | [planner-legacy.md](./archive/planner-legacy.md) | Old planner (replaced by Case Study) |
+| [monorepo-examples/](./archive/monorepo-examples/) | Monorepo migration code examples |
 
 ---
 
-**Last Updated**: 2026-01-02 (Case Study docs consolidated, planner archived)
+**Last Updated**: 2026-01-04 (Documentation audit - fixed broken references, updated counts)

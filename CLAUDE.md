@@ -4,7 +4,7 @@ Essential guidance for Claude Code. For detailed docs, see [docs/README.md](./do
 
 ---
 
-## Monorepo Architecture (v1.12.4+)
+## Monorepo Architecture (v1.13.4)
 
 FOSSAPP uses **Turborepo** with shared packages. **ALWAYS check packages first** before writing new code.
 
@@ -13,7 +13,7 @@ FOSSAPP uses **Turborepo** with shared packages. **ALWAYS check packages first**
 | Package | Contents | Import Pattern |
 |---------|----------|----------------|
 | `@fossapp/core` | DB clients, logging, ratelimit, config, validation | `@fossapp/core`, `@fossapp/core/db`, `@fossapp/core/config` |
-| `@fossapp/ui` | 35 shadcn components, theme, hooks, cn utility | `@fossapp/ui` |
+| `@fossapp/ui` | 38 shadcn components, theme, hooks, cn utility | `@fossapp/ui` |
 | `@fossapp/products` | Product types, search actions | `@fossapp/products/types`, `@fossapp/products/actions` |
 | `@fossapp/tiles` | Tile types, progress store, script generator | `@fossapp/tiles/types`, `@fossapp/tiles/progress` |
 | `@fossapp/projects` | Project/area types | `@fossapp/projects`, `@fossapp/projects/types/areas` |
@@ -42,7 +42,6 @@ import { Button } from '@/components/ui/button'          // DELETED
 ### Key Guidelines
 
 - `.claude/monorepo-development-guidelines.md` - Full development patterns
-- `MIGRATION_PROGRESS.md` - Migration history and decisions
 - Recovery tag: `pre-monorepo-refactor` (v1.12.3) if rollback needed
 
 ---
@@ -94,7 +93,6 @@ src/app/projects/[id]/
 **Skip**: Trivial getters, obvious one-liners, barrel exports.
 
 **Full details**: `.claude/skills/coding-patterns/SKILL.md` → "JSDoc Documentation"
-**Enhancement prompt**: `.claude/prompts/jsdoc-enhancement.md`
 
 ---
 
@@ -109,6 +107,8 @@ Claude Code has access to specialized skills that provide domain knowledge autom
 | **supabase-patterns** | Database queries | N/A (automatic) |
 | **autolisp-dwg** | Working with DWG features | N/A (automatic) |
 | **deployment-workflow** | Pre-deployment checks | N/A (automatic) |
+| **api-patterns** | Creating API routes | N/A (automatic) |
+| **knowledge-base-sync** | Feature changes (routes/actions) | N/A (automatic) |
 
 **CRITICAL**: The `viewer-api` skill requires querying Context7 FIRST before implementing any Viewer/Edit2D features. The viewer is 85% of user interaction - quality is non-negotiable.
 
@@ -182,7 +182,7 @@ import { supabase } from '@/lib/supabase'
 | File | Purpose |
 |------|---------|
 | `packages/core/src/db/server.ts` | Server DB client (service role) |
-| `packages/ui/src/components/` | 35 shadcn UI components |
+| `packages/ui/src/components/` | 38 shadcn UI components |
 | `src/lib/supabase.ts` | Client DB client (anon key) |
 | `src/lib/actions/` | Server actions by domain |
 | `src/lib/auth.ts` | NextAuth configuration |
@@ -218,7 +218,7 @@ See [docs/features/feedback-assistant.md](./docs/features/feedback-assistant.md)
 ```
 packages/                    # Shared monorepo packages
 ├── core/                    # DB clients, logging, ratelimit, config, validation
-├── ui/                      # 35 shadcn components, theme, hooks
+├── ui/                      # 38 shadcn components, theme, hooks
 ├── products/                # Product types + server actions
 ├── tiles/                   # Tile types, progress store, script generator
 └── projects/                # Project/area types
@@ -239,7 +239,7 @@ src/
 | Products | `/products` | [features/product-search.md](./docs/features/product-search.md) |
 | Filters | `/products` | [features/filters.md](./docs/features/filters.md) |
 | Tiles | `/tiles` | [features/tiles.md](./docs/features/tiles.md) |
-| Symbols | `/symbol-generator` | [features/symbol-generator.md](./docs/features/symbol-generator.md) |
+| Symbols | `/settings/symbols` | [features/symbol-generator.md](./docs/features/symbol-generator.md) |
 | Playground | `/playground` | [features/playground.md](./docs/features/playground.md) |
 | Projects | `/projects` | [features/project-management/](./docs/features/project-management/) |
 | Case Study | `/case-study` | [features/case-study.md](./docs/features/case-study.md) |
@@ -334,4 +334,4 @@ See [docs/deployment/checklist.md](./docs/deployment/checklist.md) for full work
 
 ---
 
-**Last Updated**: 2025-12-27 (v1.12.5 - Theming system with OKLch colors)
+**Last Updated**: 2026-01-04 (v1.13.4 - Documentation audit and reorganization)
