@@ -208,9 +208,6 @@ export function addProgress(
 
   job.messages.push(progressMsg)
 
-  // Also log to console for server monitoring
-  console.log(`[${elapsed}s] ${step ? `${step}: ` : ''}${message}${detail ? ` - ${detail}` : ''}`)
-
   // Notify all subscribers
   const subs = subscribers.get(jobId)
   if (subs) {
@@ -278,7 +275,6 @@ export function completeJob(
   }
 
   job.messages.push(progressMsg)
-  console.log(`[${elapsed}s] ${progressMsg.message} - ${progressMsg.detail}`)
 
   // Notify all subscribers
   const subs = subscribers.get(jobId)

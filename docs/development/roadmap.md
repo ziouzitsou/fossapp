@@ -2,7 +2,7 @@
 
 Internal tracking for planned improvements, tech debt, and future features.
 
-**Last Updated**: 2026-01-03
+**Last Updated**: 2026-01-04
 
 ---
 
@@ -25,16 +25,7 @@ _No high-priority items currently planned._
 
 ## Tech Debt
 
-### Remove Development Console.log Statements
-- **Status**: `planned`
-- **Added**: 2025-12-22
-- **Description**: Replace or remove console.log in production code
-- **Locations**:
-  - `src/lib/tiles/google-drive-tile-service.ts`
-  - `src/lib/tiles/progress-store.ts`
-  - `src/components/case-study-viewer/case-study-viewer.tsx`
-- **Solution**: Use conditional logging utility or remove entirely
-- **Effort**: Low
+_No tech debt items currently planned._
 
 ---
 
@@ -57,6 +48,17 @@ _Items here are ideas, not yet approved for implementation._
 ## Completed
 
 _Move items here when done, then transfer to release notes._
+
+### Remove Development Console.log Statements
+- **Status**: `done`
+- **Completed**: 2026-01-04
+- **Release**: v1.13.x
+- **Description**: Removed console.log statements from production code
+- **Files cleaned**:
+  - `src/lib/tiles/google-drive-tile-service.ts` (8 statements)
+  - `packages/tiles/src/progress/progress-store.ts` (2 statements)
+  - `src/components/case-study-viewer/case-study-viewer.tsx` (already clean)
+- **Note**: `progress-store.ts` moved to packages during monorepo migration
 
 ### AI-Powered Feedback Assistant
 - **Status**: `done`

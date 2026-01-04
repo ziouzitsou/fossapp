@@ -246,7 +246,10 @@ export class Edit2DMarkers {
       if (!allSelected) {
         this.isSelectingSiblings = true
         try {
-          this.ctx.selection.setSelection(allMarkerShapes)
+          // Clear and re-select all shapes in the group
+          const selection = this.ctx.selection
+          selection.clear()
+          allMarkerShapes.forEach(shape => selection.addToSelection(shape))
         } finally {
           this.isSelectingSiblings = false
         }

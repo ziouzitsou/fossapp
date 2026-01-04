@@ -72,7 +72,6 @@ class GoogleDriveTileService {
     // Find or create TILES folder inside RESOURCES
     let tilesFolder = await this.findFolder('TILES', resourcesFolder.id!)
     if (!tilesFolder) {
-      console.log('Creating TILES folder in RESOURCES...')
       tilesFolder = await this.createFolder('TILES', resourcesFolder.id!)
     }
 
@@ -106,23 +105,20 @@ class GoogleDriveTileService {
           const existingBak = await this.findFolder(bakName, tilesFolderId)
           if (existingBak) {
             await this.deleteFolder(existingBak.id!)
-            console.log(`Deleted old backup: ${bakName}`)
           }
         } catch {
-          console.log(`Could not delete old backup (may not exist): ${bakName}`)
+          // Backup may not exist, continue
         }
         // Rename existing folder to .BAK (ignore errors if folder no longer exists)
         try {
           await this.renameFolder(existingFolder.id!, bakName)
-          console.log(`Renamed existing folder to: ${bakName}`)
         } catch {
-          console.log(`Could not rename existing folder (may not exist): ${tileName}`)
+          // Folder may have been deleted, continue
         }
       }
 
       // Create new tile folder
       const tileFolder = await this.createFolder(tileName, tilesFolderId)
-      console.log(`Created tile folder: ${tileName}`)
 
       const tileFolderId = tileFolder.id!
       const tileFolderLink = `https://drive.google.com/drive/folders/${tileFolderId}`
@@ -174,7 +170,6 @@ class GoogleDriveTileService {
       }
 
       // Upload all files in parallel
-      console.log(`Uploading ${uploadTasks.length} files in parallel...`)
       const uploadResults = await Promise.allSettled(
         uploadTasks.map(async (task) => {
           const file = await this.uploadFile(task.name, task.buffer, task.mimeType, tileFolderId)
@@ -185,13 +180,12 @@ class GoogleDriveTileService {
       // Process results
       for (const result of uploadResults) {
         if (result.status === 'fulfilled') {
-          const { name, type, file } = result.value
+          const { file } = result.value
           uploadedFiles.push({
             id: file.id!,
             name: file.name!,
             webViewLink: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`
           })
-          console.log(`Uploaded ${type}: ${name}`)
         } else {
           const msg = `Upload failed: ${result.reason instanceof Error ? result.reason.message : 'Unknown error'}`
           errors.push(msg)
