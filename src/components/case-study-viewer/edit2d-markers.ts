@@ -68,8 +68,10 @@ export class Edit2DMarkers {
   private edit2d: Edit2DExtension | null = null
   private ctx: Edit2DContext | null = null
 
-  // Shape tracking: marker ID -> Edit2D shape
-  private shapes: Map<string, Edit2DShape> = new Map()
+  // Shape tracking: marker ID -> array of Edit2D shapes (SVG markers have multiple shapes)
+  private shapes: Map<string, Edit2DShape[]> = new Map()
+  // Reverse lookup: shape ID -> marker ID (for selection handling)
+  private shapeToMarker: Map<number, string> = new Map()
   // Marker data: marker ID -> marker data
   private markerData: Map<string, Edit2DMarkerData> = new Map()
   // Label tracking: marker ID -> label shape (for cleanup)
@@ -165,9 +167,16 @@ export class Edit2DMarkers {
 
   /**
    * Handle Edit2D selection change events
+   *
+   * Also checks if the previously selected marker moved (drag detection).
    */
   private handleSelectionChanged() {
     if (!this.ctx?.selection) return
+
+    // Before updating selection, check if the previously selected marker moved
+    if (this.selectedId) {
+      this.checkForMoveAndUpdate(this.selectedId)
+    }
 
     const selectedShapes = this.ctx.selection.getSelectedShapes()
 
@@ -180,16 +189,50 @@ export class Edit2DMarkers {
       return
     }
 
-    // Find the marker ID for the selected shape
+    // Find the marker ID using the reverse lookup
     const selectedShape = selectedShapes[0]
-    for (const [id, shape] of this.shapes) {
-      if (shape.id === selectedShape.id) {
-        if (this.selectedId !== id) {
-          this.selectedId = id
-          this.callbacks.onSelect?.(id)
-        }
-        return
-      }
+    const markerId = this.shapeToMarker.get(selectedShape.id)
+
+    if (markerId && this.selectedId !== markerId) {
+      this.selectedId = markerId
+      this.callbacks.onSelect?.(markerId)
+    }
+  }
+
+  /**
+   * Check if a marker's shapes have moved and update stored coordinates
+   *
+   * Called on selection change to detect drag completion.
+   */
+  private checkForMoveAndUpdate(markerId: string) {
+    const data = this.markerData.get(markerId)
+    const shapes = this.shapes.get(markerId)
+
+    if (!data || !shapes || shapes.length === 0) return
+
+    // Get the first shape's bounding box center as the marker position
+    const firstShape = shapes[0]
+    const bbox = firstShape.getBBox?.()
+    if (!bbox) return
+
+    const newX = (bbox.min.x + bbox.max.x) / 2
+    const newY = (bbox.min.y + bbox.max.y) / 2
+
+    // Check if position changed significantly (more than 0.1 page units)
+    const dx = Math.abs(newX - data.pageX)
+    const dy = Math.abs(newY - data.pageY)
+    const moveThreshold = 0.1
+
+    if (dx > moveThreshold || dy > moveThreshold) {
+      console.log(`[Edit2DMarkers] Detected move: ${markerId} from (${data.pageX.toFixed(2)}, ${data.pageY.toFixed(2)}) to (${newX.toFixed(2)}, ${newY.toFixed(2)})`)
+
+      // Update stored coordinates
+      data.pageX = newX
+      data.pageY = newY
+      this.markerData.set(markerId, data)
+
+      // Notify callback
+      this.callbacks.onMove?.(markerId, newX, newY)
     }
   }
 
@@ -201,7 +244,8 @@ export class Edit2DMarkers {
 
   private setupKeyboardListeners() {
     this.boundKeyHandler = this.handleKeyDown.bind(this)
-    window.addEventListener('keydown', this.boundKeyHandler)
+    // Use capture phase to intercept BEFORE Edit2D's handlers
+    window.addEventListener('keydown', this.boundKeyHandler, true)
   }
 
   private handleKeyDown(e: KeyboardEvent) {
@@ -209,15 +253,17 @@ export class Edit2DMarkers {
     const target = e.target as HTMLElement
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
 
-    // Delete selected marker
+    // Delete selected marker (all shapes)
     if (this.selectedId && (e.key === 'Delete' || e.key === 'Backspace')) {
       e.preventDefault()
+      e.stopPropagation()  // Prevent Edit2D from deleting individual shapes
       this.deleteMarker(this.selectedId)
     }
 
     // Rotate selected marker by 15 degrees
     if (this.selectedId && (e.key === 'r' || e.key === 'R')) {
       e.preventDefault()
+      e.stopPropagation()
       this.rotateMarker(this.selectedId, 15)
     }
   }
@@ -306,7 +352,7 @@ export class Edit2DMarkers {
     const isHidden = data.symbol ? this.hiddenGroups.has(data.symbol) : false
 
     // Try to load SVG symbol
-    let shape: Edit2DShape | null = null
+    let shapes: Edit2DShape[] | null = null
     const fossPid = data.fossPid || data.productName
     console.log('[Edit2DMarkers] addMarker: fossPid =', fossPid)
 
@@ -315,34 +361,39 @@ export class Edit2DMarkers {
       console.log('[Edit2DMarkers] addMarker: svgContent =', svgContent ? `${svgContent.length} chars` : 'null')
       if (svgContent) {
         console.log('[Edit2DMarkers] addMarker: calling createShapeFromSvg')
-        shape = this.createShapeFromSvg(svgContent, pageX, pageY, rotation)
-        console.log('[Edit2DMarkers] addMarker: createShapeFromSvg returned', shape ? 'shape' : 'null')
+        shapes = this.createShapeFromSvg(svgContent, pageX, pageY, rotation)
+        console.log('[Edit2DMarkers] addMarker: createShapeFromSvg returned', shapes ? `${shapes.length} shapes` : 'null')
       }
     }
 
     // Fall back to circle marker if no SVG
-    if (!shape) {
+    if (!shapes) {
       console.log('[Edit2DMarkers] addMarker: falling back to createCircleShape')
-      shape = this.createCircleShape(pageX, pageY, rotation, data.symbol)
-      console.log('[Edit2DMarkers] addMarker: createCircleShape returned', shape ? 'shape' : 'null')
+      shapes = this.createCircleShape(pageX, pageY, rotation, data.symbol)
+      console.log('[Edit2DMarkers] addMarker: createCircleShape returned', shapes ? `${shapes.length} shapes` : 'null')
     }
 
-    if (!shape) {
-      console.error('[Edit2DMarkers] Failed to create shape')
+    if (!shapes || shapes.length === 0) {
+      console.error('[Edit2DMarkers] Failed to create shapes')
       return null
     }
 
-    // Store the marker
-    this.shapes.set(markerId, shape)
+    // Store the marker (all shapes) and populate reverse lookup
+    this.shapes.set(markerId, shapes)
+    for (const shape of shapes) {
+      this.shapeToMarker.set(shape.id, markerId)
+    }
     this.markerData.set(markerId, markerData)
 
-    // Add to layer (only if not hidden)
+    // Add all shapes to layer (only if not hidden)
     if (!isHidden) {
-      this.ctx.addShape(shape)
+      for (const shape of shapes) {
+        this.ctx.addShape(shape)
+      }
 
-      // Add label if symbol is provided
-      if (data.symbol) {
-        this.addLabelToShape(markerId, shape, data.symbol)
+      // Add label to first shape if symbol is provided
+      if (data.symbol && shapes[0]) {
+        this.addLabelToShape(markerId, shapes[0], data.symbol)
       }
     }
 
@@ -358,14 +409,14 @@ export class Edit2DMarkers {
    * Handles SVG primitives (rect, circle, line) by converting them to Polygon shapes.
    * Our product SVGs use these primitives rather than complex path data.
    *
-   * @returns The first shape created (typically the boundary rect), or null on failure
+   * @returns Array of all shapes created, or null on failure
    */
   private createShapeFromSvg(
     svgContent: string,
     pageX: number,
     pageY: number,
     rotation: number
-  ): Edit2DShape | null {
+  ): Edit2DShape[] | null {
     const Edit2D = window.Autodesk?.Edit2D
     if (!Edit2D?.Polygon) {
       console.warn('[Edit2DMarkers] Autodesk.Edit2D.Polygon not available')
@@ -513,16 +564,8 @@ export class Edit2DMarkers {
 
       console.log(`[Edit2DMarkers] Created ${shapes.length} shapes from SVG (${vbWidth}x${vbHeight}mm)`)
 
-      // Return the first shape (boundary rect) - we could also group them
-      // For now, add all shapes to context except return the first
-      // Note: The caller will add the returned shape, we need to add the rest here
-      if (shapes.length > 1 && this.ctx) {
-        for (let i = 1; i < shapes.length; i++) {
-          this.ctx.addShape(shapes[i])
-        }
-      }
-
-      return shapes[0]
+      // Return all shapes - caller will add them to context and track them
+      return shapes
     } catch (err) {
       console.error('[Edit2DMarkers] Failed to create shapes from SVG:', err)
       return null
@@ -534,13 +577,15 @@ export class Edit2DMarkers {
    *
    * Uses Edit2D's native Polygon class instead of SVG parsing
    * to avoid "Inf or NaN" warnings from bezier curve parsing.
+   *
+   * @returns Array with single circle shape, or null on failure
    */
   private createCircleShape(
     pageX: number,
     pageY: number,
     rotation: number,
     symbol?: string
-  ): Edit2DShape | null {
+  ): Edit2DShape[] | null {
     console.log('[Edit2DMarkers] createCircleShape:', { pageX: pageX.toFixed(2), pageY: pageY.toFixed(2), symbol })
 
     // Check for Polygon class (preferred) or fall back to Shape.fromSVG
@@ -585,7 +630,7 @@ export class Edit2DMarkers {
           polygon.style.lineWidth = radius * 0.15
         }
 
-        return polygon as Edit2DShape
+        return [polygon as Edit2DShape]
       }
 
       // Fallback: try PolyBase or direct loop manipulation
@@ -613,7 +658,7 @@ export class Edit2DMarkers {
         shape.style.lineWidth = radius * 0.15
       }
 
-      return shape
+      return [shape]
     } catch (err) {
       console.error('[Edit2DMarkers] Failed to create polygon shape:', err)
       return null
@@ -654,9 +699,10 @@ export class Edit2DMarkers {
       return
     }
 
-    const shape = this.shapes.get(id)
-    if (shape) {
-      this.ctx.selection.selectOnly(shape)
+    const shapes = this.shapes.get(id)
+    if (shapes && shapes.length > 0) {
+      // Select the first shape (typically the boundary rect)
+      this.ctx.selection.selectOnly(shapes[0])
       this.selectedId = id
       this.callbacks.onSelect?.(id)
     }
@@ -668,10 +714,13 @@ export class Edit2DMarkers {
   deleteMarker(id: string) {
     if (!this.ctx) return
 
-    const shape = this.shapes.get(id)
-    if (shape) {
-      // Remove from layer
-      this.ctx.removeShape(shape)
+    const shapes = this.shapes.get(id)
+    if (shapes) {
+      // Remove all shapes from layer and reverse lookup
+      for (const shape of shapes) {
+        this.ctx.removeShape(shape)
+        this.shapeToMarker.delete(shape.id)
+      }
 
       // Remove label if exists
       const label = this.labels.get(id)
@@ -691,32 +740,84 @@ export class Edit2DMarkers {
       }
 
       this.callbacks.onDelete?.(id)
-      console.log(`[Edit2DMarkers] Deleted marker: ${id}`)
+      console.log(`[Edit2DMarkers] Deleted marker: ${id} (${shapes.length} shapes removed)`)
     }
   }
 
   /**
    * Rotate a marker by delta degrees
+   *
+   * Recreates all shapes with the new rotation angle.
+   * This is more reliable than trying to transform existing shapes.
    */
-  rotateMarker(id: string, deltaDegrees: number) {
+  async rotateMarker(id: string, deltaDegrees: number) {
     const data = this.markerData.get(id)
-    const shape = this.shapes.get(id)
+    const existingShapes = this.shapes.get(id)
 
-    if (!data || !shape) return
+    if (!data || !existingShapes || !this.ctx) return
 
-    // Calculate new rotation
-    const newRotation = (data.rotation + deltaDegrees) % 360
+    // Calculate new rotation (normalize to 0-360)
+    let newRotation = (data.rotation + deltaDegrees) % 360
+    if (newRotation < 0) newRotation += 360
 
-    // Update stored data
+    // Remove old shapes from layer and reverse lookup
+    for (const shape of existingShapes) {
+      this.ctx.removeShape(shape)
+      this.shapeToMarker.delete(shape.id)
+    }
+
+    // Remove label if exists
+    const label = this.labels.get(id)
+    if (label) {
+      this.labels.delete(id)
+    }
+
+    // Update stored rotation
     data.rotation = newRotation
     this.markerData.set(id, data)
 
-    // Apply rotation transform to shape
-    // For now, we recreate the shape - Edit2D rotation API needs investigation
-    // TODO: Use proper Edit2D rotation when we understand the API better
+    // Recreate shapes with new rotation
+    let newShapes: Edit2DShape[] | null = null
+    const fossPid = data.fossPid || data.productName
+
+    if (fossPid) {
+      const svgContent = await this.fetchSymbolSvg(fossPid)
+      if (svgContent) {
+        newShapes = this.createShapeFromSvg(svgContent, data.pageX, data.pageY, newRotation)
+      }
+    }
+
+    // Fall back to circle if no SVG
+    if (!newShapes) {
+      newShapes = this.createCircleShape(data.pageX, data.pageY, newRotation, data.symbol)
+    }
+
+    if (!newShapes || newShapes.length === 0) {
+      console.error(`[Edit2DMarkers] Failed to recreate shapes for rotation: ${id}`)
+      return
+    }
+
+    // Store new shapes and update reverse lookup
+    this.shapes.set(id, newShapes)
+    for (const shape of newShapes) {
+      this.shapeToMarker.set(shape.id, id)
+    }
+
+    // Add new shapes to layer (only if not hidden)
+    const isHidden = data.symbol ? this.hiddenGroups.has(data.symbol) : false
+    if (!isHidden) {
+      for (const shape of newShapes) {
+        this.ctx.addShape(shape)
+      }
+
+      // Re-add label
+      if (data.symbol && newShapes[0]) {
+        this.addLabelToShape(id, newShapes[0], data.symbol)
+      }
+    }
 
     this.callbacks.onRotate?.(id, newRotation)
-    console.log(`[Edit2DMarkers] Rotated marker ${id} to ${newRotation} degrees`)
+    console.log(`[Edit2DMarkers] Rotated marker ${id} to ${newRotation}°`)
   }
 
   /**
@@ -749,9 +850,11 @@ export class Edit2DMarkers {
 
     for (const [id, data] of this.markerData) {
       if (data.symbol === symbol) {
-        const shape = this.shapes.get(id)
-        if (shape) {
-          this.ctx.removeShape(shape)
+        const shapes = this.shapes.get(id)
+        if (shapes) {
+          for (const shape of shapes) {
+            this.ctx.removeShape(shape)
+          }
           hiddenCount++
         }
       }
@@ -772,9 +875,11 @@ export class Edit2DMarkers {
 
     for (const [id, data] of this.markerData) {
       if (data.symbol === symbol) {
-        const shape = this.shapes.get(id)
-        if (shape) {
-          this.ctx.addShape(shape)
+        const shapes = this.shapes.get(id)
+        if (shapes) {
+          for (const shape of shapes) {
+            this.ctx.addShape(shape)
+          }
           restoredCount++
         }
       }
@@ -822,6 +927,7 @@ export class Edit2DMarkers {
     }
 
     this.shapes.clear()
+    this.shapeToMarker.clear()
     this.markerData.clear()
     this.labels.clear()
     this.hiddenGroups.clear()
@@ -832,9 +938,9 @@ export class Edit2DMarkers {
    * Dispose and cleanup
    */
   dispose() {
-    // Remove keyboard listener
+    // Remove keyboard listener (must match capture: true from setup)
     if (this.boundKeyHandler) {
-      window.removeEventListener('keydown', this.boundKeyHandler)
+      window.removeEventListener('keydown', this.boundKeyHandler, true)
       this.boundKeyHandler = null
     }
 

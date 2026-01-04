@@ -389,7 +389,30 @@ export function useViewerInit({
                       edit2dMarkers.setUnitScales(modelUnitScale, extractedPageToModelScale)
                     }
 
-                    console.log('[useViewerInit] Edit2DMarkers initialized')
+                    // Wire up callbacks (same pattern as MarkupMarkers)
+                    edit2dMarkers.setCallbacks({
+                      onSelect: (id) => {
+                        console.log('[useViewerInit] Edit2D marker selected:', id)
+                        setHasSelectedMarker(id !== null)
+                      },
+                      onDelete: (id) => {
+                        console.log('[useViewerInit] Edit2D marker deleted:', id)
+                        onPlacementDeleteRef.current?.(id)
+                      },
+                      onRotate: (id, rotation) => {
+                        console.log('[useViewerInit] Edit2D marker rotated:', id, rotation)
+                        onPlacementRotateRef.current?.(id, rotation)
+                      },
+                      onMove: (id, pageX, pageY) => {
+                        console.log('[useViewerInit] Edit2D marker moved:', id, pageX, pageY)
+                        // Convert page coords to DWG coords for storage
+                        const dwg = pageToDwgCoords(pageX, pageY)
+                        // TODO: Add onPlacementMove callback to persist position changes
+                        console.log('[useViewerInit] New DWG coords:', dwg.x.toFixed(2), dwg.y.toFixed(2))
+                      },
+                    })
+
+                    console.log('[useViewerInit] Edit2DMarkers initialized with callbacks')
                   } else {
                     console.warn('[useViewerInit] Edit2DMarkers failed to initialize')
                   }

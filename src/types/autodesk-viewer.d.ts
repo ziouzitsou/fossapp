@@ -279,6 +279,8 @@ interface Edit2DNamespace {
   Shape: {
     fromSVG: (svgString: string) => Edit2DShape
   }
+  /** Polygon shape constructor - takes array of {x, y} points */
+  Polygon: new (points: Array<{ x: number; y: number }>) => Edit2DShape
   /** Shape label constructor */
   ShapeLabel: new (shape: Edit2DShape, layer: Edit2DLayer) => Edit2DShapeLabel
   /** Edge label constructor */
