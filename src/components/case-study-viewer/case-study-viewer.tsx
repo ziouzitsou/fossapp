@@ -299,23 +299,16 @@ export function CaseStudyViewer({
     const currentPlacementIds = new Set(initialPlacements?.map((p) => p.id) ?? [])
 
     // REMOVAL: Find and remove markers for deleted placements
-    let removed = 0
     for (const renderedId of renderedPlacementIdsRef.current) {
       if (!currentPlacementIds.has(renderedId)) {
         edit2dMarkersRef.current.deleteMarker(renderedId)
         renderedPlacementIdsRef.current.delete(renderedId)
-        removed++
       }
-    }
-
-    if (removed > 0) {
-      console.log('[CaseStudyViewer] Removed', removed, 'deleted placement markers')
     }
 
     // ADDITION: Render any placements that haven't been rendered yet
     if (!initialPlacements?.length) return
 
-    let newlyRendered = 0
     for (const placement of initialPlacements) {
       if (renderedPlacementIdsRef.current.has(placement.id)) continue
 
@@ -335,11 +328,6 @@ export function CaseStudyViewer({
         placement.rotation
       )
       renderedPlacementIdsRef.current.add(placement.id)
-      newlyRendered++
-    }
-
-    if (newlyRendered > 0) {
-      console.log('[CaseStudyViewer] Rendered', newlyRendered, 'late-arriving placements')
     }
   }, [initialPlacements, isLoading, dwgToPageCoords])
 

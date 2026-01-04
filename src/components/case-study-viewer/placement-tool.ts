@@ -185,9 +185,7 @@ export class PlacementTool {
       this.snapper = tc.getTool('snapper')
       this.snapperRegistered = true
 
-      if (this.snapper) {
-        console.log('[PlacementTool] Using existing snapper from tool stack, isActive:', this.snapper.isActive?.())
-      } else {
+      if (!this.snapper) {
         console.warn('[PlacementTool] Snapper tool not found in tool stack')
       }
     } catch (err) {
@@ -377,13 +375,6 @@ export class PlacementTool {
       viewerX = visibleBounds.min.x + (localX / rect.width) * visWidth
       viewerY = visibleBounds.max.y - (localY / rect.height) * visHeight
     }
-
-    // Log page coordinates (consumer converts to DWG for storage)
-    console.log('[PlacementTool] Placed at page coords:', {
-      page: { x: viewerX!.toFixed(2), y: viewerY!.toFixed(2), z: viewerZ.toFixed(2) },
-      isSnapped,
-      snapType,
-    })
 
     // Return page coordinates - consumer must convert to DWG using getPageToModelTransform(1)
     this.onPlacement({

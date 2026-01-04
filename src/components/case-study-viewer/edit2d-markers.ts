@@ -134,7 +134,6 @@ export class Edit2DMarkers {
     `
     document.head.appendChild(style)
     Edit2DMarkers.cssInjected = true
-    console.log('[Edit2DMarkers] Hover styles injected')
   }
 
   /**
@@ -166,7 +165,6 @@ export class Edit2DMarkers {
       // Inject hover CSS (once per page)
       Edit2DMarkers.injectHoverStyles()
 
-      console.log('[Edit2DMarkers] Initialized successfully')
       return true
     } catch (err) {
       console.error('[Edit2DMarkers] Failed to initialize:', err)
@@ -180,7 +178,6 @@ export class Edit2DMarkers {
   setUnitScales(modelUnitScale: number, pageToModelScale: number) {
     this.modelUnitScale = modelUnitScale
     this.pageToModelScale = pageToModelScale
-    console.log(`[Edit2DMarkers] Unit scales set: modelUnit=${modelUnitScale}, pageToModel=${pageToModelScale}`)
   }
 
   /**
@@ -377,8 +374,6 @@ export class Edit2DMarkers {
     const moveThreshold = 0.1
 
     if (dx > moveThreshold || dy > moveThreshold) {
-      console.log(`[Edit2DMarkers] Detected move: ${markerId} from (${data.pageX.toFixed(2)}, ${data.pageY.toFixed(2)}) to (${newX.toFixed(2)}, ${newY.toFixed(2)})`)
-
       // Update stored coordinates
       data.pageX = newX
       data.pageY = newY
@@ -507,23 +502,17 @@ export class Edit2DMarkers {
     // Try to load SVG symbol
     let shapes: Edit2DShape[] | null = null
     const fossPid = data.fossPid || data.productName
-    console.log('[Edit2DMarkers] addMarker: fossPid =', fossPid)
 
     if (fossPid) {
       const svgContent = await this.fetchSymbolSvg(fossPid)
-      console.log('[Edit2DMarkers] addMarker: svgContent =', svgContent ? `${svgContent.length} chars` : 'null')
       if (svgContent) {
-        console.log('[Edit2DMarkers] addMarker: calling createShapeFromSvg')
         shapes = this.createShapeFromSvg(svgContent, pageX, pageY, rotation)
-        console.log('[Edit2DMarkers] addMarker: createShapeFromSvg returned', shapes ? `${shapes.length} shapes` : 'null')
       }
     }
 
     // Fall back to circle marker if no SVG
     if (!shapes) {
-      console.log('[Edit2DMarkers] addMarker: falling back to createCircleShape')
       shapes = this.createCircleShape(pageX, pageY, rotation, data.symbol)
-      console.log('[Edit2DMarkers] addMarker: createCircleShape returned', shapes ? `${shapes.length} shapes` : 'null')
     }
 
     if (!shapes || shapes.length === 0) {
@@ -549,9 +538,6 @@ export class Edit2DMarkers {
         this.addLabelToShape(markerId, shapes[0], data.symbol)
       }
     }
-
-    const hiddenNote = isHidden ? ' (hidden)' : ''
-    console.log(`[Edit2DMarkers] Added marker: ${markerId} at (${pageX.toFixed(2)}, ${pageY.toFixed(2)})${hiddenNote}`)
 
     return markerData
   }
@@ -719,7 +705,6 @@ export class Edit2DMarkers {
         return null
       }
 
-      console.log(`[Edit2DMarkers] Created ${shapes.length} shapes from SVG (${vbWidth}x${vbHeight}mm)`)
       return shapes
     } catch (err) {
       console.error('[Edit2DMarkers] Failed to create shapes from SVG:', err)
@@ -867,7 +852,6 @@ export class Edit2DMarkers {
       }
 
       this.callbacks.onDelete?.(id)
-      console.log(`[Edit2DMarkers] Deleted marker: ${id} (${shapes.length} shapes removed)`)
     }
   }
 
@@ -954,7 +938,6 @@ export class Edit2DMarkers {
     }
 
     this.callbacks.onRotate?.(id, newRotation)
-    console.log(`[Edit2DMarkers] Rotated marker ${id} to ${newRotation}°`)
   }
 
   /**
@@ -983,7 +966,6 @@ export class Edit2DMarkers {
     if (!this.ctx) return
 
     this.hiddenGroups.add(symbol)
-    let hiddenCount = 0
 
     for (const [id, data] of this.markerData) {
       if (data.symbol === symbol) {
@@ -992,12 +974,9 @@ export class Edit2DMarkers {
           for (const shape of shapes) {
             this.ctx.removeShape(shape)
           }
-          hiddenCount++
         }
       }
     }
-
-    console.log(`[Edit2DMarkers] Hidden symbol ${symbol}: ${hiddenCount} markers`)
   }
 
   /**
@@ -1008,7 +987,6 @@ export class Edit2DMarkers {
     if (!this.ctx) return
 
     this.hiddenGroups.delete(symbol)
-    let restoredCount = 0
 
     for (const [id, data] of this.markerData) {
       if (data.symbol === symbol) {
@@ -1017,12 +995,9 @@ export class Edit2DMarkers {
           for (const shape of shapes) {
             this.ctx.addShape(shape)
           }
-          restoredCount++
         }
       }
     }
-
-    console.log(`[Edit2DMarkers] Restored symbol ${symbol}: ${restoredCount} markers`)
   }
 
   /**

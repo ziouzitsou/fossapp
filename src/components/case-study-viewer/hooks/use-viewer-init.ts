@@ -245,8 +245,6 @@ export function useViewerInit({
                   modelUnits: (model.getMetadata?.('page_dimensions', 'model_units', null) as string | null) ?? null,
                 }
                 modelUnitScale = unitInfo.unitScale
-                console.log('[useViewerInit] DWG unit info:', unitInfo)
-                console.log('[useViewerInit] Raw getUnitScale():', model.getUnitScale?.())
                 // Store unit string for coordinate display
                 setDwgUnitString(unitInfo.modelUnits || unitInfo.unitString)
                 onUnitInfoAvailableRef.current?.(unitInfo)
@@ -276,12 +274,6 @@ export function useViewerInit({
                       const translateY = m.elements[13]
                       // Only use if it's a real transform (not identity)
                       if (scaleX > 1.001 || scaleX < 0.999) {
-                        console.log('[useViewerInit] Page-to-model transform:', {
-                          scaleX,
-                          scaleY,
-                          translateX,
-                          translateY,
-                        })
                         setTransform(scaleX, scaleY, translateX, translateY)
                         extractedPageToModelScale = scaleX
                         return true
@@ -335,15 +327,6 @@ export function useViewerInit({
                   // Store the context for future marker operations
                   edit2dContextRef.current = edit2d.defaultContext
 
-                  // Log Edit2D initialization info
-                  console.log('[useViewerInit] Edit2D extension initialized')
-                  console.log('[useViewerInit] Edit2D context:', {
-                    layer: edit2d.defaultContext.layer,
-                    hasSelection: !!edit2d.defaultContext.selection,
-                    hasUndoStack: !!edit2d.defaultContext.undoStack,
-                    tools: Object.keys(edit2d.defaultTools || {}),
-                  })
-
                   // Initialize Edit2DMarkers for product placement
                   const edit2dMarkers = new Edit2DMarkers(viewer)
                   const edit2dMarkersInitialized = await edit2dMarkers.initialize(edit2d.defaultContext)
@@ -362,23 +345,18 @@ export function useViewerInit({
                     // Wire up callbacks for marker events
                     edit2dMarkers.setCallbacks({
                       onSelect: (id) => {
-                        console.log('[useViewerInit] Edit2D marker selected:', id)
                         setHasSelectedMarker(id !== null)
                       },
                       onDelete: (id) => {
-                        console.log('[useViewerInit] Edit2D marker deleted:', id)
                         onPlacementDeleteRef.current?.(id)
                       },
                       onRotate: (id, rotation) => {
-                        console.log('[useViewerInit] Edit2D marker rotated:', id, rotation)
                         onPlacementRotateRef.current?.(id, rotation)
                       },
-                      onMove: (id, pageX, pageY) => {
-                        console.log('[useViewerInit] Edit2D marker moved:', id, pageX, pageY)
+                      onMove: (_id, pageX, pageY) => {
                         // Convert page coords to DWG coords for storage
-                        const dwg = pageToDwgCoords(pageX, pageY)
+                        const _dwg = pageToDwgCoords(pageX, pageY)
                         // TODO: Add onPlacementMove callback to persist position changes
-                        console.log('[useViewerInit] New DWG coords:', dwg.x.toFixed(2), dwg.y.toFixed(2))
                       },
                     })
 
@@ -387,7 +365,6 @@ export function useViewerInit({
                     const polygonEditToolName = edit2d.defaultTools?.polygonEditTool?.getName?.()
                     if (polygonEditToolName) {
                       viewer.toolController.activateTool(polygonEditToolName)
-                      console.log('[useViewerInit] Activated Edit2D polygonEditTool for selection')
 
                       // Disable vertex/edge editing gizmos - we only want move/rotate, not geometry editing
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -398,8 +375,6 @@ export function useViewerInit({
                         polygonEditTool.edgeMoveTool?.setAllGizmosEnabled?.(false)
                       }
                     }
-
-                    console.log('[useViewerInit] Edit2DMarkers initialized with callbacks')
                   } else {
                     console.warn('[useViewerInit] Edit2DMarkers failed to initialize')
                   }
@@ -420,15 +395,6 @@ export function useViewerInit({
 
                   // Convert page coords to DWG model space for storage/export
                   const dwg = pageToDwgCoords(coords.worldX, coords.worldY)
-                  console.log('[useViewerInit] Placing marker:', {
-                    id: placementId,
-                    pageX: coords.worldX.toFixed(2),
-                    pageY: coords.worldY.toFixed(2),
-                    dwgX: dwg.x.toFixed(2),
-                    dwgY: dwg.y.toFixed(2),
-                    isSnapped: coords.isSnapped,
-                    snapType: coords.snapType,
-                  })
 
                   // Create Edit2D marker
                   edit2dMarkersRef.current.addMarker(
@@ -483,7 +449,6 @@ export function useViewerInit({
               // Render initial placements (loaded from database)
               // Placements store DWG coords, convert to page coords for marker positioning
               if (initialPlacementsRef.current?.length && edit2dMarkersRef.current) {
-                console.log('[useViewerInit] Rendering', initialPlacementsRef.current.length, 'initial placements')
                 for (const placement of initialPlacementsRef.current) {
                   if (renderedPlacementIdsRef.current.has(placement.id)) continue
 
@@ -507,7 +472,6 @@ export function useViewerInit({
 
                   renderedPlacementIdsRef.current.add(placement.id)
                 }
-                console.log('[useViewerInit] Initial placements rendered')
               }
 
               // Note: polygonEditTool is already activated for Edit2D marker selection
@@ -639,7 +603,6 @@ export function useViewerInit({
     if (!viewer) return
 
     // Simple approach: setViewFromFile resets to the default view from the DWG
-    console.log('[useViewerInit] FitAll - Calling setViewFromFile()...')
     viewer.setViewFromFile()
   }, [viewerRef])
 

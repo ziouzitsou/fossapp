@@ -86,7 +86,6 @@ export function useCoordinateTransform({
       const e = matrix.elements
       // Extract [scaleX, scaleY, translateX, translateY] from Matrix4 (column-major)
       pageToModelTransformRef.current = [e[0], e[5], e[12], e[13]]
-      console.log('[useCoordinateTransform] Lazy-loaded page-to-model transform:', pageToModelTransformRef.current)
     }
 
     return pageToModelTransformRef.current
@@ -150,7 +149,6 @@ export function useCoordinateTransform({
     translateY: number
   ) => {
     pageToModelTransformRef.current = [scaleX, scaleY, translateX, translateY]
-    console.log('[useCoordinateTransform] Transform set directly:', pageToModelTransformRef.current)
   }, [])
 
   return {
