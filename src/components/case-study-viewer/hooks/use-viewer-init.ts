@@ -412,6 +412,14 @@ export function useViewerInit({
                       },
                     })
 
+                    // Activate polygonEditTool to enable selection/manipulation of Edit2D shapes
+                    // Without an active Edit2D tool, clicks go to DWG viewer instead
+                    const polygonEditToolName = edit2d.defaultTools?.polygonEditTool?.getName?.()
+                    if (polygonEditToolName) {
+                      viewer.toolController.activateTool(polygonEditToolName)
+                      console.log('[useViewerInit] Activated Edit2D polygonEditTool for selection')
+                    }
+
                     console.log('[useViewerInit] Edit2DMarkers initialized with callbacks')
                   } else {
                     console.warn('[useViewerInit] Edit2DMarkers failed to initialize')

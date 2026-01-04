@@ -2,7 +2,7 @@
 
 **Status**: Active Development (Phase 4B in progress)
 **Route**: `/case-study`
-**Last Updated**: 2026-01-03 (Phase 4B.2 complete: Edit2D markers with SVG primitive parsing)
+**Last Updated**: 2026-01-04 (Phase 4B.3 complete: Selection, rotation, and deletion)
 
 ---
 
@@ -469,7 +469,7 @@ See **[Phase 4B: Edit2D Migration](#phase-4b-edit2d-migration)** section below f
 ## Phase 4B: Edit2D Migration
 
 **Branch**: `feature/edit2d-markers`
-**Status**: Phase 4B.1 & 4B.2 COMPLETE ✅
+**Status**: Phase 4B.1, 4B.2 & 4B.3 COMPLETE ✅
 
 ### Background
 
@@ -676,11 +676,18 @@ The following must be verified during implementation:
 
 **Key Discovery**: `Shape.fromSVG()` has issues with bezier curves. Our SVG symbols use primitives (rect, circle, line), so we convert them directly to `Edit2D.Polygon` shapes. This approach works perfectly and preserves colors from the original SVG.
 
-#### Phase 4B.3: Selection & Manipulation
-- [ ] Selection events → update sidebar highlighting
-- [ ] Delete key → `ctx.removeShape()`
-- [ ] R key → rotation (via transform or recreate)
-- [ ] Drag → built-in move (verify it works)
+#### Phase 4B.3: Selection & Manipulation ✅
+- [x] Selection events → update sidebar highlighting
+- [x] Delete key → removes ALL shapes for a marker (8+ per SVG symbol)
+- [x] R key → rotation by 15° (recreates shapes at new angle)
+- [x] Move detection via selection change (bounding box center tracking)
+
+**Key Implementation Details:**
+- SVG symbols create multiple Edit2D shapes (rect, circles, lines) - typically 8+ per marker
+- Introduced `shapeToMarker` reverse lookup map (`shapeId → markerId`) for O(1) selection handling
+- Changed shape storage from `Map<string, Edit2DShape>` to `Map<string, Edit2DShape[]>`
+- Keyboard handler uses capture phase (`addEventListener(..., true)`) to intercept before Edit2D's built-in handlers
+- Rotation is async: deletes all old shapes, recreates with new rotation angle
 
 #### Phase 4B.4: Visibility Toggle
 - [ ] Store hidden shapes in Map (symbol → Shape[])

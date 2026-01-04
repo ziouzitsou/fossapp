@@ -245,6 +245,8 @@ interface Edit2DDefaultTools {
   polygonTool: unknown
   polylineTool: unknown
   polygonEditTool: {
+    getName: () => string
+    isActive: () => boolean
     setAreaLabelVisible: (visible: boolean) => void
     setLengthLabelVisible: (visible: boolean) => void
   }
