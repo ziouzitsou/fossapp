@@ -341,55 +341,6 @@ export function CaseStudyViewer({
     edit2dMarkersRef.current?.deleteSelected()
   }, [])
 
-  /**
-   * Phase 4B Test: Place a test marker using Edit2D
-   * Uses a real product with SVG symbol to test SVG primitive parsing
-   */
-  const handleTestEdit2D = useCallback(async () => {
-    const viewer = viewerRef.current
-    const edit2dMarkers = edit2dMarkersRef.current
-
-    if (!viewer || !edit2dMarkers) {
-      console.warn('[CaseStudyViewer] Edit2D not ready for test')
-      return
-    }
-
-    // Get visible bounds to place marker at center
-    const visibleBounds = viewer.impl?.getVisibleBounds?.()
-    if (!visibleBounds) {
-      console.warn('[CaseStudyViewer] No visible bounds for test')
-      return
-    }
-
-    // Calculate center of visible area (page coordinates)
-    const centerX = (visibleBounds.min.x + visibleBounds.max.x) / 2
-    const centerY = (visibleBounds.min.y + visibleBounds.max.y) / 2
-
-    console.log('[CaseStudyViewer] Testing Edit2D marker at center:', { centerX, centerY })
-
-    // Add test marker - use real product foss_pid that has an SVG symbol
-    const testId = `test-${Date.now()}`
-    const marker = await edit2dMarkers.addMarker(
-      centerX,
-      centerY,
-      {
-        productId: 'test-product',
-        projectProductId: 'test-project-product',
-        productName: 'BOXY 2 L HE',  // Display name
-        fossPid: 'DT107489438BB',    // Real foss_pid with SVG symbol
-        symbol: 'T1',
-      },
-      testId,
-      0  // No rotation
-    )
-
-    if (marker) {
-      console.log('[CaseStudyViewer] Edit2D test marker placed:', marker)
-    } else {
-      console.error('[CaseStudyViewer] Failed to place Edit2D test marker')
-    }
-  }, [])
-
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
@@ -432,10 +383,7 @@ export function CaseStudyViewer({
 
         {/* Quick actions - top right corner */}
         {showToolbar && (
-          <ViewerQuickActions
-            onFitAll={handleFitAll}
-            onTestEdit2D={handleTestEdit2D}
-          />
+          <ViewerQuickActions onFitAll={handleFitAll} />
         )}
       </div>
 
