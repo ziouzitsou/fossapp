@@ -205,8 +205,10 @@ export class Edit2DMarkers {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const labelAny = label as any
 
-    // Try to get the DOM element (common property names used by Autodesk)
-    const element = labelAny.label || labelAny.element || labelAny.div || labelAny._element
+    if (!labelAny) return
+
+    // ShapeLabel uses 'textDiv' for the text element
+    const element = labelAny.textDiv || labelAny.container
 
     if (element instanceof HTMLElement) {
       // Apply minimum font size and styling for readability
@@ -731,7 +733,8 @@ export class Edit2DMarkers {
       const minFontSize = Math.max(8, Math.round(this.minScreenPx * 0.6))
       this.applyLabelStyle(label, minFontSize)
     } catch (err) {
-      console.warn('[Edit2DMarkers] Failed to add label:', err)
+      const errMsg = err instanceof Error ? err.message : String(err)
+      console.warn('[Edit2DMarkers] Failed to add label:', errMsg, err)
     }
   }
 

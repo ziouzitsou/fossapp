@@ -347,6 +347,13 @@ export function CaseStudyViewer({
     )
   }, [viewerBgTopColor, viewerBgBottomColor, isLoading])
 
+  // Effect to update marker minimum size when props change
+  useEffect(() => {
+    if (isLoading || !edit2dMarkersRef.current) return
+
+    edit2dMarkersRef.current.setMinScreenPx(markerMinScreenPx)
+  }, [markerMinScreenPx, isLoading])
+
   // ═══════════════════════════════════════════════════════════════════════════
   // TOOLBAR HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
