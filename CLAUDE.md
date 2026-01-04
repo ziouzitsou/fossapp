@@ -104,10 +104,13 @@ Claude Code has access to specialized skills that provide domain knowledge autom
 
 | Skill | Auto-Activates When | Manual Invoke |
 |-------|---------------------|---------------|
+| **viewer-api** | Case Study viewer, Edit2D, APS Viewer | N/A (automatic) |
 | **coding-patterns** | Writing/modifying code | N/A (automatic) |
 | **supabase-patterns** | Database queries | N/A (automatic) |
 | **autolisp-dwg** | Working with DWG features | N/A (automatic) |
 | **deployment-workflow** | Pre-deployment checks | N/A (automatic) |
+
+**CRITICAL**: The `viewer-api` skill requires querying Context7 FIRST before implementing any Viewer/Edit2D features. The viewer is 85% of user interaction - quality is non-negotiable.
 
 Skills are in `.claude/skills/` and complement this quick reference guide.
 
