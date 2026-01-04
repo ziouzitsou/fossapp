@@ -815,10 +815,10 @@ export class Edit2DMarkers {
         this.shapeToMarker.delete(shape.id)
       }
 
-      // Remove label if exists
+      // Remove label if exists - must explicitly hide it
       const label = this.labels.get(id)
       if (label) {
-        // Labels are removed automatically when shape is removed
+        label.setVisible(false)
         this.labels.delete(id)
       }
 
@@ -868,9 +868,10 @@ export class Edit2DMarkers {
       this.shapeToMarker.delete(shape.id)
     }
 
-    // Remove label if exists
+    // Remove label if exists - must explicitly hide it
     const label = this.labels.get(id)
     if (label) {
+      label.setVisible(false)
       this.labels.delete(id)
     }
 
@@ -1024,6 +1025,11 @@ export class Edit2DMarkers {
    * Clear all markers
    */
   clearAll() {
+    // Hide all labels first (they're DOM elements, not cleared by clearLayer)
+    for (const label of this.labels.values()) {
+      label.setVisible(false)
+    }
+
     if (this.ctx) {
       this.ctx.clearLayer()
     }

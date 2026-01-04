@@ -288,15 +288,33 @@ export function CaseStudyViewer({
     }
   }, [placementMode, measureMode, setMeasureMode])
 
-  // Effect to render late-arriving placements (handles race condition)
-  // This runs when initialPlacements changes after viewer is ready
+  // Effect to sync placements with Edit2D markers
+  // Handles both adding new placements and removing deleted ones
   useEffect(() => {
-    if (!initialPlacements?.length || !edit2dMarkersRef.current || isLoading) {
+    if (!edit2dMarkersRef.current || isLoading) {
       return
     }
 
-    // Render any placements that haven't been rendered yet
-    // Placements store DWG coords, convert to page coords for marker positioning
+    // Build set of current placement IDs for quick lookup
+    const currentPlacementIds = new Set(initialPlacements?.map((p) => p.id) ?? [])
+
+    // REMOVAL: Find and remove markers for deleted placements
+    let removed = 0
+    for (const renderedId of renderedPlacementIdsRef.current) {
+      if (!currentPlacementIds.has(renderedId)) {
+        edit2dMarkersRef.current.deleteMarker(renderedId)
+        renderedPlacementIdsRef.current.delete(renderedId)
+        removed++
+      }
+    }
+
+    if (removed > 0) {
+      console.log('[CaseStudyViewer] Removed', removed, 'deleted placement markers')
+    }
+
+    // ADDITION: Render any placements that haven't been rendered yet
+    if (!initialPlacements?.length) return
+
     let newlyRendered = 0
     for (const placement of initialPlacements) {
       if (renderedPlacementIdsRef.current.has(placement.id)) continue
