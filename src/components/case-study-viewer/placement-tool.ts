@@ -152,8 +152,6 @@ export class PlacementTool {
    */
   private initializeSnapper() {
     try {
-      const tc = this.viewer.toolController
-
       // First, ensure Autodesk.Snapping extension is loaded
       // This registers the 'snapper' tool on the tool stack
       const snappingExt = this.viewer.getExtension('Autodesk.Snapping')

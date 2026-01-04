@@ -114,8 +114,8 @@ export function ProductsPanel({
   placementMode,
   onEnterPlacementMode,
   onExitPlacementMode,
-  isCollapsed = false,
-  onToggleCollapse,
+  isCollapsed: _isCollapsed = false,
+  onToggleCollapse: _onToggleCollapse,
   className,
 }: ProductsPanelProps) {
   // Count placements per product

@@ -100,7 +100,7 @@ export function useViewerInit({
   urn,
   setUrn,
   initialTheme,
-  markerMinScreenPx,
+  markerMinScreenPx: _markerMinScreenPx,
   viewerBgTopColor,
   viewerBgBottomColor,
   reverseZoomDirection,
@@ -521,7 +521,6 @@ export function useViewerInit({
     edit2dContextRef,
     edit2dMarkersRef,
     initialTheme,
-    markerMinScreenPx,
     viewerBgTopColor,
     viewerBgBottomColor,
     reverseZoomDirection,
@@ -529,6 +528,7 @@ export function useViewerInit({
     initialPlacementsRef,
     pageToDwgCoords,
     dwgToPageCoords,
+    setTransform,
     setIsLoading,
     setLoadingStage,
     setDwgUnitString,
@@ -548,6 +548,8 @@ export function useViewerInit({
 
     let mounted = true
     let cleanup: (() => void) | undefined
+    // Capture ref value for cleanup (React warns if refs change before cleanup runs)
+    const placementIdsSet = renderedPlacementIdsRef.current
 
     const initialize = async () => {
       try {
@@ -610,7 +612,7 @@ export function useViewerInit({
     return () => {
       mounted = false
       isInitializedRef.current = false
-      renderedPlacementIdsRef.current.clear() // Reset rendered placements tracking
+      placementIdsSet.clear() // Reset rendered placements tracking
       cleanup?.()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
