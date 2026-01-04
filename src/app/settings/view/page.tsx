@@ -133,15 +133,15 @@ export default function ViewSettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Marker Minimum Size */}
+          {/* Marker Label Size */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <Label htmlFor="marker-size" className="text-base font-medium">
-                  Marker Minimum Size
+                  Marker Label Size
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Minimum display size for markers when zoomed out (in pixels)
+                  Minimum font size for symbol labels (A1, B2, etc.) in the floor plan viewer
                 </p>
               </div>
               <div className="flex items-center gap-2 text-lg font-mono tabular-nums">
@@ -171,18 +171,17 @@ export default function ViewSettingsPage() {
             {/* Preview */}
             <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
               <span className="text-sm text-muted-foreground">Preview:</span>
-              <div
-                className="rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs"
+              <span
+                className="font-semibold text-blue-400"
                 style={{
-                  width: preferences.marker_min_screen_px * 2,
-                  height: preferences.marker_min_screen_px * 2,
-                  fontSize: preferences.marker_min_screen_px * 0.8,
+                  fontSize: Math.max(8, Math.round(preferences.marker_min_screen_px * 0.6)),
+                  textShadow: '0 1px 2px rgba(0,0,0,0.5)',
                 }}
               >
                 A1
-              </div>
+              </span>
               <span className="text-xs text-muted-foreground">
-                {preferences.marker_min_screen_px * 2}px diameter at minimum zoom
+                {Math.max(8, Math.round(preferences.marker_min_screen_px * 0.6))}px font size
               </span>
             </div>
           </div>
