@@ -396,7 +396,6 @@ export function useViewerInit({
                         polygonEditTool.setAllGizmosEnabled?.(false)
                         polygonEditTool.vertexMoveTool?.setAllGizmosEnabled?.(false)
                         polygonEditTool.edgeMoveTool?.setAllGizmosEnabled?.(false)
-                        console.log('[useViewerInit] Disabled vertex/edge editing gizmos')
                       }
                     }
 

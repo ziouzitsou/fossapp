@@ -340,7 +340,6 @@ export class Edit2DMarkers {
         this.isSelectingSiblings = true
         try {
           this.ctx.selection.setSelection(allMarkerShapes)
-          console.log(`[Edit2DMarkers] Auto-selected all ${allMarkerShapes.length} shapes for marker ${markerId}`)
         } finally {
           this.isSelectingSiblings = false
         }
