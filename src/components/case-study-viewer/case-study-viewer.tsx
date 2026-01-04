@@ -30,6 +30,7 @@ import { PlacementTool } from './placement-tool'
 import { Edit2DMarkers } from './edit2d-markers'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
 import { ViewerLoadingOverlay, ViewerErrorOverlay, CoordinateOverlay, ViewerQuickActions, type LoadingStage } from './viewer-overlays'
+import { hexToRgb } from './case-study-viewer-utils'
 import {
   useCoordinateTransform,
   useViewerApi,
@@ -332,6 +333,19 @@ export function CaseStudyViewer({
 
     edit2dMarkersRef.current?.applyHiddenGroups(hiddenSymbolGroups)
   }, [hiddenSymbolGroups, isLoading])
+
+  // Effect to update background color when props change (e.g., user preferences load)
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer || isLoading) return
+
+    const topRgb = hexToRgb(viewerBgTopColor)
+    const bottomRgb = hexToRgb(viewerBgBottomColor)
+    viewer.setBackgroundColor(
+      topRgb.r, topRgb.g, topRgb.b,
+      bottomRgb.r, bottomRgb.g, bottomRgb.b
+    )
+  }, [viewerBgTopColor, viewerBgBottomColor, isLoading])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TOOLBAR HANDLERS

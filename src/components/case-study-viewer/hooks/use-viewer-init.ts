@@ -184,6 +184,15 @@ export function useViewerInit({
         viewer.start()
         viewer.setTheme(initialTheme === 'dark' ? 'dark-theme' : 'light-theme')
 
+        // Set background color IMMEDIATELY to prevent white flash
+        // (loading document will reset it, so we set it again after load)
+        const topRgb = hexToRgb(viewerBgTopColor)
+        const bottomRgb = hexToRgb(viewerBgBottomColor)
+        viewer.setBackgroundColor(
+          topRgb.r, topRgb.g, topRgb.b,
+          bottomRgb.r, bottomRgb.g, bottomRgb.b
+        )
+
         viewerRef.current = viewer
 
         // Set default navigation behavior
@@ -209,20 +218,13 @@ export function useViewerInit({
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               await (viewer as any).loadDocumentNode(doc, viewable)
 
-              // Set background color AFTER document loads (loading resets it)
-              // API: (topR, topG, topB, bottomR, bottomG, bottomB) - colors are inverted (255-x)
-              if (initialTheme === 'dark') {
-                const topRgb = hexToRgb(viewerBgTopColor)
-                const bottomRgb = hexToRgb(viewerBgBottomColor)
-                // Invert colors: viewer interprets 0 as white, 255 as black
-                viewer.setBackgroundColor(
-                  255 - topRgb.r, 255 - topRgb.g, 255 - topRgb.b,
-                  255 - bottomRgb.r, 255 - bottomRgb.g, 255 - bottomRgb.b
-                )
-              } else {
-                // Light theme: light gray gradient (inverted: 240->15, 224->31)
-                viewer.setBackgroundColor(15, 15, 15, 31, 31, 31)
-              }
+              // Re-apply background color (document load resets it to default white)
+              const topRgb = hexToRgb(viewerBgTopColor)
+              const bottomRgb = hexToRgb(viewerBgBottomColor)
+              viewer.setBackgroundColor(
+                topRgb.r, topRgb.g, topRgb.b,
+                bottomRgb.r, bottomRgb.g, bottomRgb.b
+              )
 
               // Extract DWG unit information from the model
               const model = viewer.model
