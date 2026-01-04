@@ -97,6 +97,12 @@ export class Edit2DMarkers {
   private modelUnitScale: number = 1      // meters=1, mm=0.001
   private pageToModelScale: number = 1    // from getPageToModelTransform
 
+  // Minimum screen size for markers (user preference)
+  private minScreenPx: number = 12
+
+  // Camera change listener (for updating label sizes)
+  private boundCameraListener: (() => void) | null = null
+
   constructor(viewer: Viewer3DInstance) {
     this.viewer = viewer
   }
@@ -124,6 +130,9 @@ export class Edit2DMarkers {
       // Set up keyboard listeners
       this.setupKeyboardListeners()
 
+      // Set up camera change listener for dynamic label sizing
+      this.setupCameraListener()
+
       console.log('[Edit2DMarkers] Initialized successfully')
       return true
     } catch (err) {
@@ -139,6 +148,74 @@ export class Edit2DMarkers {
     this.modelUnitScale = modelUnitScale
     this.pageToModelScale = pageToModelScale
     console.log(`[Edit2DMarkers] Unit scales set: modelUnit=${modelUnitScale}, pageToModel=${pageToModelScale}`)
+  }
+
+  /**
+   * Set minimum screen size for markers (from user preferences)
+   * This affects the minimum font size of labels when zoomed out.
+   */
+  setMinScreenPx(value: number) {
+    this.minScreenPx = value
+    // Update existing labels with new minimum size
+    this.updateLabelStyles()
+  }
+
+  /**
+   * Set up camera change listener for dynamic label sizing
+   * Uses CAMERA_TRANSITION_COMPLETED for performance (fires after zoom/pan ends)
+   */
+  private setupCameraListener() {
+    if (!window.Autodesk?.Viewing?.CAMERA_TRANSITION_COMPLETED) return
+
+    this.boundCameraListener = () => {
+      this.updateLabelStyles()
+    }
+
+    this.viewer.addEventListener(
+      window.Autodesk.Viewing.CAMERA_TRANSITION_COMPLETED,
+      this.boundCameraListener
+    )
+  }
+
+  /**
+   * Update all label styles based on current zoom level and minScreenPx setting
+   *
+   * ShapeLabel is a DOM element that we can style via CSS.
+   * We apply a minimum font size to keep labels readable when zoomed out.
+   */
+  private updateLabelStyles() {
+    if (!this.labels.size) return
+
+    // Calculate minimum font size based on setting
+    // The minScreenPx represents the minimum marker diameter in pixels
+    // Labels should be about 60% of that for good readability
+    const minFontSize = Math.max(8, Math.round(this.minScreenPx * 0.6))
+
+    for (const label of this.labels.values()) {
+      this.applyLabelStyle(label, minFontSize)
+    }
+  }
+
+  /**
+   * Apply CSS styling to a ShapeLabel DOM element
+   */
+  private applyLabelStyle(label: unknown, minFontSize: number) {
+    // ShapeLabel has an internal DOM element - try to access it
+    // The structure varies by Autodesk Viewer version, so we try multiple approaches
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const labelAny = label as any
+
+    // Try to get the DOM element (common property names used by Autodesk)
+    const element = labelAny.label || labelAny.element || labelAny.div || labelAny._element
+
+    if (element instanceof HTMLElement) {
+      // Apply minimum font size and styling for readability
+      element.style.fontSize = `${minFontSize}px`
+      element.style.minWidth = `${minFontSize * 1.5}px`
+      element.style.minHeight = `${minFontSize}px`
+      element.style.fontWeight = '600'
+      element.style.textShadow = '0 1px 2px rgba(0,0,0,0.5)'
+    }
   }
 
   /**
@@ -649,6 +726,10 @@ export class Edit2DMarkers {
       const label = new window.Autodesk.Edit2D.ShapeLabel(shape, this.ctx.layer)
       label.setText(text)
       this.labels.set(markerId, label)
+
+      // Apply initial styling based on minScreenPx setting
+      const minFontSize = Math.max(8, Math.round(this.minScreenPx * 0.6))
+      this.applyLabelStyle(label, minFontSize)
     } catch (err) {
       console.warn('[Edit2DMarkers] Failed to add label:', err)
     }
@@ -923,6 +1004,15 @@ export class Edit2DMarkers {
     if (this.boundKeyHandler) {
       window.removeEventListener('keydown', this.boundKeyHandler, true)
       this.boundKeyHandler = null
+    }
+
+    // Remove camera change listener
+    if (this.boundCameraListener && window.Autodesk?.Viewing?.CAMERA_TRANSITION_COMPLETED) {
+      this.viewer.removeEventListener(
+        window.Autodesk.Viewing.CAMERA_TRANSITION_COMPLETED,
+        this.boundCameraListener
+      )
+      this.boundCameraListener = null
     }
 
     this.clearAll()

@@ -100,7 +100,7 @@ export function useViewerInit({
   urn,
   setUrn,
   initialTheme,
-  markerMinScreenPx: _markerMinScreenPx,
+  markerMinScreenPx,
   viewerBgTopColor,
   viewerBgBottomColor,
   reverseZoomDirection,
@@ -356,6 +356,9 @@ export function useViewerInit({
                       edit2dMarkers.setUnitScales(modelUnitScale, extractedPageToModelScale)
                     }
 
+                    // Set minimum marker size from user preferences
+                    edit2dMarkers.setMinScreenPx(markerMinScreenPx)
+
                     // Wire up callbacks for marker events
                     edit2dMarkers.setCallbacks({
                       onSelect: (id) => {
@@ -521,6 +524,7 @@ export function useViewerInit({
     edit2dContextRef,
     edit2dMarkersRef,
     initialTheme,
+    markerMinScreenPx,
     viewerBgTopColor,
     viewerBgBottomColor,
     reverseZoomDirection,
