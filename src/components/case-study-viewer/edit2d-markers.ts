@@ -78,7 +78,9 @@ export class Edit2DMarkers {
   // Marker data: marker ID -> marker data
   private markerData: Map<string, Edit2DMarkerData> = new Map()
   // Label tracking: marker ID -> label shape (for cleanup)
-  private labels: Map<string, unknown> = new Map()
+  // ShapeLabel has setVisible(), setText(), textDiv properties
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private labels: Map<string, any> = new Map()
 
   // Selection state
   private selectedId: string | null = null
@@ -284,13 +286,23 @@ export class Edit2DMarkers {
     }
   }
 
+  // Flag to prevent recursive selection changes when we programmatically select sibling shapes
+  private isSelectingSiblings = false
+
   /**
    * Handle Edit2D selection change events
+   *
+   * When a shape is selected, automatically selects ALL shapes belonging to the same marker.
+   * This makes multi-shape markers behave as a single grouped object - clicking any part
+   * selects the whole marker, and dragging moves all shapes together.
    *
    * Also checks if the previously selected marker moved (drag detection).
    */
   private handleSelectionChanged() {
     if (!this.ctx?.selection) return
+
+    // Prevent infinite recursion when we programmatically select sibling shapes
+    if (this.isSelectingSiblings) return
 
     // Before updating selection, check if the previously selected marker moved
     if (this.selectedId) {
@@ -312,7 +324,30 @@ export class Edit2DMarkers {
     const selectedShape = selectedShapes[0]
     const markerId = this.shapeToMarker.get(selectedShape.id)
 
-    if (markerId && this.selectedId !== markerId) {
+    if (!markerId) return
+
+    // Get ALL shapes belonging to this marker
+    const allMarkerShapes = this.shapes.get(markerId)
+
+    // If the marker has multiple shapes and not all are selected, select them all
+    // This makes the whole marker act as a grouped object
+    if (allMarkerShapes && allMarkerShapes.length > 1) {
+      const selectedIds = new Set(selectedShapes.map(s => s.id))
+      const allSelected = allMarkerShapes.every(s => selectedIds.has(s.id))
+
+      if (!allSelected) {
+        // Need to select all sibling shapes
+        this.isSelectingSiblings = true
+        try {
+          this.ctx.selection.setSelection(allMarkerShapes)
+          console.log(`[Edit2DMarkers] Auto-selected all ${allMarkerShapes.length} shapes for marker ${markerId}`)
+        } finally {
+          this.isSelectingSiblings = false
+        }
+      }
+    }
+
+    if (this.selectedId !== markerId) {
       this.selectedId = markerId
       this.callbacks.onSelect?.(markerId)
     }

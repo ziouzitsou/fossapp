@@ -388,6 +388,16 @@ export function useViewerInit({
                     if (polygonEditToolName) {
                       viewer.toolController.activateTool(polygonEditToolName)
                       console.log('[useViewerInit] Activated Edit2D polygonEditTool for selection')
+
+                      // Disable vertex/edge editing gizmos - we only want move/rotate, not geometry editing
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const polygonEditTool = edit2d.defaultTools?.polygonEditTool as any
+                      if (polygonEditTool) {
+                        polygonEditTool.setAllGizmosEnabled?.(false)
+                        polygonEditTool.vertexMoveTool?.setAllGizmosEnabled?.(false)
+                        polygonEditTool.edgeMoveTool?.setAllGizmosEnabled?.(false)
+                        console.log('[useViewerInit] Disabled vertex/edge editing gizmos')
+                      }
                     }
 
                     console.log('[useViewerInit] Edit2DMarkers initialized with callbacks')
