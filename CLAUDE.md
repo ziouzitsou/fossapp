@@ -268,7 +268,7 @@ SUPABASE_SERVICE_ROLE_KEY=<from-supabase>  # NEVER commit!
 
 - WSL2: OAuth callback state cookie issue (production works fine)
 - Materialized view `items.product_info` requires manual refresh
-- Middleware deprecation: Migrate when next-auth v5 releases
+- NextAuth: Staying on v4 (v5/Auth.js never stabilized, merged into Better Auth)
 
 ---
 

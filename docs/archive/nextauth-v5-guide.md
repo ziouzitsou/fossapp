@@ -1,9 +1,53 @@
 # FOSSAPP - Next-Auth v5 Migration Guide
 
-> **Status:** PLANNED - DO NOT IMPLEMENT YET
+> **Status:** ⚠️ INDEFINITELY POSTPONED
 > **Created:** 2025-11-09
+> **Updated:** 2026-01-04
 > **Current Version:** next-auth v4.24.11
-> **Target Version:** next-auth v5.x (stable)
+> **Target Version:** ~~next-auth v5.x (stable)~~ - Never released
+
+---
+
+## ⚠️ Important Update (January 2026)
+
+**NextAuth v5 / Auth.js never reached stable release.** The project has undergone significant changes:
+
+| Event | Date | Impact |
+|-------|------|--------|
+| Auth.js v5 beta released | 2023 | Remained in beta |
+| Main contributor left | January 2025 | Development slowed |
+| Auth.js merged into Better Auth | October 2025 | Project direction changed |
+| v5 stable release | Never | Still beta as of Jan 2026 |
+
+### Current Recommendation
+
+**Stay on next-auth v4** for the following reasons:
+
+1. **v4 is stable and maintained** - Latest is 4.24.13
+2. **FOSSAPP's auth is simple** - Just Google OAuth, no complex features
+3. **v5 brings no critical features we need** - Our use case is fully covered by v4
+4. **Future is uncertain** - Better Auth is the new direction, but still evolving
+
+### Future Options
+
+If migration becomes necessary, consider:
+
+1. **Better Auth** - Where Auth.js team went (https://better-auth.com)
+2. **Clerk** - Fully managed auth service
+3. **Lucia Auth** - Lightweight, framework-agnostic
+4. **Custom implementation** - Supabase Auth (we already use Supabase)
+
+### References
+
+- [Auth.js joins Better Auth (HN)](https://news.ycombinator.com/item?id=45389293)
+- [NextAuth v5 Discussion](https://github.com/nextauthjs/next-auth/discussions/8487)
+- [next-auth npm](https://www.npmjs.com/package/next-auth)
+
+---
+
+## Historical Context
+
+The content below was prepared in November 2025 when we expected v5 to stabilize. It is preserved for reference but **should not be implemented**.
 
 ---
 
@@ -662,10 +706,23 @@ Memory usage: _____ MB
 
 ---
 
-### Decision 2: [TOPIC]
-**Date:**
-**Decision:**
+### Decision 2: Migration Indefinitely Postponed
+**Date:** 2026-01-04
+**Decision:** INDEFINITELY POSTPONED - Do not migrate to Auth.js v5
 **Reasoning:**
+- Auth.js v5 never reached stable release (still beta after 2+ years)
+- Main Auth.js contributor left the project in January 2025
+- Auth.js team merged into Better Auth project (October 2025)
+- Current v4 setup works perfectly for our simple Google OAuth use case
+- No security vulnerabilities or critical bugs in v4
+- Migration effort not justified given uncertainty in Auth.js future
+
+**Alternative paths if migration ever needed:**
+1. Better Auth (where Auth.js team went)
+2. Supabase Auth (we already use Supabase)
+3. Clerk (managed service)
+
+**Next Review:** Only if security issue found in v4 or v4 becomes unmaintained
 
 ---
 
@@ -677,12 +734,15 @@ Memory usage: _____ MB
 - Migration steps drafted
 - Testing checklist defined
 
-### [FUTURE DATE]
-- Migration started
-- [Progress notes]
+### 2026-01-04
+- Status changed to INDEFINITELY POSTPONED
+- Added context about Auth.js v5 never stabilizing
+- Added information about Auth.js merging into Better Auth
+- Added alternative auth solutions section
+- Migration guide preserved for historical reference only
 
 ---
 
 **Document Owner:** Dimitri
-**Last Updated:** 2025-11-09
-**Next Review:** When next-auth v5 stable is released
+**Last Updated:** 2026-01-04
+**Next Review:** Only if v4 becomes unmaintained or security issue discovered
