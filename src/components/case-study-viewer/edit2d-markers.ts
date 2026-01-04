@@ -20,6 +20,8 @@ import type {
   Edit2DExtension,
   Viewer3DInstance,
 } from '@/types/autodesk-viewer'
+// Note: svg-to-edit2d utility exists but Edit2D's Shape.fromSVG() doesn't handle
+// arc commands properly (produces Inf/NaN errors). We use Polygon class directly instead.
 
 // Supabase storage URL for product symbols
 const SYMBOLS_BUCKET_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-symbols`
@@ -409,6 +411,9 @@ export class Edit2DMarkers {
    * Handles SVG primitives (rect, circle, line) by converting them to Polygon shapes.
    * Our product SVGs use these primitives rather than complex path data.
    *
+   * Note: We use Polygon class directly because Edit2D's Shape.fromSVG() doesn't
+   * handle arc commands properly (produces Inf/NaN errors).
+   *
    * @returns Array of all shapes created, or null on failure
    */
   private createShapeFromSvg(
@@ -494,7 +499,7 @@ export class Edit2DMarkers {
         shapes.push(polygon as Edit2DShape)
       })
 
-      // Process <circle> elements → 16-point Polygon
+      // Process <circle> elements → 16-point Polygon (approximation)
       svgElement.querySelectorAll('circle').forEach((circle) => {
         const cx = parseFloat(circle.getAttribute('cx') || '0')
         const cy = parseFloat(circle.getAttribute('cy') || '0')
@@ -519,7 +524,7 @@ export class Edit2DMarkers {
         shapes.push(polygon as Edit2DShape)
       })
 
-      // Process <line> elements → 2-point Polyline (use Polygon with 2 points)
+      // Process <line> elements → thin 4-point Polygon
       svgElement.querySelectorAll('line').forEach((line) => {
         const x1 = parseFloat(line.getAttribute('x1') || '0')
         const y1 = parseFloat(line.getAttribute('y1') || '0')
@@ -527,18 +532,11 @@ export class Edit2DMarkers {
         const y2 = parseFloat(line.getAttribute('y2') || '0')
         const stroke = line.getAttribute('stroke') || '#000000'
 
-        const points = [
-          transformPoint(x1, y1),
-          transformPoint(x2, y2),
-        ]
-
-        // For lines, use Polyline if available, otherwise skip
-        // Edit2D Polygon requires at least 3 points, so we'll create a thin rectangle
+        // Create thin rectangle along the line
         const dx = x2 - x1
         const dy = y2 - y1
         const len = Math.sqrt(dx * dx + dy * dy)
         if (len > 0) {
-          // Create thin rectangle along the line
           const nx = -dy / len * 0.3  // Normal offset (0.3mm thick)
           const ny = dx / len * 0.3
           const linePoints = [
@@ -563,8 +561,6 @@ export class Edit2DMarkers {
       }
 
       console.log(`[Edit2DMarkers] Created ${shapes.length} shapes from SVG (${vbWidth}x${vbHeight}mm)`)
-
-      // Return all shapes - caller will add them to context and track them
       return shapes
     } catch (err) {
       console.error('[Edit2DMarkers] Failed to create shapes from SVG:', err)
@@ -575,23 +571,21 @@ export class Edit2DMarkers {
   /**
    * Create a simple polygon shape as fallback marker
    *
-   * Uses Edit2D's native Polygon class instead of SVG parsing
-   * to avoid "Inf or NaN" warnings from bezier curve parsing.
+   * Uses Edit2D's native Polygon class (16-point circle approximation).
+   * We use Polygon instead of Shape.fromSVG() with arcs because Edit2D's
+   * SVG parser doesn't handle arc commands properly.
    *
    * @returns Array with single circle shape, or null on failure
    */
   private createCircleShape(
     pageX: number,
     pageY: number,
-    rotation: number,
-    symbol?: string
+    _rotation: number,
+    _symbol?: string
   ): Edit2DShape[] | null {
-    console.log('[Edit2DMarkers] createCircleShape:', { pageX: pageX.toFixed(2), pageY: pageY.toFixed(2), symbol })
-
-    // Check for Polygon class (preferred) or fall back to Shape.fromSVG
     const Edit2D = window.Autodesk?.Edit2D
-    if (!Edit2D) {
-      console.warn('[Edit2DMarkers] Autodesk.Edit2D not available')
+    if (!Edit2D?.Polygon) {
+      console.warn('[Edit2DMarkers] Autodesk.Edit2D.Polygon not available')
       return null
     }
 
@@ -600,8 +594,6 @@ export class Edit2DMarkers {
       const radiusMm = DEFAULT_MARKER_RADIUS_MM
       const mmToPageUnits = MM_TO_METERS / (this.modelUnitScale * this.pageToModelScale)
       const radius = radiusMm * mmToPageUnits
-
-      console.log('[Edit2DMarkers] Creating polygon at:', pageX.toFixed(2), pageY.toFixed(2), 'radius:', radius.toFixed(4))
 
       // Create a polygon approximating a circle (16 sides)
       const sides = 16
@@ -615,52 +607,19 @@ export class Edit2DMarkers {
         })
       }
 
-      console.log('[Edit2DMarkers] Polygon points:', points.length, 'first:', points[0])
+      const polygon = new Edit2D.Polygon(points)
 
-      // Try using Polygon class if available
-      if (Edit2D.Polygon) {
-        const polygon = new Edit2D.Polygon(points)
-        console.log('[Edit2DMarkers] Created Polygon:', polygon)
-
-        // Set style (blue fill with white stroke)
-        if (polygon.style) {
-          polygon.style.fillColor = '#3b82f6'
-          polygon.style.fillAlpha = 1
-          polygon.style.lineColor = '#ffffff'
-          polygon.style.lineWidth = radius * 0.15
-        }
-
-        return [polygon as Edit2DShape]
+      // Set style (blue fill with white stroke)
+      if (polygon.style) {
+        polygon.style.fillColor = '#3b82f6'
+        polygon.style.fillAlpha = 1
+        polygon.style.lineColor = '#ffffff'
+        polygon.style.lineWidth = radius * 0.15
       }
 
-      // Fallback: try PolyBase or direct loop manipulation
-      console.log('[Edit2DMarkers] Polygon class not available, trying Shape.fromSVG with polygon path')
-
-      // Create SVG polygon path (simpler than bezier, no curves)
-      const pathPoints = points.map((p, i) =>
-        `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(4)} ${p.y.toFixed(4)}`
-      ).join(' ') + ' Z'
-
-      console.log('[Edit2DMarkers] Polygon path:', pathPoints.substring(0, 100) + '...')
-
-      const shape = Edit2D.Shape.fromSVG(`<path d="${pathPoints}"/>`)
-
-      if (!shape) {
-        console.warn('[Edit2DMarkers] Shape.fromSVG returned null for polygon')
-        return null
-      }
-
-      // Set style
-      if (shape.style) {
-        shape.style.fillColor = '#3b82f6'
-        shape.style.fillAlpha = 1
-        shape.style.lineColor = '#ffffff'
-        shape.style.lineWidth = radius * 0.15
-      }
-
-      return [shape]
+      return [polygon as Edit2DShape]
     } catch (err) {
-      console.error('[Edit2DMarkers] Failed to create polygon shape:', err)
+      console.error('[Edit2DMarkers] Failed to create circle shape:', err)
       return null
     }
   }
