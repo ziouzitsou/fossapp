@@ -29,7 +29,7 @@ import type { PlacementModeProduct, Placement, DwgUnitInfo, WorldCoordinates } f
 import { PlacementTool } from './placement-tool'
 import { Edit2DMarkers } from './edit2d-markers'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
-import { ViewerLoadingOverlay, ViewerErrorOverlay, CoordinateOverlay, ViewerQuickActions, type LoadingStage } from './viewer-overlays'
+import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, type LoadingStage } from './viewer-overlays'
 import { hexToRgb } from './case-study-viewer-utils'
 import {
   useCoordinateTransform,
@@ -383,8 +383,12 @@ export function CaseStudyViewer({
           />
         )}
 
-        {/* Error overlay */}
-        {error && <ViewerErrorOverlay error={error} />}
+        {/* Error overlay - show WebGL-specific overlay for browser incompatibility */}
+        {error && (
+          error === 'WEBGL_NOT_SUPPORTED'
+            ? <WebGLErrorOverlay />
+            : <ViewerErrorOverlay error={error} />
+        )}
 
         {/* Coordinate display overlay - top left corner */}
         {showToolbar && (

@@ -162,6 +162,8 @@ export function useViewerInit({
         getAccessToken: (callback) => {
           callback(tokenData.access_token, tokenData.expires_in)
         },
+        // WebGL fallback: show help link if user's browser doesn't support WebGL
+        webGLHelpLink: '/support/graphics-requirements',
       }
 
       window.Autodesk.Viewing.Initializer(options, () => {
@@ -181,7 +183,12 @@ export function useViewerInit({
           ],
         })
 
-        viewer.start()
+        const startCode = viewer.start()
+        if (startCode > 0) {
+          // Error code > 0 indicates WebGL failure
+          reject(new Error('WEBGL_NOT_SUPPORTED'))
+          return
+        }
         viewer.setTheme(initialTheme === 'dark' ? 'dark-theme' : 'light-theme')
 
         // Set background color IMMEDIATELY to prevent white flash

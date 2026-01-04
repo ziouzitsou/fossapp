@@ -108,6 +108,47 @@ export function ViewerErrorOverlay({ error }: { error: string }) {
   )
 }
 
+export interface WebGLErrorOverlayProps {
+  /** URL to help page for graphics requirements */
+  helpLink?: string
+}
+
+/**
+ * WebGLErrorOverlay - Displayed when user's browser doesn't support WebGL
+ *
+ * Shows a professional "Browser Incompatible" message with guidance and a link
+ * to graphics requirements documentation.
+ */
+export function WebGLErrorOverlay({ helpLink = '/support/graphics-requirements' }: WebGLErrorOverlayProps) {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm z-10 p-6">
+      <div className="max-w-md text-center">
+        <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+        <h2 className="text-lg font-semibold mb-2">Browser Not Compatible</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Your browser doesn&apos;t support WebGL, which is required to display 3D/2D drawings.
+          This is typically caused by:
+        </p>
+        <ul className="text-sm text-muted-foreground text-left mb-6 space-y-1">
+          <li>&bull; Outdated browser version</li>
+          <li>&bull; Disabled hardware acceleration</li>
+          <li>&bull; Unsupported graphics drivers</li>
+        </ul>
+        <div className="flex flex-col gap-3">
+          <Button asChild variant="default">
+            <a href={helpLink}>
+              View Graphics Requirements
+            </a>
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Try updating your browser or enabling hardware acceleration in browser settings.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export interface CoordinateOverlayProps {
   /** Current DWG coordinates (null when mouse outside viewer) */
   coordinates: DwgCoordinates | null

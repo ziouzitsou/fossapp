@@ -11,6 +11,8 @@ interface ViewerInitOptions {
   env: string
   api: string
   getAccessToken: (callback: (token: string, expires: number) => void) => void
+  /** A link to a help page on WebGL if it's disabled */
+  webGLHelpLink?: string
 }
 
 interface ViewerConfig {
@@ -75,7 +77,8 @@ interface ViewerModel {
  * Used by tiles/dwg-viewer.tsx
  */
 interface GuiViewer3DInstance {
-  start: () => void
+  /** Start the viewer. Returns 0 on success, >0 on failure (e.g., WebGL not supported) */
+  start: () => number
   finish: () => void
   loadDocumentNode: (doc: ViewerDocument, viewable: Viewable) => Promise<void>
   setTheme: (theme: 'light-theme' | 'dark-theme') => void
@@ -95,7 +98,8 @@ interface GuiViewer3DInstance {
  * Used by planner/planner-viewer.tsx
  */
 interface Viewer3DInstance {
-  start: () => void
+  /** Start the viewer. Returns 0 on success, >0 on failure (e.g., WebGL not supported) */
+  start: () => number
   finish: () => void
   loadDocumentNode: (doc: ViewerDocument, viewable: Viewable) => Promise<void>
   setTheme: (theme: 'light-theme' | 'dark-theme') => void
@@ -274,6 +278,35 @@ interface Edit2DExtension {
 }
 
 /**
+ * EllipseArcParams - Parameters for ellipse arc segments in PolygonPath
+ *
+ * These parameters follow the SVG arc command specification for defining
+ * elliptical arc curves between two points.
+ */
+interface Edit2DEllipseArcParams {
+  /** Center X coordinate */
+  cx: number
+  /** Center Y coordinate */
+  cy: number
+  /** Radius X (horizontal radius of the ellipse) */
+  rx: number
+  /** Radius Y (vertical radius of the ellipse) */
+  ry: number
+  /** Rotation of the ellipse in degrees */
+  rotation: number
+  /** Large arc flag: if true, use the larger of the two possible arcs */
+  largeArcFlag: boolean
+  /** Sweep flag: if true, draw arc in positive-angle direction (clockwise) */
+  sweepFlag: boolean
+  /** Start angle in radians (optional) */
+  startAngle?: number
+  /** End angle in radians (optional) */
+  endAngle?: number
+  /** Whether arc is clockwise (optional, alternative to sweepFlag) */
+  isClockwise?: boolean
+}
+
+/**
  * Edit2D Namespace - Static utilities
  */
 interface Edit2DNamespace {
@@ -283,6 +316,15 @@ interface Edit2DNamespace {
   }
   /** Polygon shape constructor - takes array of {x, y} points */
   Polygon: new (points: Array<{ x: number; y: number }>) => Edit2DShape
+  /** PolygonPath constructor - polygon with arc edges (for circles/ellipses) */
+  PolygonPath: new (points: Array<{ x: number; y: number }>) => Edit2DShape & {
+    /** Set an edge to be an ellipse arc */
+    setEllipseArc: (edgeIndex: number, params: Edit2DEllipseArcParams) => void
+  }
+  /** Polyline constructor - for line shapes */
+  Polyline: new (points: Array<{ x: number; y: number }>) => Edit2DShape
+  /** Ellipse arc parameters constructor */
+  EllipseArcParams: new () => Edit2DEllipseArcParams
   /** Shape label constructor */
   ShapeLabel: new (shape: Edit2DShape, layer: Edit2DLayer) => Edit2DShapeLabel
   /** Edge label constructor */
