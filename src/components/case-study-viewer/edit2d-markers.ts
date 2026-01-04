@@ -745,6 +745,15 @@ export class Edit2DMarkers {
   }
 
   /**
+   * Delete the currently selected marker (for toolbar button)
+   */
+  deleteSelected() {
+    if (this.selectedId) {
+      this.deleteMarker(this.selectedId)
+    }
+  }
+
+  /**
    * Rotate a marker by delta degrees
    *
    * Recreates all shapes with the new rotation angle.

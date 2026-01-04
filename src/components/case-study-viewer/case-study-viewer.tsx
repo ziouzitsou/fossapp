@@ -27,7 +27,6 @@ import { cn } from '@fossapp/ui'
 import type { Viewer3DInstance, Edit2DContext } from '@/types/autodesk-viewer'
 import type { PlacementModeProduct, Placement, DwgUnitInfo, WorldCoordinates } from './types'
 import { PlacementTool } from './placement-tool'
-import { MarkupMarkers } from './markup-markers'
 import { Edit2DMarkers } from './edit2d-markers'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
 import { ViewerLoadingOverlay, ViewerErrorOverlay, CoordinateOverlay, ViewerQuickActions, type LoadingStage } from './viewer-overlays'
@@ -139,11 +138,10 @@ export function CaseStudyViewer({
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<Viewer3DInstance | null>(null)
   const placementToolRef = useRef<PlacementTool | null>(null)
-  const markupMarkersRef = useRef<MarkupMarkers | null>(null)
   const renderedPlacementIdsRef = useRef<Set<string>>(new Set())
-  // Phase 4B: Edit2D context for managed shape operations
+  // Edit2D context for managed shape operations
   const edit2dContextRef = useRef<Edit2DContext | null>(null)
-  // Phase 4B: Edit2D markers manager
+  // Edit2D markers manager
   const edit2dMarkersRef = useRef<Edit2DMarkers | null>(null)
 
   // Ref for placementMode so hooks can access latest value without re-registering
@@ -229,7 +227,6 @@ export function CaseStudyViewer({
     containerRef,
     viewerRef,
     placementToolRef,
-    markupMarkersRef,
     renderedPlacementIdsRef,
     edit2dContextRef,
     edit2dMarkersRef,
@@ -293,7 +290,7 @@ export function CaseStudyViewer({
   // Effect to render late-arriving placements (handles race condition)
   // This runs when initialPlacements changes after viewer is ready
   useEffect(() => {
-    if (!initialPlacements?.length || !markupMarkersRef.current || isLoading) {
+    if (!initialPlacements?.length || !edit2dMarkersRef.current || isLoading) {
       return
     }
 
@@ -305,18 +302,18 @@ export function CaseStudyViewer({
 
       // Convert DWG coords (from database) to page coords for marker positioning
       const pageCoords = dwgToPageCoords(placement.worldX, placement.worldY)
-      markupMarkersRef.current.addMarkerAtWorld(
+      edit2dMarkersRef.current.addMarker(
         pageCoords.x,
         pageCoords.y,
-        0,
         {
           productId: placement.productId,
           projectProductId: placement.projectProductId,
           productName: placement.productName,
-          symbol: placement.symbol,  // Symbol label from database
+          fossPid: placement.fossPid,
+          symbol: placement.symbol,
         },
         placement.id,
-        placement.rotation  // Initial rotation from database
+        placement.rotation
       )
       renderedPlacementIdsRef.current.add(placement.id)
       newlyRendered++
@@ -333,10 +330,6 @@ export function CaseStudyViewer({
     if (isLoading) return
     if (!hiddenSymbolGroups) return
 
-    // Apply to MarkupsCore markers (legacy)
-    markupMarkersRef.current?.applyHiddenGroups(hiddenSymbolGroups)
-
-    // Apply to Edit2D markers (Phase 4B)
     edit2dMarkersRef.current?.applyHiddenGroups(hiddenSymbolGroups)
   }, [hiddenSymbolGroups, isLoading])
 
@@ -345,7 +338,7 @@ export function CaseStudyViewer({
   // ═══════════════════════════════════════════════════════════════════════════
 
   const handleDeleteSelectedMarker = useCallback(() => {
-    markupMarkersRef.current?.deleteSelected()
+    edit2dMarkersRef.current?.deleteSelected()
   }, [])
 
   /**

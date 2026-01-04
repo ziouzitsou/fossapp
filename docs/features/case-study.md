@@ -469,7 +469,7 @@ See **[Phase 4B: Edit2D Migration](#phase-4b-edit2d-migration)** section below f
 ## Phase 4B: Edit2D Migration
 
 **Branch**: `feature/edit2d-markers`
-**Status**: Phase 4B.1 through 4B.5 COMPLETE ✅
+**Status**: Phase 4B COMPLETE ✅ (Edit2D migration finished)
 
 ### Background
 
@@ -705,22 +705,25 @@ The following must be verified during implementation:
 
 **Note**: Coordinate extraction already works - Edit2D markers store pageX/pageY which are converted to DWG coords for database storage. Move detection updates stored coords when shapes are dragged.
 
-#### Phase 4B.6: Cleanup
-- [ ] Remove `MarkupMarkers` class
-- [ ] Remove `markup-markers.ts`
-- [ ] Update hook imports
-- [ ] Update documentation
+#### Phase 4B.6: Cleanup ✅
+- [x] Remove `MarkupMarkers` class from use-viewer-init.ts
+- [x] Remove `markup-markers.ts` file (1,100+ lines removed)
+- [x] Update case-study-viewer.tsx to use Edit2DMarkers exclusively
+- [x] Add `deleteSelected()` method to Edit2DMarkers for toolbar button
+- [x] Update documentation
 
-### Files to Modify
+**Result**: The codebase now uses only Edit2D for marker management. MarkupsCore is no longer used for product placement.
+
+### Files Modified
 
 | File | Action |
 |------|--------|
-| `use-viewer-init.ts` | Load Edit2D, register tools |
-| `markup-markers.ts` | Replace with `edit2d-markers.ts` |
-| `placement-tool.ts` | May be replaced by `insertSymbolTool` |
-| `case-study-viewer.tsx` | Update refs and callbacks |
-| `viewer-view.tsx` | Update visibility toggle logic |
-| `use-case-study-state.ts` | Visibility state already done |
+| `use-viewer-init.ts` | ✅ Loads Edit2D, removed MarkupsCore |
+| `markup-markers.ts` | ✅ Deleted (replaced by `edit2d-markers.ts`) |
+| `edit2d-markers.ts` | ✅ Created - full marker management |
+| `case-study-viewer.tsx` | ✅ Uses Edit2DMarkers exclusively |
+| `autodesk-viewer.d.ts` | ✅ Added Edit2D type definitions |
+| `index.ts` | ✅ Updated exports |
 
 ### API Documentation Sources
 
@@ -729,22 +732,20 @@ The following must be verified during implementation:
 - [Edit2D Setup](https://aps.autodesk.com/en/docs/viewer/v7/developers_guide/advanced_options/edit2d-setup)
 - [Edit2D Customization](https://aps.autodesk.com/en/docs/viewer/v7/developers_guide/advanced_options/edit2d-customize)
 
-### Feature Comparison
+### Feature Comparison (Migration Complete)
 
-| Feature | MarkupsCore (Current) | Edit2D (Target) |
-|---------|----------------------|-----------------|
+| Feature | Before (MarkupsCore) | After (Edit2D) |
+|---------|---------------------|----------------|
 | Shape tracking | ❌ Manual | ✅ Built-in |
-| Selection | ❌ Manual | ✅ `ctx.selection` |
-| Move/drag | ❌ Not implemented | ✅ Built-in gizmo |
-| Rotate | ⚠️ Manual (R key) | ✅ Built-in gizmo |
-| Scale/resize | ❌ Not implemented | ✅ Built-in gizmo |
-| Delete | ⚠️ Manual | ✅ With undo |
-| Undo/redo | ❌ None | ✅ `ctx.undoStack` |
-| Hide/show | ❌ Phantom clicks | ✅ Proper removal |
-| Snapping | ⚠️ Partial | ✅ `ctx.snapper` |
+| Selection | ❌ Manual | ✅ `polygonEditTool` |
+| Move/drag | ❌ Not implemented | ✅ Detected via bbox |
+| Rotate | ⚠️ R key only | ✅ R key (recreates shapes) |
+| Delete | ⚠️ Manual | ✅ Delete key (all shapes) |
+| Undo/redo | ❌ None | ⚠️ Available (not wired) |
+| Hide/show | ❌ Phantom clicks | ✅ `removeShape/addShape` |
 | Labels | ⚠️ Manual badge | ✅ `ShapeLabel` |
-| SVG import | ⚠️ Manual parsing | ✅ `Shape.fromSVG()` |
-| SVG export | ❌ Not implemented | ✅ `shape.toSVG()` |
+| SVG symbols | ⚠️ Manual parsing | ✅ Primitive → Polygon |
+| Multi-shape markers | ❌ Single group | ✅ Array + reverse lookup |
 
 ### Notes from Research
 

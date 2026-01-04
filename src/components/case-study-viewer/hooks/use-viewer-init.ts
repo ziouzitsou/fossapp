@@ -20,7 +20,6 @@ import type { Viewer3DInstance, ViewerInitOptions, Edit2DExtension, Edit2DContex
 import type { Placement, PlacementModeProduct, DwgUnitInfo } from '../types'
 import type { LoadingStage } from '../viewer-overlays'
 import { PlacementTool, type DwgCoordinates } from '../placement-tool'
-import { MarkupMarkers } from '../markup-markers'
 import { Edit2DMarkers } from '../edit2d-markers'
 import { hexToRgb, loadAutodeskScripts } from '../case-study-viewer-utils'
 
@@ -29,11 +28,10 @@ interface UseViewerInitOptions {
   containerRef: RefObject<HTMLDivElement | null>
   viewerRef: MutableRefObject<Viewer3DInstance | null>
   placementToolRef: MutableRefObject<PlacementTool | null>
-  markupMarkersRef: MutableRefObject<MarkupMarkers | null>
   renderedPlacementIdsRef: MutableRefObject<Set<string>>
-  /** Edit2D extension context ref - for Phase 4B migration */
+  /** Edit2D extension context ref */
   edit2dContextRef: MutableRefObject<Edit2DContext | null>
-  /** Edit2D markers manager ref - for Phase 4B migration */
+  /** Edit2D markers manager ref */
   edit2dMarkersRef: MutableRefObject<Edit2DMarkers | null>
 
   // File/URN
@@ -95,7 +93,6 @@ export function useViewerInit({
   containerRef,
   viewerRef,
   placementToolRef,
-  markupMarkersRef,
   renderedPlacementIdsRef,
   edit2dContextRef,
   edit2dMarkersRef,
@@ -248,115 +245,77 @@ export function useViewerInit({
                 // because it's not reliable during geometry load event
               }
 
-              // Initialize MarkupMarkers for product placement
-              const markers = new MarkupMarkers(viewer, markerMinScreenPx)
-              const markersInitialized = await markers.initialize()
-              // Track pageToModelScale for use by Edit2DMarkers later
+              // ============================================================================
+              // Extract page-to-model transform for coordinate conversion
+              // ============================================================================
+              // The matrix from getPageToModelTransform(1) tells us how page units
+              // (used by Edit2D layer) relate to model units (mm in DWG)
+              //
+              // IMPORTANT: The transform is not immediately available after loadDocumentNode.
+              // We defer extraction to allow the viewer to complete its setup.
               let extractedPageToModelScale = 1
-              if (markersInitialized) {
-                markupMarkersRef.current = markers
-                // Set model unit scale for proper SVG symbol sizing
-                // This converts SVG mm values to model units based on the DWG's unit system
-                if (modelUnitScale !== null) {
-                  markers.setModelUnitScale(modelUnitScale)
-                }
-
-                // Extract page-to-model transform for accurate SVG symbol scaling
-                // The matrix from getPageToModelTransform(1) tells us how page units
-                // (used by MarkupsCore SVG layer) relate to model units (mm in DWG)
-                //
-                // IMPORTANT: The transform is not immediately available after loadDocumentNode.
-                // We defer extraction to allow the viewer to complete its setup.
-                // Returns a Promise that resolves when the transform is ready.
-                const waitForTransform = (): Promise<void> => {
-                  return new Promise((resolveTransform) => {
-                    const tryExtract = (): boolean => {
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      const m = (model as any).getPageToModelTransform?.(1)
-                      if (m?.elements) {
-                        // elements[0] is the X scale factor: 1 page unit = scaleX model units
-                        const scaleX = Math.abs(m.elements[0])
-                        const scaleY = Math.abs(m.elements[5])
-                        const translateX = m.elements[12]
-                        const translateY = m.elements[13]
-                        // Only use if it's a real transform (not identity)
-                        if (scaleX > 1.001 || scaleX < 0.999) {
-                          console.log('[useViewerInit] Page-to-model transform:', {
-                            scaleX,
-                            scaleY,
-                            translateX,
-                            translateY,
-                          })
-                          // Update both MarkupMarkers (for SVG scaling) and coordinate transform (for DB storage)
-                          markers.setPageToModelScale(scaleX)
-                          setTransform(scaleX, scaleY, translateX, translateY)
-                          // Store for Edit2DMarkers
-                          extractedPageToModelScale = scaleX
-                          return true
-                        }
+              const waitForTransform = (): Promise<void> => {
+                return new Promise((resolveTransform) => {
+                  const tryExtract = (): boolean => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const m = (model as any).getPageToModelTransform?.(1)
+                    if (m?.elements) {
+                      // elements[0] is the X scale factor: 1 page unit = scaleX model units
+                      const scaleX = Math.abs(m.elements[0])
+                      const scaleY = Math.abs(m.elements[5])
+                      const translateX = m.elements[12]
+                      const translateY = m.elements[13]
+                      // Only use if it's a real transform (not identity)
+                      if (scaleX > 1.001 || scaleX < 0.999) {
+                        console.log('[useViewerInit] Page-to-model transform:', {
+                          scaleX,
+                          scaleY,
+                          translateX,
+                          translateY,
+                        })
+                        setTransform(scaleX, scaleY, translateX, translateY)
+                        extractedPageToModelScale = scaleX
+                        return true
                       }
-                      return false
                     }
+                    return false
+                  }
 
-                    // Try immediately
+                  // Try immediately
+                  if (tryExtract()) {
+                    resolveTransform()
+                    return
+                  }
+
+                  // Defer to next frame when viewer has completed setup
+                  requestAnimationFrame(() => {
                     if (tryExtract()) {
                       resolveTransform()
                       return
                     }
 
-                    // Defer to next frame when viewer has completed setup
-                    requestAnimationFrame(() => {
-                      if (tryExtract()) {
-                        resolveTransform()
-                        return
+                    // Still identity? Try one more time after a short delay
+                    setTimeout(() => {
+                      if (!tryExtract()) {
+                        console.warn('[useViewerInit] getPageToModelTransform returned identity, using empirical fallback')
+                        // Fallback based on unit scale (old empirical approach)
+                        const fallbackScale = modelUnitScale === 0.001 ? 13.5 : 1
+                        setTransform(fallbackScale, fallbackScale, 0, 0)
+                        extractedPageToModelScale = fallbackScale
                       }
-
-                      // Still identity? Try one more time after a short delay
-                      setTimeout(() => {
-                        if (!tryExtract()) {
-                          console.warn('[useViewerInit] getPageToModelTransform returned identity, using empirical fallback')
-                          // Fallback based on unit scale (old empirical approach)
-                          // For mm DWGs, the markup layer typically uses ~13-14 mm per page unit
-                          const fallbackScale = modelUnitScale === 0.001 ? 13.5 : 1
-                          markers.setPageToModelScale(fallbackScale)
-                          // Also set coordinate transform (with 0,0 translate as approximation)
-                          setTransform(fallbackScale, fallbackScale, 0, 0)
-                          // Store for Edit2DMarkers
-                          extractedPageToModelScale = fallbackScale
-                        }
-                        resolveTransform()
-                      }, 100)
-                    })
+                      resolveTransform()
+                    }, 100)
                   })
-                }
-
-                // Wait for transform before continuing (needed for correct initial placement positioning)
-                await waitForTransform()
-                // Set callbacks for marker selection/deletion/rotation
-                markers.setCallbacks(
-                  (id) => setHasSelectedMarker(id !== null),
-                  (id) => {
-                    console.log('[useViewerInit] Marker deleted:', id)
-                    // Also remove from parent's placements state
-                    onPlacementDeleteRef.current?.(id)
-                  },
-                  (id, rotation) => {
-                    console.log('[useViewerInit] Marker rotated:', id, rotation)
-                    // Update rotation in parent's placements state
-                    onPlacementRotateRef.current?.(id, rotation)
-                  }
-                )
-                console.log('[useViewerInit] MarkupMarkers initialized')
-              } else {
-                console.warn('[useViewerInit] MarkupMarkers failed to initialize')
+                })
               }
 
+              // Wait for transform before continuing (needed for correct initial placement positioning)
+              await waitForTransform()
+
               // ============================================================================
-              // Phase 4B: Initialize Edit2D Extension
+              // Initialize Edit2D Extension
               // ============================================================================
               // Edit2D provides managed shapes with built-in selection, move, rotate gizmos.
-              // This will eventually replace the MarkupsCore direct SVG manipulation.
-              // For now, we load it in parallel to verify it works correctly.
               try {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const edit2d = await (viewer as any).loadExtension('Autodesk.Edit2D') as Edit2DExtension
@@ -376,7 +335,7 @@ export function useViewerInit({
                     tools: Object.keys(edit2d.defaultTools || {}),
                   })
 
-                  // Initialize Edit2DMarkers (runs in parallel with MarkupsCore for now)
+                  // Initialize Edit2DMarkers for product placement
                   const edit2dMarkers = new Edit2DMarkers(viewer)
                   const edit2dMarkersInitialized = await edit2dMarkers.initialize(edit2d.defaultContext)
 
@@ -384,12 +343,11 @@ export function useViewerInit({
                     edit2dMarkersRef.current = edit2dMarkers
 
                     // Set unit scales for proper symbol sizing
-                    // Use the same scales as MarkupMarkers (extracted in waitForTransform)
                     if (modelUnitScale !== null) {
                       edit2dMarkers.setUnitScales(modelUnitScale, extractedPageToModelScale)
                     }
 
-                    // Wire up callbacks (same pattern as MarkupMarkers)
+                    // Wire up callbacks for marker events
                     edit2dMarkers.setCallbacks({
                       onSelect: (id) => {
                         console.log('[useViewerInit] Edit2D marker selected:', id)
@@ -426,8 +384,7 @@ export function useViewerInit({
                   }
                 }
               } catch (edit2dError) {
-                // Edit2D is optional for now - MarkupsCore will continue to work
-                console.warn('[useViewerInit] Edit2D extension failed to load:', edit2dError)
+                console.error('[useViewerInit] Edit2D extension failed to load:', edit2dError)
               }
               // ============================================================================
 
@@ -436,93 +393,51 @@ export function useViewerInit({
                 viewer,
                 (coords) => {
                   const mode = placementModeRef.current
-                  if (mode && markupMarkersRef.current) {
-                    const placementId = crypto.randomUUID()
-                    const productData = {
+                  if (!mode || !edit2dMarkersRef.current) return
+
+                  const placementId = crypto.randomUUID()
+
+                  // Convert page coords to DWG model space for storage/export
+                  const dwg = pageToDwgCoords(coords.worldX, coords.worldY)
+                  console.log('[useViewerInit] Placing marker:', {
+                    id: placementId,
+                    pageX: coords.worldX.toFixed(2),
+                    pageY: coords.worldY.toFixed(2),
+                    dwgX: dwg.x.toFixed(2),
+                    dwgY: dwg.y.toFixed(2),
+                    isSnapped: coords.isSnapped,
+                    snapType: coords.snapType,
+                  })
+
+                  // Create Edit2D marker
+                  edit2dMarkersRef.current.addMarker(
+                    coords.worldX,  // page coords
+                    coords.worldY,
+                    {
                       productId: mode.productId,
                       projectProductId: mode.projectProductId,
                       productName: mode.fossPid || mode.description,
-                      symbol: mode.symbol,  // Symbol label for marker display
-                    }
+                      fossPid: mode.fossPid,
+                      symbol: mode.symbol,
+                    },
+                    placementId,
+                    0  // Initial rotation
+                  )
 
-                    let markerData
-                    if (coords.isSnapped) {
-                      // Use world coordinates for marker placement (snapped)
-                      markerData = markupMarkersRef.current.addMarkerAtWorld(
-                        coords.worldX,
-                        coords.worldY,
-                        coords.worldZ,
-                        productData,
-                        placementId
-                      )
-                      // Fallback to screen coords if world conversion fails
-                      if (!markerData) {
-                        console.warn('[useViewerInit] World coords failed, using screen coords')
-                        markerData = markupMarkersRef.current.addMarkerAtScreen(
-                          coords.screenX,
-                          coords.screenY,
-                          productData,
-                          placementId
-                        )
-                      }
-                    } else {
-                      // Use screen coordinates for non-snapped placements
-                      markerData = markupMarkersRef.current.addMarkerAtScreen(
-                        coords.screenX,
-                        coords.screenY,
-                        productData,
-                        placementId
-                      )
-                    }
+                  // Track this placement as rendered
+                  renderedPlacementIdsRef.current.add(placementId)
 
-                    if (markerData) {
-                      // Track this placement as rendered to prevent duplicate markers
-                      renderedPlacementIdsRef.current.add(placementId)
-
-                      // Convert page coords to DWG model space for storage/export
-                      const dwg = pageToDwgCoords(coords.worldX, coords.worldY)
-                      console.log('[useViewerInit] Placed marker:', {
-                        id: placementId,
-                        pageX: coords.worldX.toFixed(2),
-                        pageY: coords.worldY.toFixed(2),
-                        dwgX: dwg.x.toFixed(2),
-                        dwgY: dwg.y.toFixed(2),
-                        isSnapped: coords.isSnapped,
-                        snapType: coords.snapType,
-                      })
-
-                      // Phase 4B: Also create Edit2D marker (runs in parallel with MarkupMarkers)
-                      if (edit2dMarkersRef.current) {
-                        edit2dMarkersRef.current.addMarker(
-                          coords.worldX,  // page coords
-                          coords.worldY,
-                          {
-                            productId: mode.productId,
-                            projectProductId: mode.projectProductId,
-                            productName: mode.fossPid || mode.description,
-                            fossPid: mode.fossPid,
-                            symbol: mode.symbol,
-                          },
-                          placementId,
-                          0  // Initial rotation
-                        )
-                      }
-
-                      // Store DWG model space coordinates for persistence / LISP export
-                      onPlacementAddRef.current?.({
-                        id: placementId,
-                        productId: mode.productId,
-                        projectProductId: mode.projectProductId,
-                        productName: mode.fossPid || mode.description,
-                        symbol: mode.symbol,  // Symbol label for persistence
-                        worldX: dwg.x,
-                        worldY: dwg.y,
-                        rotation: 0,
-                      })
-                    } else {
-                      console.warn('[useViewerInit] markerData is null - marker not placed')
-                    }
-                  }
+                  // Store DWG model space coordinates for persistence / LISP export
+                  onPlacementAddRef.current?.({
+                    id: placementId,
+                    productId: mode.productId,
+                    projectProductId: mode.projectProductId,
+                    productName: mode.fossPid || mode.description,
+                    symbol: mode.symbol,
+                    worldX: dwg.x,
+                    worldY: dwg.y,
+                    rotation: 0,
+                  })
                 },
                 undefined, // onSnapChange - not used currently
                 // onCoordinateChange - convert page coords to DWG model coords for display
@@ -546,7 +461,7 @@ export function useViewerInit({
 
               // Render initial placements (loaded from database)
               // Placements store DWG coords, convert to page coords for marker positioning
-              if (initialPlacementsRef.current?.length) {
+              if (initialPlacementsRef.current?.length && edit2dMarkersRef.current) {
                 console.log('[useViewerInit] Rendering', initialPlacementsRef.current.length, 'initial placements')
                 for (const placement of initialPlacementsRef.current) {
                   if (renderedPlacementIdsRef.current.has(placement.id)) continue
@@ -554,40 +469,20 @@ export function useViewerInit({
                   // Convert DWG coords (from database) to page coords for marker positioning
                   const pageCoords = dwgToPageCoords(placement.worldX, placement.worldY)
 
-                  // MarkupsCore markers (legacy)
-                  if (markupMarkersRef.current) {
-                    markupMarkersRef.current.addMarkerAtWorld(
-                      pageCoords.x,
-                      pageCoords.y,
-                      0, // Z coord
-                      {
-                        productId: placement.productId,
-                        projectProductId: placement.projectProductId,
-                        productName: placement.productName,
-                        fossPid: placement.fossPid,  // FOSS product ID for SVG symbol lookup
-                        symbol: placement.symbol,  // Symbol label from database
-                      },
-                      placement.id,
-                      placement.rotation  // Initial rotation from database
-                    )
-                  }
-
-                  // Phase 4B: Edit2D markers (runs in parallel)
-                  if (edit2dMarkersRef.current) {
-                    edit2dMarkersRef.current.addMarker(
-                      pageCoords.x,
-                      pageCoords.y,
-                      {
-                        productId: placement.productId,
-                        projectProductId: placement.projectProductId,
-                        productName: placement.productName,
-                        fossPid: placement.fossPid,
-                        symbol: placement.symbol,
-                      },
-                      placement.id,
-                      placement.rotation
-                    )
-                  }
+                  // Create Edit2D marker
+                  edit2dMarkersRef.current.addMarker(
+                    pageCoords.x,
+                    pageCoords.y,
+                    {
+                      productId: placement.productId,
+                      projectProductId: placement.projectProductId,
+                      productName: placement.productName,
+                      fossPid: placement.fossPid,
+                      symbol: placement.symbol,
+                    },
+                    placement.id,
+                    placement.rotation
+                  )
 
                   renderedPlacementIdsRef.current.add(placement.id)
                 }
@@ -613,7 +508,6 @@ export function useViewerInit({
     containerRef,
     viewerRef,
     placementToolRef,
-    markupMarkersRef,
     renderedPlacementIdsRef,
     edit2dContextRef,
     edit2dMarkersRef,
@@ -673,15 +567,11 @@ export function useViewerInit({
         await initializeViewer(fileUrn)
 
         cleanup = () => {
-          // Dispose MarkupMarkers to remove event listeners
-          markupMarkersRef.current?.dispose()
-          markupMarkersRef.current = null
-
-          // Dispose Edit2DMarkers (Phase 4B)
+          // Dispose Edit2DMarkers
           edit2dMarkersRef.current?.dispose()
           edit2dMarkersRef.current = null
 
-          // Clear Edit2D context (Phase 4B)
+          // Clear Edit2D context
           // The extension is unloaded automatically when viewer.finish() is called
           edit2dContextRef.current = null
 
