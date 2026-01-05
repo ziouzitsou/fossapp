@@ -34,7 +34,6 @@ export function applyLabelStyle(label: ShapeLabel, minFontSize: number): void {
     element.style.minWidth = `${minFontSize * 1.5}px`
     element.style.minHeight = `${minFontSize}px`
     element.style.fontWeight = '600'
-    element.style.textShadow = '0 1px 2px rgba(0,0,0,0.5)'
 
     // Add hover class to parent container (.edit2d-label)
     const labelContainer = element.closest('.edit2d-label')

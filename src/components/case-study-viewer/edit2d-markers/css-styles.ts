@@ -19,12 +19,10 @@ export function injectHoverStyles(): void {
   style.id = 'edit2d-marker-hover-styles'
   style.textContent = `
     .edit2d-label.marker-hoverable {
-      transition: transform 0.15s ease, box-shadow 0.15s ease !important;
       cursor: pointer;
     }
     .edit2d-label.marker-hoverable:hover {
-      transform: scale(1.15) !important;
-      box-shadow: 0 0 10px rgba(59, 130, 246, 0.8) !important;
+      filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.9));
     }
   `
   document.head.appendChild(style)
