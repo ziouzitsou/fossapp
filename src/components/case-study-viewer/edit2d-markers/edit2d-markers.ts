@@ -82,6 +82,7 @@ export class Edit2DMarkers {
   // Event listener refs (for cleanup)
   private boundCameraListener: (() => void) | null = null
   private boundKeyHandler: ((e: KeyboardEvent) => void) | null = null
+  private boundMouseMoveHandler: ((e: MouseEvent) => void) | null = null
 
   // Flag to prevent recursive selection changes
   private isSelectingSiblings = false
@@ -113,10 +114,12 @@ export class Edit2DMarkers {
 
       // Set up event listeners
       this.setupSelectionListeners()
+      this.setupHoverStyleModifier()
       this.setupKeyboardListeners()
       this.setupCameraListener()
+      this.setupMouseMoveListener()
 
-      // Inject hover CSS (once per page)
+      // Inject hover CSS for labels (once per page)
       injectHoverStyles()
 
       return true
@@ -183,6 +186,57 @@ export class Edit2DMarkers {
     }
   }
 
+  /**
+   * Set up mousemove listener for hover detection using hit testing
+   *
+   * Edit2D's selection.hoveredId doesn't update reliably, so we use
+   * mousemove + layer.hitTest() to detect which shape is under the cursor.
+   */
+  private setupMouseMoveListener(): void {
+    const container = this.viewer.container
+    if (!container || !this.ctx?.layer) return
+
+    this.boundMouseMoveHandler = (e: MouseEvent) => {
+      this.handleMouseMove(e)
+    }
+
+    container.addEventListener('mousemove', this.boundMouseMoveHandler)
+  }
+
+  /**
+   * Handle mousemove for hover detection
+   */
+  private handleMouseMove(e: MouseEvent): void {
+    if (!this.ctx?.layer) return
+
+    // Get mouse position relative to viewer container (canvas coordinates)
+    const rect = this.viewer.container.getBoundingClientRect()
+    const canvasX = e.clientX - rect.left
+    const canvasY = e.clientY - rect.top
+
+    // Convert canvas coordinates to layer (world) coordinates
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const layer = this.ctx.layer as any
+    if (!layer.canvasToLayer) return
+
+    const layerCoords = layer.canvasToLayer(canvasX, canvasY)
+    if (!layerCoords) return
+
+    // Use layer.hitTest with layer coordinates
+    const hitResult = layer.hitTest(layerCoords.x, layerCoords.y)
+
+    const hitShapeId = hitResult?.id ?? null
+
+    // Find marker ID from hit shape
+    const newHoveredMarkerId = hitShapeId !== null ? this.shapeToMarker.get(hitShapeId) ?? null : null
+
+    // Update label scaling if hover changed
+    if (newHoveredMarkerId !== this.hoveredMarkerId) {
+      this.updateLabelHoverState(this.hoveredMarkerId, newHoveredMarkerId)
+      this.hoveredMarkerId = newHoveredMarkerId
+    }
+  }
+
   // ============================================================================
   // SELECTION HANDLING
   // ============================================================================
@@ -199,7 +253,97 @@ export class Edit2DMarkers {
         selectionEvents.SELECTION_CHANGED,
         this.handleSelectionChanged.bind(this)
       )
+
+      // Also listen for hover changes
+      this.ctx.selection.addEventListener(
+        selectionEvents.SELECTION_HOVER_CHANGED,
+        this.handleHoverChanged.bind(this)
+      )
     }
+  }
+
+  /**
+   * Set up hover style modifier for visual feedback
+   *
+   * Applies highlight effect to shapes when hovered, similar to measurement tools.
+   * Also handles label scaling since the hover event is unreliable.
+   */
+  private setupHoverStyleModifier(): void {
+    if (!this.ctx?.layer) return
+
+    // Add custom hover style modifier
+    this.ctx.layer.addStyleModifier((shape, style) => {
+      // Only apply to our marker shapes
+      if (!this.shapeToMarker.has(shape.id)) {
+        return undefined
+      }
+
+      // Read hovered ID directly from selection (more reliable than event)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const currentHoveredId = (this.ctx?.selection as any)?.hoveredId ?? null
+
+      // Check if this shape (or any sibling shape) is hovered
+      const markerId = this.shapeToMarker.get(shape.id)
+      const markerShapes = markerId ? this.shapes.get(markerId) : null
+      const isHovered = markerShapes?.some(s => s.id === currentHoveredId) ?? false
+
+      // Note: Label hover state is now handled by mousemove + hitTest
+      // for more reliable detection (see setupMouseMoveListener)
+
+      if (!isHovered) {
+        return undefined
+      }
+
+      // Return modified style for hover effect (line only, no fill)
+      const modified = style.clone()
+      modified.lineColor = 'rgb(249, 115, 22)'  // Orange highlight
+      return modified
+    })
+  }
+
+  /**
+   * Update label hover state - scale up/down label text elements
+   *
+   * We scale the textDiv directly (not the container) to avoid
+   * breaking Edit2D's internal positioning transforms.
+   * Uses CSS transition for smooth 1.5x scale animation.
+   */
+  private updateLabelHoverState(prevMarkerId: string | null, newMarkerId: string | null): void {
+    // Remove scale from previous label (transition makes it animate back)
+    if (prevMarkerId) {
+      const prevLabel = this.labels.get(prevMarkerId)
+      if (prevLabel?.textDiv) {
+        // Keep transition for smooth scale-down animation
+        prevLabel.textDiv.style.transition = 'transform 0.2s ease-out'
+        prevLabel.textDiv.style.transform = 'scale(1)'
+        prevLabel.textDiv.style.zIndex = ''
+      }
+    }
+
+    // Apply scale to new label with smooth transition
+    if (newMarkerId) {
+      const newLabel = this.labels.get(newMarkerId)
+      if (newLabel?.textDiv) {
+        newLabel.textDiv.style.transition = 'transform 0.2s ease-out'
+        newLabel.textDiv.style.transformOrigin = 'center center'
+        newLabel.textDiv.style.transform = 'scale(1.5)'
+        newLabel.textDiv.style.zIndex = '1000'
+      }
+    }
+  }
+
+  // Track currently hovered marker ID for label styling
+  private hoveredMarkerId: string | null = null
+
+  /**
+   * Handle hover change events from Edit2D selection
+   *
+   * Note: This is kept as a backup but the style modifier now handles
+   * hover state directly for more reliable behavior.
+   */
+  private handleHoverChanged(): void {
+    // Trigger layer update to apply style modifier
+    this.ctx?.layer?.update?.()
   }
 
   /**
@@ -687,6 +831,12 @@ export class Edit2DMarkers {
         this.boundCameraListener
       )
       this.boundCameraListener = null
+    }
+
+    // Remove mousemove listener
+    if (this.boundMouseMoveHandler) {
+      this.viewer.container?.removeEventListener('mousemove', this.boundMouseMoveHandler)
+      this.boundMouseMoveHandler = null
     }
 
     this.clearAll()

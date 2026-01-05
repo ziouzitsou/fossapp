@@ -384,3 +384,4 @@ export function ViewerQuickActions({ onFitAll }: ViewerQuickActionsProps) {
     </div>
   )
 }
+

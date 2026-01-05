@@ -193,8 +193,10 @@ interface Edit2DSelection {
   selectOnly: (shape: Edit2DShape) => void
   /** Clear selection */
   clear: () => void
-  /** Set hover highlight */
-  setHoverID: (id: number) => void
+  /** Currently hovered shape ID (read-only property) */
+  hoveredId: number | null
+  /** Set hovered shape ID */
+  setHoveredId: (id: number | null) => void
   /** Get selected shapes */
   getSelectedShapes: () => Edit2DShape[]
   /** Event listener for selection changes */
