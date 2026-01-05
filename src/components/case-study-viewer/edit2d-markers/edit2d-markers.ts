@@ -246,10 +246,11 @@ export class Edit2DMarkers {
       if (!allSelected) {
         this.isSelectingSiblings = true
         try {
-          // Clear and re-select all shapes in the group
-          const selection = this.ctx.selection
-          selection.clear()
-          allMarkerShapes.forEach(shape => selection.addToSelection(shape))
+          // Select the primary shape (first in array) to represent the marker group
+          // Note: Edit2D only supports single-shape selection via selectOnly()
+          // Multi-shape visual selection isn't supported, but our logical selection
+          // tracking via this.selectedId handles the marker as a unit
+          this.ctx.selection.selectOnly(allMarkerShapes[0])
         } finally {
           this.isSelectingSiblings = false
         }

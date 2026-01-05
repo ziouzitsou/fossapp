@@ -191,8 +191,6 @@ interface Edit2DLayer {
 interface Edit2DSelection {
   /** Select a single shape (deselects others) */
   selectOnly: (shape: Edit2DShape) => void
-  /** Add shape to selection */
-  addToSelection: (shape: Edit2DShape) => void
   /** Clear selection */
   clear: () => void
   /** Set hover highlight */
