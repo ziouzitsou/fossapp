@@ -7,7 +7,7 @@
  * This allows full control over styling and interaction.
  */
 
-import { Ruler, Trash2, Square, MousePointer2 } from 'lucide-react'
+import { Ruler, Trash2, Eraser, Square, MousePointer2 } from 'lucide-react'
 import { Button } from '@fossapp/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@fossapp/ui'
 import type { PlacementModeProduct } from './types'
@@ -21,6 +21,8 @@ export interface ViewerToolbarProps {
   hasMeasurement: boolean
   /** Whether a marker is selected */
   hasSelectedMarker: boolean
+  /** FossPid of the selected marker (for display) */
+  selectedMarkerFossPid?: string | null
   /** Product being placed (click-to-place mode) */
   placementMode?: PlacementModeProduct | null
   /** Callback to toggle measurement mode */
@@ -37,6 +39,7 @@ export function CaseStudyViewerToolbar({
   measureMode,
   hasMeasurement,
   hasSelectedMarker,
+  selectedMarkerFossPid,
   placementMode,
   onToggleMeasure,
   onClearMeasurements,
@@ -104,27 +107,37 @@ export function CaseStudyViewerToolbar({
                 onClick={onClearMeasurements}
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
               >
-                <Trash2 className="h-4 w-4" />
+                <Eraser className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Clear Measurement</TooltipContent>
           </Tooltip>
         )}
 
-        {hasSelectedMarker && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onDeleteSelectedMarker}
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Delete Marker (or press Delete key)</TooltipContent>
-          </Tooltip>
+        {hasSelectedMarker && measureMode === 'none' && (
+          <>
+            {selectedMarkerFossPid && (
+              <>
+                <div className="w-px h-6 bg-border mx-1" />
+                <span className="text-xs font-medium text-muted-foreground px-2">
+                  {selectedMarkerFossPid}
+                </span>
+              </>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onDeleteSelectedMarker}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete Marker (or press Delete key)</TooltipContent>
+            </Tooltip>
+          </>
         )}
       </div>
     </div>

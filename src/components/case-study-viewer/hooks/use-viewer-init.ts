@@ -64,6 +64,7 @@ interface UseViewerInitOptions {
   setDwgUnitString: (unit: string | null) => void
   setDwgCoordinates: (coords: DwgCoordinates | null) => void
   setHasSelectedMarker: (has: boolean) => void
+  setSelectedMarkerFossPid: (fossPid: string | null) => void
 
   // Cache state
   isCacheHit: boolean
@@ -115,6 +116,7 @@ export function useViewerInit({
   setDwgUnitString,
   setDwgCoordinates,
   setHasSelectedMarker,
+  setSelectedMarkerFossPid,
   isCacheHit,
   getAccessToken,
   uploadFile,
@@ -346,6 +348,13 @@ export function useViewerInit({
                     edit2dMarkers.setCallbacks({
                       onSelect: (id) => {
                         setHasSelectedMarker(id !== null)
+                        // Look up fossPid from placements for toolbar display
+                        if (id) {
+                          const placement = initialPlacementsRef.current?.find(p => p.id === id)
+                          setSelectedMarkerFossPid(placement?.fossPid ?? null)
+                        } else {
+                          setSelectedMarkerFossPid(null)
+                        }
                       },
                       onDelete: (id) => {
                         onPlacementDeleteRef.current?.(id)
@@ -511,6 +520,7 @@ export function useViewerInit({
     setDwgUnitString,
     setDwgCoordinates,
     setHasSelectedMarker,
+    setSelectedMarkerFossPid,
     getAccessToken,
   ])
 

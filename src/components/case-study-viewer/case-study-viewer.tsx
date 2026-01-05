@@ -168,6 +168,7 @@ export function CaseStudyViewer({
   const [urn, setUrn] = useState<string | undefined>(initialUrn)
   const [isCacheHit, setIsCacheHit] = useState(false)
   const [hasSelectedMarker, setHasSelectedMarker] = useState(false)
+  const [selectedMarkerFossPid, setSelectedMarkerFossPid] = useState<string | null>(null)
   const [dwgUnitString, setDwgUnitString] = useState<string | null>(null)
   const [dwgUnitInfo, setDwgUnitInfo] = useState<DwgUnitInfo | null>(null)
 
@@ -250,6 +251,7 @@ export function CaseStudyViewer({
     setDwgUnitString,
     setDwgCoordinates,
     setHasSelectedMarker,
+    setSelectedMarkerFossPid,
     isCacheHit,
     getAccessToken,
     uploadFile,
@@ -424,6 +426,7 @@ export function CaseStudyViewer({
           measureMode={measureMode}
           hasMeasurement={hasMeasurement}
           hasSelectedMarker={hasSelectedMarker}
+          selectedMarkerFossPid={selectedMarkerFossPid}
           placementMode={placementMode}
           onToggleMeasure={handleToggleMeasure}
           onClearMeasurements={handleClearMeasurements}
