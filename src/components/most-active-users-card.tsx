@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from '@fossapp/ui'
 import { Badge } from '@fossapp/ui'
 import { Users, Search, Eye, LogIn } from 'lucide-react'
@@ -9,6 +10,85 @@ import { formatDistanceToNow } from 'date-fns'
 interface MostActiveUsersCardProps {
   users: ActiveUser[]
   loading?: boolean
+}
+
+/**
+ * Generates initials from a user's name (up to 2 characters).
+ * Falls back to first letter of email if no name.
+ */
+function getInitials(name: string | null, email: string): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/)
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    }
+    return name.slice(0, 2).toUpperCase()
+  }
+  return email[0].toUpperCase()
+}
+
+/**
+ * Generates a consistent color based on name/email for initials background.
+ * Uses HSL for pleasant, accessible colors.
+ */
+function getAvatarColor(name: string | null, email: string): string {
+  const str = name || email
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const hue = Math.abs(hash % 360)
+  return `hsl(${hue}, 65%, 45%)`
+}
+
+/**
+ * Avatar component with image or initials fallback.
+ */
+function UserAvatar({
+  name,
+  email,
+  image
+}: {
+  name: string | null
+  email: string
+  image: string | null
+}) {
+  const initials = getInitials(name, email)
+  const bgColor = getAvatarColor(name, email)
+
+  if (image) {
+    return (
+      <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
+        <Image
+          src={image}
+          alt={name || email}
+          fill
+          sizes="40px"
+          className="object-cover"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm shrink-0"
+      style={{ backgroundColor: bgColor }}
+    >
+      {initials}
+    </div>
+  )
+}
+
+/**
+ * Simple rank indicator - just the number, no medals to avoid office drama!
+ */
+function RankBadge({ rank }: { rank: number }) {
+  return (
+    <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground shrink-0">
+      {rank}
+    </div>
+  )
 }
 
 export function MostActiveUsersCard({ users, loading }: MostActiveUsersCardProps) {
@@ -72,51 +152,55 @@ export function MostActiveUsersCard({ users, loading }: MostActiveUsersCardProps
               key={user.user_id}
               className="p-4 border rounded-lg hover:bg-accent transition-colors"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  {/* Rank Badge */}
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-medium text-sm shrink-0">
-                    {index + 1}
+              <div className="flex items-center gap-3">
+                {/* Rank Badge */}
+                <RankBadge rank={index + 1} />
+
+                {/* User Avatar */}
+                <UserAvatar
+                  name={user.user_name}
+                  email={user.user_id}
+                  image={user.user_image}
+                />
+
+                {/* User Info */}
+                <div className="flex-1 min-w-0">
+                  {/* Name */}
+                  <div className="font-medium text-sm truncate">
+                    {user.user_name || user.user_id}
                   </div>
 
-                  {/* User Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate mb-1">
-                      {user.user_id}
-                    </div>
-
-                    {/* Activity Stats */}
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {user.login_count > 0 && (
-                        <Badge variant="outline" className="text-xs flex items-center gap-1">
-                          <LogIn className="h-3 w-3" />
-                          {user.login_count} login{user.login_count !== 1 ? 's' : ''}
-                        </Badge>
-                      )}
-                      {user.search_count > 0 && (
-                        <Badge variant="outline" className="text-xs flex items-center gap-1">
-                          <Search className="h-3 w-3" />
-                          {user.search_count} search{user.search_count !== 1 ? 'es' : ''}
-                        </Badge>
-                      )}
-                      {user.product_view_count > 0 && (
-                        <Badge variant="outline" className="text-xs flex items-center gap-1">
-                          <Eye className="h-3 w-3" />
-                          {user.product_view_count} view{user.product_view_count !== 1 ? 's' : ''}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Last Active */}
-                    <p className="text-xs text-muted-foreground">
-                      Last active {formatDistanceToNow(new Date(user.last_active), { addSuffix: true })}
-                    </p>
+                  {/* Activity Stats */}
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {user.login_count > 0 && (
+                      <Badge variant="outline" className="text-xs flex items-center gap-1 py-0">
+                        <LogIn className="h-3 w-3" />
+                        {user.login_count}
+                      </Badge>
+                    )}
+                    {user.search_count > 0 && (
+                      <Badge variant="outline" className="text-xs flex items-center gap-1 py-0">
+                        <Search className="h-3 w-3" />
+                        {user.search_count}
+                      </Badge>
+                    )}
+                    {user.product_view_count > 0 && (
+                      <Badge variant="outline" className="text-xs flex items-center gap-1 py-0">
+                        <Eye className="h-3 w-3" />
+                        {user.product_view_count}
+                      </Badge>
+                    )}
                   </div>
+
+                  {/* Last Active */}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Active {formatDistanceToNow(new Date(user.last_active), { addSuffix: true })}
+                  </p>
                 </div>
 
                 {/* Total Events Badge */}
                 <Badge className="shrink-0">
-                  {user.event_count} event{user.event_count !== 1 ? 's' : ''}
+                  {user.event_count}
                 </Badge>
               </div>
             </div>

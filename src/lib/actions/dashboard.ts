@@ -42,6 +42,8 @@ export interface ActiveUser {
   login_count: number
   search_count: number
   product_view_count: number
+  user_name: string | null
+  user_image: string | null
 }
 
 // ============================================================================
@@ -180,13 +182,17 @@ export async function getMostActiveUsersAction(limit: number = 5): Promise<Activ
       login_count: number
       search_count: number
       product_view_count: number
+      user_name: string | null
+      user_image: string | null
     }) => ({
       user_id: item.user_id,
       event_count: Number(item.event_count),
       last_active: item.last_active,
       login_count: Number(item.login_count),
       search_count: Number(item.search_count),
-      product_view_count: Number(item.product_view_count)
+      product_view_count: Number(item.product_view_count),
+      user_name: item.user_name,
+      user_image: item.user_image
     }))
   } catch (error) {
     console.error('Most active users error:', error)
