@@ -86,6 +86,21 @@ export function useMeasurement({
   }, [viewerRef])
 
   /**
+   * Exit measure mode when entering placement mode
+   */
+  useEffect(() => {
+    if (placementMode && measureMode !== 'none') {
+      const viewer = viewerRef.current
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const measureExt = viewer?.getExtension('Autodesk.Measure') as any
+      if (measureExt) {
+        measureExt.deactivate()
+      }
+      setMeasureMode('none')
+    }
+  }, [placementMode, measureMode, viewerRef])
+
+  /**
    * Poll for measurements while in measure mode
    */
   useEffect(() => {

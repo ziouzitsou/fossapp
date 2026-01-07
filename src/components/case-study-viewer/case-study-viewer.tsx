@@ -216,15 +216,28 @@ export function CaseStudyViewer({
     onExitPlacementMode,
   })
 
+  // Handler to exit measure mode (deactivate and reset state)
+  const handleExitMeasureMode = useCallback(() => {
+    const viewer = viewerRef.current
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const measureExt = viewer?.getExtension('Autodesk.Measure') as any
+    if (measureExt) {
+      measureExt.deactivate()
+    }
+    setMeasureMode('none')
+  }, [setMeasureMode])
+
   // Event handling (coordinates from events)
   const { dwgCoordinates, setDwgCoordinates } = useViewerEvents({
     containerRef,
     viewerRef,
     isLoading,
     placementMode,
+    isMeasuring: measureMode !== 'none',
     pageToDwgCoords,
     onViewerClick,
     onExitPlacementMode,
+    onExitMeasureMode: handleExitMeasureMode,
   })
 
   // Handler to capture DWG unit info for local state AND pass to external callback

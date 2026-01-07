@@ -20,12 +20,16 @@ interface UseViewerEventsOptions {
   isLoading: boolean
   /** Current placement mode (affects coordinate tracking) */
   placementMode?: PlacementModeProduct | null
+  /** Whether measure mode is active */
+  isMeasuring?: boolean
   /** Coordinate conversion function (page to DWG) */
   pageToDwgCoords: (pageX: number, pageY: number) => { x: number; y: number }
   /** Callback when viewer is clicked (for external placement handling) */
   onViewerClick?: (worldCoords: WorldCoordinates | null, screenCoords: { x: number; y: number }) => void
   /** Callback to exit placement mode */
   onExitPlacementMode?: () => void
+  /** Callback to exit measure mode */
+  onExitMeasureMode?: () => void
 }
 
 interface UseViewerEventsReturn {
@@ -40,9 +44,11 @@ export function useViewerEvents({
   viewerRef,
   isLoading,
   placementMode,
+  isMeasuring,
   pageToDwgCoords,
   onViewerClick,
   onExitPlacementMode,
+  onExitMeasureMode,
 }: UseViewerEventsOptions): UseViewerEventsReturn {
   const [dwgCoordinates, setDwgCoordinates] = useState<DwgCoordinates | null>(null)
 
@@ -163,20 +169,28 @@ export function useViewerEvents({
   }, [containerRef, viewerRef, isLoading, placementMode, pageToDwgCoords])
 
   /**
-   * ESC key to exit placement mode
+   * ESC key to exit active mode (placement or measurement)
+   * Priority: placement > measurement (exits one at a time)
    */
   useEffect(() => {
-    if (!placementMode) return
+    // Only listen if there's something to exit
+    if (!placementMode && !isMeasuring) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onExitPlacementMode?.()
+        // Exit placement mode first if active
+        if (placementMode) {
+          onExitPlacementMode?.()
+        } else if (isMeasuring) {
+          // Then exit measure mode
+          onExitMeasureMode?.()
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [placementMode, onExitPlacementMode])
+  }, [placementMode, isMeasuring, onExitPlacementMode, onExitMeasureMode])
 
   return {
     dwgCoordinates,
