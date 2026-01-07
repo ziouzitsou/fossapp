@@ -1,7 +1,6 @@
 'use client'
 
 import { signOut } from 'next-auth/react'
-import { useTheme } from 'next-themes'
 import { useEffect, useState, useCallback } from 'react'
 import { logEventClient } from '@fossapp/core/logging/client'
 import Image from 'next/image'
@@ -16,7 +15,8 @@ import {
   DropdownMenuTrigger,
 } from '@fossapp/ui'
 import { Button } from '@fossapp/ui'
-import { useMultiTheme, type Theme } from '@/lib/theme-context'
+import { useUserSettings } from '@/lib/user-settings-context'
+import type { Theme } from '@/lib/theme-context'
 
 interface UserDropdownProps {
   user?: {
@@ -28,23 +28,22 @@ interface UserDropdownProps {
 
 export function UserDropdown({ user }: UserDropdownProps) {
   const [mounted, setMounted] = useState(false)
-  const { theme: modeTheme, setTheme: setModeTheme } = useTheme()
-  const { theme: styleTheme, setTheme: setStyleTheme } = useMultiTheme()
+  const { colorMode, setColorMode, theme: styleTheme, setTheme: setStyleTheme } = useUserSettings()
 
   // Hydration pattern - intentional
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const handleModeChange = useCallback((newTheme: string) => {
-    const previousTheme = modeTheme
-    setModeTheme(newTheme)
+  const handleModeChange = useCallback((newMode: string) => {
+    const previousMode = colorMode
+    setColorMode(newMode as 'light' | 'dark' | 'system')
     logEventClient('theme_toggled', {
       type: 'mode',
-      previous_theme: previousTheme,
-      new_theme: newTheme,
+      previous_theme: previousMode,
+      new_theme: newMode,
     })
-  }, [modeTheme, setModeTheme])
+  }, [colorMode, setColorMode])
 
   const handleStyleChange = useCallback((newStyle: Theme) => {
     const previousStyle = styleTheme
@@ -125,7 +124,7 @@ export function UserDropdown({ user }: UserDropdownProps) {
             </DropdownMenuLabel>
             {modeOptions.map((option) => {
               const Icon = option.icon
-              const isActive = modeTheme === option.value
+              const isActive = colorMode === option.value
               return (
                 <DropdownMenuItem
                   key={option.value}

@@ -25,6 +25,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
+import { useTheme as useNextTheme } from 'next-themes'
 import { useDevSession } from '@/lib/use-dev-session'
 import {
   getUserSettingsAction,
@@ -36,8 +37,11 @@ import {
 // TYPES
 // ============================================================================
 
-/** Available app themes */
+/** Available app style themes */
 type Theme = 'default' | 'minimal' | 'emerald' | 'ocean'
+
+/** Available color modes (dark/light) */
+type ColorMode = 'light' | 'dark' | 'system'
 
 /**
  * Minimal project info for the active project selector
@@ -64,10 +68,16 @@ interface UserSettingsContextType {
   isAuthenticated: boolean
 
   // === Theme ===
-  /** Current theme preference */
+  /** Current style theme preference */
   theme: Theme
-  /** Update theme (syncs to DB if authenticated) */
+  /** Update style theme (syncs to DB if authenticated) */
   setTheme: (theme: Theme) => void
+
+  // === Color Mode ===
+  /** Current color mode (light/dark/system) */
+  colorMode: ColorMode
+  /** Update color mode (syncs to DB if authenticated) */
+  setColorMode: (mode: ColorMode) => void
 
   // === Sidebar ===
   /** Sidebar expanded state */
@@ -107,6 +117,7 @@ interface UserSettingsContextType {
 // Local storage keys (fallback for unauthenticated users)
 const STORAGE_KEYS = {
   theme: 'app-theme',
+  colorMode: 'theme', // next-themes uses 'theme' key
   sidebar: 'sidebar_state',
   activeProject: 'fossapp-active-project',
   lastSeenVersion: 'fossapp_last_seen_version',
@@ -129,10 +140,16 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
   const { data: session, status } = useDevSession()
   const isAuthenticated = status === 'authenticated' && !!session?.user?.email
 
+  // next-themes hook for color mode
+  const { theme: nextTheme, setTheme: setNextTheme } = useNextTheme()
+
   // State
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [mounted, setMounted] = useState(false)
+
+  // Track if color mode was set from DB to prevent sync loop
+  const colorModeFromDbRef = useRef(false)
 
   // Settings state
   const [theme, setThemeState] = useState<Theme>('default')
@@ -211,6 +228,7 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
       if (updates.theme !== undefined) {
         localStorage.setItem(STORAGE_KEYS.theme, updates.theme)
       }
+      // Note: color_mode is handled by next-themes, not directly in localStorage
       if (updates.sidebar_expanded !== undefined) {
         document.cookie = `sidebar_state=${updates.sidebar_expanded}; path=/; max-age=604800`
       }
@@ -294,6 +312,16 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
         if (settings.theme) {
           setThemeState(settings.theme as Theme)
           localStorage.setItem(STORAGE_KEYS.theme, settings.theme)
+        }
+
+        // Apply color mode from DB to next-themes
+        if (settings.color_mode) {
+          colorModeFromDbRef.current = true
+          setNextTheme(settings.color_mode)
+          // Reset flag after a short delay to allow the change to propagate
+          setTimeout(() => {
+            colorModeFromDbRef.current = false
+          }, 100)
         }
 
         if (settings.sidebar_expanded !== null) {
@@ -449,6 +477,12 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
     syncToDatabase(updates)
   }, [saveToLocalStorage, syncToDatabase])
 
+  const setColorMode = useCallback((mode: ColorMode) => {
+    setNextTheme(mode)
+    const updates = { color_mode: mode }
+    syncToDatabase(updates)
+  }, [setNextTheme, syncToDatabase])
+
   const setSidebarExpanded = useCallback((expanded: boolean) => {
     setSidebarExpandedState(expanded)
     const updates = { sidebar_expanded: expanded }
@@ -537,6 +571,7 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
     // Sync all current state
     const allUpdates: UpdateSettingsInput = {
       theme,
+      color_mode: (nextTheme as ColorMode) || 'system',
       sidebar_expanded: sidebarExpanded,
       active_project_id: activeProject?.id || null,
       active_project_code: activeProject?.project_code || null,
@@ -554,7 +589,7 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
       setIsSyncing(false)
     }
   }, [
-    isAuthenticated, session, theme, sidebarExpanded, activeProject,
+    isAuthenticated, session, theme, nextTheme, sidebarExpanded, activeProject,
     lastSeenVersion, searchHistoryTiles, searchHistorySymbols, searchHistoryCustomers
   ])
 
@@ -582,6 +617,8 @@ export function UserSettingsProvider({ children }: { children: React.ReactNode }
         isAuthenticated,
         theme,
         setTheme,
+        colorMode: (nextTheme as ColorMode) || 'system',
+        setColorMode,
         sidebarExpanded,
         setSidebarExpanded,
         activeProject: mounted ? activeProject : null,

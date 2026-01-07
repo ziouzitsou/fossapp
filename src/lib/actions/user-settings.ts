@@ -10,6 +10,7 @@ export interface UserSettings {
   user_id: string
   // UI Preferences
   theme: 'default' | 'minimal' | 'emerald' | 'ocean'
+  color_mode: 'light' | 'dark' | 'system'
   sidebar_expanded: boolean
   // Context State
   active_project_id: string | null
@@ -47,6 +48,7 @@ export interface UserProfile {
 
 export interface UpdateSettingsInput {
   theme?: 'default' | 'minimal' | 'emerald' | 'ocean'
+  color_mode?: 'light' | 'dark' | 'system'
   sidebar_expanded?: boolean
   active_project_id?: string | null
   active_project_code?: string | null
@@ -232,6 +234,7 @@ export async function updateUserSettingsAction(
     const updateData: Record<string, unknown> = {}
 
     if (input.theme !== undefined) updateData.theme = input.theme
+    if (input.color_mode !== undefined) updateData.color_mode = input.color_mode
     if (input.sidebar_expanded !== undefined) updateData.sidebar_expanded = input.sidebar_expanded
     if (input.active_project_id !== undefined) updateData.active_project_id = input.active_project_id
     if (input.active_project_code !== undefined) updateData.active_project_code = input.active_project_code

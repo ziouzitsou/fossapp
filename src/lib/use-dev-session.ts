@@ -6,7 +6,7 @@ import { useMemo, useEffect } from 'react'
 // Mock session for development bypass
 const MOCK_SESSION = {
   user: {
-    name: 'Dimitri',
+    name: 'Dimitris Christou',
     email: 'development@foss.gr',
     image: '/default-avatar.png'
   },
