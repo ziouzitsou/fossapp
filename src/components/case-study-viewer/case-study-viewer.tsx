@@ -22,14 +22,14 @@
  * - useViewerInit: Complete viewer initialization lifecycle
  */
 
-import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react'
+import { useEffect, useRef, useState, useCallback, useLayoutEffect, useMemo } from 'react'
 import { cn } from '@fossapp/ui'
 import type { Viewer3DInstance, Edit2DContext } from '@/types/autodesk-viewer'
-import type { PlacementModeProduct, Placement, DwgUnitInfo, WorldCoordinates } from './types'
+import type { PlacementModeProduct, Placement, DwgUnitInfo, WorldCoordinates, ViewerMode } from './types'
 import { PlacementTool } from './placement-tool'
 import { Edit2DMarkers } from './edit2d-markers'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
-import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, type LoadingStage } from './viewer-overlays'
+import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, type LoadingStage } from './viewer-overlays'
 import { hexToRgb } from './case-study-viewer-utils'
 import {
   useCoordinateTransform,
@@ -418,6 +418,21 @@ export function CaseStudyViewer({
   }, [])
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // DERIVED STATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Derive viewer mode from existing state (similar to AutoCAD command modes)
+   * Priority: PLACEMENT > MEASUREMENT > SELECT > IDLE
+   */
+  const viewerMode: ViewerMode = useMemo(() => {
+    if (placementMode) return 'PLACEMENT'
+    if (measureMode) return 'MEASUREMENT'
+    if (hasSelectedMarker) return 'SELECT'
+    return 'IDLE'
+  }, [placementMode, measureMode, hasSelectedMarker])
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -460,6 +475,14 @@ export function CaseStudyViewer({
             dwgUnitInfo={dwgUnitInfo}
             calibrationChecked={calibrationChecked}
             isCalibrated={isCalibrated}
+          />
+        )}
+
+        {/* Mode indicator - top center */}
+        {showToolbar && (
+          <ModeIndicator
+            mode={viewerMode}
+            placementProduct={placementMode}
           />
         )}
 
