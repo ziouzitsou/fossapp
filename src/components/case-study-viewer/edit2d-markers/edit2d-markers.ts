@@ -211,7 +211,7 @@ export class Edit2DMarkers {
   }
 
   /**
-   * Handle mousemove for hover detection
+   * Handle mousemove for hover detection and move preview
    */
   private handleMouseMove(e: MouseEvent): void {
     if (!this.ctx?.layer) return
@@ -221,7 +221,18 @@ export class Edit2DMarkers {
     const canvasX = e.clientX - rect.left
     const canvasY = e.clientY - rect.top
 
-    // Convert canvas coordinates to layer (world) coordinates
+    // Update move preview if in move mode
+    // Use clientToWorld for correct page coordinates (works like helper app)
+    if (this.movingMarkerId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const worldResult = (this.viewer as any).clientToWorld(canvasX, canvasY)
+      if (worldResult?.point) {
+        this.updateMovePreview(worldResult.point.x, worldResult.point.y)
+      }
+      return // Skip hover detection during move mode
+    }
+
+    // Convert canvas coordinates to layer coordinates for hit testing
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const layer = this.ctx.layer as any
     if (!layer.canvasToLayer) return
@@ -363,13 +374,14 @@ export class Edit2DMarkers {
   /**
    * Handle Edit2D selection change events
    *
-   * When a shape is selected, automatically selects ALL shapes belonging to the same marker.
-   * This makes multi-shape markers behave as a single grouped object.
+   * When a shape is clicked, we detect which marker it belongs to,
+   * store it in our internal selectedId, then CLEAR the Edit2D selection
+   * to hide the gizmo. Our style modifier handles visual selection feedback.
    */
   private handleSelectionChanged(): void {
     if (!this.ctx?.selection) return
 
-    // Prevent infinite recursion when we programmatically select sibling shapes
+    // Prevent recursion when we programmatically clear selection
     if (this.isSelectingSiblings) return
 
     // Before updating selection, check if the previously selected marker moved
@@ -380,10 +392,11 @@ export class Edit2DMarkers {
     const selectedShapes = this.ctx.selection.getSelectedShapes()
 
     if (selectedShapes.length === 0) {
+      // Selection was cleared (click on empty space or ESC)
       if (this.selectedId) {
         this.selectedId = null
         this.callbacks.onSelect?.(null)
-        this.ctx.layer.update() // Re-render to clear selection style
+        this.ctx.layer.update()
       }
       return
     }
@@ -392,35 +405,27 @@ export class Edit2DMarkers {
     const selectedShape = selectedShapes[0]
     const markerId = this.shapeToMarker.get(selectedShape.id)
 
-    if (!markerId) return
-
-    // Get ALL shapes belonging to this marker
-    const allMarkerShapes = this.shapes.get(markerId)
-
-    // If the marker has multiple shapes and not all are selected, select them all
-    if (allMarkerShapes && allMarkerShapes.length > 1) {
-      const selectedIds = new Set(selectedShapes.map(s => s.id))
-      const allSelected = allMarkerShapes.every(s => selectedIds.has(s.id))
-
-      if (!allSelected) {
-        this.isSelectingSiblings = true
-        try {
-          // Select the primary shape (first in array) to represent the marker group
-          // Note: Edit2D only supports single-shape selection via selectOnly()
-          // Multi-shape visual selection isn't supported, but our logical selection
-          // tracking via this.selectedId handles the marker as a unit
-          this.ctx.selection.selectOnly(allMarkerShapes[0])
-        } finally {
-          this.isSelectingSiblings = false
-        }
-      }
+    if (!markerId) {
+      // Clicked on a non-marker shape, clear selection
+      this.isSelectingSiblings = true
+      this.ctx.selection.clear()
+      this.isSelectingSiblings = false
+      return
     }
 
+    // Update our internal selection state
     if (this.selectedId !== markerId) {
       this.selectedId = markerId
       this.callbacks.onSelect?.(markerId)
-      this.ctx.layer.update() // Re-render to apply selection style immediately
     }
+
+    // Clear Edit2D selection to hide the gizmo
+    // Our style modifier will show the selection visual feedback
+    this.isSelectingSiblings = true
+    this.ctx.selection.clear()
+    this.isSelectingSiblings = false
+
+    this.ctx.layer.update()
   }
 
   /**
@@ -574,6 +579,11 @@ export class Edit2DMarkers {
         this.addLabelToShape(markerId, shapes[0], data.symbol)
       }
     }
+
+    // Clear any selection to prevent newly placed marker from appearing selected
+    // (the click event that triggered placement may also trigger Edit2D selection)
+    this.ctx.selection.clear()
+    this.selectedId = null
 
     return markerData
   }
@@ -756,7 +766,8 @@ export class Edit2DMarkers {
 
   /**
    * Start move mode for a marker
-   * Ghosts the original shapes and notifies parent to activate snapping
+   * Clears Edit2D selection (hides gizmo), ghosts the original shapes,
+   * and notifies parent to activate snapping/crosshair cursor.
    */
   startMove(id: string): void {
     if (!this.ctx) return
@@ -766,6 +777,10 @@ export class Edit2DMarkers {
     if (!data || !shapes) return
 
     this.movingMarkerId = id
+
+    // Clear Edit2D selection to hide the move gizmo
+    // We keep our internal selectedId but remove the visual selection
+    this.ctx.selection.clear()
 
     // Ghost the original shapes (reduce opacity)
     for (const shape of shapes) {
@@ -788,7 +803,7 @@ export class Edit2DMarkers {
   }
 
   /**
-   * Cancel move mode - restore original shapes
+   * Cancel move mode - restore original shapes and re-select marker
    */
   cancelMove(): void {
     if (!this.movingMarkerId || !this.ctx) return
@@ -816,6 +831,11 @@ export class Edit2DMarkers {
       this.ctx.removeShape(shape)
     }
     this.movePreviewShapes = []
+
+    // Re-select the marker in Edit2D so selection style is applied
+    if (shapes?.[0]) {
+      this.ctx.selection.selectOnly(shapes[0])
+    }
 
     this.ctx.layer.update()
 
@@ -948,6 +968,10 @@ export class Edit2DMarkers {
     if (data.symbol && newShapes[0]) {
       this.addLabelToShape(id, newShapes[0], data.symbol)
     }
+
+    // Clear selection after move (same behavior as after placement)
+    this.ctx.selection.clear()
+    this.selectedId = null
 
     this.ctx.layer.update()
 
