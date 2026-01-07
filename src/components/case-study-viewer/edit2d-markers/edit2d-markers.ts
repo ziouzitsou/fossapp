@@ -458,10 +458,12 @@ export class Edit2DMarkers {
     }
 
     // Rotate selected marker by 15 degrees
+    // R = clockwise, Shift+R = counter-clockwise
     if (this.selectedId && (e.key === 'r' || e.key === 'R')) {
       e.preventDefault()
       e.stopPropagation()
-      this.rotateMarker(this.selectedId, 15)
+      const delta = e.shiftKey ? 15 : -15  // CW is negative in math coordinates
+      this.rotateMarker(this.selectedId, delta)
     }
   }
 

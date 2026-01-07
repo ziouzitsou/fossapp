@@ -119,8 +119,9 @@ export function useMeasurement({
       // Check if the extension was deactivated externally (e.g., user pressed ESC)
       // The Measure extension handles ESC internally and deactivates itself
       const isActive = measureExt.isActive?.() ?? measureExt.mode !== 'inactive'
-      if (!isActive && measureMode !== 'none') {
+      if (!isActive) {
         // Extension was deactivated externally - sync our state
+        // (We're guaranteed measureMode !== 'none' because we return early above)
         setMeasureMode('none')
         setHasMeasurement(false)
         return
