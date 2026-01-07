@@ -84,6 +84,16 @@ export interface PlacementModeProduct {
 }
 
 /**
+ * Viewer interaction mode (similar to AutoCAD command modes)
+ *
+ * - IDLE: Default mode, pan/zoom navigation (ESC to enter)
+ * - SELECT: Selection mode for placed markers (SPACE to enter)
+ * - MEASUREMENT: Measurement tools active (length/area)
+ * - PLACEMENT: Placing a new marker (product selected from panel)
+ */
+export type ViewerMode = 'IDLE' | 'SELECT' | 'MEASUREMENT' | 'PLACEMENT'
+
+/**
  * DWG unit information extracted from the APS viewer model
  * Used to display drawing unit metadata to users
  */
