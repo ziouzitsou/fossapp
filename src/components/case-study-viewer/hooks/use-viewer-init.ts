@@ -235,6 +235,18 @@ export function useViewerInit({
                 bottomRgb.r, bottomRgb.g, bottomRgb.b
               )
 
+              // Disable DWG element hover highlighting
+              // The 2D rollover uses a hardcoded yellow shader that can't be customized,
+              // so we disable it entirely. Our Edit2D markers handle their own hover effects.
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const impl = (viewer as any).impl
+              if (impl?.disableRollover) {
+                impl.disableRollover(true)
+              }
+              if (impl?.disableHighlight) {
+                impl.disableHighlight(true)
+              }
+
               // Extract DWG unit information from the model
               const model = viewer.model
               let modelUnitScale: number | null = null
