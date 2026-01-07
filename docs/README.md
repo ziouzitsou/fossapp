@@ -66,6 +66,7 @@ Feature-specific documentation.
 | [tiles.md](./features/tiles.md) | Tile Management System (DWG generation) |
 | [playground.md](./features/playground.md) | DWG from natural language (LLM + APS) |
 | [case-study.md](./features/case-study.md) | Case Study - visual lighting layout planner (DWG + placements) |
+| [case-study-viewer-migration.md](./features/case-study-viewer-migration.md) | **APS Viewer migration checklist** (from aps-viewer sandbox) |
 | [symbol-generator.md](./features/symbol-generator.md) | AutoCAD symbol specs via Vision LLM (experimental) |
 | [symbol-classification.md](./features/symbol-classification.md) | Product classification rules (A-P letter codes) |
 | [filters.md](./features/filters.md) | Dynamic filters implementation |
@@ -120,4 +121,4 @@ Historical and completed migration docs.
 
 ---
 
-**Last Updated**: 2026-01-04 (Documentation audit - fixed broken references, updated counts)
+**Last Updated**: 2026-01-07 (Added Case Study viewer migration checklist)
