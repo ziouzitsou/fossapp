@@ -20,12 +20,20 @@ interface UseViewerEventsOptions {
   isLoading: boolean
   /** Current placement mode (affects coordinate tracking) */
   placementMode?: PlacementModeProduct | null
+  /** Whether measure mode is active */
+  isMeasuring?: boolean
+  /** Whether a marker is selected */
+  hasSelectedMarker?: boolean
   /** Coordinate conversion function (page to DWG) */
   pageToDwgCoords: (pageX: number, pageY: number) => { x: number; y: number }
   /** Callback when viewer is clicked (for external placement handling) */
   onViewerClick?: (worldCoords: WorldCoordinates | null, screenCoords: { x: number; y: number }) => void
   /** Callback to exit placement mode */
   onExitPlacementMode?: () => void
+  /** Callback to exit measure mode */
+  onExitMeasureMode?: () => void
+  /** Callback to deselect marker */
+  onDeselectMarker?: () => void
 }
 
 interface UseViewerEventsReturn {
@@ -40,9 +48,13 @@ export function useViewerEvents({
   viewerRef,
   isLoading,
   placementMode,
+  isMeasuring,
+  hasSelectedMarker,
   pageToDwgCoords,
   onViewerClick,
   onExitPlacementMode,
+  onExitMeasureMode,
+  onDeselectMarker,
 }: UseViewerEventsOptions): UseViewerEventsReturn {
   const [dwgCoordinates, setDwgCoordinates] = useState<DwgCoordinates | null>(null)
 
@@ -137,27 +149,15 @@ export function useViewerEvents({
     if (placementMode) return
 
     const handleMouseMove = (e: MouseEvent) => {
-      let viewerX: number | undefined
-      let viewerY: number | undefined
+      // Get canvas-relative coordinates
+      const rect = container.getBoundingClientRect()
+      const clientX = e.clientX - rect.left
+      const clientY = e.clientY - rect.top
 
-      // Calculate page coords from visible bounds
-      // Note: clientToWorld() is unreliable for 2D DWGs, so we always use visible bounds
-      const impl = viewer.impl
-      const visibleBounds = impl?.getVisibleBounds?.()
-      if (visibleBounds) {
-        const rect = container.getBoundingClientRect()
-        const localX = e.clientX - rect.left
-        const localY = e.clientY - rect.top
-        const visWidth = visibleBounds.max.x - visibleBounds.min.x
-        const visHeight = visibleBounds.max.y - visibleBounds.min.y
-        // Page coords: X increases right, Y increases up (flip from screen)
-        viewerX = visibleBounds.min.x + (localX / rect.width) * visWidth
-        viewerY = visibleBounds.max.y - (localY / rect.height) * visHeight
-      }
-
-      // Convert page coords to DWG model coords for display
-      if (viewerX !== undefined && viewerY !== undefined) {
-        const dwg = pageToDwgCoords(viewerX, viewerY)
+      // Use clientToWorld to get display coordinates (consistent with calibration)
+      const worldResult = viewer.clientToWorld(clientX, clientY)
+      if (worldResult?.point) {
+        const dwg = pageToDwgCoords(worldResult.point.x, worldResult.point.y)
         setDwgCoordinates({ x: dwg.x, y: dwg.y, isSnapped: false })
       }
     }
@@ -175,20 +175,27 @@ export function useViewerEvents({
   }, [containerRef, viewerRef, isLoading, placementMode, pageToDwgCoords])
 
   /**
-   * ESC key to exit placement mode
+   * ESC key to exit to IDLE mode
+   * Always clears placement mode and selection
    */
   useEffect(() => {
-    if (!placementMode) return
-
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
       if (e.key === 'Escape') {
+        // ESC: Exit everything, go to IDLE
         onExitPlacementMode?.()
+        onExitMeasureMode?.()
+        onDeselectMarker?.()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [placementMode, onExitPlacementMode])
+  }, [onExitPlacementMode, onExitMeasureMode, onDeselectMarker])
 
   return {
     dwgCoordinates,

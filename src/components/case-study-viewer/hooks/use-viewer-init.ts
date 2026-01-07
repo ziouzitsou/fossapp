@@ -65,6 +65,7 @@ interface UseViewerInitOptions {
   setDwgCoordinates: (coords: DwgCoordinates | null) => void
   setHasSelectedMarker: (has: boolean) => void
   setSelectedMarkerFossPid: (fossPid: string | null) => void
+  setIsMoving: (moving: boolean) => void
 
   // Cache state
   isCacheHit: boolean
@@ -81,6 +82,7 @@ interface UseViewerInitOptions {
   onPlacementAdd?: (placement: Omit<Placement, 'dbId'>) => void
   onPlacementDelete?: (id: string) => void
   onPlacementRotate?: (id: string, rotation: number) => void
+  onPlacementMove?: (id: string, worldX: number, worldY: number) => void
 }
 
 interface UseViewerInitReturn {
@@ -117,6 +119,7 @@ export function useViewerInit({
   setDwgCoordinates,
   setHasSelectedMarker,
   setSelectedMarkerFossPid,
+  setIsMoving,
   isCacheHit,
   getAccessToken,
   uploadFile,
@@ -127,6 +130,7 @@ export function useViewerInit({
   onPlacementAdd,
   onPlacementDelete,
   onPlacementRotate,
+  onPlacementMove,
 }: UseViewerInitOptions): UseViewerInitReturn {
   // Track if viewer has been initialized to prevent double init
   const isInitializedRef = useRef(false)
@@ -138,6 +142,7 @@ export function useViewerInit({
   const onPlacementAddRef = useRef(onPlacementAdd)
   const onPlacementDeleteRef = useRef(onPlacementDelete)
   const onPlacementRotateRef = useRef(onPlacementRotate)
+  const onPlacementMoveRef = useRef(onPlacementMove)
   useLayoutEffect(() => {
     onReadyRef.current = onReady
     onErrorRef.current = onError
@@ -145,7 +150,8 @@ export function useViewerInit({
     onPlacementAddRef.current = onPlacementAdd
     onPlacementDeleteRef.current = onPlacementDelete
     onPlacementRotateRef.current = onPlacementRotate
-  }, [onReady, onError, onUnitInfoAvailable, onPlacementAdd, onPlacementDelete, onPlacementRotate])
+    onPlacementMoveRef.current = onPlacementMove
+  }, [onReady, onError, onUnitInfoAvailable, onPlacementAdd, onPlacementDelete, onPlacementRotate, onPlacementMove])
 
   /**
    * Initialize viewer with Viewer3D (no GUI)
@@ -234,6 +240,18 @@ export function useViewerInit({
                 topRgb.r, topRgb.g, topRgb.b,
                 bottomRgb.r, bottomRgb.g, bottomRgb.b
               )
+
+              // Disable DWG element hover highlighting
+              // The 2D rollover uses a hardcoded yellow shader that can't be customized,
+              // so we disable it entirely. Our Edit2D markers handle their own hover effects.
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const impl = (viewer as any).impl
+              if (impl?.disableRollover) {
+                impl.disableRollover(true)
+              }
+              if (impl?.disableHighlight) {
+                impl.disableHighlight(true)
+              }
 
               // Extract DWG unit information from the model
               const model = viewer.model
@@ -362,10 +380,16 @@ export function useViewerInit({
                       onRotate: (id, rotation) => {
                         onPlacementRotateRef.current?.(id, rotation)
                       },
-                      onMove: (_id, pageX, pageY) => {
+                      onMove: (id, pageX, pageY) => {
                         // Convert page coords to DWG coords for storage
-                        const _dwg = pageToDwgCoords(pageX, pageY)
-                        // TODO: Add onPlacementMove callback to persist position changes
+                        const dwg = pageToDwgCoords(pageX, pageY)
+                        onPlacementMoveRef.current?.(id, dwg.x, dwg.y)
+                      },
+                      onMoveStart: () => {
+                        setIsMoving(true)
+                      },
+                      onMoveEnd: () => {
+                        setIsMoving(false)
                       },
                     })
 
@@ -397,6 +421,12 @@ export function useViewerInit({
               const tool = new PlacementTool(
                 viewer,
                 (coords) => {
+                  // Check if we're in move mode - if so, confirm the move instead of placing
+                  if (edit2dMarkersRef.current?.isMoving()) {
+                    edit2dMarkersRef.current.confirmMove(coords.worldX, coords.worldY)
+                    return
+                  }
+
                   const mode = placementModeRef.current
                   if (!mode || !edit2dMarkersRef.current) return
 
@@ -437,11 +467,18 @@ export function useViewerInit({
                 },
                 undefined, // onSnapChange - not used currently
                 // onCoordinateChange - convert page coords to DWG model coords for display
+                // Also updates move preview when in move mode
                 (coords) => {
                   if (!coords) {
                     setDwgCoordinates(null)
                     return
                   }
+
+                  // Update move preview if in move mode
+                  if (edit2dMarkersRef.current?.isMoving()) {
+                    edit2dMarkersRef.current.updateMovePreview(coords.x, coords.y)
+                  }
+
                   // Convert page coords (from viewer) to DWG model space
                   const dwg = pageToDwgCoords(coords.x, coords.y)
                   setDwgCoordinates({
@@ -521,6 +558,7 @@ export function useViewerInit({
     setDwgCoordinates,
     setHasSelectedMarker,
     setSelectedMarkerFossPid,
+    setIsMoving,
     getAccessToken,
   ])
 

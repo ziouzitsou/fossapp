@@ -86,7 +86,22 @@ export function useMeasurement({
   }, [viewerRef])
 
   /**
-   * Poll for measurements while in measure mode
+   * Exit measure mode when entering placement mode
+   */
+  useEffect(() => {
+    if (placementMode && measureMode !== 'none') {
+      const viewer = viewerRef.current
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const measureExt = viewer?.getExtension('Autodesk.Measure') as any
+      if (measureExt) {
+        measureExt.deactivate()
+      }
+      setMeasureMode('none')
+    }
+  }, [placementMode, measureMode, viewerRef])
+
+  /**
+   * Poll for measurements and detect if extension was deactivated externally (e.g., ESC key)
    */
   useEffect(() => {
     if (measureMode === 'none') {
@@ -101,6 +116,17 @@ export function useMeasurement({
     if (!measureExt) return
 
     const checkForMeasurements = () => {
+      // Check if the extension was deactivated externally (e.g., user pressed ESC)
+      // The Measure extension handles ESC internally and deactivates itself
+      const isActive = measureExt.isActive?.() ?? measureExt.mode !== 'inactive'
+      if (!isActive) {
+        // Extension was deactivated externally - sync our state
+        // (We're guaranteed measureMode !== 'none' because we return early above)
+        setMeasureMode('none')
+        setHasMeasurement(false)
+        return
+      }
+
       const measureTool = measureExt.measureTool
       if (measureTool) {
         // Check if there's a current measurement
@@ -111,7 +137,7 @@ export function useMeasurement({
     }
 
     // Check periodically while measuring
-    const interval = setInterval(checkForMeasurements, 500)
+    const interval = setInterval(checkForMeasurements, 200)
 
     return () => clearInterval(interval)
   }, [viewerRef, measureMode])

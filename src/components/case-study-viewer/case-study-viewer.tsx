@@ -22,14 +22,14 @@
  * - useViewerInit: Complete viewer initialization lifecycle
  */
 
-import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react'
+import { useEffect, useRef, useState, useCallback, useLayoutEffect, useMemo } from 'react'
 import { cn } from '@fossapp/ui'
 import type { Viewer3DInstance, Edit2DContext } from '@/types/autodesk-viewer'
-import type { PlacementModeProduct, Placement, DwgUnitInfo, WorldCoordinates } from './types'
+import type { PlacementModeProduct, Placement, DwgUnitInfo, WorldCoordinates, ViewerMode } from './types'
 import { PlacementTool } from './placement-tool'
 import { Edit2DMarkers } from './edit2d-markers'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
-import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, type LoadingStage } from './viewer-overlays'
+import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, type LoadingStage } from './viewer-overlays'
 import { hexToRgb } from './case-study-viewer-utils'
 import {
   useCoordinateTransform,
@@ -37,6 +37,7 @@ import {
   useMeasurement,
   useViewerEvents,
   useViewerInit,
+  useCalibration,
 } from './hooks'
 
 // Re-export types for consumers
@@ -77,6 +78,8 @@ export interface CaseStudyViewerProps {
   onPlacementDelete?: (id: string) => void
   /** Callback when a placement is rotated (R key shortcut) */
   onPlacementRotate?: (id: string, rotation: number) => void
+  /** Callback when a placement is moved (M key + click) */
+  onPlacementMove?: (id: string, worldX: number, worldY: number) => void
   /** Callback to exit placement mode */
   onExitPlacementMode?: () => void
   /** Callback when viewer is ready */
@@ -124,6 +127,7 @@ export function CaseStudyViewer({
   onPlacementAdd,
   onPlacementDelete,
   onPlacementRotate,
+  onPlacementMove,
   onExitPlacementMode,
   onReady,
   onError,
@@ -170,6 +174,7 @@ export function CaseStudyViewer({
   const [hasSelectedMarker, setHasSelectedMarker] = useState(false)
   const [selectedMarkerFossPid, setSelectedMarkerFossPid] = useState<string | null>(null)
   const [dwgUnitString, setDwgUnitString] = useState<string | null>(null)
+  const [isMoving, setIsMoving] = useState(false)
   const [dwgUnitInfo, setDwgUnitInfo] = useState<DwgUnitInfo | null>(null)
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -180,6 +185,14 @@ export function CaseStudyViewer({
   const { pageToDwgCoords, dwgToPageCoords, setTransform } = useCoordinateTransform({
     viewerRef,
   })
+
+  // Calibration detection
+  const {
+    calibrationChecked,
+    isCalibrated,
+    calibrationError,
+    detectCalibration,
+  } = useCalibration({ viewerRef })
 
   // API calls (auth, upload, translation)
   const { getAccessToken, uploadFile, pollTranslationStatus } = useViewerApi({
@@ -207,15 +220,34 @@ export function CaseStudyViewer({
     onExitPlacementMode,
   })
 
+  // Handler to exit measure mode (deactivate and reset state)
+  const handleExitMeasureMode = useCallback(() => {
+    const viewer = viewerRef.current
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const measureExt = viewer?.getExtension('Autodesk.Measure') as any
+    if (measureExt) {
+      measureExt.deactivate()
+    }
+    setMeasureMode('none')
+  }, [setMeasureMode])
+
+  const handleDeselectMarker = useCallback(() => {
+    edit2dMarkersRef.current?.selectMarker(null)
+  }, [])
+
   // Event handling (coordinates from events)
   const { dwgCoordinates, setDwgCoordinates } = useViewerEvents({
     containerRef,
     viewerRef,
     isLoading,
     placementMode,
+    isMeasuring: measureMode !== 'none',
+    hasSelectedMarker,
     pageToDwgCoords,
     onViewerClick,
     onExitPlacementMode,
+    onExitMeasureMode: handleExitMeasureMode,
+    onDeselectMarker: handleDeselectMarker,
   })
 
   // Handler to capture DWG unit info for local state AND pass to external callback
@@ -252,6 +284,7 @@ export function CaseStudyViewer({
     setDwgCoordinates,
     setHasSelectedMarker,
     setSelectedMarkerFossPid,
+    setIsMoving,
     isCacheHit,
     getAccessToken,
     uploadFile,
@@ -262,21 +295,23 @@ export function CaseStudyViewer({
     onPlacementAdd,
     onPlacementDelete,
     onPlacementRotate,
+    onPlacementMove,
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PLACEMENT MODE EFFECTS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Activate/deactivate placement tool based on placementMode
+  // Activate/deactivate placement tool based on placementMode or isMoving
+  // Move mode also needs snapping from the placement tool
   useEffect(() => {
     const viewer = viewerRef.current
     if (!viewer || !placementToolRef.current) return
 
-    if (placementMode) {
+    if (placementMode || isMoving) {
       viewer.toolController.activateTool('placement-tool')
 
-      // Exit measure mode when entering placement mode
+      // Exit measure mode when entering placement/move mode
       if (measureMode !== 'none') {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const measureExt = viewer.getExtension('Autodesk.Measure') as any
@@ -285,10 +320,15 @@ export function CaseStudyViewer({
         }
         setMeasureMode('none')
       }
+
+      // Deselect any marker when entering placement mode (not move mode)
+      if (placementMode) {
+        edit2dMarkersRef.current?.selectMarker(null)
+      }
     } else {
       viewer.toolController.deactivateTool('placement-tool')
     }
-  }, [placementMode, measureMode, setMeasureMode])
+  }, [placementMode, isMoving, measureMode, setMeasureMode])
 
   // Effect to sync placements with Edit2D markers
   // Handles both adding new placements and removing deleted ones
@@ -362,6 +402,44 @@ export function CaseStudyViewer({
     edit2dMarkersRef.current.setMinScreenPx(markerMinScreenPx)
   }, [markerMinScreenPx, isLoading])
 
+  // Effect to run calibration detection after viewer loads
+  // Uses retry mechanism to handle instance tree population timing
+  useEffect(() => {
+    if (isLoading || !viewerRef.current?.model) return
+    if (calibrationChecked) return // Already checked
+
+    let attempts = 0
+    const maxAttempts = 5
+    const retryDelay = 500 // ms between retries
+
+    const attemptCalibration = () => {
+      attempts++
+      detectCalibration().then((result) => {
+        if (result.isCalibrated) {
+          // Apply calibration to coordinate transform
+          setTransform(result.scaleX, result.scaleY, result.offsetX, result.offsetY)
+          console.log('[CaseStudyViewer] Calibration applied (attempt', attempts, '):', {
+            scaleX: result.scaleX,
+            scaleY: result.scaleY,
+            offsetX: result.offsetX,
+            offsetY: result.offsetY,
+          })
+        } else if (attempts < maxAttempts) {
+          // Retry - instance tree may not be fully populated yet
+          console.log('[CaseStudyViewer] Calibration attempt', attempts, 'failed, retrying...')
+          setTimeout(attemptCalibration, retryDelay)
+        } else {
+          console.warn('[CaseStudyViewer] Calibration failed after', attempts, 'attempts:', result.error)
+        }
+      })
+    }
+
+    // Start first attempt after initial delay
+    const timeoutId = setTimeout(attemptCalibration, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [isLoading, calibrationChecked, detectCalibration, setTransform])
+
   // ═══════════════════════════════════════════════════════════════════════════
   // TOOLBAR HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -369,6 +447,22 @@ export function CaseStudyViewer({
   const handleDeleteSelectedMarker = useCallback(() => {
     edit2dMarkersRef.current?.deleteSelected()
   }, [])
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DERIVED STATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Derive viewer mode from existing state (similar to AutoCAD command modes)
+   * Priority: PLACEMENT > MEASUREMENT > SELECT > IDLE
+   */
+  const viewerMode: ViewerMode = useMemo(() => {
+    if (isMoving) return 'MOVE'
+    if (placementMode) return 'PLACEMENT'
+    if (measureMode !== 'none') return 'MEASUREMENT'
+    if (hasSelectedMarker) return 'SELECT'
+    return 'IDLE'
+  }, [isMoving, placementMode, measureMode, hasSelectedMarker])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -411,6 +505,16 @@ export function CaseStudyViewer({
             coordinates={dwgCoordinates}
             unitString={dwgUnitString}
             dwgUnitInfo={dwgUnitInfo}
+            calibrationChecked={calibrationChecked}
+            isCalibrated={isCalibrated}
+          />
+        )}
+
+        {/* Mode indicator - top center */}
+        {showToolbar && (
+          <ModeIndicator
+            mode={viewerMode}
+            placementProduct={placementMode}
           />
         )}
 
@@ -425,13 +529,8 @@ export function CaseStudyViewer({
         <CaseStudyViewerToolbar
           measureMode={measureMode}
           hasMeasurement={hasMeasurement}
-          hasSelectedMarker={hasSelectedMarker}
-          selectedMarkerFossPid={selectedMarkerFossPid}
-          placementMode={placementMode}
           onToggleMeasure={handleToggleMeasure}
           onClearMeasurements={handleClearMeasurements}
-          onDeleteSelectedMarker={handleDeleteSelectedMarker}
-          onExitPlacementMode={onExitPlacementMode}
         />
       )}
     </div>

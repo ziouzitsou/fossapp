@@ -169,6 +169,7 @@ interface Edit2DStyle {
   fillColor: string
   fillAlpha: number
   lineColor: string
+  lineAlpha: number
   lineWidth: number
   lineStyle: number
   clone: () => Edit2DStyle

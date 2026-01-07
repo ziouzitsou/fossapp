@@ -35,7 +35,12 @@ export type {
   DwgUnitInfo,
   TranslationStatus,
   PageToModelTransform,
+  ViewerMode,
 } from './types'
+
+// Viewer overlays
+export { ModeIndicator } from './viewer-overlays'
+export type { ModeIndicatorProps } from './viewer-overlays'
 
 // Export hooks for potential reuse or testing
 export {

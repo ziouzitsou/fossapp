@@ -7,11 +7,11 @@
  * as overlays on top of the viewer container.
  */
 
-import { Loader2, AlertCircle, CheckCircle2, Crosshair, Maximize, Info, Keyboard } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2, Crosshair, Maximize, Info, Keyboard, AlertTriangle, MousePointer2, Ruler, Target, Hand, Move } from 'lucide-react'
 import { Progress, cn, Button } from '@fossapp/ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@fossapp/ui'
 import type { DwgCoordinates } from './placement-tool'
-import type { DwgUnitInfo } from './types'
+import type { DwgUnitInfo, ViewerMode } from './types'
 
 export type LoadingStage = 'scripts' | 'upload' | 'translation' | 'viewer' | 'cache-hit'
 
@@ -156,6 +156,10 @@ export interface CoordinateOverlayProps {
   unitString?: string | null
   /** Full DWG unit info for info popover */
   dwgUnitInfo?: DwgUnitInfo | null
+  /** Whether calibration has been checked */
+  calibrationChecked?: boolean
+  /** Whether the DWG is calibrated */
+  isCalibrated?: boolean
 }
 
 /**
@@ -301,18 +305,31 @@ function DwgInfoPopover({ dwgUnitInfo }: { dwgUnitInfo?: DwgUnitInfo | null }) {
  * Similar to AutoCAD's status bar coordinate display.
  * Shows X/Y in DWG model space units with snap indicator.
  * Includes info button for DWG details and keyboard shortcuts.
+ * Shows "NOT CALIBRATED" warning if calibration points are missing.
  */
-export function CoordinateOverlay({ coordinates, unitString, dwgUnitInfo }: CoordinateOverlayProps) {
+export function CoordinateOverlay({
+  coordinates,
+  unitString,
+  dwgUnitInfo,
+  calibrationChecked,
+  isCalibrated,
+}: CoordinateOverlayProps) {
+  // Show warning if calibration was checked and failed
+  const showCalibrationWarning = calibrationChecked && !isCalibrated
+
   if (!coordinates) {
     return (
-      <div className="absolute top-3 left-3 z-20 px-2.5 py-1.5 bg-background/85 backdrop-blur-sm rounded border border-border/50 shadow-sm">
-        <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
-          <DwgInfoPopover dwgUnitInfo={dwgUnitInfo} />
-          <div className="w-px h-4 bg-border/50" />
-          <Crosshair className="h-3.5 w-3.5" />
-          <span>X: ---</span>
-          <span>Y: ---</span>
+      <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
+        <div className="px-2.5 py-1.5 bg-background/85 backdrop-blur-sm rounded border border-border/50 shadow-sm">
+          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+            <DwgInfoPopover dwgUnitInfo={dwgUnitInfo} />
+            <div className="w-px h-4 bg-border/50" />
+            <Crosshair className="h-3.5 w-3.5" />
+            <span>X: ---</span>
+            <span>Y: ---</span>
+          </div>
         </div>
+        {showCalibrationWarning && <CalibrationWarning />}
       </div>
     )
   }
@@ -322,40 +339,88 @@ export function CoordinateOverlay({ coordinates, unitString, dwgUnitInfo }: Coor
   const yDisplay = coordinates.y.toFixed(2)
 
   return (
-    <div
-      className={cn(
-        'absolute top-3 left-3 z-20 px-2.5 py-1.5 rounded border shadow-sm transition-colors',
-        'bg-background/85 backdrop-blur-sm',
-        coordinates.isSnapped
-          ? 'border-primary/50 bg-primary/10'
-          : 'border-border/50'
-      )}
-    >
-      <div className="flex items-center gap-2 text-xs font-mono">
-        <DwgInfoPopover dwgUnitInfo={dwgUnitInfo} />
-        <div className="w-px h-4 bg-border/50" />
-        <Crosshair
-          className={cn(
-            'h-3.5 w-3.5 transition-colors',
-            coordinates.isSnapped ? 'text-primary' : 'text-muted-foreground'
-          )}
-        />
-        <span className={cn(coordinates.isSnapped && 'text-primary')}>
-          X: {xDisplay}
-        </span>
-        <span className={cn(coordinates.isSnapped && 'text-primary')}>
-          Y: {yDisplay}
-        </span>
-        {unitString && (
-          <span className="text-muted-foreground">{unitString}</span>
+    <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
+      <div
+        className={cn(
+          'px-2.5 py-1.5 rounded border shadow-sm transition-colors',
+          'bg-background/85 backdrop-blur-sm',
+          coordinates.isSnapped
+            ? 'border-primary/50 bg-primary/10'
+            : 'border-border/50'
         )}
-        {coordinates.isSnapped && coordinates.snapType && (
-          <span className="text-primary text-[10px] uppercase tracking-wide">
-            [{coordinates.snapType}]
+      >
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <DwgInfoPopover dwgUnitInfo={dwgUnitInfo} />
+          <div className="w-px h-4 bg-border/50" />
+          <Crosshair
+            className={cn(
+              'h-3.5 w-3.5 transition-colors',
+              coordinates.isSnapped ? 'text-primary' : 'text-muted-foreground'
+            )}
+          />
+          <span className={cn(coordinates.isSnapped && 'text-primary')}>
+            X: {xDisplay}
           </span>
-        )}
+          <span className={cn(coordinates.isSnapped && 'text-primary')}>
+            Y: {yDisplay}
+          </span>
+          {unitString && (
+            <span className="text-muted-foreground">{unitString}</span>
+          )}
+          {coordinates.isSnapped && coordinates.snapType && (
+            <span className="text-primary text-[10px] uppercase tracking-wide">
+              [{coordinates.snapType}]
+            </span>
+          )}
+        </div>
       </div>
+      {showCalibrationWarning && <CalibrationWarning />}
     </div>
+  )
+}
+
+/**
+ * CalibrationWarning - Warning indicator when DWG lacks calibration points
+ *
+ * Displays a warning with info popover explaining how to add calibration points.
+ */
+function CalibrationWarning() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="flex items-center gap-1.5 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded text-amber-600 dark:text-amber-400 text-[10px] font-medium uppercase tracking-wide hover:bg-amber-500/20 transition-colors">
+          <AlertTriangle className="h-3 w-3" />
+          <span>Not Calibrated</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80" align="start" sideOffset={8}>
+        <div className="space-y-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+            <div>
+              <h4 className="font-medium text-sm">Calibration Points Missing</h4>
+              <p className="text-xs text-muted-foreground mt-1">
+                This DWG doesn&apos;t have calibration points. Coordinates shown are approximations and may not match AutoCAD values.
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t pt-3">
+            <h5 className="text-xs font-medium mb-2">How to calibrate:</h5>
+            <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
+              <li>Create a layer named <code className="px-1 py-0.5 bg-muted rounded text-[10px]">CALIBRATION</code></li>
+              <li>Add a POINT at coordinates <code className="px-1 py-0.5 bg-muted rounded text-[10px]">(0, 0)</code></li>
+              <li>Add a POINT at coordinates <code className="px-1 py-0.5 bg-muted rounded text-[10px]">(1, 1)</code></li>
+              <li>Re-upload the DWG</li>
+            </ol>
+          </div>
+
+          <p className="text-[10px] text-muted-foreground italic">
+            Points must be diagonal to determine both X and Y scale.
+          </p>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -381,6 +446,101 @@ export function ViewerQuickActions({ onFitAll }: ViewerQuickActionsProps) {
       >
         <Maximize className="h-4 w-4" />
       </Button>
+    </div>
+  )
+}
+
+// ============================================================================
+// Mode Indicator
+// ============================================================================
+
+/**
+ * Mode configuration for display
+ */
+const MODE_CONFIG: Record<ViewerMode, {
+  label: string
+  icon: React.ElementType
+  colorClass: string
+  bgClass: string
+  description: string
+}> = {
+  IDLE: {
+    label: 'IDLE',
+    icon: Hand,
+    colorClass: 'text-muted-foreground',
+    bgClass: 'bg-muted/50 border-border/50',
+    description: 'Pan & zoom navigation',
+  },
+  SELECT: {
+    label: 'SELECT',
+    icon: MousePointer2,
+    colorClass: 'text-blue-500',
+    bgClass: 'bg-blue-500/10 border-blue-500/30',
+    description: 'Click markers to select',
+  },
+  MEASUREMENT: {
+    label: 'MEASURE',
+    icon: Ruler,
+    colorClass: 'text-amber-500',
+    bgClass: 'bg-amber-500/10 border-amber-500/30',
+    description: 'Measure distances',
+  },
+  PLACEMENT: {
+    label: 'PLACEMENT',
+    icon: Target,
+    colorClass: 'text-green-500',
+    bgClass: 'bg-green-500/10 border-green-500/30',
+    description: 'Click to place marker',
+  },
+  MOVE: {
+    label: 'MOVE',
+    icon: Move,
+    colorClass: 'text-orange-500',
+    bgClass: 'bg-orange-500/10 border-orange-500/30',
+    description: 'Click to move marker',
+  },
+}
+
+export interface ModeIndicatorProps {
+  /** Current viewer mode */
+  mode: ViewerMode
+  /** Optional product info when in PLACEMENT mode */
+  placementProduct?: { fossPid: string; symbol?: string } | null
+}
+
+/**
+ * ModeIndicator - Badge showing current viewer interaction mode
+ *
+ * Positioned at top-center of the viewer canvas, similar to AutoCAD's command line.
+ * Shows the current mode with an icon and optional product info for PLACEMENT mode.
+ */
+export function ModeIndicator({ mode, placementProduct }: ModeIndicatorProps) {
+  const config = MODE_CONFIG[mode]
+  const Icon = config.icon
+
+  return (
+    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
+      <div
+        className={cn(
+          'px-3 py-1.5 rounded border shadow-sm backdrop-blur-sm',
+          'flex items-center gap-2',
+          config.bgClass
+        )}
+        title={config.description}
+      >
+        <Icon className={cn('h-4 w-4', config.colorClass)} />
+        <span className={cn('text-xs font-semibold tracking-wide', config.colorClass)}>
+          {config.label}
+        </span>
+        {mode === 'PLACEMENT' && placementProduct && (
+          <>
+            <div className="w-px h-4 bg-border/50" />
+            <span className="text-xs font-mono text-foreground">
+              {placementProduct.symbol || placementProduct.fossPid}
+            </span>
+          </>
+        )}
+      </div>
     </div>
   )
 }

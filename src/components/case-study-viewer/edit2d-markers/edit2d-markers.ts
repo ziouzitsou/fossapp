@@ -12,6 +12,10 @@
  * Coordinate system:
  * - Edit2D uses the same page coordinate system as MarkupsCore
  * - Conversion to/from DWG model coords uses getPageToModelTransform()
+ *
+ * Architecture:
+ * - Move mode logic delegated to MarkerMoveController
+ * - Visibility logic delegated to MarkerVisibilityController
  */
 
 import type {
@@ -27,6 +31,7 @@ import {
   type UnitScales,
 } from './types'
 import { injectHoverStyles } from './css-styles'
+import { STYLE_CONSTANTS } from './style-manager'
 import { SvgFetcher } from './svg-fetcher'
 import { createShapesFromSvg, createFallbackCircleShape } from './shape-factory'
 import {
@@ -35,6 +40,8 @@ import {
   calculateMinFontSize,
   createShapeLabel,
 } from './label-utils'
+import { MarkerMoveController, type MarkerMoveParent } from './marker-move-controller'
+import { MarkerVisibilityController, type MarkerVisibilityParent } from './marker-visibility-controller'
 
 /**
  * Edit2DMarkers - Manages luminaire markers using Edit2D extension
@@ -44,7 +51,7 @@ import {
  * Edit2D's managed shape system for proper selection, visibility, and
  * manipulation support.
  */
-export class Edit2DMarkers {
+export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
   private viewer: Viewer3DInstance
   private edit2d: Edit2DExtension | null = null
   private ctx: Edit2DContext | null = null
@@ -67,9 +74,6 @@ export class Edit2DMarkers {
   // SVG symbol fetcher (with caching)
   private svgFetcher = new SvgFetcher()
 
-  // Hidden symbol groups (by full symbol, e.g., "A1", "B2")
-  private hiddenGroups: Set<string> = new Set()
-
   // Unit scaling factors (set after model loads)
   private unitScales: UnitScales = {
     modelUnitScale: 1,      // meters=1, mm=0.001
@@ -87,8 +91,117 @@ export class Edit2DMarkers {
   // Flag to prevent recursive selection changes
   private isSelectingSiblings = false
 
+  // Track currently hovered marker ID for label styling
+  private hoveredMarkerId: string | null = null
+
+  // Delegated controllers
+  private moveController: MarkerMoveController
+  private visibilityController: MarkerVisibilityController
+
   constructor(viewer: Viewer3DInstance) {
     this.viewer = viewer
+    this.moveController = new MarkerMoveController(this)
+    this.visibilityController = new MarkerVisibilityController(this)
+  }
+
+  // ============================================================================
+  // CONTROLLER INTERFACE IMPLEMENTATIONS
+  // ============================================================================
+
+  /** @internal Used by controllers */
+  getContext(): Edit2DContext | null {
+    return this.ctx
+  }
+
+  /** @internal Used by controllers */
+  getMarkerData(id: string): Edit2DMarkerData | undefined {
+    return this.markerData.get(id)
+  }
+
+  /** @internal Used by controllers */
+  getMarkerShapes(id: string): Edit2DShape[] | undefined {
+    return this.shapes.get(id)
+  }
+
+  /** @internal Used by controllers */
+  getLabel(id: string): ShapeLabel | undefined {
+    return this.labels.get(id)
+  }
+
+  /** @internal Used by controllers */
+  getAllMarkerData(): Map<string, Edit2DMarkerData> {
+    return this.markerData
+  }
+
+  /** @internal Used by controllers */
+  getUnitScales(): UnitScales {
+    return this.unitScales
+  }
+
+  /** @internal Used by controllers */
+  getCallbacks(): Edit2DMarkerCallbacks {
+    return this.callbacks
+  }
+
+  /** @internal Used by controllers */
+  getSvgFetcher(): SvgFetcher {
+    return this.svgFetcher
+  }
+
+  /** @internal Used by controllers */
+  updateMarkerShapes(id: string, shapes: Edit2DShape[]): void {
+    // Remove old shapes from reverse lookup
+    const oldShapes = this.shapes.get(id)
+    if (oldShapes) {
+      for (const shape of oldShapes) {
+        this.shapeToMarker.delete(shape.id)
+      }
+    }
+
+    // Store new shapes and update reverse lookup
+    this.shapes.set(id, shapes)
+    for (const shape of shapes) {
+      this.shapeToMarker.set(shape.id, id)
+    }
+  }
+
+  /** @internal Used by controllers */
+  updateMarkerPosition(id: string, pageX: number, pageY: number): void {
+    const data = this.markerData.get(id)
+    if (data) {
+      data.pageX = pageX
+      data.pageY = pageY
+      this.markerData.set(id, data)
+    }
+  }
+
+  /** @internal Used by controllers */
+  addLabelToShape(markerId: string, shape: Edit2DShape, text: string): void {
+    if (!this.ctx) return
+
+    const minFontSize = calculateMinFontSize(this.minScreenPx)
+    const label = createShapeLabel(shape, text, this.ctx, minFontSize)
+
+    if (label) {
+      this.labels.set(markerId, label)
+    }
+  }
+
+  /** @internal Used by controllers */
+  removeLabel(id: string): void {
+    const label = this.labels.get(id)
+    if (label) {
+      label.setVisible(false)
+      this.labels.delete(id)
+    }
+  }
+
+  /** @internal Used by controllers */
+  clearSelection(): void {
+    if (this.ctx?.selection) {
+      this.ctx.selection.clear()
+    }
+    this.selectedId = null
   }
 
   // ============================================================================
@@ -142,7 +255,6 @@ export class Edit2DMarkers {
    */
   setMinScreenPx(value: number): void {
     this.minScreenPx = value
-    // Update existing labels with new minimum size
     this.updateLabelStyles()
   }
 
@@ -154,12 +266,11 @@ export class Edit2DMarkers {
   }
 
   // ============================================================================
-  // CAMERA LISTENER (for dynamic label sizing)
+  // EVENT SETUP
   // ============================================================================
 
   /**
    * Set up camera change listener for dynamic label sizing
-   * Uses CAMERA_TRANSITION_COMPLETED for performance (fires after zoom/pan ends)
    */
   private setupCameraListener(): void {
     if (!window.Autodesk?.Viewing?.CAMERA_TRANSITION_COMPLETED) return
@@ -188,9 +299,6 @@ export class Edit2DMarkers {
 
   /**
    * Set up mousemove listener for hover detection using hit testing
-   *
-   * Edit2D's selection.hoveredId doesn't update reliably, so we use
-   * mousemove + layer.hitTest() to detect which shape is under the cursor.
    */
   private setupMouseMoveListener(): void {
     const container = this.viewer.container
@@ -204,7 +312,7 @@ export class Edit2DMarkers {
   }
 
   /**
-   * Handle mousemove for hover detection
+   * Handle mousemove for hover detection and move preview
    */
   private handleMouseMove(e: MouseEvent): void {
     if (!this.ctx?.layer) return
@@ -214,7 +322,17 @@ export class Edit2DMarkers {
     const canvasX = e.clientX - rect.left
     const canvasY = e.clientY - rect.top
 
-    // Convert canvas coordinates to layer (world) coordinates
+    // Update move preview if in move mode
+    if (this.moveController.isMoving()) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const worldResult = (this.viewer as any).clientToWorld(canvasX, canvasY)
+      if (worldResult?.point) {
+        this.moveController.updateMovePreview(worldResult.point.x, worldResult.point.y)
+      }
+      return // Skip hover detection during move mode
+    }
+
+    // Convert canvas coordinates to layer coordinates for hit testing
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const layer = this.ctx.layer as any
     if (!layer.canvasToLayer) return
@@ -224,7 +342,6 @@ export class Edit2DMarkers {
 
     // Use layer.hitTest with layer coordinates
     const hitResult = layer.hitTest(layerCoords.x, layerCoords.y)
-
     const hitShapeId = hitResult?.id ?? null
 
     // Find marker ID from hit shape
@@ -254,7 +371,6 @@ export class Edit2DMarkers {
         this.handleSelectionChanged.bind(this)
       )
 
-      // Also listen for hover changes
       this.ctx.selection.addEventListener(
         selectionEvents.SELECTION_HOVER_CHANGED,
         this.handleHoverChanged.bind(this)
@@ -263,64 +379,62 @@ export class Edit2DMarkers {
   }
 
   /**
-   * Set up hover style modifier for visual feedback
-   *
-   * Applies highlight effect to shapes when hovered, similar to measurement tools.
-   * Also handles label scaling since the hover event is unreliable.
+   * Set up style modifier for hover and selection visual feedback
    */
   private setupHoverStyleModifier(): void {
     if (!this.ctx?.layer) return
 
-    // Add custom hover style modifier
     this.ctx.layer.addStyleModifier((shape, style) => {
       // Only apply to our marker shapes
       if (!this.shapeToMarker.has(shape.id)) {
         return undefined
       }
 
-      // Read hovered ID directly from selection (more reliable than event)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const currentHoveredId = (this.ctx?.selection as any)?.hoveredId ?? null
-
-      // Check if this shape (or any sibling shape) is hovered
       const markerId = this.shapeToMarker.get(shape.id)
       const markerShapes = markerId ? this.shapes.get(markerId) : null
+
+      // Check if this marker is selected
+      const isSelected = markerId === this.selectedId
+
+      // Read hovered ID directly from selection
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const currentHoveredId = (this.ctx?.selection as any)?.hoveredId ?? null
       const isHovered = markerShapes?.some(s => s.id === currentHoveredId) ?? false
 
-      // Note: Label hover state is now handled by mousemove + hitTest
-      // for more reliable detection (see setupMouseMoveListener)
-
-      if (!isHovered) {
-        return undefined
+      // Selection takes precedence over hover
+      if (isSelected) {
+        const modified = style.clone()
+        modified.lineColor = STYLE_CONSTANTS.SELECTED.lineColor
+        modified.lineWidth = STYLE_CONSTANTS.SELECTED.lineWidth
+        return modified
       }
 
-      // Return modified style for hover effect (line only, no fill)
-      const modified = style.clone()
-      modified.lineColor = 'rgb(249, 115, 22)'  // Orange highlight
-      return modified
+      if (isHovered) {
+        const modified = style.clone()
+        modified.lineColor = STYLE_CONSTANTS.HOVER.lineColor
+        modified.lineWidth = STYLE_CONSTANTS.HOVER.lineWidth
+        return modified
+      }
+
+      return undefined
     })
   }
 
   /**
    * Update label hover state - scale up/down label text elements
-   *
-   * We scale the textDiv directly (not the container) to avoid
-   * breaking Edit2D's internal positioning transforms.
-   * Uses CSS transition for smooth 1.5x scale animation.
    */
   private updateLabelHoverState(prevMarkerId: string | null, newMarkerId: string | null): void {
-    // Remove scale from previous label (transition makes it animate back)
+    // Remove scale from previous label
     if (prevMarkerId) {
       const prevLabel = this.labels.get(prevMarkerId)
       if (prevLabel?.textDiv) {
-        // Keep transition for smooth scale-down animation
         prevLabel.textDiv.style.transition = 'transform 0.2s ease-out'
         prevLabel.textDiv.style.transform = 'scale(1)'
         prevLabel.textDiv.style.zIndex = ''
       }
     }
 
-    // Apply scale to new label with smooth transition
+    // Apply scale to new label
     if (newMarkerId) {
       const newLabel = this.labels.get(newMarkerId)
       if (newLabel?.textDiv) {
@@ -332,30 +446,20 @@ export class Edit2DMarkers {
     }
   }
 
-  // Track currently hovered marker ID for label styling
-  private hoveredMarkerId: string | null = null
-
   /**
    * Handle hover change events from Edit2D selection
-   *
-   * Note: This is kept as a backup but the style modifier now handles
-   * hover state directly for more reliable behavior.
    */
   private handleHoverChanged(): void {
-    // Trigger layer update to apply style modifier
     this.ctx?.layer?.update?.()
   }
 
   /**
    * Handle Edit2D selection change events
-   *
-   * When a shape is selected, automatically selects ALL shapes belonging to the same marker.
-   * This makes multi-shape markers behave as a single grouped object.
    */
   private handleSelectionChanged(): void {
     if (!this.ctx?.selection) return
 
-    // Prevent infinite recursion when we programmatically select sibling shapes
+    // Prevent recursion when we programmatically clear selection
     if (this.isSelectingSiblings) return
 
     // Before updating selection, check if the previously selected marker moved
@@ -369,6 +473,7 @@ export class Edit2DMarkers {
       if (this.selectedId) {
         this.selectedId = null
         this.callbacks.onSelect?.(null)
+        this.ctx.layer.update()
       }
       return
     }
@@ -377,34 +482,25 @@ export class Edit2DMarkers {
     const selectedShape = selectedShapes[0]
     const markerId = this.shapeToMarker.get(selectedShape.id)
 
-    if (!markerId) return
-
-    // Get ALL shapes belonging to this marker
-    const allMarkerShapes = this.shapes.get(markerId)
-
-    // If the marker has multiple shapes and not all are selected, select them all
-    if (allMarkerShapes && allMarkerShapes.length > 1) {
-      const selectedIds = new Set(selectedShapes.map(s => s.id))
-      const allSelected = allMarkerShapes.every(s => selectedIds.has(s.id))
-
-      if (!allSelected) {
-        this.isSelectingSiblings = true
-        try {
-          // Select the primary shape (first in array) to represent the marker group
-          // Note: Edit2D only supports single-shape selection via selectOnly()
-          // Multi-shape visual selection isn't supported, but our logical selection
-          // tracking via this.selectedId handles the marker as a unit
-          this.ctx.selection.selectOnly(allMarkerShapes[0])
-        } finally {
-          this.isSelectingSiblings = false
-        }
-      }
+    if (!markerId) {
+      this.isSelectingSiblings = true
+      this.ctx.selection.clear()
+      this.isSelectingSiblings = false
+      return
     }
 
+    // Update our internal selection state
     if (this.selectedId !== markerId) {
       this.selectedId = markerId
       this.callbacks.onSelect?.(markerId)
     }
+
+    // Clear Edit2D selection to hide the gizmo
+    this.isSelectingSiblings = true
+    this.ctx.selection.clear()
+    this.isSelectingSiblings = false
+
+    this.ctx.layer.update()
   }
 
   /**
@@ -441,19 +537,25 @@ export class Edit2DMarkers {
 
   private setupKeyboardListeners(): void {
     this.boundKeyHandler = this.handleKeyDown.bind(this)
-    // Use capture phase to intercept BEFORE Edit2D's handlers
     window.addEventListener('keydown', this.boundKeyHandler, true)
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
-    // Don't handle if user is typing in an input
     const target = e.target as HTMLElement
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
 
-    // Delete selected marker (all shapes)
+    // ESC: Cancel move mode
+    if (e.key === 'Escape' && this.moveController.isMoving()) {
+      e.preventDefault()
+      e.stopPropagation()
+      this.moveController.cancelMove()
+      return
+    }
+
+    // Delete selected marker
     if (this.selectedId && (e.key === 'Delete' || e.key === 'Backspace')) {
       e.preventDefault()
-      e.stopPropagation()  // Prevent Edit2D from deleting individual shapes
+      e.stopPropagation()
       this.deleteMarker(this.selectedId)
     }
 
@@ -461,7 +563,15 @@ export class Edit2DMarkers {
     if (this.selectedId && (e.key === 'r' || e.key === 'R')) {
       e.preventDefault()
       e.stopPropagation()
-      this.rotateMarker(this.selectedId, 15)
+      const delta = e.shiftKey ? 15 : -15
+      this.rotateMarker(this.selectedId, delta)
+    }
+
+    // M key: Start move mode for selected marker
+    if (this.selectedId && !this.moveController.isMoving() && (e.key === 'm' || e.key === 'M')) {
+      e.preventDefault()
+      e.stopPropagation()
+      this.moveController.startMove(this.selectedId)
     }
   }
 
@@ -471,12 +581,6 @@ export class Edit2DMarkers {
 
   /**
    * Add a marker at page coordinates
-   *
-   * @param pageX - Edit2D page X coordinate
-   * @param pageY - Edit2D page Y coordinate
-   * @param data - Marker data (productId, symbol, etc.)
-   * @param id - Optional marker ID (generates UUID if not provided)
-   * @param rotation - Initial rotation in degrees
    */
   async addMarker(
     pageX: number,
@@ -500,7 +604,7 @@ export class Edit2DMarkers {
     }
 
     // Check if this symbol group is hidden
-    const isHidden = data.symbol ? this.hiddenGroups.has(data.symbol) : false
+    const isHidden = data.symbol ? this.visibilityController.isSymbolHidden(data.symbol) : false
 
     // Try to load SVG symbol
     let shapes: Edit2DShape[] | null = null
@@ -523,40 +627,29 @@ export class Edit2DMarkers {
       return null
     }
 
-    // Store the marker (all shapes) and populate reverse lookup
+    // Store the marker and populate reverse lookup
     this.shapes.set(markerId, shapes)
     for (const shape of shapes) {
       this.shapeToMarker.set(shape.id, markerId)
     }
     this.markerData.set(markerId, markerData)
 
-    // Add all shapes to layer (only if not hidden)
+    // Add shapes to layer (only if not hidden)
     if (!isHidden) {
       for (const shape of shapes) {
         this.ctx.addShape(shape)
       }
 
-      // Add label to first shape if symbol is provided
       if (data.symbol && shapes[0]) {
         this.addLabelToShape(markerId, shapes[0], data.symbol)
       }
     }
 
+    // Clear selection to prevent newly placed marker from appearing selected
+    this.ctx.selection.clear()
+    this.selectedId = null
+
     return markerData
-  }
-
-  /**
-   * Add a text label to a shape
-   */
-  private addLabelToShape(markerId: string, shape: Edit2DShape, text: string): void {
-    if (!this.ctx) return
-
-    const minFontSize = calculateMinFontSize(this.minScreenPx)
-    const label = createShapeLabel(shape, text, this.ctx, minFontSize)
-
-    if (label) {
-      this.labels.set(markerId, label)
-    }
   }
 
   // ============================================================================
@@ -573,6 +666,7 @@ export class Edit2DMarkers {
       this.ctx.selection.clear()
       this.selectedId = null
       this.callbacks.onSelect?.(null)
+      this.ctx.layer.update()
       return
     }
 
@@ -581,6 +675,7 @@ export class Edit2DMarkers {
       this.ctx.selection.selectOnly(shapes[0])
       this.selectedId = id
       this.callbacks.onSelect?.(id)
+      this.ctx.layer.update()
     }
   }
 
@@ -592,24 +687,15 @@ export class Edit2DMarkers {
 
     const shapes = this.shapes.get(id)
     if (shapes) {
-      // Remove all shapes from layer and reverse lookup
       for (const shape of shapes) {
         this.ctx.removeShape(shape)
         this.shapeToMarker.delete(shape.id)
       }
 
-      // Remove label if exists
-      const label = this.labels.get(id)
-      if (label) {
-        label.setVisible(false)
-        this.labels.delete(id)
-      }
-
-      // Clear from maps
+      this.removeLabel(id)
       this.shapes.delete(id)
       this.markerData.delete(id)
 
-      // Clear selection if this was selected
       if (this.selectedId === id) {
         this.selectedId = null
         this.callbacks.onSelect?.(null)
@@ -620,7 +706,7 @@ export class Edit2DMarkers {
   }
 
   /**
-   * Delete the currently selected marker (for toolbar button)
+   * Delete the currently selected marker
    */
   deleteSelected(): void {
     if (this.selectedId) {
@@ -630,8 +716,6 @@ export class Edit2DMarkers {
 
   /**
    * Rotate a marker by delta degrees
-   *
-   * Recreates all shapes with the new rotation angle.
    */
   async rotateMarker(id: string, deltaDegrees: number): Promise<void> {
     const data = this.markerData.get(id)
@@ -643,18 +727,13 @@ export class Edit2DMarkers {
     let newRotation = (data.rotation + deltaDegrees) % 360
     if (newRotation < 0) newRotation += 360
 
-    // Remove old shapes from layer and reverse lookup
+    // Remove old shapes
     for (const shape of existingShapes) {
       this.ctx.removeShape(shape)
       this.shapeToMarker.delete(shape.id)
     }
 
-    // Remove label if exists
-    const label = this.labels.get(id)
-    if (label) {
-      label.setVisible(false)
-      this.labels.delete(id)
-    }
+    this.removeLabel(id)
 
     // Update stored rotation
     data.rotation = newRotation
@@ -671,7 +750,6 @@ export class Edit2DMarkers {
       }
     }
 
-    // Fall back to circle if no SVG
     if (!newShapes) {
       newShapes = createFallbackCircleShape(data.pageX, data.pageY, this.unitScales)
     }
@@ -681,20 +759,19 @@ export class Edit2DMarkers {
       return
     }
 
-    // Store new shapes and update reverse lookup
+    // Store new shapes
     this.shapes.set(id, newShapes)
     for (const shape of newShapes) {
       this.shapeToMarker.set(shape.id, id)
     }
 
-    // Add new shapes to layer (only if not hidden)
-    const isHidden = data.symbol ? this.hiddenGroups.has(data.symbol) : false
+    // Add new shapes (only if not hidden)
+    const isHidden = data.symbol ? this.visibilityController.isSymbolHidden(data.symbol) : false
     if (!isHidden) {
       for (const shape of newShapes) {
         this.ctx.addShape(shape)
       }
 
-      // Re-add label
       if (data.symbol && newShapes[0]) {
         this.addLabelToShape(id, newShapes[0], data.symbol)
       }
@@ -703,90 +780,93 @@ export class Edit2DMarkers {
     this.callbacks.onRotate?.(id, newRotation)
   }
 
+  // ============================================================================
+  // MOVE MODE DELEGATION
+  // ============================================================================
+
   /**
-   * Get marker data by ID
+   * Check if currently in move mode
    */
-  getMarkerData(id: string): Edit2DMarkerData | undefined {
-    return this.markerData.get(id)
+  isMoving(): boolean {
+    return this.moveController.isMoving()
   }
 
   /**
-   * Get all marker data
+   * Get the ID of the marker being moved
    */
-  getAllMarkers(): Edit2DMarkerData[] {
-    return Array.from(this.markerData.values())
+  getMovingMarkerId(): string | null {
+    return this.moveController.getMovingMarkerId()
+  }
+
+  /**
+   * Start move mode for a marker
+   */
+  startMove(id: string): void {
+    this.moveController.startMove(id)
+  }
+
+  /**
+   * Cancel move mode
+   */
+  cancelMove(): void {
+    this.moveController.cancelMove()
+  }
+
+  /**
+   * Update move preview
+   */
+  async updateMovePreview(pageX: number, pageY: number): Promise<void> {
+    await this.moveController.updateMovePreview(pageX, pageY)
+  }
+
+  /**
+   * Confirm move at new position
+   */
+  async confirmMove(pageX: number, pageY: number): Promise<void> {
+    await this.moveController.confirmMove(pageX, pageY)
   }
 
   // ============================================================================
-  // VISIBILITY MANAGEMENT
+  // VISIBILITY DELEGATION
   // ============================================================================
 
   /**
    * Hide all markers with the given symbol
    */
   hideSymbolGroup(symbol: string): void {
-    if (this.hiddenGroups.has(symbol)) return
-    if (!this.ctx) return
-
-    this.hiddenGroups.add(symbol)
-
-    for (const [id, data] of this.markerData) {
-      if (data.symbol === symbol) {
-        const shapes = this.shapes.get(id)
-        if (shapes) {
-          for (const shape of shapes) {
-            this.ctx.removeShape(shape)
-          }
-        }
-      }
-    }
+    this.visibilityController.hideSymbolGroup(symbol)
   }
 
   /**
    * Show all markers with the given symbol
    */
   showSymbolGroup(symbol: string): void {
-    if (!this.hiddenGroups.has(symbol)) return
-    if (!this.ctx) return
-
-    this.hiddenGroups.delete(symbol)
-
-    for (const [id, data] of this.markerData) {
-      if (data.symbol === symbol) {
-        const shapes = this.shapes.get(id)
-        if (shapes) {
-          for (const shape of shapes) {
-            this.ctx.addShape(shape)
-          }
-        }
-      }
-    }
+    this.visibilityController.showSymbolGroup(symbol)
   }
 
   /**
    * Apply visibility from a Set of hidden symbols
    */
   applyHiddenGroups(newHiddenGroups: Set<string>): void {
-    // Show groups that are no longer hidden
-    for (const symbol of this.hiddenGroups) {
-      if (!newHiddenGroups.has(symbol)) {
-        this.showSymbolGroup(symbol)
-      }
-    }
-
-    // Hide groups that are now hidden
-    for (const symbol of newHiddenGroups) {
-      if (!this.hiddenGroups.has(symbol)) {
-        this.hideSymbolGroup(symbol)
-      }
-    }
+    this.visibilityController.applyHiddenGroups(newHiddenGroups)
   }
 
   /**
    * Check if a symbol group is hidden
    */
   isSymbolHidden(symbol: string): boolean {
-    return this.hiddenGroups.has(symbol)
+    return this.visibilityController.isSymbolHidden(symbol)
+  }
+
+  // ============================================================================
+  // DATA ACCESS
+  // ============================================================================
+
+  /**
+   * Get all marker data
+   */
+  getAllMarkers(): Edit2DMarkerData[] {
+    return Array.from(this.markerData.values())
   }
 
   // ============================================================================
@@ -797,7 +877,6 @@ export class Edit2DMarkers {
    * Clear all markers
    */
   clearAll(): void {
-    // Hide all labels first (they're DOM elements, not cleared by clearLayer)
     for (const label of this.labels.values()) {
       label.setVisible(false)
     }
@@ -810,21 +889,21 @@ export class Edit2DMarkers {
     this.shapeToMarker.clear()
     this.markerData.clear()
     this.labels.clear()
-    this.hiddenGroups.clear()
     this.selectedId = null
+
+    this.visibilityController.dispose()
+    this.moveController.dispose()
   }
 
   /**
    * Dispose and cleanup
    */
   dispose(): void {
-    // Remove keyboard listener (must match capture: true from setup)
     if (this.boundKeyHandler) {
       window.removeEventListener('keydown', this.boundKeyHandler, true)
       this.boundKeyHandler = null
     }
 
-    // Remove camera change listener
     if (this.boundCameraListener && window.Autodesk?.Viewing?.CAMERA_TRANSITION_COMPLETED) {
       this.viewer.removeEventListener(
         window.Autodesk.Viewing.CAMERA_TRANSITION_COMPLETED,
@@ -833,7 +912,6 @@ export class Edit2DMarkers {
       this.boundCameraListener = null
     }
 
-    // Remove mousemove listener
     if (this.boundMouseMoveHandler) {
       this.viewer.container?.removeEventListener('mousemove', this.boundMouseMoveHandler)
       this.boundMouseMoveHandler = null

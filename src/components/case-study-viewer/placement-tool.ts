@@ -291,20 +291,16 @@ export class PlacementTool {
     }
 
     // If no snap, calculate page coordinates from mouse position
-    // Note: clientToWorld() is unreliable for 2D DWGs, so we always use visible bounds
+    // Use clientToWorld() for correct coordinate conversion (works like helper app)
     if (viewerX === undefined || viewerY === undefined) {
-      const impl = this.viewer.impl
-      const visibleBounds = impl?.getVisibleBounds?.()
-      if (visibleBounds) {
-        const container = this.viewer.container
-        const rect = container.getBoundingClientRect()
-        const localX = event.clientX - rect.left
-        const localY = event.clientY - rect.top
-        const visWidth = visibleBounds.max.x - visibleBounds.min.x
-        const visHeight = visibleBounds.max.y - visibleBounds.min.y
-        // Page coords: X increases right, Y increases up (flip from screen)
-        viewerX = visibleBounds.min.x + (localX / rect.width) * visWidth
-        viewerY = visibleBounds.max.y - (localY / rect.height) * visHeight
+      const container = this.viewer.container
+      const rect = container.getBoundingClientRect()
+      const localX = event.clientX - rect.left
+      const localY = event.clientY - rect.top
+      const worldResult = this.viewer.clientToWorld(localX, localY)
+      if (worldResult?.point) {
+        viewerX = worldResult.point.x
+        viewerY = worldResult.point.y
       }
     }
 
@@ -353,27 +349,21 @@ export class PlacementTool {
       }
     }
 
-    // If no snap, calculate page coordinates manually
-    // Note: clientToWorld() is unreliable for 2D DWGs, so we always use visible bounds
+    // If no snap, calculate page coordinates using clientToWorld
+    // (works like helper app - more reliable than visible bounds calculation)
     if (!isSnapped) {
-      const impl = this.viewer.impl
-      const visibleBounds = impl?.getVisibleBounds?.()
-
-      if (!visibleBounds) {
-        return false
-      }
-
       const container = this.viewer.container
       const rect = container.getBoundingClientRect()
       const localX = event.clientX - rect.left
       const localY = event.clientY - rect.top
 
-      const visWidth = visibleBounds.max.x - visibleBounds.min.x
-      const visHeight = visibleBounds.max.y - visibleBounds.min.y
+      const worldResult = this.viewer.clientToWorld(localX, localY)
+      if (!worldResult?.point) {
+        return false
+      }
 
-      // Page coords: X increases right, Y increases up (flip from screen)
-      viewerX = visibleBounds.min.x + (localX / rect.width) * visWidth
-      viewerY = visibleBounds.max.y - (localY / rect.height) * visHeight
+      viewerX = worldResult.point.x
+      viewerY = worldResult.point.y
     }
 
     // Return page coordinates - consumer must convert to DWG using getPageToModelTransform(1)

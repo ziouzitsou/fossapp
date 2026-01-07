@@ -6,4 +6,5 @@
  */
 
 export { Edit2DMarkers } from './edit2d-markers'
+export { ShapeStyleManager, STYLE_CONSTANTS } from './style-manager'
 export type { Edit2DMarkerData, Edit2DMarkerCallbacks } from './types'

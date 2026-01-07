@@ -2,11 +2,18 @@
  * Edit2D Markers - Shape Factory
  *
  * Creates Edit2D shapes from SVG content or as fallback circles.
- * Uses Edit2D's native shape classes for smooth, geometrically accurate rendering.
+ *
+ * Key design decisions (from aps-viewer research):
+ * - Circles use polygon approximation (24 segments) instead of PolygonPath.setEllipseArc()
+ *   because setEllipseArc() causes "t.clone is not a function" errors with layer.addShape()
+ * - All shapes use Polygon/Polyline primitives for consistent behavior
  */
 
 import type { Edit2DShape } from '@/types/autodesk-viewer'
 import { MM_TO_METERS, DEFAULT_MARKER_RADIUS_MM, type UnitScales } from './types'
+
+/** Number of segments for circle polygon approximation (more = smoother) */
+const CIRCLE_SEGMENTS = 24
 
 /**
  * Point in 2D space
@@ -14,6 +21,59 @@ import { MM_TO_METERS, DEFAULT_MARKER_RADIUS_MM, type UnitScales } from './types
 interface Point {
   x: number
   y: number
+}
+
+/**
+ * Create a circle as a polygon approximation
+ *
+ * Uses 24 segments for smooth appearance. This approach is more reliable than
+ * PolygonPath.setEllipseArc() which causes "t.clone is not a function" errors.
+ *
+ * @param cx - Center X in page coordinates
+ * @param cy - Center Y in page coordinates
+ * @param radius - Radius in page units
+ * @param style - Optional style properties
+ * @returns Edit2D Polygon shape representing the circle
+ */
+function createCircleAsPolygon(
+  cx: number,
+  cy: number,
+  radius: number,
+  style?: { stroke?: string; strokeWidth?: number; fill?: string; fillAlpha?: number }
+): Edit2DShape | null {
+  const Edit2D = window.Autodesk?.Edit2D
+  if (!Edit2D?.Polygon) return null
+
+  // Generate circle points
+  const points: Point[] = []
+  for (let i = 0; i < CIRCLE_SEGMENTS; i++) {
+    const angle = (i / CIRCLE_SEGMENTS) * 2 * Math.PI
+    points.push({
+      x: cx + radius * Math.cos(angle),
+      y: cy + radius * Math.sin(angle)
+    })
+  }
+
+  // Create polygon
+  const polygon = new Edit2D.Polygon(points)
+
+  // Apply style
+  if (polygon.style) {
+    if (style?.stroke) {
+      polygon.style.lineColor = style.stroke
+    }
+    if (style?.strokeWidth !== undefined) {
+      polygon.style.lineWidth = style.strokeWidth
+    }
+    if (style?.fill && style.fill !== 'none') {
+      polygon.style.fillColor = style.fill
+      polygon.style.fillAlpha = style.fillAlpha ?? 1
+    } else {
+      polygon.style.fillAlpha = 0
+    }
+  }
+
+  return polygon as Edit2DShape
 }
 
 /**
@@ -95,7 +155,7 @@ export function createShapesFromSvg(
   unitScales: UnitScales
 ): Edit2DShape[] | null {
   const Edit2D = window.Autodesk?.Edit2D
-  if (!Edit2D?.Polygon || !Edit2D?.PolygonPath || !Edit2D?.Polyline || !Edit2D?.EllipseArcParams) {
+  if (!Edit2D?.Polygon || !Edit2D?.Polyline) {
     console.warn('[ShapeFactory] Autodesk.Edit2D shape classes not available')
     return null
   }
@@ -158,7 +218,8 @@ export function createShapesFromSvg(
       shapes.push(polygon as Edit2DShape)
     })
 
-    // Process <circle> elements -> PolygonPath with ellipse arcs (true circles)
+    // Process <circle> elements -> Polygon approximation (24 segments)
+    // Note: PolygonPath.setEllipseArc() causes "t.clone is not a function" errors
     svgElement.querySelectorAll('circle').forEach((circle) => {
       const cx = parseFloat(circle.getAttribute('cx') || '0')
       const cy = parseFloat(circle.getAttribute('cy') || '0')
@@ -167,35 +228,19 @@ export function createShapesFromSvg(
 
       if (r <= 0) return
 
-      // Transform the two diametrically opposite points (left and right of center)
-      const leftPoint = transformPoint(cx - r, cy)
-      const rightPoint = transformPoint(cx + r, cy)
-
-      // Create PolygonPath with 2 points
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const polygonPath = new Edit2D.PolygonPath([leftPoint, rightPoint]) as any
-
-      // Calculate scaled radius (after transformation)
+      // Transform the center point
+      const center = transformPoint(cx, cy)
       const scaledRadius = r * scale
 
-      // Create arc parameters for the semicircles
-      const params = new Edit2D.EllipseArcParams()
-      params.rx = scaledRadius
-      params.ry = scaledRadius
-      params.rotation = rotation // Apply marker rotation to arcs
-      params.largeArcFlag = false // Semicircle is not "large"
-      params.sweepFlag = true     // Clockwise
+      // Create circle as polygon
+      const circleShape = createCircleAsPolygon(center.x, center.y, scaledRadius, {
+        stroke,
+        strokeWidth: scale * 1.5,
+      })
 
-      // Apply to both segments (top half and bottom half)
-      polygonPath.setEllipseArc(0, params) // Top arc
-      polygonPath.setEllipseArc(1, params) // Bottom arc
-
-      if (polygonPath.style) {
-        polygonPath.style.lineColor = stroke
-        polygonPath.style.lineWidth = scale * 1.5
-        polygonPath.style.fillAlpha = 0
+      if (circleShape) {
+        shapes.push(circleShape)
       }
-      shapes.push(polygonPath as Edit2DShape)
     })
 
     // Process <line> elements -> Polyline (native Edit2D primitive)
@@ -235,8 +280,8 @@ export function createShapesFromSvg(
 /**
  * Create a circle shape as fallback marker
  *
- * Uses Edit2D's native PolygonPath with setEllipseArc() for true circles.
- * This gives smooth, geometrically accurate circles instead of polygon approximations.
+ * Uses polygon approximation (24 segments) for reliable rendering.
+ * This approach avoids "t.clone is not a function" errors from setEllipseArc().
  *
  * @param pageX - Center X coordinate
  * @param pageY - Center Y coordinate
@@ -248,46 +293,26 @@ export function createFallbackCircleShape(
   pageY: number,
   unitScales: UnitScales
 ): Edit2DShape[] | null {
-  const Edit2D = window.Autodesk?.Edit2D
-  if (!Edit2D?.PolygonPath || !Edit2D?.EllipseArcParams) {
-    console.warn('[ShapeFactory] Autodesk.Edit2D PolygonPath/EllipseArcParams not available')
-    return null
-  }
-
   try {
     // Calculate radius in page units
     const radiusMm = DEFAULT_MARKER_RADIUS_MM
     const mmToPageUnits = MM_TO_METERS / (unitScales.modelUnitScale * unitScales.pageToModelScale)
     const radius = radiusMm * mmToPageUnits
 
-    // Create PolygonPath with 2 diametrically opposite points
-    const leftPoint = { x: pageX - radius, y: pageY }
-    const rightPoint = { x: pageX + radius, y: pageY }
+    // Create circle as polygon
+    const circleShape = createCircleAsPolygon(pageX, pageY, radius, {
+      stroke: '#ffffff',
+      strokeWidth: radius * 0.15,
+      fill: '#3b82f6',
+      fillAlpha: 1,
+    })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const polygonPath = new Edit2D.PolygonPath([leftPoint, rightPoint]) as any
-
-    // Create arc parameters for the semicircles
-    const params = new Edit2D.EllipseArcParams()
-    params.rx = radius
-    params.ry = radius
-    params.rotation = 0
-    params.largeArcFlag = false // Semicircle is not "large"
-    params.sweepFlag = true     // Clockwise
-
-    // Apply to both segments (top half and bottom half)
-    polygonPath.setEllipseArc(0, params) // Top arc
-    polygonPath.setEllipseArc(1, params) // Bottom arc
-
-    // Set style (blue fill with white stroke)
-    if (polygonPath.style) {
-      polygonPath.style.fillColor = '#3b82f6'
-      polygonPath.style.fillAlpha = 1
-      polygonPath.style.lineColor = '#ffffff'
-      polygonPath.style.lineWidth = radius * 0.15
+    if (!circleShape) {
+      console.warn('[ShapeFactory] Failed to create fallback circle polygon')
+      return null
     }
 
-    return [polygonPath as Edit2DShape]
+    return [circleShape]
   } catch (err) {
     console.error('[ShapeFactory] Failed to create circle shape:', err)
     return null

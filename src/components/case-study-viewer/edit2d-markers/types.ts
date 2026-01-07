@@ -36,6 +36,10 @@ export interface Edit2DMarkerCallbacks {
   onDelete?: (id: string) => void
   onRotate?: (id: string, rotation: number) => void
   onMove?: (id: string, pageX: number, pageY: number) => void
+  /** Called when move mode starts (M key) - parent should activate snapping */
+  onMoveStart?: (id: string) => void
+  /** Called when move mode ends (ESC or click) */
+  onMoveEnd?: () => void
 }
 
 /**
