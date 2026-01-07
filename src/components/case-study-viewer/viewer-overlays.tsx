@@ -7,7 +7,7 @@
  * as overlays on top of the viewer container.
  */
 
-import { Loader2, AlertCircle, CheckCircle2, Crosshair, Maximize, Info, Keyboard, AlertTriangle, MousePointer2, Ruler, Target, Hand } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2, Crosshair, Maximize, Info, Keyboard, AlertTriangle, MousePointer2, Ruler, Target, Hand, Move } from 'lucide-react'
 import { Progress, cn, Button } from '@fossapp/ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@fossapp/ui'
 import type { DwgCoordinates } from './placement-tool'
@@ -491,6 +491,13 @@ const MODE_CONFIG: Record<ViewerMode, {
     colorClass: 'text-green-500',
     bgClass: 'bg-green-500/10 border-green-500/30',
     description: 'Click to place marker',
+  },
+  MOVE: {
+    label: 'MOVE',
+    icon: Move,
+    colorClass: 'text-orange-500',
+    bgClass: 'bg-orange-500/10 border-orange-500/30',
+    description: 'Click to move marker',
   },
 }
 

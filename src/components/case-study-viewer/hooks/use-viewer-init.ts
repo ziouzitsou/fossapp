@@ -65,6 +65,7 @@ interface UseViewerInitOptions {
   setDwgCoordinates: (coords: DwgCoordinates | null) => void
   setHasSelectedMarker: (has: boolean) => void
   setSelectedMarkerFossPid: (fossPid: string | null) => void
+  setIsMoving: (moving: boolean) => void
 
   // Cache state
   isCacheHit: boolean
@@ -117,6 +118,7 @@ export function useViewerInit({
   setDwgCoordinates,
   setHasSelectedMarker,
   setSelectedMarkerFossPid,
+  setIsMoving,
   isCacheHit,
   getAccessToken,
   uploadFile,
@@ -379,6 +381,12 @@ export function useViewerInit({
                         const _dwg = pageToDwgCoords(pageX, pageY)
                         // TODO: Add onPlacementMove callback to persist position changes
                       },
+                      onMoveStart: () => {
+                        setIsMoving(true)
+                      },
+                      onMoveEnd: () => {
+                        setIsMoving(false)
+                      },
                     })
 
                     // Activate polygonEditTool to enable selection/manipulation of Edit2D shapes
@@ -409,6 +417,12 @@ export function useViewerInit({
               const tool = new PlacementTool(
                 viewer,
                 (coords) => {
+                  // Check if we're in move mode - if so, confirm the move instead of placing
+                  if (edit2dMarkersRef.current?.isMoving()) {
+                    edit2dMarkersRef.current.confirmMove(coords.worldX, coords.worldY)
+                    return
+                  }
+
                   const mode = placementModeRef.current
                   if (!mode || !edit2dMarkersRef.current) return
 
@@ -449,11 +463,18 @@ export function useViewerInit({
                 },
                 undefined, // onSnapChange - not used currently
                 // onCoordinateChange - convert page coords to DWG model coords for display
+                // Also updates move preview when in move mode
                 (coords) => {
                   if (!coords) {
                     setDwgCoordinates(null)
                     return
                   }
+
+                  // Update move preview if in move mode
+                  if (edit2dMarkersRef.current?.isMoving()) {
+                    edit2dMarkersRef.current.updateMovePreview(coords.x, coords.y)
+                  }
+
                   // Convert page coords (from viewer) to DWG model space
                   const dwg = pageToDwgCoords(coords.x, coords.y)
                   setDwgCoordinates({
@@ -533,6 +554,7 @@ export function useViewerInit({
     setDwgCoordinates,
     setHasSelectedMarker,
     setSelectedMarkerFossPid,
+    setIsMoving,
     getAccessToken,
   ])
 

@@ -87,6 +87,12 @@ export class Edit2DMarkers {
   // Flag to prevent recursive selection changes
   private isSelectingSiblings = false
 
+  // Move mode state
+  private movingMarkerId: string | null = null
+  private movePreviewShapes: Edit2DShape[] = []
+  private movePreviewThrottleMs = 50
+  private lastMovePreviewTime = 0
+
   constructor(viewer: Viewer3DInstance) {
     this.viewer = viewer
   }
@@ -450,6 +456,14 @@ export class Edit2DMarkers {
     const target = e.target as HTMLElement
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
 
+    // ESC: Cancel move mode or handled by parent for other modes
+    if (e.key === 'Escape' && this.movingMarkerId) {
+      e.preventDefault()
+      e.stopPropagation()
+      this.cancelMove()
+      return
+    }
+
     // Delete selected marker (all shapes)
     if (this.selectedId && (e.key === 'Delete' || e.key === 'Backspace')) {
       e.preventDefault()
@@ -464,6 +478,13 @@ export class Edit2DMarkers {
       e.stopPropagation()
       const delta = e.shiftKey ? 15 : -15  // CW is negative in math coordinates
       this.rotateMarker(this.selectedId, delta)
+    }
+
+    // M key: Start move mode for selected marker
+    if (this.selectedId && !this.movingMarkerId && (e.key === 'm' || e.key === 'M')) {
+      e.preventDefault()
+      e.stopPropagation()
+      this.startMove(this.selectedId)
     }
   }
 
@@ -703,6 +724,228 @@ export class Edit2DMarkers {
     }
 
     this.callbacks.onRotate?.(id, newRotation)
+  }
+
+  // ============================================================================
+  // MOVE MODE
+  // ============================================================================
+
+  /**
+   * Check if currently in move mode
+   */
+  isMoving(): boolean {
+    return this.movingMarkerId !== null
+  }
+
+  /**
+   * Get the ID of the marker being moved
+   */
+  getMovingMarkerId(): string | null {
+    return this.movingMarkerId
+  }
+
+  /**
+   * Start move mode for a marker
+   * Ghosts the original shapes and notifies parent to activate snapping
+   */
+  startMove(id: string): void {
+    if (!this.ctx) return
+
+    const data = this.markerData.get(id)
+    const shapes = this.shapes.get(id)
+    if (!data || !shapes) return
+
+    this.movingMarkerId = id
+
+    // Ghost the original shapes (reduce opacity)
+    for (const shape of shapes) {
+      if (shape.style) {
+        shape.style.lineAlpha = 0.3
+        shape.style.fillAlpha = 0.3
+      }
+    }
+
+    // Hide label during move
+    const label = this.labels.get(id)
+    if (label) {
+      label.setVisible(false)
+    }
+
+    this.ctx.layer.update()
+
+    // Notify parent to activate snapping/crosshair cursor
+    this.callbacks.onMoveStart?.(id)
+  }
+
+  /**
+   * Cancel move mode - restore original shapes
+   */
+  cancelMove(): void {
+    if (!this.movingMarkerId || !this.ctx) return
+
+    const shapes = this.shapes.get(this.movingMarkerId)
+
+    // Restore original shapes opacity
+    if (shapes) {
+      for (const shape of shapes) {
+        if (shape.style) {
+          shape.style.lineAlpha = 1
+          shape.style.fillAlpha = 1
+        }
+      }
+    }
+
+    // Show label again
+    const label = this.labels.get(this.movingMarkerId)
+    if (label) {
+      label.setVisible(true)
+    }
+
+    // Remove preview shapes
+    for (const shape of this.movePreviewShapes) {
+      this.ctx.removeShape(shape)
+    }
+    this.movePreviewShapes = []
+
+    this.ctx.layer.update()
+
+    this.movingMarkerId = null
+    this.callbacks.onMoveEnd?.()
+  }
+
+  /**
+   * Update move preview at the given page coordinates
+   * Called by parent during mouse move when in move mode
+   */
+  async updateMovePreview(pageX: number, pageY: number): Promise<void> {
+    if (!this.movingMarkerId || !this.ctx) return
+
+    // Throttle preview updates
+    const now = Date.now()
+    if (now - this.lastMovePreviewTime < this.movePreviewThrottleMs) return
+    this.lastMovePreviewTime = now
+
+    const data = this.markerData.get(this.movingMarkerId)
+    if (!data) return
+
+    // Remove old preview shapes
+    for (const shape of this.movePreviewShapes) {
+      this.ctx.removeShape(shape)
+    }
+
+    // Create new preview shapes at target position
+    const fossPid = data.fossPid || data.productName
+    let newShapes: Edit2DShape[] | null = null
+
+    if (fossPid) {
+      const svgContent = await this.svgFetcher.fetchSymbolSvg(fossPid)
+      if (svgContent) {
+        newShapes = createShapesFromSvg(svgContent, pageX, pageY, data.rotation, this.unitScales)
+      }
+    }
+
+    // Fall back to circle if no SVG
+    if (!newShapes) {
+      newShapes = createFallbackCircleShape(pageX, pageY, this.unitScales)
+    }
+
+    if (!newShapes || newShapes.length === 0) return
+
+    // Apply preview style (semi-transparent cyan)
+    for (const shape of newShapes) {
+      if (shape.style) {
+        shape.style.lineColor = '#00ffff'
+        shape.style.lineAlpha = 0.6
+        shape.style.fillAlpha = 0.2
+        shape.style.lineWidth = 1
+      }
+      this.ctx.addShape(shape)
+    }
+
+    this.movePreviewShapes = newShapes
+    this.ctx.layer.update()
+  }
+
+  /**
+   * Confirm move - place marker at new position
+   * Called by parent on click when in move mode
+   */
+  async confirmMove(pageX: number, pageY: number): Promise<void> {
+    if (!this.movingMarkerId || !this.ctx) return
+
+    const id = this.movingMarkerId
+    const data = this.markerData.get(id)
+    const oldShapes = this.shapes.get(id)
+    if (!data || !oldShapes) {
+      this.cancelMove()
+      return
+    }
+
+    // Remove preview shapes
+    for (const shape of this.movePreviewShapes) {
+      this.ctx.removeShape(shape)
+    }
+    this.movePreviewShapes = []
+
+    // Remove old shapes
+    for (const shape of oldShapes) {
+      this.ctx.removeShape(shape)
+      this.shapeToMarker.delete(shape.id)
+    }
+
+    // Remove old label
+    const oldLabel = this.labels.get(id)
+    if (oldLabel) {
+      oldLabel.setVisible(false)
+      this.labels.delete(id)
+    }
+
+    // Create new shapes at target position (preserve rotation)
+    const fossPid = data.fossPid || data.productName
+    let newShapes: Edit2DShape[] | null = null
+
+    if (fossPid) {
+      const svgContent = await this.svgFetcher.fetchSymbolSvg(fossPid)
+      if (svgContent) {
+        newShapes = createShapesFromSvg(svgContent, pageX, pageY, data.rotation, this.unitScales)
+      }
+    }
+
+    // Fall back to circle if no SVG
+    if (!newShapes) {
+      newShapes = createFallbackCircleShape(pageX, pageY, this.unitScales)
+    }
+
+    if (!newShapes || newShapes.length === 0) {
+      console.error(`[Edit2DMarkers] Failed to create shapes for move: ${id}`)
+      this.cancelMove()
+      return
+    }
+
+    // Store new shapes
+    this.shapes.set(id, newShapes)
+    for (const shape of newShapes) {
+      this.shapeToMarker.set(shape.id, id)
+      this.ctx.addShape(shape)
+    }
+
+    // Update marker data with new position
+    data.pageX = pageX
+    data.pageY = pageY
+    this.markerData.set(id, data)
+
+    // Re-add label
+    if (data.symbol && newShapes[0]) {
+      this.addLabelToShape(id, newShapes[0], data.symbol)
+    }
+
+    this.ctx.layer.update()
+
+    this.movingMarkerId = null
+    this.callbacks.onMoveEnd?.()
+
+    // Notify parent of position change
+    this.callbacks.onMove?.(id, pageX, pageY)
   }
 
   /**

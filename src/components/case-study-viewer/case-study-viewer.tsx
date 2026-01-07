@@ -171,6 +171,7 @@ export function CaseStudyViewer({
   const [hasSelectedMarker, setHasSelectedMarker] = useState(false)
   const [selectedMarkerFossPid, setSelectedMarkerFossPid] = useState<string | null>(null)
   const [dwgUnitString, setDwgUnitString] = useState<string | null>(null)
+  const [isMoving, setIsMoving] = useState(false)
   const [dwgUnitInfo, setDwgUnitInfo] = useState<DwgUnitInfo | null>(null)
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -280,6 +281,7 @@ export function CaseStudyViewer({
     setDwgCoordinates,
     setHasSelectedMarker,
     setSelectedMarkerFossPid,
+    setIsMoving,
     isCacheHit,
     getAccessToken,
     uploadFile,
@@ -296,15 +298,16 @@ export function CaseStudyViewer({
   // PLACEMENT MODE EFFECTS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Activate/deactivate placement tool based on placementMode
+  // Activate/deactivate placement tool based on placementMode or isMoving
+  // Move mode also needs snapping from the placement tool
   useEffect(() => {
     const viewer = viewerRef.current
     if (!viewer || !placementToolRef.current) return
 
-    if (placementMode) {
+    if (placementMode || isMoving) {
       viewer.toolController.activateTool('placement-tool')
 
-      // Exit measure mode when entering placement mode
+      // Exit measure mode when entering placement/move mode
       if (measureMode !== 'none') {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const measureExt = viewer.getExtension('Autodesk.Measure') as any
@@ -314,12 +317,14 @@ export function CaseStudyViewer({
         setMeasureMode('none')
       }
 
-      // Deselect any marker when entering placement mode
-      edit2dMarkersRef.current?.selectMarker(null)
+      // Deselect any marker when entering placement mode (not move mode)
+      if (placementMode) {
+        edit2dMarkersRef.current?.selectMarker(null)
+      }
     } else {
       viewer.toolController.deactivateTool('placement-tool')
     }
-  }, [placementMode, measureMode, setMeasureMode])
+  }, [placementMode, isMoving, measureMode, setMeasureMode])
 
   // Effect to sync placements with Edit2D markers
   // Handles both adding new placements and removing deleted ones
@@ -448,11 +453,12 @@ export function CaseStudyViewer({
    * Priority: PLACEMENT > MEASUREMENT > SELECT > IDLE
    */
   const viewerMode: ViewerMode = useMemo(() => {
+    if (isMoving) return 'MOVE'
     if (placementMode) return 'PLACEMENT'
     if (measureMode !== 'none') return 'MEASUREMENT'
     if (hasSelectedMarker) return 'SELECT'
     return 'IDLE'
-  }, [placementMode, measureMode, hasSelectedMarker])
+  }, [isMoving, placementMode, measureMode, hasSelectedMarker])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
