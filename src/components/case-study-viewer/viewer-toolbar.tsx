@@ -72,46 +72,51 @@ export function CaseStudyViewerToolbar({
           </>
         )}
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={measureMode === 'distance' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => onToggleMeasure('distance')}
-            >
-              <Ruler className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Measure Distance</TooltipContent>
-        </Tooltip>
+        {/* TODO: Measure tools temporarily disabled - need event-based state sync instead of polling */}
+        {false && (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={measureMode === 'distance' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => onToggleMeasure('distance')}
+                >
+                  <Ruler className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Measure Distance</TooltipContent>
+            </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={measureMode === 'area' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => onToggleMeasure('area')}
-            >
-              <Square className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Measure Area</TooltipContent>
-        </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={measureMode === 'area' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => onToggleMeasure('area')}
+                >
+                  <Square className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Measure Area</TooltipContent>
+            </Tooltip>
 
-        {hasMeasurement && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClearMeasurements}
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Eraser className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Clear Measurement</TooltipContent>
-          </Tooltip>
+            {hasMeasurement && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClearMeasurements}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Eraser className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clear Measurement</TooltipContent>
+              </Tooltip>
+            )}
+          </>
         )}
 
         {hasSelectedMarker && measureMode === 'none' && (
