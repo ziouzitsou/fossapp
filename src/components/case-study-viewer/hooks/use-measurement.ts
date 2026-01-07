@@ -101,7 +101,7 @@ export function useMeasurement({
   }, [placementMode, measureMode, viewerRef])
 
   /**
-   * Poll for measurements while in measure mode
+   * Poll for measurements and detect if extension was deactivated externally (e.g., ESC key)
    */
   useEffect(() => {
     if (measureMode === 'none') {
@@ -116,6 +116,16 @@ export function useMeasurement({
     if (!measureExt) return
 
     const checkForMeasurements = () => {
+      // Check if the extension was deactivated externally (e.g., user pressed ESC)
+      // The Measure extension handles ESC internally and deactivates itself
+      const isActive = measureExt.isActive?.() ?? measureExt.mode !== 'inactive'
+      if (!isActive && measureMode !== 'none') {
+        // Extension was deactivated externally - sync our state
+        setMeasureMode('none')
+        setHasMeasurement(false)
+        return
+      }
+
       const measureTool = measureExt.measureTool
       if (measureTool) {
         // Check if there's a current measurement
@@ -126,7 +136,7 @@ export function useMeasurement({
     }
 
     // Check periodically while measuring
-    const interval = setInterval(checkForMeasurements, 500)
+    const interval = setInterval(checkForMeasurements, 200)
 
     return () => clearInterval(interval)
   }, [viewerRef, measureMode])
