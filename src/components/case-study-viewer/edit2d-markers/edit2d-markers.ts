@@ -270,42 +270,48 @@ export class Edit2DMarkers {
   }
 
   /**
-   * Set up hover style modifier for visual feedback
+   * Set up style modifier for hover and selection visual feedback
    *
-   * Applies highlight effect to shapes when hovered, similar to measurement tools.
-   * Also handles label scaling since the hover event is unreliable.
+   * Applies highlight effect to shapes when hovered or selected.
+   * Selection style (green) takes precedence over hover style (blue).
    */
   private setupHoverStyleModifier(): void {
     if (!this.ctx?.layer) return
 
-    // Add custom hover style modifier
+    // Add custom style modifier for hover and selection
     this.ctx.layer.addStyleModifier((shape, style) => {
       // Only apply to our marker shapes
       if (!this.shapeToMarker.has(shape.id)) {
         return undefined
       }
 
+      const markerId = this.shapeToMarker.get(shape.id)
+      const markerShapes = markerId ? this.shapes.get(markerId) : null
+
+      // Check if this marker is selected
+      const isSelected = markerId === this.selectedId
+
       // Read hovered ID directly from selection (more reliable than event)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const currentHoveredId = (this.ctx?.selection as any)?.hoveredId ?? null
-
-      // Check if this shape (or any sibling shape) is hovered
-      const markerId = this.shapeToMarker.get(shape.id)
-      const markerShapes = markerId ? this.shapes.get(markerId) : null
       const isHovered = markerShapes?.some(s => s.id === currentHoveredId) ?? false
 
-      // Note: Label hover state is now handled by mousemove + hitTest
-      // for more reliable detection (see setupMouseMoveListener)
-
-      if (!isHovered) {
-        return undefined
+      // Selection takes precedence over hover
+      if (isSelected) {
+        const modified = style.clone()
+        modified.lineColor = STYLE_CONSTANTS.SELECTED.lineColor
+        modified.lineWidth = STYLE_CONSTANTS.SELECTED.lineWidth
+        return modified
       }
 
-      // Return modified style for hover effect (line only, no fill)
-      const modified = style.clone()
-      modified.lineColor = STYLE_CONSTANTS.HOVER.lineColor
-      modified.lineWidth = STYLE_CONSTANTS.HOVER.lineWidth
-      return modified
+      if (isHovered) {
+        const modified = style.clone()
+        modified.lineColor = STYLE_CONSTANTS.HOVER.lineColor
+        modified.lineWidth = STYLE_CONSTANTS.HOVER.lineWidth
+        return modified
+      }
+
+      return undefined
     })
   }
 
@@ -377,6 +383,7 @@ export class Edit2DMarkers {
       if (this.selectedId) {
         this.selectedId = null
         this.callbacks.onSelect?.(null)
+        this.ctx.layer.update() // Re-render to clear selection style
       }
       return
     }
@@ -412,6 +419,7 @@ export class Edit2DMarkers {
     if (this.selectedId !== markerId) {
       this.selectedId = markerId
       this.callbacks.onSelect?.(markerId)
+      this.ctx.layer.update() // Re-render to apply selection style immediately
     }
   }
 
