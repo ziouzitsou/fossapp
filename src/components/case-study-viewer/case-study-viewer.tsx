@@ -78,6 +78,8 @@ export interface CaseStudyViewerProps {
   onPlacementDelete?: (id: string) => void
   /** Callback when a placement is rotated (R key shortcut) */
   onPlacementRotate?: (id: string, rotation: number) => void
+  /** Callback when a placement is moved (M key + click) */
+  onPlacementMove?: (id: string, worldX: number, worldY: number) => void
   /** Callback to exit placement mode */
   onExitPlacementMode?: () => void
   /** Callback when viewer is ready */
@@ -125,6 +127,7 @@ export function CaseStudyViewer({
   onPlacementAdd,
   onPlacementDelete,
   onPlacementRotate,
+  onPlacementMove,
   onExitPlacementMode,
   onReady,
   onError,
@@ -292,6 +295,7 @@ export function CaseStudyViewer({
     onPlacementAdd,
     onPlacementDelete,
     onPlacementRotate,
+    onPlacementMove,
   })
 
   // ═══════════════════════════════════════════════════════════════════════════

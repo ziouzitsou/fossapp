@@ -82,6 +82,7 @@ interface UseViewerInitOptions {
   onPlacementAdd?: (placement: Omit<Placement, 'dbId'>) => void
   onPlacementDelete?: (id: string) => void
   onPlacementRotate?: (id: string, rotation: number) => void
+  onPlacementMove?: (id: string, worldX: number, worldY: number) => void
 }
 
 interface UseViewerInitReturn {
@@ -129,6 +130,7 @@ export function useViewerInit({
   onPlacementAdd,
   onPlacementDelete,
   onPlacementRotate,
+  onPlacementMove,
 }: UseViewerInitOptions): UseViewerInitReturn {
   // Track if viewer has been initialized to prevent double init
   const isInitializedRef = useRef(false)
@@ -140,6 +142,7 @@ export function useViewerInit({
   const onPlacementAddRef = useRef(onPlacementAdd)
   const onPlacementDeleteRef = useRef(onPlacementDelete)
   const onPlacementRotateRef = useRef(onPlacementRotate)
+  const onPlacementMoveRef = useRef(onPlacementMove)
   useLayoutEffect(() => {
     onReadyRef.current = onReady
     onErrorRef.current = onError
@@ -147,7 +150,8 @@ export function useViewerInit({
     onPlacementAddRef.current = onPlacementAdd
     onPlacementDeleteRef.current = onPlacementDelete
     onPlacementRotateRef.current = onPlacementRotate
-  }, [onReady, onError, onUnitInfoAvailable, onPlacementAdd, onPlacementDelete, onPlacementRotate])
+    onPlacementMoveRef.current = onPlacementMove
+  }, [onReady, onError, onUnitInfoAvailable, onPlacementAdd, onPlacementDelete, onPlacementRotate, onPlacementMove])
 
   /**
    * Initialize viewer with Viewer3D (no GUI)
@@ -376,10 +380,10 @@ export function useViewerInit({
                       onRotate: (id, rotation) => {
                         onPlacementRotateRef.current?.(id, rotation)
                       },
-                      onMove: (_id, pageX, pageY) => {
+                      onMove: (id, pageX, pageY) => {
                         // Convert page coords to DWG coords for storage
-                        const _dwg = pageToDwgCoords(pageX, pageY)
-                        // TODO: Add onPlacementMove callback to persist position changes
+                        const dwg = pageToDwgCoords(pageX, pageY)
+                        onPlacementMoveRef.current?.(id, dwg.x, dwg.y)
                       },
                       onMoveStart: () => {
                         setIsMoving(true)

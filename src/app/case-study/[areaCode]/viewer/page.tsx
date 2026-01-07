@@ -34,6 +34,7 @@ export default function ViewerPage() {
       onAddPlacement={state.addPlacement}
       onRemovePlacement={state.removePlacement}
       onRotatePlacement={state.updatePlacementRotation}
+      onMovePlacement={(id, worldX, worldY) => state.updatePlacementPosition(id, { x: worldX, y: worldY })}
       onRefresh={state.refetchProducts}
       isRefreshing={state.isLoading}
       hiddenSymbolGroups={state.hiddenSymbolGroups}

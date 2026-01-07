@@ -87,6 +87,8 @@ interface ViewerViewProps {
   onRemovePlacement: (placementId: string) => void
   /** Rotate a placement (R key shortcut) */
   onRotatePlacement?: (placementId: string, rotation: number) => void
+  /** Move a placement (M key + click) */
+  onMovePlacement?: (placementId: string, worldX: number, worldY: number) => void
   /** Refresh products after adding via search */
   onRefresh?: () => void
   /** Whether refresh is in progress */
@@ -117,6 +119,7 @@ export function ViewerView({
   onAddPlacement,
   onRemovePlacement,
   onRotatePlacement,
+  onMovePlacement,
   onRefresh,
   isRefreshing = false,
   hiddenSymbolGroups,
@@ -193,6 +196,14 @@ export function ViewerView({
     [onRotatePlacement]
   )
 
+  /** Handle placement move (M key + click) */
+  const handlePlacementMove = useCallback(
+    (id: string, worldX: number, worldY: number) => {
+      onMovePlacement?.(id, worldX, worldY)
+    },
+    [onMovePlacement]
+  )
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-1 overflow-hidden">
@@ -217,6 +228,7 @@ export function ViewerView({
               onPlacementAdd={handlePlacementAdd}
               onPlacementDelete={handlePlacementDelete}
               onPlacementRotate={handlePlacementRotate}
+              onPlacementMove={handlePlacementMove}
               onExitPlacementMode={cancelPlacement}
               // Upload callbacks
               onUploadComplete={handleUploadComplete}

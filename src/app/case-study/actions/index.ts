@@ -410,6 +410,57 @@ export async function saveCaseStudyPlacementsAction(
 }
 
 // ============================================================================
+// UPDATE PLACEMENT POSITION
+// ============================================================================
+
+/**
+ * Round a number to 0.1mm precision (1 decimal place).
+ * This avoids storing excessive precision in the database.
+ */
+function roundToDecimal(value: number, decimals: number = 1): number {
+  const factor = Math.pow(10, decimals)
+  return Math.round(value * factor) / factor
+}
+
+/**
+ * Update the position of a single placement (after move operation).
+ * Coordinates are rounded to 0.1mm precision before saving.
+ */
+export async function updatePlacementPositionAction(
+  placementId: string,
+  worldX: number,
+  worldY: number
+): Promise<ActionResult> {
+  try {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(placementId)) {
+      return { success: false, error: 'Invalid placement ID format' }
+    }
+
+    const { error } = await supabaseServer
+      .schema('projects')
+      .from('planner_placements')
+      .update({
+        world_x: roundToDecimal(worldX),
+        world_y: roundToDecimal(worldY),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', placementId)
+
+    if (error) {
+      console.error('Update placement position error:', error)
+      return { success: false, error: 'Failed to update placement position' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Update placement position error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// ============================================================================
 // UPDATE PRODUCT QUANTITY
 // ============================================================================
 
