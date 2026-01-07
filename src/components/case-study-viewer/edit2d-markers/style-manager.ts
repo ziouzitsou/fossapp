@@ -13,10 +13,10 @@ import type { Edit2DShape } from '@/types/autodesk-viewer'
  * Style constants for hover, selection, and effects
  */
 export const STYLE_CONSTANTS = {
-  /** Hover style - orange highlight */
+  /** Hover style - blue highlight */
   HOVER: {
-    lineColor: 'rgb(249, 115, 22)', // Orange-500
-    lineWidth: 3,
+    lineColor: 'rgb(59, 130, 246)', // Blue-500
+    lineWidth: 5,
   },
   /** Selected style - green highlight */
   SELECTED: {
@@ -81,7 +81,7 @@ export class ShapeStyleManager {
   }
 
   /**
-   * Apply hover style (orange, thick line) to a shape.
+   * Apply hover style (blue, thick line) to a shape.
    * Automatically saves original style first.
    */
   applyHoverStyle(shape: Edit2DShape): void {

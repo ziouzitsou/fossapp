@@ -27,6 +27,7 @@ import {
   type UnitScales,
 } from './types'
 import { injectHoverStyles } from './css-styles'
+import { STYLE_CONSTANTS } from './style-manager'
 import { SvgFetcher } from './svg-fetcher'
 import { createShapesFromSvg, createFallbackCircleShape } from './shape-factory'
 import {
@@ -302,7 +303,8 @@ export class Edit2DMarkers {
 
       // Return modified style for hover effect (line only, no fill)
       const modified = style.clone()
-      modified.lineColor = 'rgb(249, 115, 22)'  // Orange highlight
+      modified.lineColor = STYLE_CONSTANTS.HOVER.lineColor
+      modified.lineWidth = STYLE_CONSTANTS.HOVER.lineWidth
       return modified
     })
   }
