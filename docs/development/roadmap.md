@@ -33,6 +33,30 @@ _No tech debt items currently planned._
 
 _Items here are ideas, not yet approved for implementation._
 
+### Case Study: Marker Mirroring (X/Y Keys)
+- **Description**: Allow mirroring markers horizontally (X key) and vertically (Y key) in Case Study viewer
+- **Database**: `mirror_x` and `mirror_y` boolean columns already added to `projects.planner_placements`
+- **Implementation**: Extend `Edit2DMarkers` to support mirroring transforms, similar to rotation (R key)
+- **Keyboard shortcuts**: X = mirror horizontal, Y = mirror vertical (toggle)
+- **Effort**: Medium
+
+### Case Study: User-Configurable Highlight Styles
+- **Description**: Allow users to customize marker highlight styles (hover, selection, preview colors and line widths)
+- **Location**: `/settings/view` page
+- **Current defaults**: Defined in `src/components/case-study-viewer/edit2d-markers/style-manager.ts` (`STYLE_CONSTANTS`)
+  - Hover: Blue-500, line width 5
+  - Selected: Green-500, line width 2.5
+  - Preview: Sky-400, line width 2
+- **Edit2D Style Properties**:
+  - `fillColor` (string) - Fill color
+  - `fillAlpha` (0-1) - Fill opacity
+  - `lineColor` (string) - Stroke color
+  - `lineAlpha` (0-1) - Stroke opacity
+  - `lineWidth` (number) - Stroke width in pixels
+  - `lineStyle` (number) - Line pattern: 0=solid, 4=dashed (other values undocumented)
+- **Implementation**: Store user prefs in database, merge with defaults at runtime
+- **Effort**: Low-Medium
+
 ### Add Query Timeouts
 - **Description**: Add timeout handling to database queries to prevent hanging
 - **Example**: `AbortSignal.timeout(10000)` on Supabase calls
