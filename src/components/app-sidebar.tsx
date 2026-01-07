@@ -23,7 +23,7 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, Settings } from 'lucide-react'
 import { getNavigation } from '@/lib/navigation'
 import { VersionDisplay } from '@/components/version-display'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -120,7 +120,7 @@ export function AppSidebar() {
         {/* Spacer to push Feedback to bottom */}
         <div className="flex-1" />
 
-        {/* Feedback Button - at bottom of content area */}
+        {/* Feedback & Settings - at bottom of content area */}
         <SidebarMenu className="px-2 pb-2">
           <SidebarMenuItem>
             <Tooltip>
@@ -137,6 +137,18 @@ export function AppSidebar() {
                 AI Assistant & Feedback
               </TooltipContent>
             </Tooltip>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === '/settings' || pathname.startsWith('/settings/')}
+              tooltip="Settings"
+            >
+              <Link href="/settings">
+                <Settings className="h-5 w-5" />
+                <span>Settings</span>
+              </Link>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
