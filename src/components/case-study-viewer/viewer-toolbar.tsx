@@ -7,10 +7,9 @@
  * This allows full control over styling and interaction.
  */
 
-import { Ruler, Trash2, Eraser, Square, MousePointer2 } from 'lucide-react'
+import { Ruler, Eraser, Square } from 'lucide-react'
 import { Button } from '@fossapp/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@fossapp/ui'
-import type { PlacementModeProduct } from './types'
 
 export type MeasureMode = 'none' | 'distance' | 'area'
 
@@ -19,58 +18,22 @@ export interface ViewerToolbarProps {
   measureMode: MeasureMode
   /** Whether there's an active measurement */
   hasMeasurement: boolean
-  /** Whether a marker is selected */
-  hasSelectedMarker: boolean
-  /** FossPid of the selected marker (for display) */
-  selectedMarkerFossPid?: string | null
-  /** Product being placed (click-to-place mode) */
-  placementMode?: PlacementModeProduct | null
   /** Callback to toggle measurement mode */
   onToggleMeasure: (mode: 'distance' | 'area') => void
   /** Callback to clear measurements */
   onClearMeasurements: () => void
-  /** Callback to delete selected marker */
-  onDeleteSelectedMarker: () => void
-  /** Callback to exit placement mode */
-  onExitPlacementMode?: () => void
 }
 
 export function CaseStudyViewerToolbar({
   measureMode,
   hasMeasurement,
-  hasSelectedMarker,
-  selectedMarkerFossPid,
-  placementMode,
   onToggleMeasure,
   onClearMeasurements,
-  onDeleteSelectedMarker,
-  onExitPlacementMode,
 }: ViewerToolbarProps) {
   return (
     <div className="flex-none border-t bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
       <div className="flex items-center justify-center gap-1 p-2">
-        {/* Placement mode indicator - styled like active measure button */}
-        {placementMode && (
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => onExitPlacementMode?.()}
-                >
-                  <MousePointer2 className="h-4 w-4" />
-                  <span className="text-xs font-medium">
-                    {placementMode.fossPid}
-                  </span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Click to exit placement mode (or press ESC)</TooltipContent>
-            </Tooltip>
-            <div className="w-px h-6 bg-border mx-1" />
-          </>
-        )}
+        {/* Toolbar currently empty - will be populated with future tools */}
 
         {/* TODO: Measure tools temporarily disabled - need event-based state sync instead of polling */}
         {false && (
@@ -119,31 +82,7 @@ export function CaseStudyViewerToolbar({
           </>
         )}
 
-        {hasSelectedMarker && measureMode === 'none' && (
-          <>
-            {selectedMarkerFossPid && (
-              <>
-                <div className="w-px h-6 bg-border mx-1" />
-                <span className="text-xs font-medium text-muted-foreground px-2">
-                  {selectedMarkerFossPid}
-                </span>
-              </>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onDeleteSelectedMarker}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Delete Marker (or press Delete key)</TooltipContent>
-            </Tooltip>
-          </>
-        )}
+        {/* Delete button removed - use Delete key instead */}
       </div>
     </div>
   )

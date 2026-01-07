@@ -227,6 +227,10 @@ export function CaseStudyViewer({
     setMeasureMode('none')
   }, [setMeasureMode])
 
+  const handleDeselectMarker = useCallback(() => {
+    edit2dMarkersRef.current?.selectMarker(null)
+  }, [])
+
   // Event handling (coordinates from events)
   const { dwgCoordinates, setDwgCoordinates } = useViewerEvents({
     containerRef,
@@ -234,10 +238,12 @@ export function CaseStudyViewer({
     isLoading,
     placementMode,
     isMeasuring: measureMode !== 'none',
+    hasSelectedMarker,
     pageToDwgCoords,
     onViewerClick,
     onExitPlacementMode,
     onExitMeasureMode: handleExitMeasureMode,
+    onDeselectMarker: handleDeselectMarker,
   })
 
   // Handler to capture DWG unit info for local state AND pass to external callback
@@ -307,6 +313,9 @@ export function CaseStudyViewer({
         }
         setMeasureMode('none')
       }
+
+      // Deselect any marker when entering placement mode
+      edit2dMarkersRef.current?.selectMarker(null)
     } else {
       viewer.toolController.deactivateTool('placement-tool')
     }
@@ -440,7 +449,7 @@ export function CaseStudyViewer({
    */
   const viewerMode: ViewerMode = useMemo(() => {
     if (placementMode) return 'PLACEMENT'
-    if (measureMode) return 'MEASUREMENT'
+    if (measureMode !== 'none') return 'MEASUREMENT'
     if (hasSelectedMarker) return 'SELECT'
     return 'IDLE'
   }, [placementMode, measureMode, hasSelectedMarker])
@@ -510,13 +519,8 @@ export function CaseStudyViewer({
         <CaseStudyViewerToolbar
           measureMode={measureMode}
           hasMeasurement={hasMeasurement}
-          hasSelectedMarker={hasSelectedMarker}
-          selectedMarkerFossPid={selectedMarkerFossPid}
-          placementMode={placementMode}
           onToggleMeasure={handleToggleMeasure}
           onClearMeasurements={handleClearMeasurements}
-          onDeleteSelectedMarker={handleDeleteSelectedMarker}
-          onExitPlacementMode={onExitPlacementMode}
         />
       )}
     </div>

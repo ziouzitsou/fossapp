@@ -22,6 +22,8 @@ interface UseViewerEventsOptions {
   placementMode?: PlacementModeProduct | null
   /** Whether measure mode is active */
   isMeasuring?: boolean
+  /** Whether a marker is selected */
+  hasSelectedMarker?: boolean
   /** Coordinate conversion function (page to DWG) */
   pageToDwgCoords: (pageX: number, pageY: number) => { x: number; y: number }
   /** Callback when viewer is clicked (for external placement handling) */
@@ -30,6 +32,8 @@ interface UseViewerEventsOptions {
   onExitPlacementMode?: () => void
   /** Callback to exit measure mode */
   onExitMeasureMode?: () => void
+  /** Callback to deselect marker */
+  onDeselectMarker?: () => void
 }
 
 interface UseViewerEventsReturn {
@@ -45,10 +49,12 @@ export function useViewerEvents({
   isLoading,
   placementMode,
   isMeasuring,
+  hasSelectedMarker,
   pageToDwgCoords,
   onViewerClick,
   onExitPlacementMode,
   onExitMeasureMode,
+  onDeselectMarker,
 }: UseViewerEventsOptions): UseViewerEventsReturn {
   const [dwgCoordinates, setDwgCoordinates] = useState<DwgCoordinates | null>(null)
 
@@ -169,28 +175,27 @@ export function useViewerEvents({
   }, [containerRef, viewerRef, isLoading, placementMode, pageToDwgCoords])
 
   /**
-   * ESC key to exit active mode (placement or measurement)
-   * Priority: placement > measurement (exits one at a time)
+   * ESC key to exit to IDLE mode
+   * Always clears placement mode and selection
    */
   useEffect(() => {
-    // Only listen if there's something to exit
-    if (!placementMode && !isMeasuring) return
-
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
       if (e.key === 'Escape') {
-        // Exit placement mode first if active
-        if (placementMode) {
-          onExitPlacementMode?.()
-        } else if (isMeasuring) {
-          // Then exit measure mode
-          onExitMeasureMode?.()
-        }
+        // ESC: Exit everything, go to IDLE
+        onExitPlacementMode?.()
+        onExitMeasureMode?.()
+        onDeselectMarker?.()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [placementMode, isMeasuring, onExitPlacementMode, onExitMeasureMode])
+  }, [onExitPlacementMode, onExitMeasureMode, onDeselectMarker])
 
   return {
     dwgCoordinates,
