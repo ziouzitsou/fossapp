@@ -666,6 +666,7 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
       this.ctx.selection.clear()
       this.selectedId = null
       this.callbacks.onSelect?.(null)
+      this.ctx.layer.update()
       return
     }
 
@@ -674,6 +675,7 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
       this.ctx.selection.selectOnly(shapes[0])
       this.selectedId = id
       this.callbacks.onSelect?.(id)
+      this.ctx.layer.update()
     }
   }
 
