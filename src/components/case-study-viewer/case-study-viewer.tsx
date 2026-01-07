@@ -37,6 +37,7 @@ import {
   useMeasurement,
   useViewerEvents,
   useViewerInit,
+  useCalibration,
 } from './hooks'
 
 // Re-export types for consumers
@@ -180,6 +181,14 @@ export function CaseStudyViewer({
   const { pageToDwgCoords, dwgToPageCoords, setTransform } = useCoordinateTransform({
     viewerRef,
   })
+
+  // Calibration detection
+  const {
+    calibrationChecked,
+    isCalibrated,
+    calibrationError,
+    detectCalibration,
+  } = useCalibration({ viewerRef })
 
   // API calls (auth, upload, translation)
   const { getAccessToken, uploadFile, pollTranslationStatus } = useViewerApi({
@@ -362,6 +371,44 @@ export function CaseStudyViewer({
     edit2dMarkersRef.current.setMinScreenPx(markerMinScreenPx)
   }, [markerMinScreenPx, isLoading])
 
+  // Effect to run calibration detection after viewer loads
+  // Uses retry mechanism to handle instance tree population timing
+  useEffect(() => {
+    if (isLoading || !viewerRef.current?.model) return
+    if (calibrationChecked) return // Already checked
+
+    let attempts = 0
+    const maxAttempts = 5
+    const retryDelay = 500 // ms between retries
+
+    const attemptCalibration = () => {
+      attempts++
+      detectCalibration().then((result) => {
+        if (result.isCalibrated) {
+          // Apply calibration to coordinate transform
+          setTransform(result.scaleX, result.scaleY, result.offsetX, result.offsetY)
+          console.log('[CaseStudyViewer] Calibration applied (attempt', attempts, '):', {
+            scaleX: result.scaleX,
+            scaleY: result.scaleY,
+            offsetX: result.offsetX,
+            offsetY: result.offsetY,
+          })
+        } else if (attempts < maxAttempts) {
+          // Retry - instance tree may not be fully populated yet
+          console.log('[CaseStudyViewer] Calibration attempt', attempts, 'failed, retrying...')
+          setTimeout(attemptCalibration, retryDelay)
+        } else {
+          console.warn('[CaseStudyViewer] Calibration failed after', attempts, 'attempts:', result.error)
+        }
+      })
+    }
+
+    // Start first attempt after initial delay
+    const timeoutId = setTimeout(attemptCalibration, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [isLoading, calibrationChecked, detectCalibration, setTransform])
+
   // ═══════════════════════════════════════════════════════════════════════════
   // TOOLBAR HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -411,6 +458,8 @@ export function CaseStudyViewer({
             coordinates={dwgCoordinates}
             unitString={dwgUnitString}
             dwgUnitInfo={dwgUnitInfo}
+            calibrationChecked={calibrationChecked}
+            isCalibrated={isCalibrated}
           />
         )}
 

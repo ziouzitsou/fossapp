@@ -137,27 +137,15 @@ export function useViewerEvents({
     if (placementMode) return
 
     const handleMouseMove = (e: MouseEvent) => {
-      let viewerX: number | undefined
-      let viewerY: number | undefined
+      // Get canvas-relative coordinates
+      const rect = container.getBoundingClientRect()
+      const clientX = e.clientX - rect.left
+      const clientY = e.clientY - rect.top
 
-      // Calculate page coords from visible bounds
-      // Note: clientToWorld() is unreliable for 2D DWGs, so we always use visible bounds
-      const impl = viewer.impl
-      const visibleBounds = impl?.getVisibleBounds?.()
-      if (visibleBounds) {
-        const rect = container.getBoundingClientRect()
-        const localX = e.clientX - rect.left
-        const localY = e.clientY - rect.top
-        const visWidth = visibleBounds.max.x - visibleBounds.min.x
-        const visHeight = visibleBounds.max.y - visibleBounds.min.y
-        // Page coords: X increases right, Y increases up (flip from screen)
-        viewerX = visibleBounds.min.x + (localX / rect.width) * visWidth
-        viewerY = visibleBounds.max.y - (localY / rect.height) * visHeight
-      }
-
-      // Convert page coords to DWG model coords for display
-      if (viewerX !== undefined && viewerY !== undefined) {
-        const dwg = pageToDwgCoords(viewerX, viewerY)
+      // Use clientToWorld to get display coordinates (consistent with calibration)
+      const worldResult = viewer.clientToWorld(clientX, clientY)
+      if (worldResult?.point) {
+        const dwg = pageToDwgCoords(worldResult.point.x, worldResult.point.y)
         setDwgCoordinates({ x: dwg.x, y: dwg.y, isSnapped: false })
       }
     }
