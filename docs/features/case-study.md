@@ -1,8 +1,8 @@
 # Case Study Feature
 
-**Status**: Active Development (Phase 4B in progress)
+**Status**: Active Development (Phase 4B complete, Phase 5 planned)
 **Route**: `/case-study`
-**Last Updated**: 2026-01-04 (Phase 4B.3 complete: Selection, rotation, and deletion)
+**Last Updated**: 2026-01-07 (Phase 4B complete: Edit2D migration, move mode, modular architecture)
 
 ---
 
@@ -186,22 +186,32 @@ src/app/case-study/
 
 src/components/case-study-viewer/
 ├── index.ts                          # Barrel export
-├── case-study-viewer.tsx             # Main APS viewer wrapper (~360 lines)
+├── case-study-viewer.tsx             # Main APS viewer wrapper (~540 lines)
 ├── case-study-viewer-utils.ts        # Utility functions
 ├── viewer-toolbar.tsx                # Bottom toolbar controls
-├── viewer-overlays.tsx               # Loading/error overlays
-├── case-study-markups.tsx            # Markup rendering layer
-├── markup-markers.ts                 # Marker creation/management
+├── viewer-overlays.tsx               # Loading/error overlays (~550 lines)
 ├── placement-tool.ts                 # Click-to-place coordinate logic
 ├── products-panel.tsx                # Product selection panel
 ├── types.ts                          # Viewer-specific types
-└── hooks/                            # Extracted viewer hooks (see below)
+├── edit2d-markers/                   # Edit2D marker system
+│   ├── index.ts                      # Barrel export
+│   ├── edit2d-markers.ts             # Main marker manager (~920 lines)
+│   ├── marker-move-controller.ts     # Move mode logic (~300 lines)
+│   ├── marker-visibility-controller.ts # Symbol group visibility (~170 lines)
+│   ├── shape-factory.ts              # SVG → Edit2D shape conversion
+│   ├── style-manager.ts              # Selection/hover styles
+│   ├── label-utils.ts                # ShapeLabel helpers
+│   ├── svg-fetcher.ts                # Symbol SVG loading with cache
+│   ├── css-styles.ts                 # Injected hover CSS
+│   └── types.ts                      # Marker types and interfaces
+└── hooks/                            # Extracted viewer hooks
     ├── index.ts                      # Barrel export
     ├── use-coordinate-transform.ts   # Page ↔ DWG coordinate conversion
     ├── use-viewer-api.ts             # Auth, upload, translation polling
+    ├── use-calibration.ts            # Unit calibration logic (~340 lines)
     ├── use-measurement.ts            # Measurement tool state & handlers
     ├── use-viewer-events.ts          # DOM events, keyboard, mouse tracking
-    └── use-viewer-init.ts            # Viewer initialization lifecycle (~510 lines)
+    └── use-viewer-init.ts            # Viewer initialization lifecycle (~660 lines)
 
 src/components/symbols/
 ├── index.ts                          # Barrel export
@@ -468,7 +478,7 @@ See **[Phase 4B: Edit2D Migration](#phase-4b-edit2d-migration)** section below f
 
 ## Phase 4B: Edit2D Migration
 
-**Branch**: `feature/edit2d-markers`
+**Branch**: Merged to `main`
 **Status**: Phase 4B COMPLETE ✅ (Edit2D migration finished)
 
 ### Background

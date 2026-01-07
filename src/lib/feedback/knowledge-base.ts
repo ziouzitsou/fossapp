@@ -76,7 +76,7 @@ export interface KnowledgeBase {
 export const FOSSAPP_KNOWLEDGE: KnowledgeBase = {
   appName: 'FOSSAPP',
   appDescription: 'Lighting product database for Foss SA lighting designers in Athens, Greece. Contains 56,000+ products from multiple suppliers.',
-  lastUpdated: '2025-12-28',
+  lastUpdated: '2026-01-07',
 
   features: {
     products: {
@@ -186,18 +186,33 @@ export const FOSSAPP_KNOWLEDGE: KnowledgeBase = {
       },
     },
 
-    planner: {
-      name: 'Planner',
-      description: 'Visual lighting layout planner with 3D viewer',
+    caseStudy: {
+      name: 'Case Study',
+      description: 'Place lighting products on architectural floor plans (DWG) for design visualization',
       capabilities: [
-        'Upload floor plans',
-        'Place lighting fixtures on plans',
-        'View 3D visualization',
-        'Calculate lighting levels',
+        'Upload DWG architectural drawings as floor plans',
+        'Place luminaire symbols on floor plans with click-to-place',
+        'Auto-assigned symbol letters based on product type (A1, B2, N1...)',
+        'Move markers with M key then click new position',
+        'Rotate markers with R key (15° increments, Shift+R for counter-clockwise)',
+        'Delete markers with Delete/Backspace key',
+        'Toggle symbol group visibility in products panel',
+        'Real-time DWG coordinate display',
+        'Placements saved to database automatically',
       ],
       limitations: [
-        'Currently in beta - some features still in development',
+        'Only luminaires can be placed (not accessories/drivers)',
+        'DWG export with placements not yet implemented',
+        'No multi-select for markers yet',
       ],
+      howTo: {
+        'uploadFloorPlan': 'In Case Study, click "Upload DWG" button and select your architectural drawing file.',
+        'placeProduct': 'Click a product card in the right panel, then click on the floor plan to place it.',
+        'moveMarker': 'Select a marker, press M to enter move mode, click new location.',
+        'rotateMarker': 'Select a marker, press R to rotate 15° clockwise (Shift+R for counter-clockwise).',
+        'deleteMarker': 'Select a marker and press Delete or Backspace.',
+        'hideSymbolGroup': 'Click the eye icon next to a product in the panel to hide/show all markers of that type.',
+      },
     },
 
     settings: {
