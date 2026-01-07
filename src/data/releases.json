@@ -3,6 +3,19 @@
   "_comment": "Single source of truth for What's New dialog and changelog. Add new releases at the top.",
   "releases": [
     {
+      "version": "1.13.6",
+      "date": "2026-01-07",
+      "title": "Enhanced Case Study Viewer",
+      "description": "Move markers precisely with keyboard shortcuts and visual selection feedback.",
+      "features": [
+        "Move mode (M key) - reposition markers by clicking on new locations",
+        "Selection styling - selected markers highlighted in green for better visibility",
+        "Keyboard shortcuts - R to rotate clockwise, Shift+R for counter-clockwise rotation",
+        "Position persistence - marker positions and rotations saved automatically to database"
+      ],
+      "tagline": "Place your markers exactly where you need them."
+    },
+    {
       "version": "1.13.1",
       "date": "2025-12-29",
       "title": "Planner Navigation & Viewer Controls",
