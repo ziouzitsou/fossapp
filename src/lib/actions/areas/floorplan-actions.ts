@@ -9,7 +9,7 @@
  */
 
 import { supabaseServer } from '@fossapp/core/db/server'
-import { deleteFloorPlanObject, generateObjectKey } from '../../planner/aps-planner-service'
+import { deleteFloorPlanObject, deleteDerivatives, generateObjectKey } from '../../planner/aps-planner-service'
 
 import type { ActionResult } from '@fossapp/projects'
 
@@ -55,7 +55,7 @@ export async function deleteAreaRevisionFloorPlanAction(
       return { success: false, error: 'Area revision not found' }
     }
 
-    // Delete from OSS if file exists
+    // Delete from OSS and APS Model Derivative if file exists
     if (areaRevision.floor_plan_filename && areaRevision.floor_plan_urn) {
       // Type assertion for nested join data (Supabase returns object for !inner with single())
       const projectAreas = areaRevision.project_areas as unknown as { project_id: string; area_code: string }
@@ -65,11 +65,19 @@ export async function deleteAreaRevisionFloorPlanAction(
         areaRevision.floor_plan_filename
       )
 
+      // Delete OSS object (best-effort)
       try {
         await deleteFloorPlanObject(projectAreas.project_id, objectKey)
       } catch (ossError) {
-        // Log but don't fail - OSS deletion is best-effort
         console.warn('Failed to delete OSS object:', ossError)
+      }
+
+      // Delete Model Derivative (SVF2, thumbnails, etc.) - IMPORTANT!
+      // Derivatives persist forever on Autodesk servers if not explicitly deleted
+      try {
+        await deleteDerivatives(areaRevision.floor_plan_urn)
+      } catch (derivativeError) {
+        console.warn('Failed to delete derivatives:', derivativeError)
       }
     }
 

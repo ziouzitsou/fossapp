@@ -393,6 +393,47 @@ export async function deleteFloorPlanObject(
 }
 
 /**
+ * Delete Model Derivative manifest and all derivatives (SVF2, thumbnails, etc.)
+ *
+ * IMPORTANT: Derivatives are stored separately from OSS and persist forever
+ * until explicitly deleted. Always call this when deleting floor plans.
+ *
+ * @see https://aps.autodesk.com/en/docs/model-derivative/v2/reference/http/urn-manifest-DELETE/
+ */
+export async function deleteDerivatives(urn: string): Promise<void> {
+  if (!urn) {
+    console.log('[Planner] No URN provided, skipping derivative deletion')
+    return
+  }
+
+  const accessToken = await getAccessToken()
+
+  try {
+    const response = await fetch(
+      `https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/${urn}/manifest`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    )
+
+    if (response.ok || response.status === 202) {
+      console.log(`[Planner] Deleted derivatives for URN: ${urn.substring(0, 30)}...`)
+    } else if (response.status === 404) {
+      console.log(`[Planner] Derivatives not found (already deleted?): ${urn.substring(0, 30)}...`)
+    } else {
+      const errorText = await response.text()
+      console.warn(`[Planner] Failed to delete derivatives: ${response.status} - ${errorText}`)
+    }
+  } catch (err) {
+    // Log but don't throw - derivative deletion is best-effort
+    console.warn('[Planner] Error deleting derivatives:', err)
+  }
+}
+
+/**
  * Delete project bucket and all its contents
  * Called when a project is deleted
  */
