@@ -10,6 +10,8 @@ import {
 } from '@/lib/planner/aps-planner-service'
 import { supabaseServer } from '@fossapp/core/db/server'
 import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
+import { getGoogleDriveTemplateService } from '@/lib/planner/google-drive-template-service'
+import { PlannerDesignAutomationService } from '@/lib/planner/design-automation-service'
 
 /**
  * Sanitize filename to prevent path traversal and other attacks
@@ -285,15 +287,51 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // No cache hit - upload new file with meaningful object key
+    // No cache hit - process through FOSS.dwt template via Design Automation
+    console.log(`[Planner API] Starting Design Automation processing...`)
+
+    // Step 1: Fetch FOSS.dwt template from Google Drive
+    const templateService = getGoogleDriveTemplateService()
+    let templateBuffer: Buffer
+    try {
+      templateBuffer = await templateService.fetchFossTemplate()
+      console.log(`[Planner API] Template fetched (${(templateBuffer.length / 1024).toFixed(0)} KB)`)
+    } catch (templateError) {
+      console.error('[Planner API] Failed to fetch template:', templateError)
+      return NextResponse.json(
+        { error: 'Failed to fetch FOSS.dwt template from Google Drive' },
+        { status: 500 }
+      )
+    }
+
+    // Step 2: Process through Design Automation
+    const daService = new PlannerDesignAutomationService()
+    const outputFileName = sanitizedFileName.replace(/\.dwg$/i, '')
+    const daResult = await daService.processFloorPlan(
+      templateBuffer,
+      buffer,
+      outputFileName
+    )
+
+    if (!daResult.success || !daResult.dwgBuffer) {
+      console.error('[Planner API] DA processing failed:', daResult.errors)
+      return NextResponse.json(
+        { error: `Design Automation failed: ${daResult.errors.join(', ')}` },
+        { status: 500 }
+      )
+    }
+
+    console.log(`[Planner API] DA processing complete (${(daResult.dwgBuffer.length / 1024).toFixed(0)} KB output)`)
+
+    // Step 3: Upload processed DWG to persistent bucket
     const objectKey = generateObjectKey(
       projectAreas.area_code,
       areaRevision.revision_number,
       sanitizedFileName
     )
-    const { urn } = await uploadFloorPlan(bucketName, objectKey, buffer)
+    const { urn } = await uploadFloorPlan(bucketName, objectKey, daResult.dwgBuffer)
 
-    // Start translation
+    // Step 4: Start translation
     await translateToSVF2(urn)
 
     // Save to area revision with status 'inprogress' (translation started)

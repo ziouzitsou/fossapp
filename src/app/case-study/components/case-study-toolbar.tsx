@@ -127,14 +127,14 @@ export function CaseStudyToolbar({
           className="gap-1.5"
           onClick={onUploadClick}
           disabled={isUploading}
-          title="Upload architectural floor plan (.dwg)"
+          title="Upload architectural floor plan (.dwg) - Processing takes ~30-60 seconds"
         >
           {isUploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Upload className="h-4 w-4" />
           )}
-          {isUploading ? 'Uploading...' : 'Upload DWG'}
+          {isUploading ? 'Processing DWG...' : 'Upload DWG'}
         </Button>
       )}
       <Button size="sm" className="gap-1.5">
