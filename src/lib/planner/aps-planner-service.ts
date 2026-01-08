@@ -30,7 +30,7 @@ const ossClient = new OssClient({ sdkManager })
 let tokenCache: { accessToken: string; expiresAt: number } | null = null
 
 /** Template object key in project buckets */
-export const TEMPLATE_OBJECT_KEY = '_templates/foss.dwt'
+export const TEMPLATE_OBJECT_KEY = 'FOSS.dwt'
 
 /** Temp files prefix for DA processing */
 export const TEMP_PREFIX = '_temp'
@@ -178,6 +178,9 @@ export async function hasTemplateInBucket(bucketName: string): Promise<boolean> 
 /**
  * Generate a signed URL for reading an object from OSS
  * Valid for 60 minutes
+ *
+ * IMPORTANT: Uses OSS signed URL with read access, NOT S3-compatible URLs.
+ * Design Automation requires OSS signed URLs format.
  */
 export async function generateSignedReadUrl(
   bucketName: string,
@@ -185,18 +188,34 @@ export async function generateSignedReadUrl(
 ): Promise<string> {
   const accessToken = await getAccessToken()
 
-  const result = await ossClient.signedS3Download(
-    bucketName,
-    objectKey,
-    { accessToken, minutesExpiration: 60 }
+  // Use OSS signed URL endpoint (not S3-compatible) - required for DA
+  const response = await fetch(
+    `https://developer.api.autodesk.com/oss/v2/buckets/${bucketName}/objects/${encodeURIComponent(objectKey)}/signed?access=read`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ minutesExpiration: 60 }),
+    }
   )
 
-  return result.url || ''
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to generate signed read URL: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json() as { signedUrl: string }
+  return data.signedUrl
 }
 
 /**
  * Generate a signed URL for writing an object to OSS
  * Valid for 60 minutes
+ *
+ * IMPORTANT: Uses OSS signed URL with readwrite access, NOT S3-compatible URLs.
+ * Design Automation requires OSS signed URLs format.
  */
 export async function generateSignedWriteUrl(
   bucketName: string,
@@ -204,13 +223,26 @@ export async function generateSignedWriteUrl(
 ): Promise<string> {
   const accessToken = await getAccessToken()
 
-  const result = await ossClient.signedS3Upload(
-    bucketName,
-    objectKey,
-    { accessToken, minutesExpiration: 60 }
+  // Use OSS signed URL endpoint (not S3-compatible) - required for DA
+  const response = await fetch(
+    `https://developer.api.autodesk.com/oss/v2/buckets/${bucketName}/objects/${encodeURIComponent(objectKey)}/signed?access=readwrite`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ minutesExpiration: 60 }),
+    }
   )
 
-  return result.urls?.[0] || ''
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to generate signed write URL: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json() as { signedUrl: string }
+  return data.signedUrl
 }
 
 /**

@@ -52,11 +52,11 @@ function sanitizeFileName(filename: string): string {
     .replace(/\.\\/g, '')      // Remove .\ sequences
 
   // Step 4: Remove dangerous filesystem characters
-  // Keep only: alphanumeric, spaces, dots, hyphens, underscores, parentheses
+  // Keep only: alphanumeric, dots, hyphens, underscores, parentheses, spaces (converted later)
   sanitized = sanitized.replace(/[^a-zA-Z0-9\s.\-_()]/g, '_')
 
-  // Step 5: Collapse multiple underscores/spaces
-  sanitized = sanitized.replace(/_+/g, '_').replace(/\s+/g, ' ')
+  // Step 5: Replace spaces with underscores (OSS signed URLs have issues with spaces)
+  sanitized = sanitized.replace(/\s+/g, '_').replace(/_+/g, '_')
 
   // Step 6: Remove leading dots (hidden files / extension confusion)
   sanitized = sanitized.replace(/^\.+/, '')
