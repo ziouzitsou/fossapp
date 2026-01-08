@@ -83,50 +83,59 @@ export class PlannerDesignAutomationService {
     const startTime = Date.now()
     const log = (step: string, detail?: string) => {
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-      console.log(`[Planner DA ${elapsed}s] ${step}${detail ? ` - ${detail}` : ''}`)
+      console.log(`[Planner DA] [${elapsed}s] ${step}${detail ? ` → ${detail}` : ''}`)
       onProgress?.(step, detail)
     }
 
     try {
-      log('Starting floor plan processing', outputFileName)
+      console.log('\n' + '='.repeat(60))
+      console.log('[Planner DA] STARTING DESIGN AUTOMATION PROCESSING')
+      console.log(`[Planner DA] Output: ${outputFileName}`)
+      console.log(`[Planner DA] Template: ${(templateBuffer.length / 1024).toFixed(0)} KB`)
+      console.log(`[Planner DA] Input DWG: ${(userDwgBuffer.length / 1024).toFixed(0)} KB`)
+      console.log('='.repeat(60))
 
       // Step 1: Authenticate
-      log('Authenticating with APS...')
+      log('Step 1/7: Authenticating with APS...')
       await this.authService.getAccessToken()
-      log('Authentication complete')
+      log('Step 1/7: Authentication complete')
 
       // Step 2: Create Activity (if not exists)
-      log('Creating activity...')
+      log('Step 2/7: Creating activity...')
       await this.createPlannerActivity()
-      log('Activity ready')
+      log('Step 2/7: Activity ready')
 
       // Step 3: Create temp bucket
-      log('Creating temporary bucket...')
+      log('Step 3/7: Creating temporary bucket...')
       bucketName = await this.ossService.createTempBucket(`planner-${outputFileName}`)
-      log('Bucket created', bucketName)
+      log('Step 3/7: Bucket created', bucketName)
 
       // Step 4: Upload files
-      log('Uploading files...', '3 files')
+      log('Step 4/7: Uploading files to OSS...', '3 files (template + input + script)')
       const uploadResults = await this.uploadFiles(bucketName, templateBuffer, userDwgBuffer)
-      log('Files uploaded')
+      log('Step 4/7: Files uploaded')
 
       // Step 5: Submit WorkItem
-      log('Submitting WorkItem...')
+      log('Step 5/7: Submitting WorkItem to APS...')
       const workItemResult = await this.submitWorkItem(bucketName, uploadResults, outputFileName)
-      log('WorkItem submitted', workItemResult.workItemId)
+      log('Step 5/7: WorkItem submitted', workItemResult.workItemId)
 
       // Step 6: Monitor WorkItem
-      log('Processing in AutoCAD...', 'this may take 15-30s')
+      log('Step 6/7: Running AutoCAD in cloud...', 'this may take 15-30s')
       const monitorResult = await this.monitorWorkItem(workItemResult.workItemId, (elapsed) => {
-        log('Processing in AutoCAD...', `${elapsed}s elapsed`)
+        log('Step 6/7: AutoCAD processing...', `${elapsed}s elapsed`)
       })
 
       // Step 7: Download DWG
-      log('Downloading processed DWG...')
+      log('Step 7/7: Downloading processed DWG...')
       const dwgBuffer = await this.downloadDwg(workItemResult.outputUrl)
-      log('DWG downloaded', `${(dwgBuffer.length / 1024).toFixed(0)} KB`)
+      log('Step 7/7: DWG downloaded', `${(dwgBuffer.length / 1024).toFixed(0)} KB`)
 
-      log('Floor plan processing complete')
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
+      console.log('='.repeat(60))
+      console.log(`[Planner DA] ✓ PROCESSING COMPLETE in ${totalTime}s`)
+      console.log(`[Planner DA] Output size: ${(dwgBuffer.length / 1024).toFixed(0)} KB`)
+      console.log('='.repeat(60) + '\n')
 
       return {
         success: true,
@@ -138,7 +147,11 @@ export class PlannerDesignAutomationService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       errors.push(errorMessage)
-      log('Processing FAILED', errorMessage)
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
+      console.log('='.repeat(60))
+      console.log(`[Planner DA] ✗ PROCESSING FAILED after ${totalTime}s`)
+      console.log(`[Planner DA] Error: ${errorMessage}`)
+      console.log('='.repeat(60) + '\n')
 
       return {
         success: false,

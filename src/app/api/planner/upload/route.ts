@@ -288,16 +288,23 @@ export async function POST(request: NextRequest) {
     }
 
     // No cache hit - process through FOSS.dwt template via Design Automation
-    console.log(`[Planner API] Starting Design Automation processing...`)
+    const uploadStartTime = Date.now()
+    console.log('\n' + '▓'.repeat(60))
+    console.log('[Planner API] FLOOR PLAN UPLOAD - NEW FILE')
+    console.log(`[Planner API] File: ${sanitizedFileName}`)
+    console.log(`[Planner API] Size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`)
+    console.log(`[Planner API] Area: ${projectAreas.area_code} v${areaRevision.revision_number}`)
+    console.log('▓'.repeat(60))
 
     // Step 1: Fetch FOSS.dwt template from Google Drive
+    console.log('[Planner API] [1/4] Fetching FOSS.dwt template from Google Drive...')
     const templateService = getGoogleDriveTemplateService()
     let templateBuffer: Buffer
     try {
       templateBuffer = await templateService.fetchFossTemplate()
-      console.log(`[Planner API] Template fetched (${(templateBuffer.length / 1024).toFixed(0)} KB)`)
+      console.log(`[Planner API] [1/4] Template fetched (${(templateBuffer.length / 1024).toFixed(0)} KB)`)
     } catch (templateError) {
-      console.error('[Planner API] Failed to fetch template:', templateError)
+      console.error('[Planner API] [1/4] ✗ Failed to fetch template:', templateError)
       return NextResponse.json(
         { error: 'Failed to fetch FOSS.dwt template from Google Drive' },
         { status: 500 }
@@ -305,6 +312,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2: Process through Design Automation
+    console.log('[Planner API] [2/4] Starting Design Automation processing...')
     const daService = new PlannerDesignAutomationService()
     const outputFileName = sanitizedFileName.replace(/\.dwg$/i, '')
     const daResult = await daService.processFloorPlan(
@@ -314,25 +322,35 @@ export async function POST(request: NextRequest) {
     )
 
     if (!daResult.success || !daResult.dwgBuffer) {
-      console.error('[Planner API] DA processing failed:', daResult.errors)
+      console.error('[Planner API] [2/4] ✗ DA processing failed:', daResult.errors)
       return NextResponse.json(
         { error: `Design Automation failed: ${daResult.errors.join(', ')}` },
         { status: 500 }
       )
     }
 
-    console.log(`[Planner API] DA processing complete (${(daResult.dwgBuffer.length / 1024).toFixed(0)} KB output)`)
+    console.log(`[Planner API] [2/4] DA complete (${(daResult.dwgBuffer.length / 1024).toFixed(0)} KB output)`)
 
     // Step 3: Upload processed DWG to persistent bucket
+    console.log('[Planner API] [3/4] Uploading processed DWG to persistent bucket...')
     const objectKey = generateObjectKey(
       projectAreas.area_code,
       areaRevision.revision_number,
       sanitizedFileName
     )
     const { urn } = await uploadFloorPlan(bucketName, objectKey, daResult.dwgBuffer)
+    console.log(`[Planner API] [3/4] Uploaded to ${bucketName}/${objectKey}`)
 
     // Step 4: Start translation
+    console.log('[Planner API] [4/4] Starting SVF2 translation...')
     await translateToSVF2(urn)
+    console.log('[Planner API] [4/4] Translation started')
+
+    const totalUploadTime = ((Date.now() - uploadStartTime) / 1000).toFixed(1)
+    console.log('▓'.repeat(60))
+    console.log(`[Planner API] ✓ UPLOAD COMPLETE in ${totalUploadTime}s`)
+    console.log(`[Planner API] URN: ${urn.substring(0, 30)}...`)
+    console.log('▓'.repeat(60) + '\n')
 
     // Save to area revision with status 'inprogress' (translation started)
     const { error: updateError } = await supabaseServer
