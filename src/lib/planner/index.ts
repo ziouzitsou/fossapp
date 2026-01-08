@@ -15,7 +15,17 @@ export {
   uploadFloorPlan,
   translateToSVF2,
   getTranslationStatus,
-  prepareFloorPlan
+  prepareFloorPlan,
+  // Template management
+  TEMPLATE_OBJECT_KEY,
+  TEMP_PREFIX,
+  uploadTemplateToProjectBucket,
+  hasTemplateInBucket,
+  generateSignedReadUrl,
+  generateSignedWriteUrl,
+  cleanupTempFiles,
+  uploadBufferToOss,
+  deriveUrn
 } from './aps-planner-service'
 
 export type { PrepareFloorPlanResult } from './aps-planner-service'

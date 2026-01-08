@@ -1,25 +1,33 @@
 /**
- * APS Design Automation Service for Planner
+ * APS Design Automation Service for Planner (Optimized)
  *
  * Processes user-uploaded DWGs through FOSS.dwt template for standardized
  * layer structure, units, and drawing settings.
  *
- * Workflow:
- * 1. Create transient bucket
- * 2. Upload: FOSS.dwt template, user's DWG (as input.dwg), import.scr script
- * 3. Create/reuse Activity (fossappPlannerAct)
- * 4. Submit WorkItem
- * 5. Poll for completion
- * 6. Download processed DWG
- * 7. Return buffer for upload to persistent bucket
+ * Optimized Workflow (uses persistent bucket only):
+ * 1. Upload: user's DWG (as input.dwg) + import.scr to _temp/{sessionId}/
+ * 2. Create/reuse Activity (fossappPlannerAct)
+ * 3. Submit WorkItem (template already in bucket, output goes to final location)
+ * 4. Poll for completion
+ * 5. Clean up temp files
+ * 6. Return URN (no download/re-upload needed!)
  *
  * @module planner/design-automation-service
  * @see {@link https://aps.autodesk.com/en/docs/design-automation/v3/} DA Docs
  */
 
 import { APSAuthService } from '../tiles/aps/auth-service'
-import { OSSService } from '../tiles/aps/oss-service'
 import { APS_CONFIG, DA_BASE_URL } from '../tiles/aps/config'
+import {
+  TEMPLATE_OBJECT_KEY,
+  TEMP_PREFIX,
+  generateSignedReadUrl,
+  generateSignedWriteUrl,
+  uploadBufferToOss,
+  cleanupTempFiles,
+  deriveUrn
+} from './aps-planner-service'
+import crypto from 'crypto'
 
 /** Activity name for planner floor plan processing */
 const PLANNER_ACTIVITY_NAME = 'fossappPlannerAct'
@@ -30,7 +38,8 @@ export type PlannerProgressCallback = (step: string, detail?: string) => void
 /** Result of floor plan processing */
 export interface FloorPlanProcessingResult {
   success: boolean
-  dwgBuffer?: Buffer
+  urn?: string
+  objectKey?: string
   workItemId?: string
   report?: string
   errors: string[]
@@ -40,45 +49,44 @@ export interface FloorPlanProcessingResult {
  * Service for processing floor plans through APS Design Automation
  *
  * @remarks
- * Uses FOSS.dwt template to standardize uploaded floor plans.
+ * Uses FOSS.dwt template already uploaded to the project bucket.
  * Template sets: units (mm), layers, drawing settings.
  * User's DWG is inserted and exploded into the template.
+ * Output goes directly to the persistent bucket - no download/re-upload!
  *
  * @example
  * ```typescript
  * const service = new PlannerDesignAutomationService()
  * const result = await service.processFloorPlan(
- *   templateBuffer,
+ *   'fossapp_prj_abc123',
  *   userDwgBuffer,
- *   'Floor_Plan_A1',
- *   (step, detail) => updateProgress(step, detail)
+ *   'A01_v1_FloorPlan.dwg'
  * )
- * if (result.success && result.dwgBuffer) {
- *   // Upload to persistent bucket...
+ * if (result.success && result.urn) {
+ *   // URN ready for translation - no additional upload needed!
  * }
  * ```
  */
 export class PlannerDesignAutomationService {
   private authService = new APSAuthService()
-  private ossService = new OSSService(this.authService)
 
   /**
    * Process a floor plan DWG through the FOSS.dwt template
    *
-   * @param templateBuffer - FOSS.dwt template file buffer
+   * @param bucketName - Project's persistent bucket (already has foss.dwt)
    * @param userDwgBuffer - User's uploaded DWG file buffer
-   * @param outputFileName - Output filename (without extension)
+   * @param outputObjectKey - Output object key (e.g., "A01_v1_FloorPlan.dwg")
    * @param onProgress - Optional callback for progress updates
-   * @returns Processing result with DWG buffer on success
+   * @returns Processing result with URN on success (ready for translation)
    */
   async processFloorPlan(
-    templateBuffer: Buffer,
+    bucketName: string,
     userDwgBuffer: Buffer,
-    outputFileName: string,
+    outputObjectKey: string,
     onProgress?: PlannerProgressCallback
   ): Promise<FloorPlanProcessingResult> {
     const errors: string[] = []
-    let bucketName: string | null = null
+    const sessionId = crypto.randomUUID().substring(0, 8)
 
     const startTime = Date.now()
     const log = (step: string, detail?: string) => {
@@ -89,57 +97,52 @@ export class PlannerDesignAutomationService {
 
     try {
       console.log('\n' + '='.repeat(60))
-      console.log('[Planner DA] STARTING DESIGN AUTOMATION PROCESSING')
-      console.log(`[Planner DA] Output: ${outputFileName}`)
-      console.log(`[Planner DA] Template: ${(templateBuffer.length / 1024).toFixed(0)} KB`)
+      console.log('[Planner DA] STARTING DESIGN AUTOMATION PROCESSING (Optimized)')
+      console.log(`[Planner DA] Bucket: ${bucketName}`)
+      console.log(`[Planner DA] Output: ${outputObjectKey}`)
       console.log(`[Planner DA] Input DWG: ${(userDwgBuffer.length / 1024).toFixed(0)} KB`)
+      console.log(`[Planner DA] Session: ${sessionId}`)
       console.log('='.repeat(60))
 
       // Step 1: Authenticate
-      log('Step 1/7: Authenticating with APS...')
+      log('Step 1/5: Authenticating with APS...')
       await this.authService.getAccessToken()
-      log('Step 1/7: Authentication complete')
+      log('Step 1/5: Authentication complete')
 
       // Step 2: Create Activity (if not exists)
-      log('Step 2/7: Creating activity...')
+      log('Step 2/5: Creating activity...')
       await this.createPlannerActivity()
-      log('Step 2/7: Activity ready')
+      log('Step 2/5: Activity ready')
 
-      // Step 3: Create temp bucket
-      log('Step 3/7: Creating temporary bucket...')
-      bucketName = await this.ossService.createTempBucket(`planner-${outputFileName}`)
-      log('Step 3/7: Bucket created', bucketName)
+      // Step 3: Upload temp files + get signed URLs
+      log('Step 3/5: Uploading files to bucket...', '2 files (input + script)')
+      const urls = await this.uploadTempFiles(bucketName, sessionId, userDwgBuffer)
+      log('Step 3/5: Files uploaded')
 
-      // Step 4: Upload files
-      log('Step 4/7: Uploading files to OSS...', '3 files (template + input + script)')
-      const uploadResults = await this.uploadFiles(bucketName, templateBuffer, userDwgBuffer)
-      log('Step 4/7: Files uploaded')
+      // Step 4: Submit WorkItem (output goes directly to final location)
+      log('Step 4/5: Submitting WorkItem to APS...')
+      const workItemResult = await this.submitWorkItem(bucketName, urls, outputObjectKey)
+      log('Step 4/5: WorkItem submitted', workItemResult.workItemId)
 
-      // Step 5: Submit WorkItem
-      log('Step 5/7: Submitting WorkItem to APS...')
-      const workItemResult = await this.submitWorkItem(bucketName, uploadResults, outputFileName)
-      log('Step 5/7: WorkItem submitted', workItemResult.workItemId)
-
-      // Step 6: Monitor WorkItem
-      log('Step 6/7: Running AutoCAD in cloud...', 'this may take 15-30s')
+      // Step 5: Monitor WorkItem
+      log('Step 5/5: Running AutoCAD in cloud...', 'this may take 15-30s')
       const monitorResult = await this.monitorWorkItem(workItemResult.workItemId, (elapsed) => {
-        log('Step 6/7: AutoCAD processing...', `${elapsed}s elapsed`)
+        log('Step 5/5: AutoCAD processing...', `${elapsed}s elapsed`)
       })
 
-      // Step 7: Download DWG
-      log('Step 7/7: Downloading processed DWG...')
-      const dwgBuffer = await this.downloadDwg(workItemResult.outputUrl)
-      log('Step 7/7: DWG downloaded', `${(dwgBuffer.length / 1024).toFixed(0)} KB`)
-
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
+      const urn = deriveUrn(bucketName, outputObjectKey)
+
       console.log('='.repeat(60))
       console.log(`[Planner DA] ✓ PROCESSING COMPLETE in ${totalTime}s`)
-      console.log(`[Planner DA] Output size: ${(dwgBuffer.length / 1024).toFixed(0)} KB`)
+      console.log(`[Planner DA] Output: ${bucketName}/${outputObjectKey}`)
+      console.log(`[Planner DA] URN: ${urn.substring(0, 30)}...`)
       console.log('='.repeat(60) + '\n')
 
       return {
         success: true,
-        dwgBuffer,
+        urn,
+        objectKey: outputObjectKey,
         workItemId: workItemResult.workItemId,
         report: monitorResult.report,
         errors,
@@ -158,12 +161,14 @@ export class PlannerDesignAutomationService {
         errors,
       }
     } finally {
-      // Cleanup: delete activity (bucket auto-expires after 24h)
+      // Cleanup: delete temp files and activity
       try {
+        log('Cleanup: Removing temp files...')
+        await cleanupTempFiles(bucketName, sessionId)
         await this.deleteActivity()
         log('Cleanup complete')
       } catch (e) {
-        console.warn('Activity cleanup warning:', e)
+        console.warn('Cleanup warning:', e)
       }
     }
   }
@@ -285,32 +290,31 @@ export class PlannerDesignAutomationService {
   }
 
   /**
-   * Upload template, user DWG, and script to OSS bucket
+   * Upload user DWG and script to temp location in persistent bucket
+   * Returns signed URLs for DA to read
    */
-  private async uploadFiles(
+  private async uploadTempFiles(
     bucketName: string,
-    templateBuffer: Buffer,
+    sessionId: string,
     userDwgBuffer: Buffer
   ): Promise<{
     templateUrl: string
     inputUrl: string
     scriptUrl: string
   }> {
-    // Generate import script
+    const tempPrefix = `${TEMP_PREFIX}/${sessionId}`
     const scriptContent = this.generateImportScript()
 
-    // Upload all files in parallel
-    const [templateResult, inputResult, scriptResult] = await Promise.all([
-      this.ossService.uploadBuffer(bucketName, 'foss.dwt', templateBuffer),
-      this.ossService.uploadBuffer(bucketName, 'input.dwg', userDwgBuffer),
-      this.ossService.uploadBuffer(bucketName, 'import.scr', Buffer.from(scriptContent, 'utf-8')),
+    // Upload input.dwg and import.scr to temp location (parallel)
+    const [inputUrl, scriptUrl] = await Promise.all([
+      uploadBufferToOss(bucketName, `${tempPrefix}/input.dwg`, userDwgBuffer),
+      uploadBufferToOss(bucketName, `${tempPrefix}/import.scr`, Buffer.from(scriptContent, 'utf-8')),
     ])
 
-    return {
-      templateUrl: templateResult.downloadUrl,
-      inputUrl: inputResult.downloadUrl,
-      scriptUrl: scriptResult.downloadUrl,
-    }
+    // Get signed URL for template (already in bucket)
+    const templateUrl = await generateSignedReadUrl(bucketName, TEMPLATE_OBJECT_KEY)
+
+    return { templateUrl, inputUrl, scriptUrl }
   }
 
   /**
@@ -349,25 +353,26 @@ QUIT
 
   /**
    * Submit a WorkItem to Design Automation
+   * Output goes directly to the persistent bucket at the final location
    */
   private async submitWorkItem(
     bucketName: string,
-    uploadResults: { templateUrl: string; inputUrl: string; scriptUrl: string },
-    outputFileName: string
-  ): Promise<{ workItemId: string; outputUrl: string }> {
+    urls: { templateUrl: string; inputUrl: string; scriptUrl: string },
+    outputObjectKey: string
+  ): Promise<{ workItemId: string }> {
     const accessToken = await this.authService.getAccessToken()
 
-    // Generate output URL with readwrite access
-    const outputUrl = await this.ossService.generateOutputUrl(bucketName, `${outputFileName}.dwg`)
+    // Generate signed write URL for output (goes to final location!)
+    const outputUrl = await generateSignedWriteUrl(bucketName, outputObjectKey)
 
     const activityId = `${APS_CONFIG.nickname}.${PLANNER_ACTIVITY_NAME}+production`
 
     const workItemSpec = {
       activityId,
       arguments: {
-        template: { url: uploadResults.templateUrl, verb: 'get' },
-        input: { url: uploadResults.inputUrl, verb: 'get' },
-        script: { url: uploadResults.scriptUrl, verb: 'get' },
+        template: { url: urls.templateUrl, verb: 'get' },
+        input: { url: urls.inputUrl, verb: 'get' },
+        script: { url: urls.scriptUrl, verb: 'get' },
         output: { url: outputUrl, verb: 'put', localName: 'output.dwg' },
       },
     }
@@ -388,10 +393,7 @@ QUIT
 
     const data = (await response.json()) as { id: string }
 
-    return {
-      workItemId: data.id,
-      outputUrl,
-    }
+    return { workItemId: data.id }
   }
 
   /**
@@ -451,22 +453,5 @@ QUIT
     }
 
     throw new Error(`WorkItem processing timeout (${APS_CONFIG.processingTimeoutMinutes} minutes)`)
-  }
-
-  /**
-   * Download a DWG file from a signed URL
-   */
-  private async downloadDwg(dwgUrl: string): Promise<Buffer> {
-    const response = await fetch(dwgUrl)
-
-    if (!response.ok) {
-      if (response.status === 403) {
-        throw new Error('DWG download URL has expired')
-      }
-      throw new Error(`Failed to download DWG: ${response.statusText}`)
-    }
-
-    const arrayBuffer = await response.arrayBuffer()
-    return Buffer.from(arrayBuffer)
   }
 }

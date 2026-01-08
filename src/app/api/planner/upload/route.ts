@@ -4,13 +4,11 @@ import { authOptions } from '@/lib/auth'
 import {
   generateObjectKey,
   generateBucketName,
-  uploadFloorPlan,
   translateToSVF2,
   calculateFileHash
 } from '@/lib/planner/aps-planner-service'
 import { supabaseServer } from '@fossapp/core/db/server'
 import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
-import { getGoogleDriveTemplateService } from '@/lib/planner/google-drive-template-service'
 import { PlannerDesignAutomationService } from '@/lib/planner/design-automation-service'
 
 /**
@@ -288,63 +286,48 @@ export async function POST(request: NextRequest) {
     }
 
     // No cache hit - process through FOSS.dwt template via Design Automation
+    // OPTIMIZED: Template already in bucket, output goes directly to final location
     const uploadStartTime = Date.now()
     console.log('\n' + '▓'.repeat(60))
-    console.log('[Planner API] FLOOR PLAN UPLOAD - NEW FILE')
+    console.log('[Planner API] FLOOR PLAN UPLOAD - NEW FILE (Optimized)')
     console.log(`[Planner API] File: ${sanitizedFileName}`)
     console.log(`[Planner API] Size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`)
     console.log(`[Planner API] Area: ${projectAreas.area_code} v${areaRevision.revision_number}`)
+    console.log(`[Planner API] Bucket: ${bucketName}`)
     console.log('▓'.repeat(60))
 
-    // Step 1: Fetch FOSS.dwt template from Google Drive
-    console.log('[Planner API] [1/4] Fetching FOSS.dwt template from Google Drive...')
-    const templateService = getGoogleDriveTemplateService()
-    let templateBuffer: Buffer
-    try {
-      templateBuffer = await templateService.fetchFossTemplate()
-      console.log(`[Planner API] [1/4] Template fetched (${(templateBuffer.length / 1024).toFixed(0)} KB)`)
-    } catch (templateError) {
-      console.error('[Planner API] [1/4] ✗ Failed to fetch template:', templateError)
-      return NextResponse.json(
-        { error: 'Failed to fetch FOSS.dwt template from Google Drive' },
-        { status: 500 }
-      )
-    }
-
-    // Step 2: Process through Design Automation
-    console.log('[Planner API] [2/4] Starting Design Automation processing...')
-    const daService = new PlannerDesignAutomationService()
-    const outputFileName = sanitizedFileName.replace(/\.dwg$/i, '')
-    const daResult = await daService.processFloorPlan(
-      templateBuffer,
-      buffer,
-      outputFileName
+    // Generate output object key
+    const objectKey = generateObjectKey(
+      projectAreas.area_code,
+      areaRevision.revision_number,
+      sanitizedFileName
     )
 
-    if (!daResult.success || !daResult.dwgBuffer) {
-      console.error('[Planner API] [2/4] ✗ DA processing failed:', daResult.errors)
+    // Step 1: Process through Design Automation
+    // Template is already in bucket, output goes directly to final location
+    console.log('[Planner API] [1/2] Starting Design Automation processing...')
+    const daService = new PlannerDesignAutomationService()
+    const daResult = await daService.processFloorPlan(
+      bucketName,
+      buffer,
+      objectKey
+    )
+
+    if (!daResult.success || !daResult.urn) {
+      console.error('[Planner API] [1/2] ✗ DA processing failed:', daResult.errors)
       return NextResponse.json(
         { error: `Design Automation failed: ${daResult.errors.join(', ')}` },
         { status: 500 }
       )
     }
 
-    console.log(`[Planner API] [2/4] DA complete (${(daResult.dwgBuffer.length / 1024).toFixed(0)} KB output)`)
+    console.log(`[Planner API] [1/2] DA complete → ${objectKey}`)
 
-    // Step 3: Upload processed DWG to persistent bucket
-    console.log('[Planner API] [3/4] Uploading processed DWG to persistent bucket...')
-    const objectKey = generateObjectKey(
-      projectAreas.area_code,
-      areaRevision.revision_number,
-      sanitizedFileName
-    )
-    const { urn } = await uploadFloorPlan(bucketName, objectKey, daResult.dwgBuffer)
-    console.log(`[Planner API] [3/4] Uploaded to ${bucketName}/${objectKey}`)
-
-    // Step 4: Start translation
-    console.log('[Planner API] [4/4] Starting SVF2 translation...')
+    // Step 2: Start translation (DWG already in bucket from DA)
+    console.log('[Planner API] [2/2] Starting SVF2 translation...')
+    const urn = daResult.urn
     await translateToSVF2(urn)
-    console.log('[Planner API] [4/4] Translation started')
+    console.log('[Planner API] [2/2] Translation started')
 
     const totalUploadTime = ((Date.now() - uploadStartTime) / 1000).toFixed(1)
     console.log('▓'.repeat(60))

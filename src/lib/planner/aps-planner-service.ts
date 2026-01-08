@@ -29,6 +29,12 @@ const ossClient = new OssClient({ sdkManager })
 // Token cache
 let tokenCache: { accessToken: string; expiresAt: number } | null = null
 
+/** Template object key in project buckets */
+export const TEMPLATE_OBJECT_KEY = '_templates/foss.dwt'
+
+/** Temp files prefix for DA processing */
+export const TEMP_PREFIX = '_temp'
+
 // ============================================================================
 // AUTHENTICATION
 // ============================================================================
@@ -126,6 +132,136 @@ export async function ensureProjectBucketExists(projectId: string): Promise<stri
   }
 
   return bucketName
+}
+
+/**
+ * Upload FOSS.dwt template to a project bucket
+ * Called during project creation to pre-stage the template
+ *
+ * @param bucketName - Target bucket name
+ * @param templateBuffer - FOSS.dwt file buffer
+ */
+export async function uploadTemplateToProjectBucket(
+  bucketName: string,
+  templateBuffer: Buffer
+): Promise<void> {
+  const accessToken = await getAccessToken()
+
+  await ossClient.uploadObject(
+    bucketName,
+    TEMPLATE_OBJECT_KEY,
+    templateBuffer,
+    { accessToken }
+  )
+
+  console.log(`[Planner] Template uploaded to ${bucketName}/${TEMPLATE_OBJECT_KEY}`)
+}
+
+/**
+ * Check if template exists in a project bucket
+ */
+export async function hasTemplateInBucket(bucketName: string): Promise<boolean> {
+  const accessToken = await getAccessToken()
+
+  try {
+    await ossClient.getObjectDetails(bucketName, TEMPLATE_OBJECT_KEY, { accessToken })
+    return true
+  } catch (err: unknown) {
+    const error = err as { axiosError?: { response?: { status?: number } } }
+    if (error.axiosError?.response?.status === 404) {
+      return false
+    }
+    throw err
+  }
+}
+
+/**
+ * Generate a signed URL for reading an object from OSS
+ * Valid for 60 minutes
+ */
+export async function generateSignedReadUrl(
+  bucketName: string,
+  objectKey: string
+): Promise<string> {
+  const accessToken = await getAccessToken()
+
+  const result = await ossClient.signedS3Download(
+    bucketName,
+    objectKey,
+    { accessToken, minutesExpiration: 60 }
+  )
+
+  return result.url || ''
+}
+
+/**
+ * Generate a signed URL for writing an object to OSS
+ * Valid for 60 minutes
+ */
+export async function generateSignedWriteUrl(
+  bucketName: string,
+  objectKey: string
+): Promise<string> {
+  const accessToken = await getAccessToken()
+
+  const result = await ossClient.signedS3Upload(
+    bucketName,
+    objectKey,
+    { accessToken, minutesExpiration: 60 }
+  )
+
+  return result.urls?.[0] || ''
+}
+
+/**
+ * Delete temporary files from bucket after DA processing
+ * Cleans up: input.dwg and import.scr from _temp/{sessionId}/
+ */
+export async function cleanupTempFiles(
+  bucketName: string,
+  sessionId: string
+): Promise<void> {
+  const accessToken = await getAccessToken()
+  const prefix = `${TEMP_PREFIX}/${sessionId}`
+
+  const filesToDelete = [
+    `${prefix}/input.dwg`,
+    `${prefix}/import.scr`
+  ]
+
+  for (const objectKey of filesToDelete) {
+    try {
+      await ossClient.deleteObject(bucketName, objectKey, { accessToken })
+      console.log(`[Planner] Deleted temp file: ${objectKey}`)
+    } catch (err: unknown) {
+      const error = err as { axiosError?: { response?: { status?: number } } }
+      if (error.axiosError?.response?.status !== 404) {
+        console.warn(`[Planner] Failed to delete ${objectKey}:`, err)
+      }
+    }
+  }
+}
+
+/**
+ * Upload a buffer to OSS bucket
+ * Returns signed URL for reading
+ */
+export async function uploadBufferToOss(
+  bucketName: string,
+  objectKey: string,
+  buffer: Buffer
+): Promise<string> {
+  const accessToken = await getAccessToken()
+
+  await ossClient.uploadObject(
+    bucketName,
+    objectKey,
+    buffer,
+    { accessToken }
+  )
+
+  // Generate signed read URL for DA
+  return generateSignedReadUrl(bucketName, objectKey)
 }
 
 /**
