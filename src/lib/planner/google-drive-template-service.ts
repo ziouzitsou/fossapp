@@ -36,6 +36,19 @@ function getEnvVar(name: string): string {
 }
 
 /**
+ * Escape single quotes in Google Drive query strings
+ *
+ * Google Drive API query syntax uses single quotes for string values.
+ * Names containing quotes must have them escaped with backslash.
+ *
+ * @param value - String value to escape
+ * @returns Escaped string safe for Drive API queries
+ */
+function escapeQueryValue(value: string): string {
+  return value.replace(/'/g, "\\'")
+}
+
+/**
  * Google Drive Template Service
  *
  * Provides access to DWG templates stored in Google Drive for use with
@@ -140,8 +153,9 @@ class GoogleDriveTemplateService {
    * Find a folder by name in a parent folder
    */
   private async findFolder(name: string, parentId: string): Promise<drive_v3.Schema$File | null> {
+    const escapedName = escapeQueryValue(name)
     const response = await this.drive.files.list({
-      q: `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`,
+      q: `name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`,
       driveId: this.hubDriveId,
       includeItemsFromAllDrives: true,
       supportsAllDrives: true,
@@ -157,8 +171,9 @@ class GoogleDriveTemplateService {
    * Find a file by name in a folder
    */
   private async findFile(name: string, parentId: string): Promise<drive_v3.Schema$File | null> {
+    const escapedName = escapeQueryValue(name)
     const response = await this.drive.files.list({
-      q: `name='${name}' and mimeType!='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`,
+      q: `name='${escapedName}' and mimeType!='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`,
       driveId: this.hubDriveId,
       includeItemsFromAllDrives: true,
       supportsAllDrives: true,
