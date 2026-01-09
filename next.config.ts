@@ -38,6 +38,11 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   output: 'standalone',
   turbopack: {}, // Silence Turbopack warning
+
+  // Allow large file uploads (DWG files can exceed 100MB)
+  experimental: {
+    proxyClientMaxBodySize: '200mb',
+  },
   devIndicators: {
     position: 'bottom-right',
   },
