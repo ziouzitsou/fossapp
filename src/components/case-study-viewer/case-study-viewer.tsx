@@ -29,7 +29,7 @@ import type { PlacementModeProduct, Placement, DwgUnitInfo, WorldCoordinates, Vi
 import { PlacementTool } from './placement-tool'
 import { Edit2DMarkers } from './edit2d-markers'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
-import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, type LoadingStage } from './viewer-overlays'
+import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, type LoadingStage, type TranslationWarning } from './viewer-overlays'
 import { hexToRgb } from './case-study-viewer-utils'
 import {
   useCoordinateTransform,
@@ -176,6 +176,7 @@ export function CaseStudyViewer({
   const [dwgUnitString, setDwgUnitString] = useState<string | null>(null)
   const [isMoving, setIsMoving] = useState(false)
   const [dwgUnitInfo, setDwgUnitInfo] = useState<DwgUnitInfo | null>(null)
+  const [translationWarnings, setTranslationWarnings] = useState<TranslationWarning[]>([])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HOOKS
@@ -297,6 +298,32 @@ export function CaseStudyViewer({
     onPlacementRotate,
     onPlacementMove,
   })
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MANIFEST WARNINGS EFFECT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Fetch manifest warnings when loading completes
+  useEffect(() => {
+    if (!areaRevisionId || isLoading) return
+
+    const fetchManifestWarnings = async () => {
+      try {
+        const response = await fetch(`/api/planner/manifest?areaRevisionId=${areaRevisionId}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.warnings && data.warnings.length > 0) {
+            setTranslationWarnings(data.warnings)
+          }
+        }
+      } catch (err) {
+        // Silently fail - warnings are non-critical
+        console.warn('[CaseStudyViewer] Failed to fetch manifest warnings:', err)
+      }
+    }
+
+    fetchManifestWarnings()
+  }, [areaRevisionId, isLoading])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PLACEMENT MODE EFFECTS
@@ -507,6 +534,8 @@ export function CaseStudyViewer({
             dwgUnitInfo={dwgUnitInfo}
             calibrationChecked={calibrationChecked}
             isCalibrated={isCalibrated}
+            translationWarnings={translationWarnings}
+            onDismissWarnings={() => setTranslationWarnings([])}
           />
         )}
 

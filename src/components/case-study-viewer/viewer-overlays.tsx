@@ -7,7 +7,8 @@
  * as overlays on top of the viewer container.
  */
 
-import { Loader2, AlertCircle, CheckCircle2, Crosshair, Maximize, Info, Keyboard, AlertTriangle, MousePointer2, Ruler, Target, Hand, Move } from 'lucide-react'
+import { useState } from 'react'
+import { Loader2, AlertCircle, CheckCircle2, Crosshair, Maximize, Info, Keyboard, AlertTriangle, MousePointer2, Ruler, Target, Hand, Move, X } from 'lucide-react'
 import { Progress, cn, Button } from '@fossapp/ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@fossapp/ui'
 import type { DwgCoordinates } from './placement-tool'
@@ -149,6 +150,12 @@ export function WebGLErrorOverlay({ helpLink = '/support/graphics-requirements' 
   )
 }
 
+/** Translation warning from manifest */
+export interface TranslationWarning {
+  code: string
+  message: string
+}
+
 export interface CoordinateOverlayProps {
   /** Current DWG coordinates (null when mouse outside viewer) */
   coordinates: DwgCoordinates | null
@@ -160,6 +167,10 @@ export interface CoordinateOverlayProps {
   calibrationChecked?: boolean
   /** Whether the DWG is calibrated */
   isCalibrated?: boolean
+  /** Translation warnings from manifest (missing fonts, SHX, etc.) */
+  translationWarnings?: TranslationWarning[]
+  /** Callback when warnings are dismissed */
+  onDismissWarnings?: () => void
 }
 
 /**
@@ -313,9 +324,12 @@ export function CoordinateOverlay({
   dwgUnitInfo,
   calibrationChecked,
   isCalibrated,
+  translationWarnings,
+  onDismissWarnings,
 }: CoordinateOverlayProps) {
   // Show warning if calibration was checked and failed
   const showCalibrationWarning = calibrationChecked && !isCalibrated
+  const hasTranslationWarnings = translationWarnings && translationWarnings.length > 0
 
   if (!coordinates) {
     return (
@@ -330,6 +344,12 @@ export function CoordinateOverlay({
           </div>
         </div>
         {showCalibrationWarning && <CalibrationWarning />}
+        {hasTranslationWarnings && (
+          <TranslationWarnings
+            warnings={translationWarnings}
+            onDismiss={onDismissWarnings}
+          />
+        )}
       </div>
     )
   }
@@ -375,6 +395,12 @@ export function CoordinateOverlay({
         </div>
       </div>
       {showCalibrationWarning && <CalibrationWarning />}
+      {hasTranslationWarnings && (
+        <TranslationWarnings
+          warnings={translationWarnings}
+          onDismiss={onDismissWarnings}
+        />
+      )}
     </div>
   )
 }
@@ -421,6 +447,79 @@ function CalibrationWarning() {
         </div>
       </PopoverContent>
     </Popover>
+  )
+}
+
+interface TranslationWarningsProps {
+  warnings: TranslationWarning[]
+  onDismiss?: () => void
+}
+
+/**
+ * TranslationWarnings - Expandable badge showing translation warnings
+ *
+ * Displays a warning count badge that expands to show full warning list.
+ * Common warnings include missing fonts, SHX files, etc.
+ */
+function TranslationWarnings({ warnings, onDismiss }: TranslationWarningsProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  if (warnings.length === 0) return null
+
+  const handleDismiss = () => {
+    setIsExpanded(false)
+    onDismiss?.()
+  }
+
+  return (
+    <div className="relative">
+      {/* Badge - click to expand */}
+      {!isExpanded && (
+        <button
+          onClick={() => setIsExpanded(true)}
+          className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/10 border border-orange-500/30 rounded text-orange-600 dark:text-orange-400 text-[10px] font-medium uppercase tracking-wide hover:bg-orange-500/20 transition-colors"
+        >
+          <AlertTriangle className="h-3 w-3" />
+          <span>{warnings.length} Warning{warnings.length > 1 ? 's' : ''}</span>
+        </button>
+      )}
+
+      {/* Expanded warning list */}
+      {isExpanded && (
+        <div className="bg-background/95 backdrop-blur-sm border border-orange-500/30 rounded shadow-lg max-w-sm">
+          {/* Header with close button */}
+          <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/50">
+            <div className="flex items-center gap-1.5 text-orange-600 dark:text-orange-400">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium">Translation Warnings</span>
+            </div>
+            <button
+              onClick={handleDismiss}
+              className="p-0.5 hover:bg-muted rounded transition-colors"
+              title="Dismiss"
+            >
+              <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+            </button>
+          </div>
+
+          {/* Warning list */}
+          <div className="px-2.5 py-2 max-h-48 overflow-y-auto">
+            <ul className="space-y-1.5">
+              {warnings.map((warning, index) => (
+                <li key={index} className="text-xs">
+                  <span className="font-mono text-orange-600 dark:text-orange-400 text-[10px]">
+                    {warning.code}
+                  </span>
+                  <p className="text-muted-foreground mt-0.5 leading-tight">
+                    {warning.message}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
