@@ -29,7 +29,7 @@ import type { PlacementModeProduct, Placement, DwgUnitInfo, WorldCoordinates, Vi
 import { PlacementTool } from './placement-tool'
 import { Edit2DMarkers } from './edit2d-markers'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
-import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, type LoadingStage, type TranslationWarning } from './viewer-overlays'
+import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, LayerPanel, type LoadingStage, type TranslationWarning, type LayerInfo } from './viewer-overlays'
 import { hexToRgb } from './case-study-viewer-utils'
 import {
   useCoordinateTransform,
@@ -177,6 +177,10 @@ export function CaseStudyViewer({
   const [isMoving, setIsMoving] = useState(false)
   const [dwgUnitInfo, setDwgUnitInfo] = useState<DwgUnitInfo | null>(null)
   const [translationWarnings, setTranslationWarnings] = useState<TranslationWarning[]>([])
+
+  // Layer visibility state
+  const [layers, setLayers] = useState<LayerInfo[]>([])
+  const [layerVisibility, setLayerVisibility] = useState<Record<string, boolean>>({})
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HOOKS
@@ -468,6 +472,123 @@ export function CaseStudyViewer({
   }, [isLoading, calibrationChecked, detectCalibration, setTransform])
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // LAYER EXTRACTION & HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Extract layers from viewer model after loading
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (isLoading || !viewer?.model) return
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const modelData = (viewer.model as any).getData?.()
+      const layersRoot = modelData?.layersRoot
+
+      if (layersRoot?.children) {
+        const extractedLayers: LayerInfo[] = layersRoot.children
+          .filter((layer: LayerInfo) => layer.isLayer)
+          .map((layer: LayerInfo) => ({
+            name: layer.name,
+            id: layer.id,
+            index: layer.index,
+            isLayer: layer.isLayer,
+          }))
+          // Sort alphabetically by name
+          .sort((a: LayerInfo, b: LayerInfo) => a.name.localeCompare(b.name))
+
+        setLayers(extractedLayers)
+
+        // Initialize all layers as visible
+        const initialVisibility: Record<string, boolean> = {}
+        for (const layer of extractedLayers) {
+          initialVisibility[layer.name] = true
+        }
+        setLayerVisibility(initialVisibility)
+
+        console.log('[CaseStudyViewer] Extracted', extractedLayers.length, 'layers from DWG')
+      }
+    } catch (err) {
+      console.warn('[CaseStudyViewer] Failed to extract layers:', err)
+    }
+  }, [isLoading])
+
+  // Toggle layer visibility
+  const handleToggleLayer = useCallback((layer: LayerInfo) => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+
+    const currentlyVisible = layerVisibility[layer.name] ?? true
+    const newVisible = !currentlyVisible
+
+    // Update viewer
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const modelData = (viewer.model as any).getData?.()
+    const layerObj = modelData?.layersRoot?.children?.find(
+      (l: LayerInfo) => l.name === layer.name
+    )
+    if (layerObj) {
+      viewer.setLayerVisible(layerObj, newVisible)
+    }
+
+    // Update state
+    setLayerVisibility((prev) => ({
+      ...prev,
+      [layer.name]: newVisible,
+    }))
+  }, [layerVisibility])
+
+  // Show all layers
+  const handleShowAllLayers = useCallback(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const modelData = (viewer.model as any).getData?.()
+    const layersRoot = modelData?.layersRoot
+
+    if (layersRoot?.children) {
+      for (const layerObj of layersRoot.children) {
+        if (layerObj.isLayer) {
+          viewer.setLayerVisible(layerObj, true)
+        }
+      }
+    }
+
+    // Update state - all visible
+    const allVisible: Record<string, boolean> = {}
+    for (const layer of layers) {
+      allVisible[layer.name] = true
+    }
+    setLayerVisibility(allVisible)
+  }, [layers])
+
+  // Hide all layers
+  const handleHideAllLayers = useCallback(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const modelData = (viewer.model as any).getData?.()
+    const layersRoot = modelData?.layersRoot
+
+    if (layersRoot?.children) {
+      for (const layerObj of layersRoot.children) {
+        if (layerObj.isLayer) {
+          viewer.setLayerVisible(layerObj, false)
+        }
+      }
+    }
+
+    // Update state - all hidden
+    const allHidden: Record<string, boolean> = {}
+    for (const layer of layers) {
+      allHidden[layer.name] = false
+    }
+    setLayerVisibility(allHidden)
+  }, [layers])
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // TOOLBAR HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -550,6 +671,17 @@ export function CaseStudyViewer({
         {/* Quick actions - top right corner */}
         {showToolbar && (
           <ViewerQuickActions onFitAll={handleFitAll} />
+        )}
+
+        {/* Layer panel - bottom left corner */}
+        {showToolbar && layers.length > 0 && (
+          <LayerPanel
+            layers={layers}
+            layerVisibility={layerVisibility}
+            onToggleLayer={handleToggleLayer}
+            onShowAll={handleShowAllLayers}
+            onHideAll={handleHideAllLayers}
+          />
         )}
       </div>
 
