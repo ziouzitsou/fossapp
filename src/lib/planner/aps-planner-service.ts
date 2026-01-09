@@ -498,7 +498,9 @@ export function generateObjectKey(
   // Sanitize codes for OSS (alphanumeric and underscores only)
   const safeProjectCode = projectCode.replace(/[^a-zA-Z0-9]/g, '_')
   const safeAreaCode = areaCode.replace(/[^a-zA-Z0-9]/g, '_')
-  return `${safeProjectCode}_${safeAreaCode}_v${revisionNumber}_ARCH.dwg`
+  // Add timestamp to ensure unique URN (avoids APS Model Derivative cache issues)
+  const timestamp = Date.now()
+  return `${safeProjectCode}_${safeAreaCode}_v${revisionNumber}_${timestamp}_ARCH.dwg`
 }
 
 /**
