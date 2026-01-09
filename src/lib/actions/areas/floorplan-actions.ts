@@ -9,7 +9,7 @@
  */
 
 import { supabaseServer } from '@fossapp/core/db/server'
-import { deleteFloorPlanObject, deleteDerivatives, generateObjectKey } from '../../planner/aps-planner-service'
+import { deleteFloorPlanObject, deleteDerivatives, parseUrnToObjectKey } from '../../planner/aps-planner-service'
 
 import type { ActionResult } from '@fossapp/projects'
 
@@ -59,24 +59,17 @@ export async function deleteAreaRevisionFloorPlanAction(
     }
 
     // Delete from OSS and APS Model Derivative if file exists
-    if (areaRevision.floor_plan_filename && areaRevision.floor_plan_urn) {
-      // Type assertion for nested join data (Supabase returns object for !inner with single())
-      const projectAreas = areaRevision.project_areas as unknown as {
-        project_id: string
-        area_code: string
-        projects: { project_code: string }
-      }
-      const objectKey = generateObjectKey(
-        projectAreas.projects.project_code,
-        projectAreas.area_code,
-        areaRevision.revision_number
-      )
+    if (areaRevision.floor_plan_urn) {
+      // Extract bucket and object key from the URN (contains original timestamp)
+      const parsed = parseUrnToObjectKey(areaRevision.floor_plan_urn)
 
       // Delete OSS object (best-effort)
-      try {
-        await deleteFloorPlanObject(projectAreas.project_id, objectKey)
-      } catch (ossError) {
-        console.warn('Failed to delete OSS object:', ossError)
+      if (parsed) {
+        try {
+          await deleteFloorPlanObject(parsed.bucketKey, parsed.objectKey)
+        } catch (ossError) {
+          console.warn('Failed to delete OSS object:', ossError)
+        }
       }
 
       // Delete Model Derivative (SVF2, thumbnails, etc.) - IMPORTANT!

@@ -369,13 +369,15 @@ export async function listBucketDWGs(
 /**
  * Delete a single object from the bucket
  * Used when removing a floor plan from an area version
+ *
+ * @param bucketName - OSS bucket name (e.g., "fossapp_prj_046eb0a0306a")
+ * @param objectKey - Object key within bucket (e.g., "2512_001_F1_v1_1767970200812_ARCH.dwg")
  */
 export async function deleteFloorPlanObject(
-  projectId: string,
+  bucketName: string,
   objectKey: string
 ): Promise<void> {
   const accessToken = await getAccessToken()
-  const bucketName = generateBucketName(projectId)
 
   try {
     await ossClient.deleteObject(bucketName, objectKey, { accessToken })
@@ -508,6 +510,38 @@ export function generateObjectKey(
  */
 export function calculateFileHash(buffer: Buffer): string {
   return crypto.createHash('sha256').update(buffer).digest('hex')
+}
+
+/**
+ * Extract bucket name and object key from a base64-encoded URN
+ *
+ * URN format: urn:adsk.objects:os.object:{bucketKey}/{objectKey}
+ * Example: urn:adsk.objects:os.object:fossapp_prj_046eb0a0306a/2512_001_F1_v1_1767970200812_ARCH.dwg
+ *
+ * @param urn - Base64-encoded URN (no padding)
+ * @returns Object with bucketKey and objectKey, or null if invalid
+ */
+export function parseUrnToObjectKey(urn: string): { bucketKey: string; objectKey: string } | null {
+  try {
+    // Add padding if needed for base64 decode
+    const paddedUrn = urn + '='.repeat((4 - (urn.length % 4)) % 4)
+    const decoded = Buffer.from(paddedUrn, 'base64').toString('utf-8')
+
+    // Expected format: urn:adsk.objects:os.object:{bucketKey}/{objectKey}
+    const match = decoded.match(/^urn:adsk\.objects:os\.object:([^/]+)\/(.+)$/)
+    if (!match) {
+      console.warn('[Planner] Invalid URN format:', decoded)
+      return null
+    }
+
+    return {
+      bucketKey: match[1],
+      objectKey: match[2]
+    }
+  } catch (error) {
+    console.error('[Planner] Failed to parse URN:', error)
+    return null
+  }
 }
 
 /**
