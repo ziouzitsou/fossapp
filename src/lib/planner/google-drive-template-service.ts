@@ -1,0 +1,219 @@
+/**
+ * Google Drive Template Service for Planner
+ *
+ * Fetches DWG templates from Google Shared Drive for Design Automation processing.
+ * Path: HUB/RESOURCES/TEMPLATES/
+ *
+ * Features:
+ * - In-memory caching with 1-hour TTL
+ * - Service Account authentication (same as tiles)
+ *
+ * @module planner/google-drive-template-service
+ */
+
+import { google, drive_v3 } from 'googleapis'
+import * as fs from 'fs'
+import * as path from 'path'
+
+/** Template cache entry with buffer and fetch timestamp */
+interface TemplateCacheEntry {
+  buffer: Buffer
+  fetchedAt: number
+}
+
+/** Cache TTL: 1 hour in milliseconds */
+const CACHE_TTL_MS = 60 * 60 * 1000
+
+/**
+ * Get required environment variable or throw
+ */
+function getEnvVar(name: string): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`)
+  }
+  return value
+}
+
+/**
+ * Google Drive Template Service
+ *
+ * Provides access to DWG templates stored in Google Drive for use with
+ * APS Design Automation. Templates are cached in memory to avoid
+ * repeated downloads.
+ */
+class GoogleDriveTemplateService {
+  private drive: drive_v3.Drive
+  private hubDriveId: string
+  private templateCache: Map<string, TemplateCacheEntry> = new Map()
+
+  constructor() {
+    this.hubDriveId = getEnvVar('GOOGLE_DRIVE_HUB_ID')
+
+    // Load service account credentials
+    const credentialsPath = path.join(process.cwd(), 'credentials', 'google-service-account.json')
+
+    if (!fs.existsSync(credentialsPath)) {
+      throw new Error(`Service account credentials not found at: ${credentialsPath}`)
+    }
+
+    const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'))
+
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+    })
+
+    this.drive = google.drive({ version: 'v3', auth })
+  }
+
+  /**
+   * Fetch FOSS.dwt template from Google Drive
+   *
+   * Returns cached version if available and not expired (1 hour TTL).
+   * Otherwise fetches from HUB/RESOURCES/TEMPLATES/FOSS.dwt
+   *
+   * @returns Template file buffer
+   * @throws Error if template not found
+   */
+  async fetchFossTemplate(): Promise<Buffer> {
+    return this.fetchTemplate('FOSS.dwt')
+  }
+
+  /**
+   * Fetch any template by name from TEMPLATES folder
+   *
+   * @param templateName - Name of template file (e.g., "FOSS.dwt")
+   * @returns Template file buffer
+   * @throws Error if template not found
+   */
+  async fetchTemplate(templateName: string): Promise<Buffer> {
+    // Check cache first
+    const cached = this.templateCache.get(templateName)
+    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+      console.log(`[Template] Using cached ${templateName} (age: ${Math.round((Date.now() - cached.fetchedAt) / 1000)}s)`)
+      return cached.buffer
+    }
+
+    console.log(`[Template] Fetching ${templateName} from Google Drive...`)
+
+    // Find RESOURCES folder in HUB root
+    const resourcesFolder = await this.findFolder('RESOURCES', this.hubDriveId)
+    if (!resourcesFolder) {
+      throw new Error('RESOURCES folder not found in HUB Shared Drive')
+    }
+
+    // Find TEMPLATES folder inside RESOURCES
+    const templatesFolder = await this.findFolder('TEMPLATES', resourcesFolder.id!)
+    if (!templatesFolder) {
+      throw new Error('TEMPLATES folder not found in HUB/RESOURCES/')
+    }
+
+    // Find the template file
+    const templateFile = await this.findFile(templateName, templatesFolder.id!)
+    if (!templateFile) {
+      throw new Error(`Template ${templateName} not found in HUB/RESOURCES/TEMPLATES/`)
+    }
+
+    // Download template
+    const buffer = await this.downloadFile(templateFile.id!)
+
+    // Cache the template
+    this.templateCache.set(templateName, {
+      buffer,
+      fetchedAt: Date.now(),
+    })
+
+    console.log(`[Template] Fetched and cached ${templateName} (${buffer.length} bytes)`)
+    return buffer
+  }
+
+  /**
+   * Clear template cache (useful for testing or forcing refresh)
+   */
+  clearCache(): void {
+    this.templateCache.clear()
+    console.log('[Template] Cache cleared')
+  }
+
+  /**
+   * Find a folder by name in a parent folder
+   */
+  private async findFolder(name: string, parentId: string): Promise<drive_v3.Schema$File | null> {
+    const response = await this.drive.files.list({
+      q: `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`,
+      driveId: this.hubDriveId,
+      includeItemsFromAllDrives: true,
+      supportsAllDrives: true,
+      corpora: 'drive',
+      fields: 'files(id, name)',
+    })
+
+    const files = response.data.files || []
+    return files.length > 0 ? files[0] : null
+  }
+
+  /**
+   * Find a file by name in a folder
+   */
+  private async findFile(name: string, parentId: string): Promise<drive_v3.Schema$File | null> {
+    const response = await this.drive.files.list({
+      q: `name='${name}' and mimeType!='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`,
+      driveId: this.hubDriveId,
+      includeItemsFromAllDrives: true,
+      supportsAllDrives: true,
+      corpora: 'drive',
+      fields: 'files(id, name)',
+    })
+
+    const files = response.data.files || []
+    return files.length > 0 ? files[0] : null
+  }
+
+  /**
+   * Download a file from Google Drive by its ID
+   */
+  private async downloadFile(fileId: string): Promise<Buffer> {
+    const response = await this.drive.files.get(
+      {
+        fileId,
+        alt: 'media',
+        supportsAllDrives: true,
+      },
+      {
+        responseType: 'arraybuffer',
+      }
+    )
+
+    return Buffer.from(response.data as ArrayBuffer)
+  }
+}
+
+// Version to invalidate cached instances when code changes
+const SERVICE_VERSION = 1
+
+// Use globalThis to ensure singleton across all API routes in Next.js
+const globalForTemplate = globalThis as unknown as {
+  googleDriveTemplateService: GoogleDriveTemplateService | undefined
+  googleDriveTemplateServiceVersion: number | undefined
+}
+
+/**
+ * Get singleton instance of GoogleDriveTemplateService
+ *
+ * @returns Singleton template service instance
+ */
+export function getGoogleDriveTemplateService(): GoogleDriveTemplateService {
+  // Recreate service if version changed (code was updated)
+  if (globalForTemplate.googleDriveTemplateServiceVersion !== SERVICE_VERSION) {
+    globalForTemplate.googleDriveTemplateService = undefined
+    globalForTemplate.googleDriveTemplateServiceVersion = SERVICE_VERSION
+  }
+
+  if (!globalForTemplate.googleDriveTemplateService) {
+    globalForTemplate.googleDriveTemplateService = new GoogleDriveTemplateService()
+  }
+  return globalForTemplate.googleDriveTemplateService
+}
+
+export { GoogleDriveTemplateService }

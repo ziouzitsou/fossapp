@@ -29,6 +29,12 @@ const ossClient = new OssClient({ sdkManager })
 // Token cache
 let tokenCache: { accessToken: string; expiresAt: number } | null = null
 
+/** Template object key in project buckets */
+export const TEMPLATE_OBJECT_KEY = 'FOSS.dwt'
+
+/** Temp files prefix for DA processing */
+export const TEMP_PREFIX = '_temp'
+
 // ============================================================================
 // AUTHENTICATION
 // ============================================================================
@@ -129,6 +135,168 @@ export async function ensureProjectBucketExists(projectId: string): Promise<stri
 }
 
 /**
+ * Upload FOSS.dwt template to a project bucket
+ * Called during project creation to pre-stage the template
+ *
+ * @param bucketName - Target bucket name
+ * @param templateBuffer - FOSS.dwt file buffer
+ */
+export async function uploadTemplateToProjectBucket(
+  bucketName: string,
+  templateBuffer: Buffer
+): Promise<void> {
+  const accessToken = await getAccessToken()
+
+  await ossClient.uploadObject(
+    bucketName,
+    TEMPLATE_OBJECT_KEY,
+    templateBuffer,
+    { accessToken }
+  )
+
+  console.log(`[Planner] Template uploaded to ${bucketName}/${TEMPLATE_OBJECT_KEY}`)
+}
+
+/**
+ * Check if template exists in a project bucket
+ */
+export async function hasTemplateInBucket(bucketName: string): Promise<boolean> {
+  const accessToken = await getAccessToken()
+
+  try {
+    await ossClient.getObjectDetails(bucketName, TEMPLATE_OBJECT_KEY, { accessToken })
+    return true
+  } catch (err: unknown) {
+    const error = err as { axiosError?: { response?: { status?: number } } }
+    if (error.axiosError?.response?.status === 404) {
+      return false
+    }
+    throw err
+  }
+}
+
+/**
+ * Generate a signed URL for reading an object from OSS
+ * Valid for 60 minutes
+ *
+ * IMPORTANT: Uses OSS signed URL with read access, NOT S3-compatible URLs.
+ * Design Automation requires OSS signed URLs format.
+ */
+export async function generateSignedReadUrl(
+  bucketName: string,
+  objectKey: string
+): Promise<string> {
+  const accessToken = await getAccessToken()
+
+  // Use OSS signed URL endpoint (not S3-compatible) - required for DA
+  const response = await fetch(
+    `https://developer.api.autodesk.com/oss/v2/buckets/${bucketName}/objects/${encodeURIComponent(objectKey)}/signed?access=read`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ minutesExpiration: 60 }),
+    }
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to generate signed read URL: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json() as { signedUrl: string }
+  return data.signedUrl
+}
+
+/**
+ * Generate a signed URL for writing an object to OSS
+ * Valid for 60 minutes
+ *
+ * IMPORTANT: Uses OSS signed URL with readwrite access, NOT S3-compatible URLs.
+ * Design Automation requires OSS signed URLs format.
+ */
+export async function generateSignedWriteUrl(
+  bucketName: string,
+  objectKey: string
+): Promise<string> {
+  const accessToken = await getAccessToken()
+
+  // Use OSS signed URL endpoint (not S3-compatible) - required for DA
+  const response = await fetch(
+    `https://developer.api.autodesk.com/oss/v2/buckets/${bucketName}/objects/${encodeURIComponent(objectKey)}/signed?access=readwrite`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ minutesExpiration: 60 }),
+    }
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to generate signed write URL: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json() as { signedUrl: string }
+  return data.signedUrl
+}
+
+/**
+ * Delete temporary files from bucket after DA processing
+ * Cleans up: input.dwg and import.scr from _temp/{sessionId}/
+ */
+export async function cleanupTempFiles(
+  bucketName: string,
+  sessionId: string
+): Promise<void> {
+  const accessToken = await getAccessToken()
+  const prefix = `${TEMP_PREFIX}/${sessionId}`
+
+  const filesToDelete = [
+    `${prefix}/input.dwg`,
+    `${prefix}/import.scr`
+  ]
+
+  for (const objectKey of filesToDelete) {
+    try {
+      await ossClient.deleteObject(bucketName, objectKey, { accessToken })
+      console.log(`[Planner] Deleted temp file: ${objectKey}`)
+    } catch (err: unknown) {
+      const error = err as { axiosError?: { response?: { status?: number } } }
+      if (error.axiosError?.response?.status !== 404) {
+        console.warn(`[Planner] Failed to delete ${objectKey}:`, err)
+      }
+    }
+  }
+}
+
+/**
+ * Upload a buffer to OSS bucket
+ * Returns signed URL for reading
+ */
+export async function uploadBufferToOss(
+  bucketName: string,
+  objectKey: string,
+  buffer: Buffer
+): Promise<string> {
+  const accessToken = await getAccessToken()
+
+  await ossClient.uploadObject(
+    bucketName,
+    objectKey,
+    buffer,
+    { accessToken }
+  )
+
+  // Generate signed read URL for DA
+  return generateSignedReadUrl(bucketName, objectKey)
+}
+
+/**
  * Derive URN from bucket name and object key
  * URN = base64(urn:adsk.objects:os.object:{bucketKey}/{objectKey}) without padding
  */
@@ -225,6 +393,47 @@ export async function deleteFloorPlanObject(
 }
 
 /**
+ * Delete Model Derivative manifest and all derivatives (SVF2, thumbnails, etc.)
+ *
+ * IMPORTANT: Derivatives are stored separately from OSS and persist forever
+ * until explicitly deleted. Always call this when deleting floor plans.
+ *
+ * @see https://aps.autodesk.com/en/docs/model-derivative/v2/reference/http/urn-manifest-DELETE/
+ */
+export async function deleteDerivatives(urn: string): Promise<void> {
+  if (!urn) {
+    console.log('[Planner] No URN provided, skipping derivative deletion')
+    return
+  }
+
+  const accessToken = await getAccessToken()
+
+  try {
+    const response = await fetch(
+      `https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/${urn}/manifest`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    )
+
+    if (response.ok || response.status === 202) {
+      console.log(`[Planner] Deleted derivatives for URN: ${urn.substring(0, 30)}...`)
+    } else if (response.status === 404) {
+      console.log(`[Planner] Derivatives not found (already deleted?): ${urn.substring(0, 30)}...`)
+    } else {
+      const errorText = await response.text()
+      console.warn(`[Planner] Failed to delete derivatives: ${response.status} - ${errorText}`)
+    }
+  } catch (err) {
+    // Log but don't throw - derivative deletion is best-effort
+    console.warn('[Planner] Error deleting derivatives:', err)
+  }
+}
+
+/**
  * Delete project bucket and all its contents
  * Called when a project is deleted
  */
@@ -265,22 +474,31 @@ export async function deleteProjectBucket(projectId: string): Promise<void> {
 // ============================================================================
 
 /**
- * Generate meaningful object key for OSS storage
- * Format: {areaCode}_v{versionNumber}_{fileName}
+ * Generate structured object key for architect floor plan storage
  *
- * Example: A01_v1_FloorPlan.dwg
+ * Pattern: {projectCode}_{areaCode}_v{revision}_ARCH.dwg
+ * Example: PRJ001_A01_v1_ARCH.dwg
  *
- * This creates human-readable object names in OSS bucket
- * while keeping the file organized by area and version.
+ * Naming convention:
+ * - projectCode: Identifies the project (from projects.project_code)
+ * - areaCode: Identifies the area within project (from project_areas.area_code)
+ * - revision: Version number (from project_area_revisions.revision_number)
+ * - ARCH: Suffix indicating architect-sourced drawing (vs future ELEC, MECH)
+ *
+ * @param projectCode - Project code (e.g., "PRJ001")
+ * @param areaCode - Area code (e.g., "A01")
+ * @param revisionNumber - Revision number (e.g., 1)
+ * @returns Structured object key for OSS storage
  */
 export function generateObjectKey(
+  projectCode: string,
   areaCode: string,
-  versionNumber: number,
-  fileName: string
+  revisionNumber: number
 ): string {
-  // Sanitize area code for OSS (alphanumeric and underscores only)
+  // Sanitize codes for OSS (alphanumeric and underscores only)
+  const safeProjectCode = projectCode.replace(/[^a-zA-Z0-9]/g, '_')
   const safeAreaCode = areaCode.replace(/[^a-zA-Z0-9]/g, '_')
-  return `${safeAreaCode}_v${versionNumber}_${fileName}`
+  return `${safeProjectCode}_${safeAreaCode}_v${revisionNumber}_ARCH.dwg`
 }
 
 /**

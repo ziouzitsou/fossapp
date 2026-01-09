@@ -87,7 +87,9 @@ export function useViewerApi({
     setLoadingStage('upload')
 
     const formData = new FormData()
-    formData.append('file', file)
+    // Use ASCII temp name to avoid multipart parsing issues with Unicode filenames
+    const tempFile = new File([file], 'input.dwg', { type: file.type })
+    formData.append('file', tempFile)
 
     // Use planner API for persistent storage with caching
     // Requires both projectId and areaRevisionId

@@ -153,7 +153,19 @@ export function useCalibration({
     try {
       const points = await findCalibrationPoints()
 
-      if (points.length < 2) {
+      // Deduplicate points by position (INSERT+EXPLODE may create duplicates)
+      // Round to 2 decimal places to handle floating point precision
+      const uniquePoints: CalibrationPoint[] = []
+      const seenPositions = new Set<string>()
+      for (const point of points) {
+        const key = `${point.displayX.toFixed(2)},${point.displayY.toFixed(2)}`
+        if (!seenPositions.has(key)) {
+          seenPositions.add(key)
+          uniquePoints.push(point)
+        }
+      }
+
+      if (uniquePoints.length < 2) {
         const result: CalibrationResult = {
           isCalibrated: false,
           scaleX: 1,
@@ -162,7 +174,7 @@ export function useCalibration({
           offsetY: 0,
           error: points.length === 0
             ? `No calibration points found on layer "${CALIBRATION_LAYER}"`
-            : `Only ${points.length} calibration point found (need 2)`,
+            : `Only ${uniquePoints.length} unique calibration point found (need 2, found ${points.length} total with duplicates)`,
         }
         setCalibrationChecked(true)
         setIsCalibrated(false)
@@ -172,10 +184,10 @@ export function useCalibration({
       }
 
       // Sort by display coordinates - origin should have smaller values
-      points.sort((a, b) => (a.displayX + a.displayY) - (b.displayX + b.displayY))
+      uniquePoints.sort((a, b) => (a.displayX + a.displayY) - (b.displayX + b.displayY))
 
-      const originPoint = points[0]
-      const unitPoint = points[1]
+      const originPoint = uniquePoints[0]
+      const unitPoint = uniquePoints[1]
 
       // Validate they're not on the same axis
       const dx = unitPoint.displayX - originPoint.displayX

@@ -4,12 +4,12 @@ import { authOptions } from '@/lib/auth'
 import {
   generateObjectKey,
   generateBucketName,
-  uploadFloorPlan,
   translateToSVF2,
   calculateFileHash
 } from '@/lib/planner/aps-planner-service'
 import { supabaseServer } from '@fossapp/core/db/server'
 import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
+import { PlannerDesignAutomationService } from '@/lib/planner/design-automation-service'
 
 /**
  * Sanitize filename to prevent path traversal and other attacks
@@ -52,11 +52,11 @@ function sanitizeFileName(filename: string): string {
     .replace(/\.\\/g, '')      // Remove .\ sequences
 
   // Step 4: Remove dangerous filesystem characters
-  // Keep only: alphanumeric, spaces, dots, hyphens, underscores, parentheses
+  // Keep only: alphanumeric, dots, hyphens, underscores, parentheses, spaces (converted later)
   sanitized = sanitized.replace(/[^a-zA-Z0-9\s.\-_()]/g, '_')
 
-  // Step 5: Collapse multiple underscores/spaces
-  sanitized = sanitized.replace(/_+/g, '_').replace(/\s+/g, ' ')
+  // Step 5: Replace spaces with underscores (OSS signed URLs have issues with spaces)
+  sanitized = sanitized.replace(/\s+/g, '_').replace(/_+/g, '_')
 
   // Step 6: Remove leading dots (hidden files / extension confusion)
   sanitized = sanitized.replace(/^\.+/, '')
@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify area revision exists and get area info + project's oss_bucket
+    // Verify area revision exists and get area info + project's oss_bucket and project_code
     const { data: areaRevision, error: arError } = await supabaseServer
       .schema('projects')
       .from('project_area_revisions')
@@ -202,6 +202,7 @@ export async function POST(request: NextRequest) {
           area_code,
           projects!inner(
             id,
+            project_code,
             oss_bucket
           )
         )
@@ -221,7 +222,7 @@ export async function POST(request: NextRequest) {
       id: string
       project_id: string
       area_code: string
-      projects: { id: string; oss_bucket: string | null }
+      projects: { id: string; project_code: string; oss_bucket: string | null }
     }
 
     // Verify the area revision belongs to the specified project
@@ -285,16 +286,57 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // No cache hit - upload new file with meaningful object key
-    const objectKey = generateObjectKey(
-      projectAreas.area_code,
-      areaRevision.revision_number,
-      sanitizedFileName
-    )
-    const { urn } = await uploadFloorPlan(bucketName, objectKey, buffer)
+    // No cache hit - process through FOSS.dwt template via Design Automation
+    // OPTIMIZED: Template already in bucket, output goes directly to final location
+    const uploadStartTime = Date.now()
+    const projectCode = projectAreas.projects.project_code
+    console.log('\n' + '▓'.repeat(60))
+    console.log('[Planner API] FLOOR PLAN UPLOAD - NEW FILE (Optimized)')
+    console.log(`[Planner API] File: ${sanitizedFileName}`)
+    console.log(`[Planner API] Size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`)
+    console.log(`[Planner API] Project: ${projectCode} | Area: ${projectAreas.area_code} v${areaRevision.revision_number}`)
+    console.log(`[Planner API] Bucket: ${bucketName}`)
+    console.log('▓'.repeat(60))
 
-    // Start translation
+    // Generate output object key: {projectCode}_{areaCode}_v{revision}_ARCH.dwg
+    const objectKey = generateObjectKey(
+      projectCode,
+      projectAreas.area_code,
+      areaRevision.revision_number
+    )
+    console.log(`[Planner API] Output key: ${objectKey}`)
+
+    // Step 1: Process through Design Automation
+    // Template is already in bucket, output goes directly to final location
+    console.log('[Planner API] [1/2] Starting Design Automation processing...')
+    const daService = new PlannerDesignAutomationService()
+    const daResult = await daService.processFloorPlan(
+      bucketName,
+      buffer,
+      objectKey
+    )
+
+    if (!daResult.success || !daResult.urn) {
+      console.error('[Planner API] [1/2] ✗ DA processing failed:', daResult.errors)
+      return NextResponse.json(
+        { error: `Design Automation failed: ${daResult.errors.join(', ')}` },
+        { status: 500 }
+      )
+    }
+
+    console.log(`[Planner API] [1/2] DA complete → ${objectKey}`)
+
+    // Step 2: Start translation (DWG already in bucket from DA)
+    console.log('[Planner API] [2/2] Starting SVF2 translation...')
+    const urn = daResult.urn
     await translateToSVF2(urn)
+    console.log('[Planner API] [2/2] Translation started')
+
+    const totalUploadTime = ((Date.now() - uploadStartTime) / 1000).toFixed(1)
+    console.log('▓'.repeat(60))
+    console.log(`[Planner API] ✓ UPLOAD COMPLETE in ${totalUploadTime}s`)
+    console.log(`[Planner API] URN: ${urn.substring(0, 30)}...`)
+    console.log('▓'.repeat(60) + '\n')
 
     // Save to area revision with status 'inprogress' (translation started)
     const { error: updateError } = await supabaseServer

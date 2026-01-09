@@ -500,9 +500,17 @@ export async function createProjectAction(
 
     // Create OSS bucket for floor plans (Planner feature)
     // Bucket is created upfront since all projects will use Planner
+    // Also upload FOSS.dwt template to bucket for DA processing
     try {
-      const { ensureProjectBucketExists } = await import('../../planner/aps-planner-service')
+      const { ensureProjectBucketExists, uploadTemplateToProjectBucket } = await import('../../planner/aps-planner-service')
+      const { getGoogleDriveTemplateService } = await import('../../planner/google-drive-template-service')
+
       const bucketName = await ensureProjectBucketExists(data.id)
+
+      // Fetch and upload FOSS.dwt template to bucket
+      const templateService = getGoogleDriveTemplateService()
+      const templateBuffer = await templateService.fetchFossTemplate()
+      await uploadTemplateToProjectBucket(bucketName, templateBuffer)
 
       // Update project with bucket name
       await supabaseServer
@@ -514,7 +522,7 @@ export async function createProjectAction(
         })
         .eq('id', data.id)
 
-      console.log(`[Project] OSS bucket created: ${bucketName}`)
+      console.log(`[Project] OSS bucket created with template: ${bucketName}`)
     } catch (ossError) {
       console.error('Create OSS bucket error:', ossError)
       // Non-fatal - bucket can be created on first upload if this fails

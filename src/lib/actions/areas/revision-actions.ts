@@ -96,7 +96,7 @@ export async function createAreaRevisionAction(
       const { data: sourceRevision } = await supabaseServer
         .schema('projects')
         .from('project_area_revisions')
-        .select('id, floor_plan_urn, floor_plan_filename, floor_plan_hash')
+        .select('id, revision_number, floor_plan_urn, floor_plan_filename, floor_plan_hash')
         .eq('area_id', input.area_id)
         .eq('revision_number', input.copy_from_revision)
         .single()
@@ -133,18 +133,23 @@ export async function createAreaRevisionAction(
         // Copy floor plan if source revision has one
         if (sourceRevision.floor_plan_urn && sourceRevision.floor_plan_filename) {
           try {
-            // Get project's OSS bucket
+            // Get project's OSS bucket, project_code, and area_code
             const { data: areaWithProject } = await supabaseServer
               .schema('projects')
               .from('project_areas')
-              .select('project_id, projects!inner(oss_bucket)')
+              .select('project_id, area_code, projects!inner(oss_bucket, project_code)')
               .eq('id', input.area_id)
               .single()
 
-            const projectData = areaWithProject?.projects as unknown as { oss_bucket: string | null } | null
+            const projectData = areaWithProject?.projects as unknown as {
+              oss_bucket: string | null
+              project_code: string
+            } | null
             const bucketName = projectData?.oss_bucket
+            const projectCode = projectData?.project_code
+            const areaCode = areaWithProject?.area_code
 
-            if (bucketName) {
+            if (bucketName && projectCode && areaCode) {
               // Import APS service functions
               const {
                 generateObjectKey,
@@ -152,16 +157,16 @@ export async function createAreaRevisionAction(
                 translateToSVF2
               } = await import('../../planner/aps-planner-service')
 
-              // Build source and target object keys
+              // Build source and target object keys using naming convention
               const sourceObjectKey = generateObjectKey(
-                input.area_id,
-                sourceRevision.id,
-                sourceRevision.floor_plan_filename
+                projectCode,
+                areaCode,
+                sourceRevision.revision_number
               )
               const targetObjectKey = generateObjectKey(
-                input.area_id,
-                newRevision.id,
-                sourceRevision.floor_plan_filename
+                projectCode,
+                areaCode,
+                newRevisionNumber
               )
 
               // Copy the DWG file in OSS bucket
