@@ -474,22 +474,31 @@ export async function deleteProjectBucket(projectId: string): Promise<void> {
 // ============================================================================
 
 /**
- * Generate meaningful object key for OSS storage
- * Format: {areaCode}_v{versionNumber}_{fileName}
+ * Generate structured object key for architect floor plan storage
  *
- * Example: A01_v1_FloorPlan.dwg
+ * Pattern: {projectCode}_{areaCode}_v{revision}_ARCH.dwg
+ * Example: PRJ001_A01_v1_ARCH.dwg
  *
- * This creates human-readable object names in OSS bucket
- * while keeping the file organized by area and version.
+ * Naming convention:
+ * - projectCode: Identifies the project (from projects.project_code)
+ * - areaCode: Identifies the area within project (from project_areas.area_code)
+ * - revision: Version number (from project_area_revisions.revision_number)
+ * - ARCH: Suffix indicating architect-sourced drawing (vs future ELEC, MECH)
+ *
+ * @param projectCode - Project code (e.g., "PRJ001")
+ * @param areaCode - Area code (e.g., "A01")
+ * @param revisionNumber - Revision number (e.g., 1)
+ * @returns Structured object key for OSS storage
  */
 export function generateObjectKey(
+  projectCode: string,
   areaCode: string,
-  versionNumber: number,
-  fileName: string
+  revisionNumber: number
 ): string {
-  // Sanitize area code for OSS (alphanumeric and underscores only)
+  // Sanitize codes for OSS (alphanumeric and underscores only)
+  const safeProjectCode = projectCode.replace(/[^a-zA-Z0-9]/g, '_')
   const safeAreaCode = areaCode.replace(/[^a-zA-Z0-9]/g, '_')
-  return `${safeAreaCode}_v${versionNumber}_${fileName}`
+  return `${safeProjectCode}_${safeAreaCode}_v${revisionNumber}_ARCH.dwg`
 }
 
 /**

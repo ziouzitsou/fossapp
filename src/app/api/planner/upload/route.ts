@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify area revision exists and get area info + project's oss_bucket
+    // Verify area revision exists and get area info + project's oss_bucket and project_code
     const { data: areaRevision, error: arError } = await supabaseServer
       .schema('projects')
       .from('project_area_revisions')
@@ -202,6 +202,7 @@ export async function POST(request: NextRequest) {
           area_code,
           projects!inner(
             id,
+            project_code,
             oss_bucket
           )
         )
@@ -221,7 +222,7 @@ export async function POST(request: NextRequest) {
       id: string
       project_id: string
       area_code: string
-      projects: { id: string; oss_bucket: string | null }
+      projects: { id: string; project_code: string; oss_bucket: string | null }
     }
 
     // Verify the area revision belongs to the specified project
@@ -288,20 +289,22 @@ export async function POST(request: NextRequest) {
     // No cache hit - process through FOSS.dwt template via Design Automation
     // OPTIMIZED: Template already in bucket, output goes directly to final location
     const uploadStartTime = Date.now()
+    const projectCode = projectAreas.projects.project_code
     console.log('\n' + '▓'.repeat(60))
     console.log('[Planner API] FLOOR PLAN UPLOAD - NEW FILE (Optimized)')
     console.log(`[Planner API] File: ${sanitizedFileName}`)
     console.log(`[Planner API] Size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`)
-    console.log(`[Planner API] Area: ${projectAreas.area_code} v${areaRevision.revision_number}`)
+    console.log(`[Planner API] Project: ${projectCode} | Area: ${projectAreas.area_code} v${areaRevision.revision_number}`)
     console.log(`[Planner API] Bucket: ${bucketName}`)
     console.log('▓'.repeat(60))
 
-    // Generate output object key
+    // Generate output object key: {projectCode}_{areaCode}_v{revision}_ARCH.dwg
     const objectKey = generateObjectKey(
+      projectCode,
       projectAreas.area_code,
-      areaRevision.revision_number,
-      sanitizedFileName
+      areaRevision.revision_number
     )
+    console.log(`[Planner API] Output key: ${objectKey}`)
 
     // Step 1: Process through Design Automation
     // Template is already in bucket, output goes directly to final location

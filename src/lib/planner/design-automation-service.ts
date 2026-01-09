@@ -322,31 +322,28 @@ export class PlannerDesignAutomationService {
    *
    * @remarks
    * Script runs after FOSS.dwt is loaded via /i switch:
-   * 1. Set headless mode
-   * 2. INSERT user's DWG at origin
-   * 3. EXPLODE to merge layers
-   * 4. ZOOM extents
-   * 5. SAVEAS and QUIT
+   * 1. Set headless mode (cmdecho=0, filedia=0)
+   * 2. TILEMODE 1 - ensure Model Space (templates may open in Layout)
+   * 3. Set current layer to "0"
+   * 4. INSERT user's DWG at origin with explicit scales
+   * 5. EXPLODE "L" (Last) to merge layers
+   * 6. ZOOM extents
+   * 7. SAVEAS 2018 format and restore vars
+   * 8. QUIT
    */
   private generateImportScript(): string {
     return `; Floor Plan Import Script
-; FOSS.dwt template sets all units, layers, and drawing settings
-
-; Headless mode
+; FOSS.dwt template sets units, layers, and drawing settings
 (setvar "cmdecho" 0)
 (setvar "filedia" 0)
-
-; Insert user's DWG at origin
-(command "-INSERT" "input" "0,0" "1" "" "0")
-
-; Explode block to merge layers into current drawing
-(command "EXPLODE" (entlast) "")
-
-; Zoom to extents
+(command "TILEMODE" 1)
+(setvar "clayer" "0")
+(command "-INSERT" "input.dwg" "0,0,0" "1" "1" "0")
+(command "EXPLODE" "L" "")
 (command "ZOOM" "E")
-
-; Save and quit
 (command "SAVEAS" "2018" "output.dwg")
+(setvar "filedia" 1)
+(setvar "cmdecho" 1)
 QUIT
 `
   }
