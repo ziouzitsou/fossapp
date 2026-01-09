@@ -33,7 +33,7 @@ export async function deleteAreaRevisionFloorPlanAction(
       return { success: false, error: 'Invalid area revision ID format' }
     }
 
-    // Get the area revision with its floor plan info and area details
+    // Get the area revision with its floor plan info and area/project details
     const { data: areaRevision, error: fetchError } = await supabaseServer
       .schema('projects')
       .from('project_area_revisions')
@@ -44,7 +44,10 @@ export async function deleteAreaRevisionFloorPlanAction(
         floor_plan_urn,
         project_areas!inner (
           project_id,
-          area_code
+          area_code,
+          projects!inner (
+            project_code
+          )
         )
       `)
       .eq('id', areaRevisionId)
@@ -58,11 +61,15 @@ export async function deleteAreaRevisionFloorPlanAction(
     // Delete from OSS and APS Model Derivative if file exists
     if (areaRevision.floor_plan_filename && areaRevision.floor_plan_urn) {
       // Type assertion for nested join data (Supabase returns object for !inner with single())
-      const projectAreas = areaRevision.project_areas as unknown as { project_id: string; area_code: string }
+      const projectAreas = areaRevision.project_areas as unknown as {
+        project_id: string
+        area_code: string
+        projects: { project_code: string }
+      }
       const objectKey = generateObjectKey(
+        projectAreas.projects.project_code,
         projectAreas.area_code,
-        areaRevision.revision_number,
-        areaRevision.floor_plan_filename
+        areaRevision.revision_number
       )
 
       // Delete OSS object (best-effort)
