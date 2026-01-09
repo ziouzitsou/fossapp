@@ -3,14 +3,17 @@
 /**
  * CaseStudyViewerToolbar - Custom toolbar for the case study viewer
  *
- * Provides measurement tools and placement controls outside the WebGL canvas.
- * This allows full control over styling and interaction.
+ * Provides tool controls outside the WebGL canvas.
+ * Currently minimal - measurement tools are now in MeasurePanel overlay.
+ *
+ * @remarks
+ * This toolbar is positioned at the bottom of the viewer container,
+ * outside the canvas, allowing full control over styling.
+ * Future tools (e.g., annotation, export) can be added here.
  */
 
-import { Ruler, Eraser, Square } from 'lucide-react'
-import { Button } from '@fossapp/ui'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@fossapp/ui'
-
+// Re-export MeasureMode type for backwards compatibility
+// (Now defined in viewer-overlays.tsx, but keep export here for existing imports)
 export type MeasureMode = 'none' | 'distance' | 'area'
 
 export interface ViewerToolbarProps {
@@ -24,66 +27,27 @@ export interface ViewerToolbarProps {
   onClearMeasurements: () => void
 }
 
+/**
+ * Toolbar component for the Case Study viewer.
+ *
+ * Currently renders an empty toolbar bar - measurement tools have been
+ * moved to MeasurePanel overlay for better UX (positioned near layers panel).
+ *
+ * Props are kept for API compatibility but not currently used.
+ * Future tools can be added here as needed.
+ */
 export function CaseStudyViewerToolbar({
+  // Props kept for API compatibility - may be used by future tools
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   measureMode,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   hasMeasurement,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onToggleMeasure,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onClearMeasurements,
 }: ViewerToolbarProps) {
-  return (
-    <div className="flex-none border-t bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
-      <div className="flex items-center justify-center gap-1 p-2">
-        {/* Toolbar currently empty - will be populated with future tools */}
-
-        {/* TODO: Measure tools temporarily disabled - need event-based state sync instead of polling */}
-        {false && (
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={measureMode === 'distance' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => onToggleMeasure('distance')}
-                >
-                  <Ruler className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Measure Distance</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={measureMode === 'area' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => onToggleMeasure('area')}
-                >
-                  <Square className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Measure Area</TooltipContent>
-            </Tooltip>
-
-            {hasMeasurement && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onClearMeasurements}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Eraser className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Clear Measurement</TooltipContent>
-              </Tooltip>
-            )}
-          </>
-        )}
-
-        {/* Delete button removed - use Delete key instead */}
-      </div>
-    </div>
-  )
+  // Toolbar currently empty - measurement tools moved to MeasurePanel overlay
+  // Return null to hide the empty toolbar bar
+  return null
 }

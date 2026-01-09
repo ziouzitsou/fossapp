@@ -2,13 +2,21 @@
  * useMeasurement Hook
  *
  * Manages the measurement tool state and handlers for the APS Viewer.
+ * Uses event-based state synchronization instead of polling for better performance.
+ *
  * Handles:
  * - Distance and area measurement mode toggling
  * - Clearing measurements
- * - Polling for active measurements
+ * - Event-based detection of external deactivation (ESC key, etc.)
+ *
+ * @remarks
+ * Uses these APS Viewer events:
+ * - EXTENSION_ACTIVATED_EVENT: Fired when Measure extension activates
+ * - EXTENSION_DEACTIVATED_EVENT: Fired when Measure extension deactivates (ESC, etc.)
+ * - MEASUREMENT_COMPLETED_EVENT: Fired when a measurement is completed
  */
 
-import { useState, useCallback, useEffect, type RefObject } from 'react'
+import { useState, useCallback, useEffect, useRef, type RefObject } from 'react'
 import type { Viewer3DInstance } from '@/types/autodesk-viewer'
 import type { MeasureMode } from '../viewer-toolbar'
 import type { PlacementModeProduct } from '../types'
@@ -34,6 +42,12 @@ interface UseMeasurementReturn {
   setMeasureMode: (mode: MeasureMode) => void
 }
 
+/**
+ * Hook for managing APS Viewer measurement tools with event-based state sync.
+ *
+ * @param options - Configuration options
+ * @returns Measurement state and handlers
+ */
 export function useMeasurement({
   viewerRef,
   placementMode,
@@ -41,6 +55,9 @@ export function useMeasurement({
 }: UseMeasurementOptions): UseMeasurementReturn {
   const [measureMode, setMeasureMode] = useState<MeasureMode>('none')
   const [hasMeasurement, setHasMeasurement] = useState(false)
+
+  // Track if we're setting up listeners to avoid duplicate registrations
+  const listenersSetupRef = useRef(false)
 
   /**
    * Toggle measurement mode (distance or area)
@@ -101,46 +118,79 @@ export function useMeasurement({
   }, [placementMode, measureMode, viewerRef])
 
   /**
-   * Poll for measurements and detect if extension was deactivated externally (e.g., ESC key)
+   * Set up event-based state synchronization
+   * Listens for extension activation/deactivation and measurement completion events
    */
   useEffect(() => {
-    if (measureMode === 'none') {
+    const viewer = viewerRef.current
+    if (!viewer || listenersSetupRef.current) return
+
+    // Access Autodesk namespace for event constants
+    // These events exist at runtime but aren't in our type definitions
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Autodesk = window.Autodesk as any
+    if (!Autodesk?.Viewing) return
+
+    // Event constants - these are defined in the viewer but not in our types
+    const EXTENSION_DEACTIVATED_EVENT = Autodesk.Viewing.EXTENSION_DEACTIVATED_EVENT
+    const EXTENSION_ACTIVATED_EVENT = Autodesk.Viewing.EXTENSION_ACTIVATED_EVENT
+    const MEASUREMENT_COMPLETED_EVENT = Autodesk.Viewing.MEASUREMENT_COMPLETED_EVENT
+
+    // Skip if events aren't available (older viewer versions)
+    if (!EXTENSION_DEACTIVATED_EVENT || !EXTENSION_ACTIVATED_EVENT) {
+      console.warn('[useMeasurement] Extension events not available in this viewer version')
       return
     }
 
-    const viewer = viewerRef.current
-    if (!viewer) return
-
+    // Event handlers
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const measureExt = viewer.getExtension('Autodesk.Measure') as any
-    if (!measureExt) return
-
-    const checkForMeasurements = () => {
-      // Check if the extension was deactivated externally (e.g., user pressed ESC)
-      // The Measure extension handles ESC internally and deactivates itself
-      const isActive = measureExt.isActive?.() ?? measureExt.mode !== 'inactive'
-      if (!isActive) {
-        // Extension was deactivated externally - sync our state
-        // (We're guaranteed measureMode !== 'none' because we return early above)
+    const handleExtensionDeactivated = (event: any) => {
+      if (event?.extensionId === 'Autodesk.Measure') {
+        // Extension was deactivated (ESC key, programmatic, etc.)
         setMeasureMode('none')
-        setHasMeasurement(false)
-        return
-      }
-
-      const measureTool = measureExt.measureTool
-      if (measureTool) {
-        // Check if there's a current measurement
-        const hasMeasure = measureTool._currentMeasurement != null ||
-                          (measureTool._measurementsManager?.getMeasurementList?.()?.length > 0)
-        setHasMeasurement(hasMeasure)
       }
     }
 
-    // Check periodically while measuring
-    const interval = setInterval(checkForMeasurements, 200)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleExtensionActivated = (event: any) => {
+      if (event?.extensionId === 'Autodesk.Measure') {
+        // Extension was activated - update mode if provided
+        // The mode comes from our activate() call, so we already set it
+        // This handles external activation (unlikely but possible)
+        if (event.mode === 'distance' || event.mode === 'area') {
+          setMeasureMode(event.mode)
+        }
+      }
+    }
 
-    return () => clearInterval(interval)
-  }, [viewerRef, measureMode])
+    const handleMeasurementCompleted = () => {
+      // A measurement was completed
+      setHasMeasurement(true)
+    }
+
+    // Register event listeners
+    viewer.addEventListener(EXTENSION_DEACTIVATED_EVENT, handleExtensionDeactivated)
+    viewer.addEventListener(EXTENSION_ACTIVATED_EVENT, handleExtensionActivated)
+
+    // MEASUREMENT_COMPLETED_EVENT may not be available in all viewer versions
+    if (MEASUREMENT_COMPLETED_EVENT) {
+      viewer.addEventListener(MEASUREMENT_COMPLETED_EVENT, handleMeasurementCompleted)
+    }
+
+    listenersSetupRef.current = true
+
+    // Cleanup on unmount
+    return () => {
+      viewer.removeEventListener(EXTENSION_DEACTIVATED_EVENT, handleExtensionDeactivated)
+      viewer.removeEventListener(EXTENSION_ACTIVATED_EVENT, handleExtensionActivated)
+
+      if (MEASUREMENT_COMPLETED_EVENT) {
+        viewer.removeEventListener(MEASUREMENT_COMPLETED_EVENT, handleMeasurementCompleted)
+      }
+
+      listenersSetupRef.current = false
+    }
+  }, [viewerRef])
 
   return {
     measureMode,

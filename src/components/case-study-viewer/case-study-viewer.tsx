@@ -29,7 +29,7 @@ import type { PlacementModeProduct, Placement, DwgUnitInfo, WorldCoordinates, Vi
 import { PlacementTool } from './placement-tool'
 import { Edit2DMarkers } from './edit2d-markers'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
-import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, LayerPanel, type LoadingStage, type TranslationWarning, type LayerInfo } from './viewer-overlays'
+import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, LayerPanel, MeasurePanel, type LoadingStage, type TranslationWarning, type LayerInfo } from './viewer-overlays'
 import { hexToRgb } from './case-study-viewer-utils'
 import {
   useCoordinateTransform,
@@ -671,6 +671,16 @@ export function CaseStudyViewer({
         {/* Quick actions - top right corner */}
         {showToolbar && (
           <ViewerQuickActions onFitAll={handleFitAll} />
+        )}
+
+        {/* Measure panel - bottom left corner, above layers */}
+        {showToolbar && (
+          <MeasurePanel
+            measureMode={measureMode}
+            hasMeasurement={hasMeasurement}
+            onToggleMeasure={handleToggleMeasure}
+            onClearMeasurements={handleClearMeasurements}
+          />
         )}
 
         {/* Layer panel - bottom left corner */}
