@@ -316,6 +316,7 @@ export class XrefGeneratorService {
   }> {
     // Get floor plan info from area revision
     const { data: revision, error: revError } = await supabaseServer
+      .schema('projects')
       .from('project_area_revisions')
       .select('floor_plan_urn, floor_plan_filename')
       .eq('id', areaRevisionId)
@@ -327,6 +328,7 @@ export class XrefGeneratorService {
 
     // Get placements with product foss_pid
     const { data: placementsRaw, error: placementsError } = await supabaseServer
+      .schema('projects')
       .from('planner_placements')
       .select(`
         id,
@@ -351,15 +353,16 @@ export class XrefGeneratorService {
     // Get product foss_pids
     const productIds = [...new Set(placementsRaw?.map(p => p.product_id) || [])]
     const { data: products, error: productsError } = await supabaseServer
+      .schema('items')
       .from('product_info')
-      .select('id, foss_pid')
-      .in('id', productIds)
+      .select('product_id, foss_pid')
+      .in('product_id', productIds)
 
     if (productsError) {
       throw new Error(`Failed to fetch products: ${productsError.message}`)
     }
 
-    const productMap = new Map(products?.map(p => [p.id, p.foss_pid]) || [])
+    const productMap = new Map(products?.map(p => [p.product_id, p.foss_pid]) || [])
 
     // Map placements with foss_pid
     const placements: PlacementData[] = (placementsRaw || []).map(p => ({
@@ -391,6 +394,7 @@ export class XrefGeneratorService {
 
     // Check which have DWG files in Supabase
     const { data: symbols, error } = await supabaseServer
+      .schema('items')
       .from('product_symbols')
       .select('foss_pid, dwg_path')
       .in('foss_pid', uniqueFossPids)

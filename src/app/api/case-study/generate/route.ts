@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch area info for job name
     const { data: areaInfo, error: areaError } = await supabaseServer
+      .schema('projects')
       .from('project_area_revisions')
       .select(`
         id,
