@@ -1,8 +1,8 @@
 # Case Study Feature
 
-**Status**: Active Development (Phase 4B complete, Phase 5 planned)
+**Status**: Phase 5 Complete (XREF DWG Generation)
 **Route**: `/case-study`
-**Last Updated**: 2026-01-10 (Added origin indicator at DWG 0,0)
+**Last Updated**: 2026-01-10 (Phase 5 complete - Magic Generate button with XREF output)
 
 ---
 
@@ -170,7 +170,8 @@ src/app/case-study/
 │   ├── luminaire-card.tsx            # Product card with symbol badge
 │   ├── accessory-card.tsx            # Simpler card for drivers/optics
 │   ├── status-bar.tsx                # Coordinates display (future)
-│   └── delete-floor-plan-dialog.tsx  # Confirmation dialog
+│   ├── delete-floor-plan-dialog.tsx  # Confirmation dialog
+│   └── generate-modal.tsx            # Magic Generate DWG modal (~450 lines)
 ├── hooks/
 │   ├── index.ts                      # Barrel export
 │   ├── use-case-study-state.ts       # Data + Supabase integration (~370 lines)
@@ -220,10 +221,18 @@ src/components/symbols/
 ├── symbol-modal.tsx                  # Symbol generation modal
 ├── symbol-gallery.tsx                # Symbol display gallery
 └── generate-symbol-button.tsx        # Generate button
+
+src/lib/case-study/
+├── xref-generator-service.ts         # APS Design Automation orchestration (~950 lines)
+└── xref-script-generator.ts          # AutoLISP script generation (~295 lines)
+
+src/app/api/case-study/
+└── generate/
+    └── route.ts                      # POST endpoint for Magic Generate (~100 lines)
 ```
 
 **Statistics:**
-- ~2,850 lines across ~26 files
+- ~4,500+ lines across ~32 files (after Phase 5)
 - Average ~110 lines per file
 - Main viewer component: 360 lines (was 1,032 before hook extraction)
 - Compared to old planner: 2,575 lines in 3 files (858 lines average)
@@ -436,14 +445,16 @@ Stored in `projects.user_preferences`:
 
 See **[Phase 4B: Edit2D Migration](#phase-4b-edit2d-migration)** section below for full details.
 
-### Planned (Phase 5) - DWG Output Generation
+### Completed (Phase 5) - DWG Output Generation ✅
 
-- [ ] "Magic Generate" button implementation
-- [ ] XREF-based DWG generation via APS Design Automation
-- [ ] Output saved to Google Drive (02_Areas/{area_code}/v{n}/Output/)
-- [ ] Export as PDF with legend (optional)
+- [x] "Magic Generate" button with preview modal
+- [x] XREF-based DWG generation via APS Design Automation
+- [x] Output saved to Google Drive (02_Areas/{area_code}/RV{n}/Output/)
+- [x] SSE-based progress tracking (init → script → aps → download → drive → complete)
+- [x] Missing symbol warnings with placeholder fallback
+- [ ] Export as PDF with legend (future enhancement)
 
-**Phase 5 Architecture**: See [Phase 5: XREF DWG Generation](#phase-5-xref-dwg-generation) section below.
+**Phase 5 Implementation**: See [Phase 5: XREF DWG Generation](#phase-5-xref-dwg-generation) section below.
 
 ---
 
@@ -777,7 +788,7 @@ The following must be verified during implementation:
 
 ## Phase 5: XREF DWG Generation
 
-**Status**: Planned
+**Status**: Complete ✅
 **Goal**: Generate final DWG with symbols as XREFs that resolve on user's local machine
 
 ### The Problem
@@ -875,11 +886,32 @@ GOOGLE_DRIVE_HUB_PATH=F:\Shared drives\HUB
 3. **Activity is ephemeral**: Create per job, delete after (avoids parameter limit issues)
 4. **Symbol sync**: Symbol Generator Modal syncs DWG to Google Drive on create/delete
 
-### Files to Implement
+### Files Implemented
 
-| File | Purpose |
-|------|---------|
-| `src/lib/case-study/xref-generator-service.ts` | APS activity/workitem management |
-| `src/app/api/case-study/generate/route.ts` | API endpoint for "Magic Generate" |
-| `src/components/case-study/generate-button.tsx` | UI button with progress |
-| `src/lib/symbol-generator/google-drive-symbol-service.ts` | ✅ Already created |
+| File | Purpose | Lines |
+|------|---------|-------|
+| `src/lib/case-study/xref-generator-service.ts` | APS activity/workitem management | ~950 |
+| `src/lib/case-study/xref-script-generator.ts` | AutoLISP script generation | ~295 |
+| `src/app/api/case-study/generate/route.ts` | API endpoint for "Magic Generate" | ~100 |
+| `src/app/case-study/components/generate-modal.tsx` | Two-state modal with SSE progress | ~450 |
+| `src/lib/symbol-generator/google-drive-symbol-service.ts` | Symbol sync to Google Drive | ~200 |
+| `src/lib/google-drive-project-service.ts` | Project folder/output upload | ~300 |
+
+### Key Implementation Details
+
+1. **XREF Generator Service** (`xref-generator-service.ts`):
+   - Fetches placements and product info from database
+   - Checks which products have symbol DWGs in Supabase
+   - Creates dynamic APS Activity with N symbol parameters
+   - Uses Supabase URLs directly for symbols (no OSS upload needed)
+   - Uploads output to Google Drive on completion
+
+2. **Generate Modal** (`generate-modal.tsx`):
+   - Preview state: placement summary, missing symbols warning, output path
+   - Progress state: SSE-based real-time updates
+   - Phases: init → script → aps → download → drive → complete
+
+3. **Script Generator** (`xref-script-generator.ts`):
+   - Creates CASE_STUDY_SYMBOLS layer
+   - Attaches XREFs with mirror support (scale = -1)
+   - Uses Google Drive paths for XREF records (local resolution)
