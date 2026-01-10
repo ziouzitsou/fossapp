@@ -154,6 +154,14 @@ export const ENV_SCHEMA: EnvVarDefinition[] = [
     example: '1ABC123...',
   },
   {
+    name: 'GOOGLE_DRIVE_HUB_PATH',
+    required: false,
+    description: 'Local Windows path to HUB shared drive (for symbol sync and XREF generation)',
+    context: 'server',
+    environment: 'all',
+    example: 'F:\\Shared drives\\HUB',
+  },
+  {
     name: 'NEXT_PUBLIC_TILES_EXPLORER_PATH',
     required: false,
     description: 'Windows Explorer path for TILES folder',

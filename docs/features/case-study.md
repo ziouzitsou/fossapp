@@ -436,12 +436,14 @@ Stored in `projects.user_preferences`:
 
 See **[Phase 4B: Edit2D Migration](#phase-4b-edit2d-migration)** section below for full details.
 
-### Planned (Phase 5)
+### Planned (Phase 5) - DWG Output Generation
 
-- [ ] Symbol generation modal integration
-- [ ] Tile builder integration
-- [ ] Magic generate button (final DWG output)
-- [ ] Export as PDF with legend
+- [ ] "Magic Generate" button implementation
+- [ ] XREF-based DWG generation via APS Design Automation
+- [ ] Output saved to Google Drive (02_Areas/{area_code}/v{n}/Output/)
+- [ ] Export as PDF with legend (optional)
+
+**Phase 5 Architecture**: See [Phase 5: XREF DWG Generation](#phase-5-xref-dwg-generation) section below.
 
 ---
 
@@ -770,3 +772,114 @@ The following must be verified during implementation:
 4. **Label Rotation**: Unknown if `ShapeLabel` stays upright when shape rotates. May need to counter-rotate or use alternative approach.
 
 5. **Viewer Configuration**: We're already using SVF2 (`AutodeskProduction2` + `streamingV2_EU`) which is compatible with Edit2D.
+
+---
+
+## Phase 5: XREF DWG Generation
+
+**Status**: Planned
+**Goal**: Generate final DWG with symbols as XREFs that resolve on user's local machine
+
+### The Problem
+
+Users need a DWG file with all placed symbols that they can open in AutoCAD. The symbols must resolve correctly when opened locally.
+
+### The Solution: XREF Path "Lie"
+
+APS Design Automation downloads symbol DWGs from Supabase URLs but we tell AutoCAD to store local Google Drive paths in the XREF references.
+
+**How it works:**
+1. APS downloads each symbol from Supabase → saves as `SYMBOL_NAME.dwg` in working directory
+2. AutoLISP script runs `-XREF Attach "F:/Shared drives/HUB/RESOURCES/SYMBOLS/DT123/DT123-SYMBOL.dwg"`
+3. AutoCAD finds file by **filename** in working directory
+4. AutoCAD stores the **full path we specified** (the "lie") in the XREF record
+5. User downloads DWG → opens in AutoCAD → XREFs resolve from their local Google Drive
+
+### Data Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Case Study Viewer                             │
+│  (Placements saved with DWG coordinates + symbol foss_pid)          │
+└─────────────────────────┬───────────────────────────────────────────┘
+                          │ "Magic Generate" button
+                          ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Generate Request                                │
+│  - Floor plan DWG URN (from OSS)                                    │
+│  - Placements: [{ foss_pid, x, y, rotation }, ...]                  │
+│  - Output path in Google Drive                                       │
+└─────────────────────────┬───────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                   APS Design Automation                              │
+│                                                                      │
+│  Activity Parameters (dynamic):                                      │
+│  - inputDwg: { localName: "input.dwg", verb: "get" }                │
+│  - symbol_0: { localName: "F:/Shared.../DT123-SYMBOL.dwg" }    ◄── THE TRICK
+│  - symbol_1: { localName: "F:/Shared.../DT456-SYMBOL.dwg" }         │
+│  - script: { localName: "script.scr", verb: "get" }                 │
+│  - output: { localName: "output.dwg", verb: "put" }                 │
+│                                                                      │
+│  WorkItem Arguments:                                                 │
+│  - symbol_0.url → Supabase public URL                               │
+│  - symbol_1.url → Supabase public URL                               │
+└─────────────────────────┬───────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Generated AutoLISP Script                         │
+│                                                                      │
+│  (command "-XREF" "Attach"                                          │
+│    "F:/Shared drives/HUB/RESOURCES/SYMBOLS/DT123/DT123-SYMBOL.dwg"  │
+│    "100,200,0" "1" "1" "45")                                        │
+│                                                                      │
+│  (command "-XREF" "Attach"                                          │
+│    "F:/Shared drives/HUB/RESOURCES/SYMBOLS/DT456/DT456-SYMBOL.dwg"  │
+│    "300,400,0" "1" "1" "0")                                         │
+│                                                                      │
+│  (command "ZOOM" "E")                                               │
+│  (command "SAVEAS" "2018" "output.dwg")                             │
+└─────────────────────────┬───────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Output DWG                                      │
+│  - Saved to Google Drive: 02_Areas/{area_code}/v{n}/Output/         │
+│  - Contains XREFs pointing to local Google Drive paths              │
+│  - User opens → XREFs resolve → symbols appear                       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Storage Locations
+
+| Item | Storage | Purpose |
+|------|---------|---------|
+| Symbol DWG (source) | Supabase `product-symbols` | Source of truth, served to APS |
+| Symbol DWG (sync) | Google Drive `RESOURCES/SYMBOLS/` | Local resolution for XREFs |
+| Floor Plan DWG | APS OSS | Input for generation |
+| Output DWG | Google Drive `02_Areas/.../Output/` | Final deliverable |
+
+### Environment Variables
+
+```env
+# Local Windows path to HUB shared drive
+GOOGLE_DRIVE_HUB_PATH=F:\Shared drives\HUB
+```
+
+### Key Implementation Notes
+
+1. **Filename must match**: The filename in `localName` must match the actual filename in Supabase URL
+2. **Forward slashes work**: Use `/` in script paths (easier than escaping `\\`)
+3. **Activity is ephemeral**: Create per job, delete after (avoids parameter limit issues)
+4. **Symbol sync**: Symbol Generator Modal syncs DWG to Google Drive on create/delete
+
+### Files to Implement
+
+| File | Purpose |
+|------|---------|
+| `src/lib/case-study/xref-generator-service.ts` | APS activity/workitem management |
+| `src/app/api/case-study/generate/route.ts` | API endpoint for "Magic Generate" |
+| `src/components/case-study/generate-button.tsx` | UI button with progress |
+| `src/lib/symbol-generator/google-drive-symbol-service.ts` | ✅ Already created |

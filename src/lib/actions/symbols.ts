@@ -1,6 +1,7 @@
 'use server'
 
 import { supabaseServer } from '@fossapp/core/db'
+import { getGoogleDriveSymbolService } from '@/lib/symbol-generator/google-drive-symbol-service'
 
 export interface SymbolRule {
   id: number
@@ -70,6 +71,19 @@ export async function deleteProductSymbolAction(fossPid: string): Promise<{ succ
     if (dbError) {
       console.error('Failed to delete symbol record:', dbError)
       return { success: false, error: 'Failed to delete database record' }
+    }
+
+    // 4. Delete from Google Drive (non-fatal if fails)
+    try {
+      const driveService = getGoogleDriveSymbolService()
+      const driveResult = await driveService.deleteSymbol(fossPid)
+      if (!driveResult.success) {
+        console.error('Failed to delete symbol from Google Drive:', driveResult.error)
+        // Continue - Supabase is source of truth
+      }
+    } catch (driveError) {
+      console.error('Google Drive delete error:', driveError)
+      // Continue - Supabase is source of truth
     }
 
     return { success: true }

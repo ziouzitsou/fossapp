@@ -20,6 +20,7 @@ import { usdToEur } from '@/lib/currency'
 import { LuminaireDimensions } from '@/lib/symbol-generator/types'
 import { ProductInfo } from '@fossapp/products/types'
 import { supabaseServer } from '@fossapp/core/db/server'
+import { getGoogleDriveSymbolService } from '@/lib/symbol-generator/google-drive-symbol-service'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 180 // 3 minutes max (LLM + APS)
@@ -285,6 +286,24 @@ async function processInBackground(jobId: string, payload: GeneratePayload) {
             savedToSupabase = !!(dwgPath || pngPath || svgPath)
             if (savedToSupabase) {
               addProgress(jobId, 'storage', 'Metadata saved to database', fossPid)
+            }
+
+            // Sync DWG to Google Drive for XREF resolution
+            if (dwgPath && apsResult.dwgBuffer) {
+              try {
+                addProgress(jobId, 'storage', 'Syncing to Google Drive...', fossPid)
+                const driveService = getGoogleDriveSymbolService()
+                const driveResult = await driveService.uploadSymbol(fossPid, apsResult.dwgBuffer)
+                if (driveResult.success) {
+                  addProgress(jobId, 'storage', 'Synced to Google Drive', driveResult.folderLink)
+                } else {
+                  // Non-fatal - log but continue
+                  console.error('[symbol-generator] Google Drive sync failed:', driveResult.error)
+                }
+              } catch (driveError) {
+                // Non-fatal - log but continue
+                console.error('[symbol-generator] Google Drive sync error:', driveError)
+              }
             }
           } catch (storageError) {
             const msg = storageError instanceof Error ? storageError.message : 'Unknown error'
