@@ -28,7 +28,6 @@ import {
   Sparkles,
   Loader2,
   AlertTriangle,
-  FileText,
   MapPin,
   FolderOpen,
   Check,
@@ -36,6 +35,7 @@ import {
   Settings,
   Download,
   Upload,
+  FileCode,
 } from 'lucide-react'
 import type { LuminaireProduct, Placement } from '../types'
 import type { LogMessage } from '@/components/tiles/terminal-log'
@@ -51,7 +51,7 @@ type GeneratePhase = 'idle' | 'init' | 'script' | 'aps' | 'download' | 'drive' |
 const PHASE_CONFIG: Record<GeneratePhase, { label: string; icon: React.ElementType; color: string }> = {
   idle: { label: 'Ready', icon: Sparkles, color: 'text-muted-foreground' },
   init: { label: 'Preparing...', icon: Loader2, color: 'text-blue-500' },
-  script: { label: 'Generating script...', icon: FileText, color: 'text-yellow-500' },
+  script: { label: 'Generating script...', icon: FileCode, color: 'text-yellow-500' },
   aps: { label: 'Running AutoCAD...', icon: Settings, color: 'text-purple-500' },
   download: { label: 'Downloading DWG...', icon: Download, color: 'text-cyan-500' },
   drive: { label: 'Uploading to Drive...', icon: Upload, color: 'text-green-500' },
@@ -68,6 +68,10 @@ interface GenerateModalProps {
   open: boolean
   /** Callback to change modal visibility */
   onOpenChange: (open: boolean) => void
+  /** Project code (e.g., "2501-001") */
+  projectCode: string
+  /** Project display name */
+  projectName: string
   /** Area code for display */
   areaCode: string
   /** Revision number */
@@ -93,9 +97,14 @@ interface GenerateModalProps {
 /**
  * Generate Modal for Case Study DWG output
  */
+/** Hardcoded HUB path for display (matches GOOGLE_DRIVE_HUB_PATH env var) */
+const HUB_PATH = 'F:/Shared drives/HUB/Projects'
+
 export function GenerateModal({
   open,
   onOpenChange,
+  projectCode,
+  projectName,
   areaCode,
   revisionNumber,
   floorPlanFilename,
@@ -146,9 +155,10 @@ export function GenerateModal({
   }, [placementsBySymbol])
 
   /** Output path preview */
+  const outputFilename = `${projectCode}_${areaCode}_RV${revisionNumber}.dwg`
   const outputPath = useMemo(() => {
-    return `02_Areas/${areaCode}/v${revisionNumber}/Output/${areaCode}-v${revisionNumber}-GENERATED.dwg`
-  }, [areaCode, revisionNumber])
+    return `${HUB_PATH}/${projectCode}/02_Areas/${areaCode}/RV${revisionNumber}/Output/${outputFilename}`
+  }, [projectCode, areaCode, revisionNumber, outputFilename])
 
   /** Can generate check */
   const canGenerate = Boolean(
@@ -281,14 +291,14 @@ export function GenerateModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
             Generate DWG
           </DialogTitle>
           <DialogDescription>
-            {areaCode} v{revisionNumber}
+            <span className="font-medium">{projectCode}</span> {projectName} &bull; {areaCode} v{revisionNumber}
           </DialogDescription>
         </DialogHeader>
 
@@ -296,17 +306,6 @@ export function GenerateModal({
           {/* Preview state - before generation */}
           {phase === 'idle' && (
             <>
-              {/* Floor plan info */}
-              <div className="flex items-start gap-3">
-                <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Floor Plan</p>
-                  <p className="text-sm text-muted-foreground">
-                    {floorPlanFilename || 'No floor plan uploaded'}
-                  </p>
-                </div>
-              </div>
-
               {/* Placement summary */}
               <div className="flex items-start gap-3">
                 <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -345,9 +344,9 @@ export function GenerateModal({
               {/* Output path */}
               <div className="flex items-start gap-3">
                 <FolderOpen className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Output Path</p>
-                  <p className="text-xs text-muted-foreground font-mono">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">Output</p>
+                  <p className="text-xs text-muted-foreground font-mono break-all">
                     {outputPath}
                   </p>
                 </div>

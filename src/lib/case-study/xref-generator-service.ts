@@ -225,8 +225,8 @@ export class XrefGeneratorService {
       // ─────────────────────────────────────────────────────────────────────
       onProgress('script', 'Generating AutoLISP script...')
 
-      // Clean output filename: {projectCode}_{areaCode}_v{revision}.dwg
-      const outputFilename = `${request.projectCode}_${request.areaCode}_v${request.revisionNumber}.dwg`
+      // Clean output filename: {projectCode}_{areaCode}_RV{revision}.dwg
+      const outputFilename = `${request.projectCode}_${request.areaCode}_RV${request.revisionNumber}.dwg`
       const scriptContent = this.scriptGenerator.generateScript(xrefPlacements, {
         outputFilename,
         areaCode: request.areaCode,

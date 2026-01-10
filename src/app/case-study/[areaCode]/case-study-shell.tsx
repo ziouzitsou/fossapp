@@ -362,6 +362,8 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
           <GenerateModal
             open={showGenerateModal}
             onOpenChange={setShowGenerateModal}
+            projectCode={activeProject?.project_code ?? ''}
+            projectName={activeProject?.name ?? ''}
             areaCode={areaCode}
             revisionNumber={selectedArea?.revisionNumber ?? 1}
             floorPlanFilename={floorPlanUpload.existingFilename}
