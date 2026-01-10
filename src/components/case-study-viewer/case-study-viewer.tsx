@@ -564,7 +564,8 @@ export function CaseStudyViewer({
       (l: LayerInfo) => l.name === layer.name
     )
     if (layerObj) {
-      viewer.setLayerVisible(layerObj, newVisible)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(viewer as any).setLayerVisible(layerObj, newVisible)
     }
 
     // Update state
@@ -586,7 +587,8 @@ export function CaseStudyViewer({
     if (layersRoot?.children) {
       for (const layerObj of layersRoot.children) {
         if (layerObj.isLayer) {
-          viewer.setLayerVisible(layerObj, true)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(viewer as any).setLayerVisible(layerObj, true)
         }
       }
     }
@@ -611,7 +613,8 @@ export function CaseStudyViewer({
     if (layersRoot?.children) {
       for (const layerObj of layersRoot.children) {
         if (layerObj.isLayer) {
-          viewer.setLayerVisible(layerObj, false)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(viewer as any).setLayerVisible(layerObj, false)
         }
       }
     }
