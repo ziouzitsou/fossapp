@@ -215,15 +215,22 @@ export class OriginIndicator {
    * Hide the origin indicator
    */
   hide(): void {
-    if (!this.ctx || !this.isVisible) return
+    if (!this.isVisible) return
 
-    for (const shape of this.shapes) {
-      this.ctx.removeShape(shape)
+    // Wrap in try-catch as context may be disposed during viewer cleanup
+    try {
+      if (this.ctx) {
+        for (const shape of this.shapes) {
+          this.ctx.removeShape(shape)
+        }
+        this.ctx.layer?.update()
+      }
+    } catch {
+      // Context already disposed, ignore
     }
 
     this.shapes = []
     this.isVisible = false
-    this.ctx.layer?.update()
   }
 
   /**
