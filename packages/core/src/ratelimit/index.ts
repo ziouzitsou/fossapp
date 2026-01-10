@@ -79,6 +79,7 @@ export const RATE_LIMITS = {
   'symbol-generator-dwg': { limit: 10, windowMs: 60_000 }, // 10 req/min (LLM + APS generation)
   'feedback-chat': { limit: 30, windowMs: 60_000 },       // 30 req/min (AI feedback chat)
   'feedback-upload': { limit: 20, windowMs: 60_000 },     // 20 req/min (file uploads)
+  'case-study-generate': { limit: 3, windowMs: 60_000 },  // 3 req/min (expensive XREF generation)
 } as const
 
 /** Type-safe endpoint names extracted from RATE_LIMITS keys */

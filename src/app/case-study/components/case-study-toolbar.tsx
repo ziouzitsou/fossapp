@@ -22,12 +22,16 @@ interface CaseStudyToolbarProps {
   onUploadClick?: () => void
   /** Called when Delete DWG button is clicked */
   onDeleteClick?: () => void
+  /** Called when Generate button is clicked */
+  onGenerateClick?: () => void
   /** Whether a file is currently being uploaded */
   isUploading?: boolean
   /** Whether the current area has a floor plan */
   hasFloorPlan?: boolean
   /** Existing floor plan filename (for display) */
   floorPlanFilename?: string | null
+  /** Number of placements (for generate button state) */
+  placementCount?: number
 }
 
 /**
@@ -47,9 +51,11 @@ export function CaseStudyToolbar({
   onViewModeChange,
   onUploadClick,
   onDeleteClick,
+  onGenerateClick,
   isUploading = false,
   hasFloorPlan = false,
   floorPlanFilename,
+  placementCount = 0,
 }: CaseStudyToolbarProps) {
   const selectedArea = areas.find((a) => a.id === selectedAreaId)
 
@@ -137,7 +143,19 @@ export function CaseStudyToolbar({
           {isUploading ? 'Processing DWG...' : 'Upload DWG'}
         </Button>
       )}
-      <Button size="sm" className="gap-1.5">
+      <Button
+        size="sm"
+        className="gap-1.5"
+        onClick={onGenerateClick}
+        disabled={!hasFloorPlan || placementCount === 0}
+        title={
+          !hasFloorPlan
+            ? 'Upload a floor plan first'
+            : placementCount === 0
+              ? 'Add placements first'
+              : 'Generate DWG with XREF symbols'
+        }
+      >
         <Sparkles className="h-4 w-4" />
         Generate
       </Button>

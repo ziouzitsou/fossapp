@@ -9,7 +9,7 @@ import { Skeleton } from '@fossapp/ui'
 import { getCaseStudyAreasAction } from '../actions'
 import { getUserPreferencesAction } from '@/lib/actions/user-preferences'
 import { DEFAULT_VIEW_PREFERENCES, type ViewPreferences } from '@/lib/actions/user-preferences-types'
-import { CaseStudyToolbar, DeleteFloorPlanDialog } from '../components'
+import { CaseStudyToolbar, DeleteFloorPlanDialog, GenerateModal } from '../components'
 import { useCaseStudyState, useViewerControls, useFloorPlanUpload } from '../hooks'
 import type { CaseStudyStateValue, ViewerControlsValue, FloorPlanUploadValue } from '../hooks'
 import type { CaseStudyArea, ViewMode } from '../types'
@@ -224,6 +224,13 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
     router.push(`/case-study/${areaCode.toLowerCase()}/${mode}`)
   }
 
+  // Generate modal state
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
+
+  const handleGenerateClick = useCallback(() => {
+    setShowGenerateModal(true)
+  }, [])
+
   // Context value
   const contextValue: CaseStudyContextValue = {
     state,
@@ -325,9 +332,11 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
             onViewModeChange={handleViewModeChange}
             onUploadClick={floorPlanUpload.triggerFileSelect}
             onDeleteClick={floorPlanUpload.triggerDelete}
+            onGenerateClick={handleGenerateClick}
             isUploading={floorPlanUpload.isUploading}
             hasFloorPlan={floorPlanUpload.hasExistingFloorPlan}
             floorPlanFilename={floorPlanUpload.existingFilename}
+            placementCount={state.placements.length}
           />
 
           {/* Upload error toast */}
@@ -347,6 +356,18 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
             placementCount={floorPlanUpload.placementCount}
             onConfirm={floorPlanUpload.confirmDelete}
             isDeleting={floorPlanUpload.isDeleting}
+          />
+
+          {/* Generate DWG modal */}
+          <GenerateModal
+            open={showGenerateModal}
+            onOpenChange={setShowGenerateModal}
+            areaCode={areaCode}
+            revisionNumber={selectedArea?.revisionNumber ?? 1}
+            floorPlanFilename={floorPlanUpload.existingFilename}
+            areaRevisionId={selectedArea?.revisionId ?? null}
+            placements={state.placements}
+            luminaires={state.luminaires}
           />
 
           {/* Child route content */}

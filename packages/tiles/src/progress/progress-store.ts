@@ -31,16 +31,18 @@ export interface ProgressMessage {
   elapsed: string
   /**
    * Current processing phase:
+   * - 'init': Initializing/fetching data
    * - 'images': Downloading/processing product images
    * - 'script': Generating AutoLISP script
    * - 'aps': Running APS Design Automation
+   * - 'download': Downloading generated files
    * - 'drive': Uploading to Google Drive
    * - 'storage': Saving to Supabase storage
    * - 'llm': Processing with AI model
    * - 'complete': Job finished successfully
    * - 'error': Job failed
    */
-  phase: 'images' | 'script' | 'aps' | 'drive' | 'storage' | 'complete' | 'error' | 'llm'
+  phase: 'init' | 'images' | 'script' | 'aps' | 'download' | 'drive' | 'storage' | 'complete' | 'error' | 'llm'
   /** Optional sub-step within the phase */
   step?: string
   /** User-facing progress message */
@@ -81,6 +83,10 @@ export interface ProgressMessage {
     pngPath?: string
     /** Path in product-symbols bucket (SVG) */
     svgPath?: string
+    /** Output filename (case study generation) */
+    outputFilename?: string
+    /** Products that used placeholder symbols (case study) */
+    missingSymbols?: string[]
   }
 }
 
