@@ -26,6 +26,7 @@
 import { supabaseServer } from '@fossapp/core/db'
 import { XrefScriptGenerator, type XrefPlacement } from './xref-script-generator'
 import { getGoogleDriveSymbolService } from '@/lib/symbol-generator/google-drive-symbol-service'
+import { getGoogleDriveProjectService } from '@/lib/google-drive-project-service'
 
 // ============================================================================
 // CONFIGURATION
@@ -54,10 +55,18 @@ export interface GenerateXrefRequest {
   areaRevisionId: string
   /** Project ID for bucket naming */
   projectId: string
+  /** Project code for output naming (e.g., "2512_001") */
+  projectCode: string
   /** Area code for output naming (e.g., "F1") */
   areaCode: string
   /** Revision number for output naming */
   revisionNumber: number
+  /** Project's existing OSS bucket name */
+  ossBucket: string
+  /** Floor plan URN already in OSS */
+  floorPlanUrn: string
+  /** Google Drive v{n} folder ID for output upload (null = skip Drive upload) */
+  driveFolderId: string | null
 }
 
 /**
@@ -170,7 +179,6 @@ export class XrefGeneratorService {
     onProgress: (phase: string, message: string, detail?: string) => void
   ): Promise<GenerateXrefResult> {
     const errors: string[] = []
-    let bucketName: string | null = null
     const missingSymbols: string[] = []
 
     try {
@@ -179,7 +187,7 @@ export class XrefGeneratorService {
       // ─────────────────────────────────────────────────────────────────────
       onProgress('init', 'Fetching placements...', `Area: ${request.areaCode}`)
 
-      const { placements, floorPlanUrn, floorPlanFilename } = await this.fetchPlacementData(
+      const { placements, floorPlanFilename } = await this.fetchPlacementData(
         request.areaRevisionId
       )
 
@@ -187,9 +195,8 @@ export class XrefGeneratorService {
         throw new Error('No placements found for this area')
       }
 
-      if (!floorPlanUrn) {
-        throw new Error('No floor plan uploaded for this area')
-      }
+      // Floor plan URN is passed from request (already validated in API route)
+      const floorPlanUrn = request.floorPlanUrn
 
       onProgress('init', 'Placements loaded', `${placements.length} placements`)
 
@@ -218,7 +225,8 @@ export class XrefGeneratorService {
       // ─────────────────────────────────────────────────────────────────────
       onProgress('script', 'Generating AutoLISP script...')
 
-      const outputFilename = `${request.areaCode}-v${request.revisionNumber}-GENERATED.dwg`
+      // Clean output filename: {projectCode}_{areaCode}_v{revision}.dwg
+      const outputFilename = `${request.projectCode}_${request.areaCode}_v${request.revisionNumber}.dwg`
       const scriptContent = this.scriptGenerator.generateScript(xrefPlacements, {
         outputFilename,
         areaCode: request.areaCode,
@@ -237,33 +245,37 @@ export class XrefGeneratorService {
       await this.createDynamicActivity(symbolsWithDwg)
 
       // ─────────────────────────────────────────────────────────────────────
-      // Step 6: Create temp bucket and upload files
+      // Step 6: Use project bucket and prepare files
       // ─────────────────────────────────────────────────────────────────────
-      onProgress('aps', 'Creating temp bucket...')
-      bucketName = await this.createTempBucket()
+      // Use project's existing OSS bucket instead of creating temp bucket
+      const bucketName = request.ossBucket
+      console.log('[XREF] Using project bucket:', bucketName)
 
-      onProgress('aps', 'Downloading floor plan from OSS...')
-      const floorPlanBuffer = await this.downloadFromOss(floorPlanUrn)
+      onProgress('aps', 'Getting floor plan URL...')
+      console.log('[XREF] Floor plan URN:', floorPlanUrn)
+      // Get signed URL for existing floor plan (no need to download/re-upload)
+      const floorPlanUrl = await this.getSignedUrlForUrn(floorPlanUrn)
+      console.log('[XREF] Floor plan URL obtained')
 
-      onProgress('aps', 'Uploading files...', `floor plan + script + ${symbolsWithDwg.length} symbols`)
-      const uploadResult = await this.uploadFiles(
+      onProgress('aps', 'Uploading script...', `script + ${symbolsWithDwg.length} symbols`)
+      // Only upload script to project bucket, symbols come from Supabase directly
+      const uploadResult = await this.uploadFilesForWorkItem(
         bucketName,
-        floorPlanBuffer,
+        floorPlanUrl,
         floorPlanFilename || 'input.dwg',
         scriptContent,
-        symbolsWithDwg
+        symbolsWithDwg,
+        outputFilename
       )
 
       // ─────────────────────────────────────────────────────────────────────
       // Step 7: Submit and monitor WorkItem
       // ─────────────────────────────────────────────────────────────────────
       onProgress('aps', 'Submitting WorkItem...')
-      const workItemId = await this.submitWorkItem(
-        bucketName,
-        uploadResult,
-        symbolsWithDwg,
-        outputFilename
-      )
+      console.log('[XREF] Submitting WorkItem with', symbolsWithDwg.length, 'symbols')
+      console.log('[XREF] Output URN:', uploadResult.outputUrl)
+      const workItemId = await this.submitWorkItem(uploadResult, symbolsWithDwg, outputFilename)
+      console.log('[XREF] WorkItem submitted:', workItemId)
 
       onProgress('aps', 'Processing...', 'This may take 30-60 seconds')
       const { report } = await this.monitorWorkItem(workItemId, onProgress)
@@ -272,11 +284,40 @@ export class XrefGeneratorService {
       // Step 8: Download output DWG
       // ─────────────────────────────────────────────────────────────────────
       onProgress('download', 'Downloading generated DWG...')
-      const outputDwgBuffer = await this.downloadDwg(uploadResult.outputUrl)
+      console.log('[XREF] Downloading output from:', uploadResult.outputUrl.substring(0, 60) + '...')
+      const outputDwgBuffer = await this.downloadOutputDwg(bucketName, outputFilename)
+      console.log('[XREF] Downloaded DWG:', outputDwgBuffer.length, 'bytes')
       onProgress('download', 'DWG downloaded', `${(outputDwgBuffer.length / 1024).toFixed(0)} KB`)
 
       // ─────────────────────────────────────────────────────────────────────
-      // Cleanup: Delete activity (bucket auto-expires)
+      // Step 9: Upload to Google Drive (if folder ID provided)
+      // ─────────────────────────────────────────────────────────────────────
+      let driveLink: string | undefined
+      if (request.driveFolderId) {
+        onProgress('drive', 'Uploading to Google Drive...')
+        try {
+          const driveService = getGoogleDriveProjectService()
+          const driveResult = await driveService.uploadToAreaOutput(
+            request.driveFolderId,
+            outputFilename,
+            outputDwgBuffer
+          )
+          if (driveResult.success && driveResult.webViewLink) {
+            driveLink = driveResult.webViewLink
+            onProgress('drive', 'Uploaded to Google Drive', outputFilename)
+          } else {
+            console.warn('Drive upload failed:', driveResult.error)
+            onProgress('drive', 'Drive upload failed (file still generated)', driveResult.error)
+          }
+        } catch (driveError) {
+          // Don't fail the whole operation if Drive upload fails
+          console.error('Drive upload error:', driveError)
+          onProgress('drive', 'Drive upload error (file still generated)')
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // Cleanup: Delete activity
       // ─────────────────────────────────────────────────────────────────────
       await this.deleteActivity()
 
@@ -284,6 +325,7 @@ export class XrefGeneratorService {
         success: true,
         outputDwgBuffer,
         outputFilename,
+        driveLink,
         missingSymbols: missingSymbols.length > 0 ? missingSymbols : undefined,
         errors,
       }
@@ -425,6 +467,7 @@ export class XrefGeneratorService {
 
   /**
    * Build XREF placement data for script generation
+   * Uses placeholder for products without DWG symbols
    */
   private buildXrefPlacements(
     placements: PlacementData[],
@@ -480,7 +523,7 @@ export class XrefGeneratorService {
       }
     })
 
-    // Also add placeholder symbol if any symbols are missing
+    // Add placeholder symbol for products without DWGs
     symbolParams['symbol_placeholder'] = {
       verb: 'get',
       description: 'Placeholder symbol for missing DWGs',
@@ -562,36 +605,10 @@ export class XrefGeneratorService {
   }
 
   /**
-   * Create temporary bucket for file uploads
+   * Get signed URL for an existing OSS object by URN (no download, just URL)
    */
-  private async createTempBucket(): Promise<string> {
-    const accessToken = await this.authService.getAccessToken()
-    const bucketName = `xref-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
-
-    const response = await fetch('https://developer.api.autodesk.com/oss/v2/buckets', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'x-ads-region': 'EMEA',
-      },
-      body: JSON.stringify({
-        bucketKey: bucketName,
-        policyKey: 'transient', // Auto-delete after 24 hours
-      }),
-    })
-
-    if (!response.ok && response.status !== 409) {
-      throw new Error(`Bucket creation failed: ${await response.text()}`)
-    }
-
-    return bucketName
-  }
-
-  /**
-   * Download floor plan from OSS using URN
-   */
-  private async downloadFromOss(urn: string): Promise<Buffer> {
+  private async getSignedUrlForUrn(urn: string): Promise<string> {
+    console.log('[XREF] Getting signed URL for URN:', urn.substring(0, 50) + '...')
     const accessToken = await this.authService.getAccessToken()
 
     // Decode URN to get bucket and object key
@@ -604,6 +621,7 @@ export class XrefGeneratorService {
     }
 
     const [, bucketKey, objectKey] = match
+    console.log('[XREF] Decoded URN - bucket:', bucketKey, 'object:', objectKey)
 
     // Get signed download URL
     const response = await fetch(
@@ -619,29 +637,27 @@ export class XrefGeneratorService {
     )
 
     if (!response.ok) {
-      throw new Error(`Failed to get floor plan download URL: ${response.statusText}`)
+      const errorText = await response.text()
+      console.error('[XREF] Failed to get signed URL:', response.status, errorText)
+      throw new Error(`Failed to get floor plan URL: ${response.statusText}`)
     }
 
     const { signedUrl } = (await response.json()) as { signedUrl: string }
-
-    // Download the file
-    const downloadResponse = await fetch(signedUrl)
-    if (!downloadResponse.ok) {
-      throw new Error(`Failed to download floor plan: ${downloadResponse.statusText}`)
-    }
-
-    return Buffer.from(await downloadResponse.arrayBuffer())
+    console.log('[XREF] Got signed URL for floor plan')
+    return signedUrl
   }
 
   /**
-   * Upload all files to temp bucket
+   * Prepare files for WorkItem: upload script, get symbol URLs from Supabase
+   * Floor plan URL is passed directly (already in OSS)
    */
-  private async uploadFiles(
+  private async uploadFilesForWorkItem(
     bucketName: string,
-    floorPlanBuffer: Buffer,
+    floorPlanUrl: string,
     floorPlanFilename: string,
     scriptContent: string,
-    symbols: SymbolInfo[]
+    symbols: SymbolInfo[],
+    outputFilename: string
   ): Promise<{
     floorPlanUrl: string
     scriptUrl: string
@@ -650,66 +666,30 @@ export class XrefGeneratorService {
   }> {
     const accessToken = await this.authService.getAccessToken()
 
-    // Upload floor plan
-    const floorPlanUrl = await this.uploadToOss(bucketName, 'input.dwg', floorPlanBuffer, accessToken)
-
-    // Upload script
+    // Upload script to project bucket
     const scriptBuffer = Buffer.from(scriptContent, 'utf-8')
     const scriptUrl = await this.uploadToOss(bucketName, 'script.scr', scriptBuffer, accessToken)
 
-    // Generate output URL
-    const outputUrl = await this.generateOutputUrl(bucketName, 'output.dwg', accessToken)
+    // Generate output URN (will use auth headers in WorkItem)
+    const outputUrl = this.generateOutputUrn(bucketName, outputFilename)
 
-    // Download and upload symbol DWGs from Supabase
+    // Symbol URLs - use Supabase URLs directly (APS downloads from Supabase)
+    // No need to upload to OSS - this is the key optimization
     const symbolUrls = new Map<string, string>()
     for (const symbol of symbols) {
       if (symbol.supabaseUrl) {
-        try {
-          // Download from Supabase
-          const symbolResponse = await fetch(symbol.supabaseUrl)
-          if (!symbolResponse.ok) {
-            console.warn(`Failed to download symbol ${symbol.fossPid}: ${symbolResponse.statusText}`)
-            continue
-          }
-          const symbolBuffer = Buffer.from(await symbolResponse.arrayBuffer())
-
-          // Upload to temp bucket with filename that matches localName
-          const filename = this.getFilenameFromPath(symbol.localPath)
-          const url = await this.uploadToOss(bucketName, filename, symbolBuffer, accessToken)
-          symbolUrls.set(symbol.fossPid, url)
-        } catch (err) {
-          console.warn(`Error uploading symbol ${symbol.fossPid}:`, err)
-        }
+        symbolUrls.set(symbol.fossPid, symbol.supabaseUrl)
       }
     }
 
-    // Upload placeholder symbol if exists
-    const placeholderUrl = await this.uploadPlaceholderSymbol(bucketName, accessToken)
-    if (placeholderUrl) {
+    // Add placeholder symbol URL for products without DWGs
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (supabaseUrl) {
+      const placeholderUrl = `${supabaseUrl}/storage/v1/object/public/product-symbols/PLACEHOLDER/PLACEHOLDER-SYMBOL.dwg`
       symbolUrls.set('PLACEHOLDER', placeholderUrl)
     }
 
     return { floorPlanUrl, scriptUrl, outputUrl, symbolUrls }
-  }
-
-  /**
-   * Upload placeholder symbol from Supabase
-   */
-  private async uploadPlaceholderSymbol(bucketName: string, accessToken: string): Promise<string | null> {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!supabaseUrl) return null
-
-    const placeholderPath = `${supabaseUrl}/storage/v1/object/public/product-symbols/PLACEHOLDER/PLACEHOLDER-SYMBOL.dwg`
-
-    try {
-      const response = await fetch(placeholderPath)
-      if (!response.ok) return null
-
-      const buffer = Buffer.from(await response.arrayBuffer())
-      return await this.uploadToOss(bucketName, 'PLACEHOLDER-SYMBOL.dwg', buffer, accessToken)
-    } catch {
-      return null
-    }
   }
 
   /**
@@ -771,27 +751,17 @@ export class XrefGeneratorService {
   }
 
   /**
-   * Generate signed URL for output file (read/write)
+   * Generate URN for output file (used with auth headers in WorkItem)
    */
-  private async generateOutputUrl(bucketName: string, filename: string, accessToken: string): Promise<string> {
-    const response = await fetch(
-      `https://developer.api.autodesk.com/oss/v2/buckets/${bucketName}/objects/${encodeURIComponent(filename)}/signed?access=readwrite`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ minutesExpiration: 60 }),
-      }
-    )
-
-    const { signedUrl } = (await response.json()) as { signedUrl: string }
-    return signedUrl
+  private generateOutputUrn(bucketName: string, filename: string): string {
+    // URN format: urn:adsk.objects:os.object:{bucketKey}/{objectKey}
+    return `urn:adsk.objects:os.object:${bucketName}/${filename}`
   }
 
   /**
    * Submit WorkItem to run the Activity
    */
   private async submitWorkItem(
-    bucketName: string,
     uploadResult: {
       floorPlanUrl: string
       scriptUrl: string
@@ -804,10 +774,19 @@ export class XrefGeneratorService {
     const accessToken = await this.authService.getAccessToken()
 
     // Build arguments
+    // Output uses URN with auth headers (per XREF_WORKFLOW_GUIDE.md)
     const args: Record<string, object> = {
       inputDwg: { url: uploadResult.floorPlanUrl, verb: 'get' },
       script: { url: uploadResult.scriptUrl, verb: 'get' },
-      output: { url: uploadResult.outputUrl, verb: 'put', localName: outputFilename },
+      output: {
+        url: uploadResult.outputUrl,
+        verb: 'put',
+        localName: outputFilename,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'x-ads-region': 'EMEA',
+        },
+      },
     }
 
     // Add symbol arguments
@@ -822,7 +801,7 @@ export class XrefGeneratorService {
       }
     })
 
-    // Add placeholder
+    // Add placeholder for products without DWGs
     const placeholderUrl = uploadResult.symbolUrls.get('PLACEHOLDER')
     if (placeholderUrl) {
       args['symbol_placeholder'] = {
@@ -839,7 +818,11 @@ export class XrefGeneratorService {
 
     const response = await fetch(`${DA_BASE_URL}/workitems`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'x-ads-force': 'true', // Force overwrite if output exists
+      },
       body: JSON.stringify(workItemSpec),
     })
 
@@ -918,11 +901,34 @@ export class XrefGeneratorService {
   }
 
   /**
-   * Download generated DWG from output URL
+   * Download output DWG from project bucket using signed URL
    */
-  private async downloadDwg(outputUrl: string): Promise<Buffer> {
-    const response = await fetch(outputUrl)
+  private async downloadOutputDwg(bucketName: string, filename: string): Promise<Buffer> {
+    const accessToken = await this.authService.getAccessToken()
 
+    // Get signed download URL
+    const signedResponse = await fetch(
+      `https://developer.api.autodesk.com/oss/v2/buckets/${bucketName}/objects/${encodeURIComponent(filename)}/signed`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ minutesExpiration: 60 }),
+      }
+    )
+
+    if (!signedResponse.ok) {
+      const errorText = await signedResponse.text()
+      console.error('[XREF] Failed to get output download URL:', signedResponse.status, errorText)
+      throw new Error(`Failed to get output download URL: ${signedResponse.statusText}`)
+    }
+
+    const { signedUrl } = (await signedResponse.json()) as { signedUrl: string }
+
+    // Download the file
+    const response = await fetch(signedUrl)
     if (!response.ok) {
       throw new Error(`Failed to download output DWG: ${response.statusText}`)
     }

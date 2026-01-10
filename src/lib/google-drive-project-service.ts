@@ -505,6 +505,107 @@ class GoogleDriveProjectService {
     return `https://drive.google.com/drive/folders/${folderId}`
   }
 
+  /**
+   * Upload a file to the Output folder of an area revision
+   * Path: {projectCode}/02_Areas/{areaCode}/v{n}/Output/{filename}
+   *
+   * @param versionFolderId - The v{n} folder ID (from project_area_revisions.google_drive_folder_id)
+   * @param filename - Output filename
+   * @param buffer - File content
+   * @returns Upload result with file ID and web link
+   */
+  async uploadToAreaOutput(
+    versionFolderId: string,
+    filename: string,
+    buffer: Buffer
+  ): Promise<{ success: boolean; fileId?: string; webViewLink?: string; error?: string }> {
+    try {
+      // 1. Find or create Output folder inside version folder
+      const files = await this.listFiles(versionFolderId)
+      let outputFolder = files.find((f) => f.name === 'Output' && f.isFolder)
+
+      if (!outputFolder) {
+        // Create Output folder if it doesn't exist
+        const createdFolder = await this.createFolder('Output', versionFolderId)
+        outputFolder = {
+          id: createdFolder.id!,
+          name: 'Output',
+          mimeType: 'application/vnd.google-apps.folder',
+          isFolder: true,
+        }
+      }
+
+      // 2. Check if file already exists (for upsert pattern)
+      const existingFiles = await this.listFiles(outputFolder.id)
+      const existingFile = existingFiles.find((f) => f.name === filename && !f.isFolder)
+
+      // 3. Upload or update file
+      const { Readable } = await import('stream')
+      const stream = Readable.from(buffer)
+
+      let fileId: string
+      let webViewLink: string | undefined
+
+      if (existingFile) {
+        // Update existing file
+        const response = await this.withRetry(
+          async () => {
+            const res = await this.drive.files.update({
+              fileId: existingFile.id,
+              media: {
+                mimeType: 'application/octet-stream',
+                body: stream,
+              },
+              supportsAllDrives: true,
+              fields: 'id, webViewLink',
+            })
+            return res
+          },
+          3,
+          `Update file "${filename}"`
+        )
+        fileId = response.data.id!
+        webViewLink = response.data.webViewLink || undefined
+      } else {
+        // Create new file
+        const response = await this.withRetry(
+          async () => {
+            const res = await this.drive.files.create({
+              requestBody: {
+                name: filename,
+                parents: [outputFolder!.id],
+              },
+              media: {
+                mimeType: 'application/octet-stream',
+                body: stream,
+              },
+              supportsAllDrives: true,
+              fields: 'id, webViewLink',
+            })
+            return res
+          },
+          3,
+          `Create file "${filename}"`
+        )
+        fileId = response.data.id!
+        webViewLink = response.data.webViewLink || undefined
+      }
+
+      return {
+        success: true,
+        fileId,
+        webViewLink,
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('uploadToAreaOutput error:', error)
+      return {
+        success: false,
+        error: errorMessage,
+      }
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────
   // Private helper methods
   // ─────────────────────────────────────────────────────────────

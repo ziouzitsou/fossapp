@@ -52,18 +52,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing areaRevisionId' }, { status: 400 })
     }
 
-    // Fetch area info for job name
+    // Fetch area info for job name + project data for bucket/drive upload
     const { data: areaInfo, error: areaError } = await supabaseServer
       .schema('projects')
       .from('project_area_revisions')
       .select(`
         id,
         revision_number,
+        floor_plan_urn,
+        google_drive_folder_id,
         project_area:project_areas!inner (
           area_code,
           project:projects!inner (
             id,
-            project_code
+            project_code,
+            oss_bucket
           )
         )
       `)
@@ -79,10 +82,32 @@ export async function POST(request: NextRequest) {
 
     // Type assertion for nested data
     // Supabase returns joins as arrays when using !inner, but .single() gives us the first item
-    const projectArea = areaInfo.project_area as unknown as { area_code: string; project: { id: string; project_code: string } }
+    const projectArea = areaInfo.project_area as unknown as {
+      area_code: string
+      project: { id: string; project_code: string; oss_bucket: string | null }
+    }
     const areaCode = projectArea.area_code
     const projectId = projectArea.project.id
+    const projectCode = projectArea.project.project_code
+    const ossBucket = projectArea.project.oss_bucket
     const revisionNumber = areaInfo.revision_number
+    const floorPlanUrn = areaInfo.floor_plan_urn
+    const driveFolderId = areaInfo.google_drive_folder_id
+
+    // Validate required fields for generation
+    if (!floorPlanUrn) {
+      return NextResponse.json(
+        { error: 'No floor plan uploaded for this area revision' },
+        { status: 400 }
+      )
+    }
+
+    if (!ossBucket) {
+      return NextResponse.json(
+        { error: 'Project OSS bucket not configured' },
+        { status: 400 }
+      )
+    }
 
     // Create job and return ID immediately
     const jobId = generateJobId()
@@ -92,8 +117,12 @@ export async function POST(request: NextRequest) {
     processInBackground(jobId, {
       areaRevisionId: body.areaRevisionId,
       projectId,
+      projectCode,
       areaCode,
       revisionNumber,
+      ossBucket,
+      floorPlanUrn,
+      driveFolderId,
     })
 
     return NextResponse.json({
@@ -123,8 +152,12 @@ async function processInBackground(
   params: {
     areaRevisionId: string
     projectId: string
+    projectCode: string
     areaCode: string
     revisionNumber: number
+    ossBucket: string
+    floorPlanUrn: string
+    driveFolderId: string | null
   }
 ) {
   try {
@@ -141,8 +174,12 @@ async function processInBackground(
       {
         areaRevisionId: params.areaRevisionId,
         projectId: params.projectId,
+        projectCode: params.projectCode,
         areaCode: params.areaCode,
         revisionNumber: params.revisionNumber,
+        ossBucket: params.ossBucket,
+        floorPlanUrn: params.floorPlanUrn,
+        driveFolderId: params.driveFolderId,
       },
       (phase, message, detail) => {
         // Cast phase to expected type (service may use custom phases)
@@ -151,25 +188,19 @@ async function processInBackground(
     )
 
     if (result.success && result.outputDwgBuffer) {
-      // TODO: Upload to Google Drive (02_Areas/{areaCode}/v{n}/Output/)
-      // For now, just mark as complete
-      // The DWG buffer could be served via a separate download endpoint if needed
-
       addProgress(jobId, 'complete', 'Generation complete', result.outputFilename)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       completeJob(jobId, true, {
         outputFilename: result.outputFilename,
         missingSymbols: result.missingSymbols,
-        // driveLink will be added when Google Drive upload is implemented
-      } as any)
+        driveLink: result.driveLink,
+      } as Record<string, unknown>)
     } else {
       addProgress(jobId, 'error', 'Generation failed', result.errors.join(', '))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       completeJob(jobId, false, {
         errors: result.errors,
         missingSymbols: result.missingSymbols,
-      } as any)
+      } as Record<string, unknown>)
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
