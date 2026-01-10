@@ -501,13 +501,18 @@ export async function createProjectAction(
     // Create OSS bucket for floor plans (Planner feature)
     // Bucket is created upfront since all projects will use Planner
     // Also upload FOSS.dwt template to bucket for DA processing
+    //
+    // ROBUSTNESS: Even if this fails, floor plan upload will check for
+    // the template and upload it on-demand (see design-automation-service.ts)
     try {
       const { ensureProjectBucketExists, uploadTemplateToProjectBucket } = await import('../../planner/aps-planner-service')
       const { getGoogleDriveTemplateService } = await import('../../planner/google-drive-template-service')
 
+      console.log(`[Project] Creating OSS bucket for project ${data.id}...`)
       const bucketName = await ensureProjectBucketExists(data.id)
 
-      // Fetch and upload FOSS.dwt template to bucket
+      // Fetch FOSS.dwt from Google Drive (with retry) and upload to bucket
+      console.log(`[Project] Uploading FOSS.dwt template to ${bucketName}...`)
       const templateService = getGoogleDriveTemplateService()
       const templateBuffer = await templateService.fetchFossTemplate()
       await uploadTemplateToProjectBucket(bucketName, templateBuffer)
@@ -522,10 +527,11 @@ export async function createProjectAction(
         })
         .eq('id', data.id)
 
-      console.log(`[Project] OSS bucket created with template: ${bucketName}`)
+      console.log(`[Project] ✓ OSS bucket ready: ${bucketName} (template: ${(templateBuffer.length / 1024).toFixed(0)} KB)`)
     } catch (ossError) {
-      console.error('Create OSS bucket error:', ossError)
-      // Non-fatal - bucket can be created on first upload if this fails
+      // Log warning but don't block project creation
+      // The template will be uploaded on-demand during first floor plan upload
+      console.warn(`[Project] ⚠ OSS bucket/template setup failed (will retry on first upload):`, ossError)
     }
 
     return { success: true, data: { id: data.id } }

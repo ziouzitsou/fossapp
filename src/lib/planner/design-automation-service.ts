@@ -25,8 +25,11 @@ import {
   generateSignedWriteUrl,
   uploadBufferToOss,
   cleanupTempFiles,
-  deriveUrn
+  deriveUrn,
+  hasTemplateInBucket,
+  uploadTemplateToProjectBucket
 } from './aps-planner-service'
+import { getGoogleDriveTemplateService } from './google-drive-template-service'
 import crypto from 'crypto'
 
 /** Activity name for planner floor plan processing */
@@ -114,10 +117,10 @@ export class PlannerDesignAutomationService {
       await this.createPlannerActivity()
       log('Step 2/5: Activity ready')
 
-      // Step 3: Upload temp files + get signed URLs
-      log('Step 3/5: Uploading files to bucket...', '2 files (input + script)')
+      // Step 3: Upload temp files + ensure template exists
+      log('Step 3/5: Preparing files...', 'checking template + uploading input')
       const urls = await this.uploadTempFiles(bucketName, sessionId, userDwgBuffer)
-      log('Step 3/5: Files uploaded')
+      log('Step 3/5: Files ready')
 
       // Step 4: Submit WorkItem (output goes directly to final location)
       log('Step 4/5: Submitting WorkItem to APS...')
@@ -292,6 +295,10 @@ export class PlannerDesignAutomationService {
   /**
    * Upload user DWG and script to temp location in persistent bucket
    * Returns signed URLs for DA to read
+   *
+   * @remarks
+   * Also ensures FOSS.dwt template exists in the bucket. If missing (e.g., failed
+   * during project creation), it's fetched from Google Drive and uploaded on-demand.
    */
   private async uploadTempFiles(
     bucketName: string,
@@ -305,13 +312,23 @@ export class PlannerDesignAutomationService {
     const tempPrefix = `${TEMP_PREFIX}/${sessionId}`
     const scriptContent = this.generateImportScript()
 
+    // Check if template exists in bucket, upload if missing
+    const templateExists = await hasTemplateInBucket(bucketName)
+    if (!templateExists) {
+      console.log(`[Planner DA] Template missing from ${bucketName}, uploading from Google Drive...`)
+      const templateService = getGoogleDriveTemplateService()
+      const templateBuffer = await templateService.fetchFossTemplate()
+      await uploadTemplateToProjectBucket(bucketName, templateBuffer)
+      console.log(`[Planner DA] Template uploaded successfully`)
+    }
+
     // Upload input.dwg and import.scr to temp location (parallel)
     const [inputUrl, scriptUrl] = await Promise.all([
       uploadBufferToOss(bucketName, `${tempPrefix}/input.dwg`, userDwgBuffer),
       uploadBufferToOss(bucketName, `${tempPrefix}/import.scr`, Buffer.from(scriptContent, 'utf-8')),
     ])
 
-    // Get signed URL for template (already in bucket)
+    // Get signed URL for template (now guaranteed to exist)
     const templateUrl = await generateSignedReadUrl(bucketName, TEMPLATE_OBJECT_KEY)
 
     return { templateUrl, inputUrl, scriptUrl }

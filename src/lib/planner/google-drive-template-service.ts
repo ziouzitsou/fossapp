@@ -24,6 +24,48 @@ interface TemplateCacheEntry {
 /** Cache TTL: 1 hour in milliseconds */
 const CACHE_TTL_MS = 60 * 60 * 1000
 
+/** Maximum retry attempts for Google Drive operations */
+const MAX_RETRIES = 3
+
+/** Base delay for exponential backoff (ms) */
+const RETRY_BASE_DELAY_MS = 1000
+
+/**
+ * Execute an async operation with exponential backoff retry
+ *
+ * @param operation - Async function to execute
+ * @param operationName - Name for logging
+ * @param maxRetries - Maximum retry attempts
+ * @returns Result of the operation
+ * @throws Last error if all retries fail
+ */
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  operationName: string,
+  maxRetries: number = MAX_RETRIES
+): Promise<T> {
+  let lastError: Error | null = null
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation()
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+
+      if (attempt < maxRetries) {
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1)
+        console.warn(
+          `[Template] ${operationName} failed (attempt ${attempt}/${maxRetries}): ${lastError.message}. Retrying in ${delay}ms...`
+        )
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+  }
+
+  console.error(`[Template] ${operationName} failed after ${maxRetries} attempts`)
+  throw lastError
+}
+
 /**
  * Get required environment variable or throw
  */
@@ -96,9 +138,14 @@ class GoogleDriveTemplateService {
   /**
    * Fetch any template by name from TEMPLATES folder
    *
+   * Features:
+   * - In-memory cache with 1-hour TTL
+   * - Automatic retry with exponential backoff (3 attempts)
+   * - Clear error messages for troubleshooting
+   *
    * @param templateName - Name of template file (e.g., "FOSS.dwt")
    * @returns Template file buffer
-   * @throws Error if template not found
+   * @throws Error if template not found after all retries
    */
   async fetchTemplate(templateName: string): Promise<Buffer> {
     // Check cache first
@@ -108,28 +155,37 @@ class GoogleDriveTemplateService {
       return cached.buffer
     }
 
-    console.log(`[Template] Fetching ${templateName} from Google Drive...`)
+    console.log(`[Template] Fetching ${templateName} from Google Drive (HUB/RESOURCES/TEMPLATES/)...`)
 
-    // Find RESOURCES folder in HUB root
-    const resourcesFolder = await this.findFolder('RESOURCES', this.hubDriveId)
-    if (!resourcesFolder) {
-      throw new Error('RESOURCES folder not found in HUB Shared Drive')
-    }
+    // Wrap entire fetch operation with retry for network resilience
+    const buffer = await withRetry(
+      async () => {
+        // Find RESOURCES folder in HUB root
+        const resourcesFolder = await this.findFolder('RESOURCES', this.hubDriveId)
+        if (!resourcesFolder) {
+          throw new Error('RESOURCES folder not found in HUB Shared Drive. Check GOOGLE_DRIVE_HUB_ID env var.')
+        }
 
-    // Find TEMPLATES folder inside RESOURCES
-    const templatesFolder = await this.findFolder('TEMPLATES', resourcesFolder.id!)
-    if (!templatesFolder) {
-      throw new Error('TEMPLATES folder not found in HUB/RESOURCES/')
-    }
+        // Find TEMPLATES folder inside RESOURCES
+        const templatesFolder = await this.findFolder('TEMPLATES', resourcesFolder.id!)
+        if (!templatesFolder) {
+          throw new Error('TEMPLATES folder not found in HUB/RESOURCES/. Create this folder in Google Drive.')
+        }
 
-    // Find the template file
-    const templateFile = await this.findFile(templateName, templatesFolder.id!)
-    if (!templateFile) {
-      throw new Error(`Template ${templateName} not found in HUB/RESOURCES/TEMPLATES/`)
-    }
+        // Find the template file
+        const templateFile = await this.findFile(templateName, templatesFolder.id!)
+        if (!templateFile) {
+          throw new Error(
+            `Template "${templateName}" not found in HUB/RESOURCES/TEMPLATES/. ` +
+            `Upload the template file to Google Drive.`
+          )
+        }
 
-    // Download template
-    const buffer = await this.downloadFile(templateFile.id!)
+        // Download template
+        return await this.downloadFile(templateFile.id!)
+      },
+      `Fetch ${templateName}`
+    )
 
     // Cache the template
     this.templateCache.set(templateName, {
