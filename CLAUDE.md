@@ -102,6 +102,7 @@ Claude Code has access to specialized skills that provide domain knowledge autom
 
 | Skill | Auto-Activates When | Manual Invoke |
 |-------|---------------------|---------------|
+| **dev-server** | - | `/dev [stop\|start\|restart\|clean\|nuke]` |
 | **viewer-api** | Case Study viewer, Edit2D, APS Viewer | N/A (automatic) |
 | **coding-patterns** | Writing/modifying code | N/A (automatic) |
 | **supabase-patterns** | Database queries | N/A (automatic) |
