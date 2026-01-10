@@ -2,7 +2,7 @@
 
 **Status**: Active Development (Phase 4B complete, Phase 5 planned)
 **Route**: `/case-study`
-**Last Updated**: 2026-01-07 (Phase 4B complete: Edit2D migration, move mode, modular architecture)
+**Last Updated**: 2026-01-10 (Added origin indicator at DWG 0,0)
 
 ---
 
@@ -127,6 +127,7 @@ DWG canvas with pick-and-place functionality.
 - Click product → click on floor plan to place
 - Markers show symbol (A1, B1) with scaled rendering
 - Pan/zoom with mouse (AutoCAD-style navigation)
+- Origin indicator at DWG (0,0) - classic CAD crosshair with quartered circle
 
 ---
 
@@ -191,6 +192,7 @@ src/components/case-study-viewer/
 ├── viewer-toolbar.tsx                # Bottom toolbar controls
 ├── viewer-overlays.tsx               # Loading/error overlays (~550 lines)
 ├── placement-tool.ts                 # Click-to-place coordinate logic
+├── origin-indicator.ts               # DWG origin (0,0) visual indicator
 ├── products-panel.tsx                # Product selection panel
 ├── types.ts                          # Viewer-specific types
 ├── edit2d-markers/                   # Edit2D marker system

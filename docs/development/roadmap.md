@@ -2,7 +2,7 @@
 
 Internal tracking for planned improvements, tech debt, and future features.
 
-**Last Updated**: 2026-01-04
+**Last Updated**: 2026-01-10
 
 ---
 
@@ -32,6 +32,17 @@ _No tech debt items currently planned._
 ## Future Enhancements
 
 _Items here are ideas, not yet approved for implementation._
+
+### Case Study: Origin Indicator Settings
+- **Description**: Allow users to customize the origin indicator (0,0 crosshair) in Case Study viewer
+- **Location**: `/settings/view` page
+- **Settings**:
+  - Color picker (default: green-500 `#22c55e`)
+  - Size in mm (default: 125mm)
+  - Toggle visibility on/off
+- **Current implementation**: `src/components/case-study-viewer/origin-indicator.ts`
+- **Design**: Classic CAD origin symbol - crosshair with quartered circle, opposite quadrants filled
+- **Effort**: Low
 
 ### Case Study: Marker Mirroring (X/Y Keys)
 - **Description**: Allow mirroring markers horizontally (X key) and vertically (Y key) in Case Study viewer

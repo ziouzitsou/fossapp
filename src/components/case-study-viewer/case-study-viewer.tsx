@@ -28,6 +28,7 @@ import type { Viewer3DInstance, Edit2DContext } from '@/types/autodesk-viewer'
 import type { PlacementModeProduct, Placement, DwgUnitInfo, WorldCoordinates, ViewerMode } from './types'
 import { PlacementTool } from './placement-tool'
 import { Edit2DMarkers } from './edit2d-markers'
+import { OriginIndicator } from './origin-indicator'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
 import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, LayerPanel, MeasurePanel, type LoadingStage, type TranslationWarning, type LayerInfo } from './viewer-overlays'
 import { hexToRgb } from './case-study-viewer-utils'
@@ -148,6 +149,8 @@ export function CaseStudyViewer({
   const edit2dContextRef = useRef<Edit2DContext | null>(null)
   // Edit2D markers manager
   const edit2dMarkersRef = useRef<Edit2DMarkers | null>(null)
+  // Origin indicator (0,0 coordinate axes)
+  const originIndicatorRef = useRef<OriginIndicator | null>(null)
 
   // Ref for placementMode so hooks can access latest value without re-registering
   const placementModeRef = useRef(placementMode)
@@ -470,6 +473,39 @@ export function CaseStudyViewer({
 
     return () => clearTimeout(timeoutId)
   }, [isLoading, calibrationChecked, detectCalibration, setTransform])
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ORIGIN INDICATOR
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Initialize and show origin indicator after viewer loads
+  useEffect(() => {
+    if (isLoading || !edit2dContextRef.current || !dwgUnitInfo) return
+
+    // Create origin indicator if not already created
+    if (!originIndicatorRef.current) {
+      originIndicatorRef.current = new OriginIndicator()
+    }
+
+    // Get model unit scale (e.g., 0.001 for mm, 1 for meters)
+    const modelUnitScale = dwgUnitInfo.unitScale ?? 1
+
+    // Initialize with Edit2D context and coordinate conversion
+    originIndicatorRef.current.initialize(
+      edit2dContextRef.current,
+      dwgToPageCoords,
+      modelUnitScale
+    )
+
+    // Show the origin indicator (125mm axes)
+    originIndicatorRef.current.show({ sizeMm: 125 })
+
+    // Cleanup on unmount
+    return () => {
+      originIndicatorRef.current?.dispose()
+      originIndicatorRef.current = null
+    }
+  }, [isLoading, dwgToPageCoords, dwgUnitInfo])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LAYER EXTRACTION & HANDLERS
