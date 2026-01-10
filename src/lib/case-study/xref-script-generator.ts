@@ -109,15 +109,11 @@ export class XrefScriptGenerator {
     this.setAutomationVariables()
     this.addBlankLine()
 
-    // 2. Set units to millimeters
-    this.setMetricUnits()
-    this.addBlankLine()
-
-    // 3. Create dedicated layer for symbols
+    // 2. Create dedicated layer for symbols
     this.createXrefLayer()
     this.addBlankLine()
 
-    // 4. Attach each symbol as XREF
+    // 3. Attach each symbol as XREF
     if (placements.length > 0) {
       this.addComment('Attach XREFs')
       for (const placement of placements) {
@@ -126,19 +122,19 @@ export class XrefScriptGenerator {
       this.addBlankLine()
     }
 
-    // 5. Zoom to extents and regenerate
+    // 4. Zoom to extents and regenerate
     this.zoomExtents()
     this.addBlankLine()
 
-    // 6. Reset layer to 0
+    // 5. Reset layer to 0
     this.resetLayer()
     this.addBlankLine()
 
-    // 7. Save drawing
+    // 6. Save drawing
     this.saveDrawing(options.outputFilename, dwgVersion)
     this.addBlankLine()
 
-    // 8. Restore variables and quit
+    // 7. Restore variables and quit
     this.restoreAndQuit()
 
     return this.commands.join('\n')
@@ -173,23 +169,6 @@ export class XrefScriptGenerator {
     this.addComment('Set automation variables')
     this.commands.push('(setvar "cmdecho" 0)')
     this.commands.push('(setvar "filedia" 0)')
-  }
-
-  /**
-   * Set drawing units to millimeters using DWGUNITS command.
-   *
-   * @remarks
-   * DWGUNITS parameters:
-   * - 3 = Millimeters (linear units)
-   * - 2 = Decimal (format)
-   * - 2 = Precision (decimal places)
-   * - "Y" = Scale objects
-   * - "Y" = Match INSUNITS
-   * - "N" = Don't reset annotation scale
-   */
-  private setMetricUnits(): void {
-    this.addComment('Set units to millimeters')
-    this.commands.push('(command "-DWGUNITS" 3 2 2 "Y" "Y" "N")')
   }
 
   /**
