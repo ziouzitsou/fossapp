@@ -243,8 +243,8 @@ export function CaseStudyViewer({
     edit2dMarkersRef.current?.selectMarker(null)
   }, [])
 
-  // Event handling (coordinates from events)
-  const { dwgCoordinates, setDwgCoordinates } = useViewerEvents({
+  // Event handling (coordinates from events, selected entity for debugging)
+  const { dwgCoordinates, setDwgCoordinates, selectedEntityInfo } = useViewerEvents({
     containerRef,
     viewerRef,
     isLoading,
@@ -705,6 +705,19 @@ export function CaseStudyViewer({
             mode={viewerMode}
             placementProduct={placementMode}
           />
+        )}
+
+        {/* Selected entity badge - bottom center (for debugging) */}
+        {selectedEntityInfo && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+            <div className="bg-black/80 text-white text-xs px-3 py-1.5 rounded-full font-mono shadow-lg border border-white/20">
+              <span className="text-yellow-400">[{selectedEntityInfo.dbId}]</span>
+              {' '}{selectedEntityInfo.name}
+              {selectedEntityInfo.layer && (
+                <span className="text-blue-300 ml-2">@ {selectedEntityInfo.layer}</span>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Quick actions - top right corner */}

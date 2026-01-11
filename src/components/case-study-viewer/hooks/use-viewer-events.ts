@@ -9,8 +9,8 @@
  * - ESC key to exit placement mode
  */
 
-import { useEffect, useState, type RefObject } from 'react'
-import type { Viewer3DInstance } from '@/types/autodesk-viewer'
+import { useEffect, useState, useCallback, type RefObject } from 'react'
+import type { Viewer3DInstance, ViewerModel } from '@/types/autodesk-viewer'
 import type { WorldCoordinates, PlacementModeProduct } from '../types'
 import type { DwgCoordinates } from '../placement-tool'
 
@@ -36,11 +36,23 @@ interface UseViewerEventsOptions {
   onDeselectMarker?: () => void
 }
 
+/** Info about the clicked/selected entity (for debugging) */
+export interface SelectedEntityInfo {
+  dbId: number
+  name: string
+  type?: string
+  layer?: string
+}
+
 interface UseViewerEventsReturn {
   /** Current DWG coordinates under mouse cursor */
   dwgCoordinates: DwgCoordinates | null
   /** Set DWG coordinates (for PlacementTool to update) */
   setDwgCoordinates: (coords: DwgCoordinates | null) => void
+  /** Currently selected entity info (for debugging) */
+  selectedEntityInfo: SelectedEntityInfo | null
+  /** Clear the selected entity info */
+  clearSelectedEntity: () => void
 }
 
 export function useViewerEvents({
@@ -57,6 +69,11 @@ export function useViewerEvents({
   onDeselectMarker,
 }: UseViewerEventsOptions): UseViewerEventsReturn {
   const [dwgCoordinates, setDwgCoordinates] = useState<DwgCoordinates | null>(null)
+  const [selectedEntityInfo, setSelectedEntityInfo] = useState<SelectedEntityInfo | null>(null)
+
+  const clearSelectedEntity = useCallback(() => {
+    setSelectedEntityInfo(null)
+  }, [])
 
   /**
    * Handle click events for placing products
@@ -175,6 +192,56 @@ export function useViewerEvents({
   }, [containerRef, viewerRef, isLoading, placementMode, pageToDwgCoords])
 
   /**
+   * Track entity selection for debugging
+   * Shows entity info when user clicks on a DWG entity
+   */
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer || isLoading) return
+
+    const handleSelectionChanged = (event: unknown) => {
+      const selectionEvent = event as { dbIdArray?: number[] }
+      const dbIds = selectionEvent.dbIdArray || []
+
+      if (dbIds.length === 0) {
+        setSelectedEntityInfo(null)
+        return
+      }
+
+      // Get info for the first selected entity
+      const dbId = dbIds[0]
+
+      // Use global NOP_VIEWER which has proper property database access
+      const globalViewer = (window as unknown as { NOP_VIEWER?: { model?: ViewerModel } }).NOP_VIEWER
+      const model = globalViewer?.model
+
+      if (model?.getProperties) {
+        model.getProperties(dbId, (props) => {
+          if (props) {
+            const type = props.properties?.find(p => p.displayName === 'type')?.displayValue as string | undefined
+            const layer = props.properties?.find(p => p.displayName === 'Layer')?.displayValue as string | undefined
+            setSelectedEntityInfo({ dbId, name: props.name, type, layer })
+          } else {
+            setSelectedEntityInfo({ dbId, name: `Entity ${dbId}` })
+          }
+        }, () => {
+          // Error callback - just show dbId
+          setSelectedEntityInfo({ dbId, name: `Entity ${dbId}` })
+        })
+      } else {
+        // No property access - just show dbId
+        setSelectedEntityInfo({ dbId, name: `Entity ${dbId}` })
+      }
+    }
+
+    // Autodesk.Viewing.SELECTION_CHANGED_EVENT
+    viewer.addEventListener('selection', handleSelectionChanged)
+    return () => {
+      viewer.removeEventListener('selection', handleSelectionChanged)
+    }
+  }, [viewerRef, isLoading])
+
+  /**
    * ESC key to exit to IDLE mode
    * Always clears placement mode and selection
    */
@@ -200,5 +267,7 @@ export function useViewerEvents({
   return {
     dwgCoordinates,
     setDwgCoordinates,
+    selectedEntityInfo,
+    clearSelectedEntity,
   }
 }

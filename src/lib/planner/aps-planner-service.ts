@@ -176,6 +176,26 @@ export async function hasTemplateInBucket(bucketName: string): Promise<boolean> 
 }
 
 /**
+ * Delete template from a project bucket (for forcing refresh)
+ */
+export async function deleteTemplateFromBucket(bucketName: string): Promise<boolean> {
+  const accessToken = await getAccessToken()
+
+  try {
+    await ossClient.deleteObject(bucketName, TEMPLATE_OBJECT_KEY, { accessToken })
+    console.log(`[Planner] Template deleted from ${bucketName}`)
+    return true
+  } catch (err: unknown) {
+    const error = err as { axiosError?: { response?: { status?: number } } }
+    if (error.axiosError?.response?.status === 404) {
+      console.log(`[Planner] Template not found in ${bucketName} (already deleted)`)
+      return false
+    }
+    throw err
+  }
+}
+
+/**
  * Generate a signed URL for reading an object from OSS
  * Valid for 60 minutes
  *

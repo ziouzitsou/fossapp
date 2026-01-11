@@ -21,6 +21,7 @@ export {
   TEMP_PREFIX,
   uploadTemplateToProjectBucket,
   hasTemplateInBucket,
+  deleteTemplateFromBucket,
   generateSignedReadUrl,
   generateSignedWriteUrl,
   cleanupTempFiles,

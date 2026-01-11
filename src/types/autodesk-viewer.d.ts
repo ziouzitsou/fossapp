@@ -62,6 +62,23 @@ interface ClientToWorldResult {
   dbId?: number
 }
 
+/** Property data returned by getProperties */
+interface PropertyResult {
+  dbId: number
+  name: string
+  externalId?: string
+  properties?: Array<{
+    displayName: string
+    displayValue: string | number | boolean
+    displayCategory?: string
+    attributeName?: string
+    type?: number
+    units?: string | null
+    hidden?: boolean
+    precision?: number
+  }>
+}
+
 /**
  * Viewer Model - provides access to model metadata and units
  */
@@ -70,6 +87,12 @@ interface ViewerModel {
   getDisplayUnit?: () => string | null
   getUnitScale?: () => number | null
   getMetadata?: (itemName: string, subitemName?: string, defaultValue?: unknown) => unknown
+  /** Get properties for a specific dbId */
+  getProperties?: (
+    dbId: number,
+    onSuccess: (result: PropertyResult) => void,
+    onError?: () => void
+  ) => void
 }
 
 /**
@@ -131,6 +154,12 @@ interface Viewer3DInstance {
     intersectGround: (clientX: number, clientY: number) => WorldCoordinates | null
     getVisibleBounds?: () => { min: WorldCoordinates; max: WorldCoordinates } | null
     camera?: unknown
+    /** Hit test to find entity at screen coordinates */
+    hitTest?: (clientX: number, clientY: number, ignoreTransparent?: boolean) => {
+      dbId?: number
+      fragId?: number
+      point?: WorldCoordinates
+    } | null
   }
 }
 
