@@ -1,22 +1,29 @@
 /**
  * useCalibration Hook
  *
- * Detects calibration points in a DWG and calculates coordinate transformation.
+ * Detects calibration entities in a DWG and calculates coordinate transformation.
  *
  * ## How It Works
  *
- * 1. After GEOMETRY_LOADED, searches for points on layer "CALIBRATION"
- * 2. Expects two points: CAL-ORIGIN at (0,0) and CAL-UNIT at (1,1) in DWG units
- * 3. Extracts their display coordinates from the vertex buffer
+ * 1. After GEOMETRY_LOADED, searches for entities on layer "CALIBRATION"
+ * 2. Expects two entities: one at (0,0) and one at (1,1) in DWG units
+ * 3. Extracts their display coordinates (vertex buffer or camera targeting)
  * 4. Calculates affine transform: dwg = scale * display + offset
  *
  * ## DWG Preparation Required
  *
- * Add two POINT entities on layer "CALIBRATION":
- * - CAL-ORIGIN at coordinates (0, 0)
- * - CAL-UNIT at coordinates (1, 1)
+ * Add two CIRCLE or POINT entities on layer "CALIBRATION":
+ * - One at coordinates (0, 0) - the origin
+ * - One at coordinates (1, 1) - the unit reference
  *
- * Points MUST be diagonal (not on same axis) to determine both X and Y scales.
+ * Entities MUST be diagonal (not on same axis) to determine both X and Y scales.
+ *
+ * ## Coordinate Extraction Methods
+ *
+ * 1. **Vertex Buffer** (fast): Works for 3D meshes and Point entities
+ * 2. **Camera Targeting** (fallback): For 2D vector primitives like circles
+ *    - Uses fitToView() to center camera on entity
+ *    - Reads camera.target to get display coordinates
  */
 
 import { useState, useCallback, type RefObject } from 'react'
@@ -81,6 +88,9 @@ export function useCalibration({
 
   /**
    * Find all dbIds on the CALIBRATION layer
+   *
+   * Supports both AcDbPoint and AcDbCircle entity types.
+   * For 2D vector primitives (circles), uses camera targeting method.
    */
   const findCalibrationPoints = useCallback(async (): Promise<CalibrationPoint[]> => {
     const viewer = viewerRef.current
@@ -97,14 +107,17 @@ export function useCalibration({
       allDbIds.push(dbId)
     }, true)
 
-    // Find points on CALIBRATION layer
-    const calibrationPoints: CalibrationPoint[] = []
+    // Valid entity types for calibration
+    const validTypes = ['AcDbPoint', 'AcDbCircle']
+
+    // Find calibration entities on CALIBRATION layer
+    const calibrationEntities: Array<{ dbId: number; name: string; type: string }> = []
 
     for (const dbId of allDbIds) {
       const props = await getPropertiesAsync(model, dbId)
       if (!props) continue
 
-      // Check if this is a Point on the CALIBRATION layer
+      // Check if this is a valid entity on the CALIBRATION layer
       const layerProp = props.properties?.find(
         (p: { displayName: string }) => p.displayName === 'Layer'
       )
@@ -112,18 +125,39 @@ export function useCalibration({
         (p: { displayName: string }) => p.displayName === 'type'
       )
 
-      if (layerProp?.displayValue === CALIBRATION_LAYER && typeProp?.displayValue === 'AcDbPoint') {
-        // Get display coordinates from vertex buffer
-        const coords = getPointDisplayCoords(model, dbId)
-        if (coords) {
-          calibrationPoints.push({
-            dbId,
-            name: props.name || `Point_${dbId}`,
-            displayX: coords.x,
-            displayY: coords.y,
-          })
-        }
+      const entityType = typeProp?.displayValue
+      if (layerProp?.displayValue === CALIBRATION_LAYER && validTypes.includes(entityType)) {
+        calibrationEntities.push({
+          dbId,
+          name: props.name || `${entityType}_${dbId}`,
+          type: entityType,
+        })
       }
+    }
+
+    if (calibrationEntities.length === 0) {
+      return []
+    }
+
+    // Extract display coordinates for each entity
+    const calibrationPoints: CalibrationPoint[] = []
+
+    for (const entity of calibrationEntities) {
+      const coords = await getEntityDisplayCoords(viewer, model, entity.dbId)
+      if (coords) {
+        calibrationPoints.push({
+          dbId: entity.dbId,
+          name: entity.name,
+          displayX: coords.x,
+          displayY: coords.y,
+        })
+      }
+    }
+
+    // Restore original view after camera targeting operations
+    if (calibrationPoints.length > 0) {
+      viewer.fitToView()
+      await new Promise(resolve => setTimeout(resolve, 100))
     }
 
     return calibrationPoints
@@ -292,17 +326,50 @@ function getPropertiesAsync(
 }
 
 /**
- * Get display coordinates of an entity from the vertex buffer
+ * Get display coordinates of an entity using multiple methods
+ *
+ * Method 1 (fast): Search vertex buffer for entities with mesh geometry
+ * Method 2 (fallback): Use camera targeting for 2D vector primitives
+ *
+ * @remarks
+ * 2D circles in SVF2 are rendered as vector primitives without vertices.
+ * The camera targeting method uses fitToView() to center on the entity,
+ * then reads camera.target to get the center coordinates.
+ */
+async function getEntityDisplayCoords(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  viewer: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  model: any,
+  targetDbId: number
+): Promise<{ x: number; y: number } | null> {
+  // Method 1: Try vertex buffer search first (works for 3D meshes and Point entities)
+  const vertexCoords = getVertexBufferCoords(model, targetDbId)
+  if (vertexCoords) {
+    console.log(`[Calibration] Found dbId ${targetDbId} via vertex buffer:`, vertexCoords)
+    return vertexCoords
+  }
+
+  // Method 2: Camera targeting fallback for 2D vector primitives
+  console.log(`[Calibration] Using camera targeting for dbId ${targetDbId}`)
+  const cameraCoords = await getCameraTargetCoords(viewer, model, targetDbId)
+  if (cameraCoords) {
+    console.log(`[Calibration] Found dbId ${targetDbId} via camera targeting:`, cameraCoords)
+    return cameraCoords
+  }
+
+  console.warn(`[Calibration] Could not determine coordinates for dbId ${targetDbId}`)
+  return null
+}
+
+/**
+ * Get display coordinates from vertex buffer
  *
  * APS Viewer stores 2D geometry in a shared vertex buffer. Each vertex has
  * XY coordinates and a dbId. We find vertices belonging to our entity's dbId
  * and return the center of all matching vertices.
- *
- * @remarks
- * For Point entities, all vertices are at the same position.
- * For Circles, vertices form the circumference - we return the center.
  */
-function getPointDisplayCoords(
+function getVertexBufferCoords(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   model: any,
   targetDbId: number
@@ -310,14 +377,12 @@ function getPointDisplayCoords(
   try {
     const fragList = model.getFragmentList?.()
     if (!fragList) {
-      console.warn('[Calibration] No fragment list')
       return null
     }
 
     // 2D DWGs typically have geometry in fragment 0
     const geom = fragList.getGeometry?.(0)
     if (!geom?.vb) {
-      console.warn('[Calibration] No vertex buffer in fragment 0')
       return null
     }
 
@@ -359,10 +424,48 @@ function getPointDisplayCoords(
       return { x: sumX / matchCount, y: sumY / matchCount }
     }
 
-    console.warn(`[Calibration] No vertices found for dbId ${targetDbId}`)
     return null
   } catch (err) {
-    console.error('[Calibration] Error in getPointDisplayCoords:', err)
+    console.error('[Calibration] Error in getVertexBufferCoords:', err)
+    return null
+  }
+}
+
+/**
+ * Get display coordinates using camera targeting
+ *
+ * For 2D vector primitives (circles, arcs) that don't have vertices in the
+ * buffer, we use fitToView() to center the camera on the entity and read
+ * the camera target position.
+ *
+ * @remarks
+ * fitToView() internally calculates the entity's bounding box. The camera
+ * target is set to the center of that bounding box, which for circles
+ * gives us the center point.
+ */
+async function getCameraTargetCoords(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  viewer: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  model: any,
+  targetDbId: number
+): Promise<{ x: number; y: number } | null> {
+  try {
+    // Center camera on the target entity (immediate: true for no animation)
+    viewer.fitToView([targetDbId], model, true)
+
+    // Wait for camera to settle
+    await new Promise(resolve => setTimeout(resolve, 150))
+
+    // Read camera target position
+    const target = viewer.impl?.camera?.target
+    if (target && typeof target.x === 'number' && typeof target.y === 'number') {
+      return { x: target.x, y: target.y }
+    }
+
+    return null
+  } catch (err) {
+    console.error('[Calibration] Error in getCameraTargetCoords:', err)
     return null
   }
 }
