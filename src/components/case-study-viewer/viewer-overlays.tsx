@@ -355,19 +355,18 @@ export function CoordinateOverlay({
     )
   }
 
-  // Format coordinates with 2 decimal places
-  const xDisplay = coordinates.x.toFixed(2)
-  const yDisplay = coordinates.y.toFixed(2)
+  // Format coordinates with 3 decimal places for better precision
+  const xDisplay = coordinates.x.toFixed(3)
+  const yDisplay = coordinates.y.toFixed(3)
 
   return (
     <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
       <div
         className={cn(
-          'px-2.5 py-1.5 rounded border shadow-sm transition-colors',
-          'bg-background/85 backdrop-blur-sm',
+          'px-2.5 py-1.5 rounded border shadow-sm transition-colors backdrop-blur-sm',
           coordinates.isSnapped
-            ? 'border-primary/50 bg-primary/10'
-            : 'border-border/50'
+            ? 'border-primary/30 bg-primary/10'
+            : 'border-border/30 bg-muted/40'
         )}
       >
         <div className="flex items-center gap-2 text-xs font-mono">
