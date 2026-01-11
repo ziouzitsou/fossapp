@@ -370,8 +370,10 @@ export function CaseStudyViewer({
 
   // Effect to sync placements with Edit2D markers
   // Handles both adding new placements and removing deleted ones
+  // IMPORTANT: Must wait for calibrationTransformApplied before rendering markers
+  // Otherwise dwgToPageCoords returns incorrect coordinates for complex drawings
   useEffect(() => {
-    if (!edit2dMarkersRef.current || isLoading) {
+    if (!edit2dMarkersRef.current || isLoading || !calibrationTransformApplied) {
       return
     }
 
@@ -409,7 +411,7 @@ export function CaseStudyViewer({
       )
       renderedPlacementIdsRef.current.add(placement.id)
     }
-  }, [initialPlacements, isLoading, dwgToPageCoords])
+  }, [initialPlacements, isLoading, dwgToPageCoords, calibrationTransformApplied])
 
   // Effect to apply symbol group visibility
   // When hiddenSymbolGroups changes, show/hide markers accordingly

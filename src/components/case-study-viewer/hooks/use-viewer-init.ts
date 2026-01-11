@@ -492,33 +492,9 @@ export function useViewerInit({
               viewer.toolController.registerTool(tool)
               placementToolRef.current = tool
 
-              // Render initial placements (loaded from database)
-              // Placements store DWG coords, convert to page coords for marker positioning
-              if (initialPlacementsRef.current?.length && edit2dMarkersRef.current) {
-                for (const placement of initialPlacementsRef.current) {
-                  if (renderedPlacementIdsRef.current.has(placement.id)) continue
-
-                  // Convert DWG coords (from database) to page coords for marker positioning
-                  const pageCoords = dwgToPageCoords(placement.worldX, placement.worldY)
-
-                  // Create Edit2D marker
-                  edit2dMarkersRef.current.addMarker(
-                    pageCoords.x,
-                    pageCoords.y,
-                    {
-                      productId: placement.productId,
-                      projectProductId: placement.projectProductId,
-                      productName: placement.productName,
-                      fossPid: placement.fossPid,
-                      symbol: placement.symbol,
-                    },
-                    placement.id,
-                    placement.rotation
-                  )
-
-                  renderedPlacementIdsRef.current.add(placement.id)
-                }
-              }
+              // NOTE: Initial placements are NOT rendered here
+              // They are rendered by the sync effect in case-study-viewer.tsx
+              // AFTER calibrationTransformApplied is true, ensuring correct coordinates
 
               // Note: polygonEditTool is already activated for Edit2D marker selection
               // Pan/zoom still works via mouse wheel and right-click drag
