@@ -18,7 +18,7 @@
 import { useEffect, useRef, useCallback, useLayoutEffect, type RefObject, type MutableRefObject } from 'react'
 import type { Viewer3DInstance, ViewerInitOptions, Edit2DExtension, Edit2DContext } from '@/types/autodesk-viewer'
 import type { Placement, PlacementModeProduct, DwgUnitInfo } from '../types'
-import type { LoadingStage } from '../viewer-overlays'
+import type { LoadingStage } from '../overlays'
 import { PlacementTool, type DwgCoordinates } from '../placement-tool'
 import { Edit2DMarkers } from '../edit2d-markers'
 import { hexToRgb, loadAutodeskScripts } from '../case-study-viewer-utils'

@@ -9,7 +9,7 @@
  */
 
 import { supabaseServer } from '@fossapp/core/db/server'
-import { deleteFloorPlanObject, deleteDerivatives, parseUrnToObjectKey } from '../../planner/aps-planner-service'
+import { deleteFloorPlanObject, deleteDerivatives, parseUrnToObjectKey } from '../../planner'
 
 import type { ActionResult } from '@fossapp/projects'
 

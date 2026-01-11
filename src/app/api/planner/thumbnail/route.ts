@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getAccessToken } from '@/lib/planner/aps-planner-service'
+import { getAccessToken } from '@/lib/planner'
 import { supabaseServer } from '@fossapp/core/db/server'
 
 /**

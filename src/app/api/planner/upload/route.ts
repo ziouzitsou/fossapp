@@ -6,7 +6,7 @@ import {
   generateBucketName,
   translateToSVF2,
   calculateFileHash
-} from '@/lib/planner/aps-planner-service'
+} from '@/lib/planner'
 import { supabaseServer } from '@fossapp/core/db/server'
 import { checkRateLimit, rateLimitHeaders } from '@fossapp/core/ratelimit'
 import { PlannerDesignAutomationService } from '@/lib/planner/design-automation-service'

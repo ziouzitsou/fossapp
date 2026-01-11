@@ -30,7 +30,7 @@ import { PlacementTool } from './placement-tool'
 import { Edit2DMarkers } from './edit2d-markers'
 import { OriginIndicator } from './origin-indicator'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
-import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, LayerPanel, MeasurePanel, type LoadingStage, type TranslationWarning, type LayerInfo } from './viewer-overlays'
+import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, LayerPanel, MeasurePanel, type LoadingStage, type TranslationWarning, type LayerInfo } from './overlays'
 import { hexToRgb } from './case-study-viewer-utils'
 import {
   useCoordinateTransform,
@@ -202,7 +202,6 @@ export function CaseStudyViewer({
   const {
     calibrationChecked,
     isCalibrated,
-    calibrationError,
     detectCalibration,
   } = useCalibration({ viewerRef })
 
@@ -253,8 +252,6 @@ export function CaseStudyViewer({
     viewerRef,
     isLoading,
     placementMode,
-    isMeasuring: measureMode !== 'none',
-    hasSelectedMarker,
     pageToDwgCoords,
     onViewerClick,
     onExitPlacementMode,
@@ -643,10 +640,6 @@ export function CaseStudyViewer({
   // ═══════════════════════════════════════════════════════════════════════════
   // TOOLBAR HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
-
-  const handleDeleteSelectedMarker = useCallback(() => {
-    edit2dMarkersRef.current?.deleteSelected()
-  }, [])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DERIVED STATE

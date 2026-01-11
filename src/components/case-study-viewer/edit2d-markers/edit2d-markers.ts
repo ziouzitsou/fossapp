@@ -14,8 +14,10 @@
  * - Conversion to/from DWG model coords uses getPageToModelTransform()
  *
  * Architecture:
+ * - Selection logic delegated to MarkerSelectionController
  * - Move mode logic delegated to MarkerMoveController
  * - Visibility logic delegated to MarkerVisibilityController
+ * - Keyboard handling delegated to MarkerKeyboardHandler
  */
 
 import type {
@@ -31,7 +33,6 @@ import {
   type UnitScales,
 } from './types'
 import { injectHoverStyles } from './css-styles'
-import { STYLE_CONSTANTS } from './style-manager'
 import { SvgFetcher } from './svg-fetcher'
 import { createShapesFromSvg, createFallbackCircleShape } from './shape-factory'
 import {
@@ -42,6 +43,8 @@ import {
 } from './label-utils'
 import { MarkerMoveController, type MarkerMoveParent } from './marker-move-controller'
 import { MarkerVisibilityController, type MarkerVisibilityParent } from './marker-visibility-controller'
+import { MarkerSelectionController, type MarkerSelectionParent } from './marker-selection-controller'
+import { MarkerKeyboardHandler, type MarkerKeyboardParent } from './marker-keyboard-handler'
 
 /**
  * Edit2DMarkers - Manages luminaire markers using Edit2D extension
@@ -51,7 +54,7 @@ import { MarkerVisibilityController, type MarkerVisibilityParent } from './marke
  * Edit2D's managed shape system for proper selection, visibility, and
  * manipulation support.
  */
-export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
+export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent, MarkerSelectionParent, MarkerKeyboardParent {
   private viewer: Viewer3DInstance
   private edit2d: Edit2DExtension | null = null
   private ctx: Edit2DContext | null = null
@@ -85,23 +88,20 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
 
   // Event listener refs (for cleanup)
   private boundCameraListener: (() => void) | null = null
-  private boundKeyHandler: ((e: KeyboardEvent) => void) | null = null
   private boundMouseMoveHandler: ((e: MouseEvent) => void) | null = null
-
-  // Flag to prevent recursive selection changes
-  private isSelectingSiblings = false
-
-  // Track currently hovered marker ID for label styling
-  private hoveredMarkerId: string | null = null
 
   // Delegated controllers
   private moveController: MarkerMoveController
   private visibilityController: MarkerVisibilityController
+  private selectionController: MarkerSelectionController
+  private keyboardHandler: MarkerKeyboardHandler
 
   constructor(viewer: Viewer3DInstance) {
     this.viewer = viewer
     this.moveController = new MarkerMoveController(this)
     this.visibilityController = new MarkerVisibilityController(this)
+    this.selectionController = new MarkerSelectionController(this)
+    this.keyboardHandler = new MarkerKeyboardHandler(this)
   }
 
   // ============================================================================
@@ -129,6 +129,11 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
   }
 
   /** @internal Used by controllers */
+  getAllLabels(): Map<string, ShapeLabel> {
+    return this.labels
+  }
+
+  /** @internal Used by controllers */
   getAllMarkerData(): Map<string, Edit2DMarkerData> {
     return this.markerData
   }
@@ -146,6 +151,42 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
   /** @internal Used by controllers */
   getSvgFetcher(): SvgFetcher {
     return this.svgFetcher
+  }
+
+  /** @internal Used by controllers */
+  getShapeToMarkerMap(): Map<number, string> {
+    return this.shapeToMarker
+  }
+
+  /** @internal Used by controllers */
+  getSelectedId(): string | null {
+    return this.selectedId
+  }
+
+  /** @internal Used by controllers */
+  setSelectedId(id: string | null): void {
+    this.selectedId = id
+  }
+
+  /** @internal Used by controllers */
+  getMoveController(): MarkerMoveController {
+    return this.moveController
+  }
+
+  /** @internal Used by controllers */
+  getMarkerPagePosition(id: string): { pageX: number; pageY: number } | null {
+    const data = this.markerData.get(id)
+    return data ? { pageX: data.pageX, pageY: data.pageY } : null
+  }
+
+  /** @internal Used by controllers */
+  updateMarkerPagePosition(id: string, pageX: number, pageY: number): void {
+    const data = this.markerData.get(id)
+    if (data) {
+      data.pageX = pageX
+      data.pageY = pageY
+      this.markerData.set(id, data)
+    }
   }
 
   /** @internal Used by controllers */
@@ -167,12 +208,7 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
 
   /** @internal Used by controllers */
   updateMarkerPosition(id: string, pageX: number, pageY: number): void {
-    const data = this.markerData.get(id)
-    if (data) {
-      data.pageX = pageX
-      data.pageY = pageY
-      this.markerData.set(id, data)
-    }
+    this.updateMarkerPagePosition(id, pageX, pageY)
   }
 
   /** @internal Used by controllers */
@@ -198,10 +234,7 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
 
   /** @internal Used by controllers */
   clearSelection(): void {
-    if (this.ctx?.selection) {
-      this.ctx.selection.clear()
-    }
-    this.selectedId = null
+    this.selectionController.clearSelection()
   }
 
   // ============================================================================
@@ -225,10 +258,10 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
         return false
       }
 
-      // Set up event listeners
-      this.setupSelectionListeners()
-      this.setupHoverStyleModifier()
-      this.setupKeyboardListeners()
+      // Set up event listeners via controllers
+      this.selectionController.setupSelectionListeners()
+      this.selectionController.setupHoverStyleModifier()
+      this.keyboardHandler.setup()
       this.setupCameraListener()
       this.setupMouseMoveListener()
 
@@ -251,7 +284,6 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
 
   /**
    * Set minimum screen size for markers (from user preferences)
-   * This affects the minimum font size of labels when zoomed out.
    */
   setMinScreenPx(value: number): void {
     this.minScreenPx = value
@@ -344,235 +376,8 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
     const hitResult = layer.hitTest(layerCoords.x, layerCoords.y)
     const hitShapeId = hitResult?.id ?? null
 
-    // Find marker ID from hit shape
-    const newHoveredMarkerId = hitShapeId !== null ? this.shapeToMarker.get(hitShapeId) ?? null : null
-
-    // Update label scaling if hover changed
-    if (newHoveredMarkerId !== this.hoveredMarkerId) {
-      this.updateLabelHoverState(this.hoveredMarkerId, newHoveredMarkerId)
-      this.hoveredMarkerId = newHoveredMarkerId
-    }
-  }
-
-  // ============================================================================
-  // SELECTION HANDLING
-  // ============================================================================
-
-  /**
-   * Set up Edit2D selection event listeners
-   */
-  private setupSelectionListeners(): void {
-    if (!this.ctx?.selection) return
-
-    const selectionEvents = window.Autodesk?.Edit2D?.Selection?.Events
-    if (selectionEvents) {
-      this.ctx.selection.addEventListener(
-        selectionEvents.SELECTION_CHANGED,
-        this.handleSelectionChanged.bind(this)
-      )
-
-      this.ctx.selection.addEventListener(
-        selectionEvents.SELECTION_HOVER_CHANGED,
-        this.handleHoverChanged.bind(this)
-      )
-    }
-  }
-
-  /**
-   * Set up style modifier for hover and selection visual feedback
-   */
-  private setupHoverStyleModifier(): void {
-    if (!this.ctx?.layer) return
-
-    this.ctx.layer.addStyleModifier((shape, style) => {
-      // Only apply to our marker shapes
-      if (!this.shapeToMarker.has(shape.id)) {
-        return undefined
-      }
-
-      const markerId = this.shapeToMarker.get(shape.id)
-      const markerShapes = markerId ? this.shapes.get(markerId) : null
-
-      // Check if this marker is selected
-      const isSelected = markerId === this.selectedId
-
-      // Read hovered ID directly from selection
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const currentHoveredId = (this.ctx?.selection as any)?.hoveredId ?? null
-      const isHovered = markerShapes?.some(s => s.id === currentHoveredId) ?? false
-
-      // Selection takes precedence over hover
-      if (isSelected) {
-        const modified = style.clone()
-        modified.lineColor = STYLE_CONSTANTS.SELECTED.lineColor
-        modified.lineWidth = STYLE_CONSTANTS.SELECTED.lineWidth
-        return modified
-      }
-
-      if (isHovered) {
-        const modified = style.clone()
-        modified.lineColor = STYLE_CONSTANTS.HOVER.lineColor
-        modified.lineWidth = STYLE_CONSTANTS.HOVER.lineWidth
-        return modified
-      }
-
-      return undefined
-    })
-  }
-
-  /**
-   * Update label hover state - scale up/down label text elements
-   */
-  private updateLabelHoverState(prevMarkerId: string | null, newMarkerId: string | null): void {
-    // Remove scale from previous label
-    if (prevMarkerId) {
-      const prevLabel = this.labels.get(prevMarkerId)
-      if (prevLabel?.textDiv) {
-        prevLabel.textDiv.style.transition = 'transform 0.2s ease-out'
-        prevLabel.textDiv.style.transform = 'scale(1)'
-        prevLabel.textDiv.style.zIndex = ''
-      }
-    }
-
-    // Apply scale to new label
-    if (newMarkerId) {
-      const newLabel = this.labels.get(newMarkerId)
-      if (newLabel?.textDiv) {
-        newLabel.textDiv.style.transition = 'transform 0.2s ease-out'
-        newLabel.textDiv.style.transformOrigin = 'center center'
-        newLabel.textDiv.style.transform = 'scale(1.5)'
-        newLabel.textDiv.style.zIndex = '1000'
-      }
-    }
-  }
-
-  /**
-   * Handle hover change events from Edit2D selection
-   */
-  private handleHoverChanged(): void {
-    this.ctx?.layer?.update?.()
-  }
-
-  /**
-   * Handle Edit2D selection change events
-   */
-  private handleSelectionChanged(): void {
-    if (!this.ctx?.selection) return
-
-    // Prevent recursion when we programmatically clear selection
-    if (this.isSelectingSiblings) return
-
-    // Before updating selection, check if the previously selected marker moved
-    if (this.selectedId) {
-      this.checkForMoveAndUpdate(this.selectedId)
-    }
-
-    const selectedShapes = this.ctx.selection.getSelectedShapes()
-
-    if (selectedShapes.length === 0) {
-      if (this.selectedId) {
-        this.selectedId = null
-        this.callbacks.onSelect?.(null)
-        this.ctx.layer.update()
-      }
-      return
-    }
-
-    // Find the marker ID using the reverse lookup
-    const selectedShape = selectedShapes[0]
-    const markerId = this.shapeToMarker.get(selectedShape.id)
-
-    if (!markerId) {
-      this.isSelectingSiblings = true
-      this.ctx.selection.clear()
-      this.isSelectingSiblings = false
-      return
-    }
-
-    // Update our internal selection state
-    if (this.selectedId !== markerId) {
-      this.selectedId = markerId
-      this.callbacks.onSelect?.(markerId)
-    }
-
-    // Clear Edit2D selection to hide the gizmo
-    this.isSelectingSiblings = true
-    this.ctx.selection.clear()
-    this.isSelectingSiblings = false
-
-    this.ctx.layer.update()
-  }
-
-  /**
-   * Check if a marker's shapes have moved and update stored coordinates
-   */
-  private checkForMoveAndUpdate(markerId: string): void {
-    const data = this.markerData.get(markerId)
-    const shapes = this.shapes.get(markerId)
-
-    if (!data || !shapes || shapes.length === 0) return
-
-    const firstShape = shapes[0]
-    const bbox = firstShape.getBBox?.()
-    if (!bbox) return
-
-    const newX = (bbox.min.x + bbox.max.x) / 2
-    const newY = (bbox.min.y + bbox.max.y) / 2
-
-    const dx = Math.abs(newX - data.pageX)
-    const dy = Math.abs(newY - data.pageY)
-    const moveThreshold = 0.1
-
-    if (dx > moveThreshold || dy > moveThreshold) {
-      data.pageX = newX
-      data.pageY = newY
-      this.markerData.set(markerId, data)
-      this.callbacks.onMove?.(markerId, newX, newY)
-    }
-  }
-
-  // ============================================================================
-  // KEYBOARD HANDLING
-  // ============================================================================
-
-  private setupKeyboardListeners(): void {
-    this.boundKeyHandler = this.handleKeyDown.bind(this)
-    window.addEventListener('keydown', this.boundKeyHandler, true)
-  }
-
-  private handleKeyDown(e: KeyboardEvent): void {
-    const target = e.target as HTMLElement
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-
-    // ESC: Cancel move mode
-    if (e.key === 'Escape' && this.moveController.isMoving()) {
-      e.preventDefault()
-      e.stopPropagation()
-      this.moveController.cancelMove()
-      return
-    }
-
-    // Delete selected marker
-    if (this.selectedId && (e.key === 'Delete' || e.key === 'Backspace')) {
-      e.preventDefault()
-      e.stopPropagation()
-      this.deleteMarker(this.selectedId)
-    }
-
-    // Rotate selected marker by 15 degrees
-    if (this.selectedId && (e.key === 'r' || e.key === 'R')) {
-      e.preventDefault()
-      e.stopPropagation()
-      const delta = e.shiftKey ? 15 : -15
-      this.rotateMarker(this.selectedId, delta)
-    }
-
-    // M key: Start move mode for selected marker
-    if (this.selectedId && !this.moveController.isMoving() && (e.key === 'm' || e.key === 'M')) {
-      e.preventDefault()
-      e.stopPropagation()
-      this.moveController.startMove(this.selectedId)
-    }
+    // Delegate hover handling to selection controller
+    this.selectionController.handleMouseHover(hitShapeId)
   }
 
   // ============================================================================
@@ -660,23 +465,7 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
    * Select a marker by ID
    */
   selectMarker(id: string | null): void {
-    if (!this.ctx?.selection) return
-
-    if (id === null) {
-      this.ctx.selection.clear()
-      this.selectedId = null
-      this.callbacks.onSelect?.(null)
-      this.ctx.layer.update()
-      return
-    }
-
-    const shapes = this.shapes.get(id)
-    if (shapes && shapes.length > 0) {
-      this.ctx.selection.selectOnly(shapes[0])
-      this.selectedId = id
-      this.callbacks.onSelect?.(id)
-      this.ctx.layer.update()
-    }
+    this.selectionController.selectMarker(id)
   }
 
   /**
@@ -893,16 +682,14 @@ export class Edit2DMarkers implements MarkerMoveParent, MarkerVisibilityParent {
 
     this.visibilityController.dispose()
     this.moveController.dispose()
+    this.selectionController.dispose()
   }
 
   /**
    * Dispose and cleanup
    */
   dispose(): void {
-    if (this.boundKeyHandler) {
-      window.removeEventListener('keydown', this.boundKeyHandler, true)
-      this.boundKeyHandler = null
-    }
+    this.keyboardHandler.dispose()
 
     if (this.boundCameraListener && window.Autodesk?.Viewing?.CAMERA_TRANSITION_COMPLETED) {
       this.viewer.removeEventListener(

@@ -20,10 +20,6 @@ interface UseViewerEventsOptions {
   isLoading: boolean
   /** Current placement mode (affects coordinate tracking) */
   placementMode?: PlacementModeProduct | null
-  /** Whether measure mode is active */
-  isMeasuring?: boolean
-  /** Whether a marker is selected */
-  hasSelectedMarker?: boolean
   /** Coordinate conversion function (page to DWG) */
   pageToDwgCoords: (pageX: number, pageY: number) => { x: number; y: number }
   /** Callback when viewer is clicked (for external placement handling) */
@@ -60,8 +56,6 @@ export function useViewerEvents({
   viewerRef,
   isLoading,
   placementMode,
-  isMeasuring,
-  hasSelectedMarker,
   pageToDwgCoords,
   onViewerClick,
   onExitPlacementMode,

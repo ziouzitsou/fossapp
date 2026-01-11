@@ -505,7 +505,7 @@ export async function createProjectAction(
     // ROBUSTNESS: Even if this fails, floor plan upload will check for
     // the template and upload it on-demand (see design-automation-service.ts)
     try {
-      const { ensureProjectBucketExists, uploadTemplateToProjectBucket } = await import('../../planner/aps-planner-service')
+      const { ensureProjectBucketExists, uploadTemplateToProjectBucket } = await import('../../planner')
       const { getGoogleDriveTemplateService } = await import('../../planner/google-drive-template-service')
 
       console.log(`[Project] Creating OSS bucket for project ${data.id}...`)
@@ -679,7 +679,7 @@ export async function deleteProjectAction(
     // 3. Delete APS OSS bucket if it exists (for planner floor plans)
     if (project?.oss_bucket) {
       try {
-        const { deleteProjectBucket } = await import('../../planner/aps-planner-service')
+        const { deleteProjectBucket } = await import('../../planner')
         await deleteProjectBucket(sanitizedProjectId)
       } catch (ossError) {
         console.error('Delete OSS bucket error:', ossError)

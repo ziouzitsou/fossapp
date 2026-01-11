@@ -7,13 +7,10 @@
  */
 
 import { supabaseServer } from '@fossapp/core/db/server'
-import {
-  prepareFloorPlan,
-  getTranslationStatus,
-  getViewerToken,
-  generateBucketName,
-  deleteProjectBucket
-} from './aps-planner-service'
+import { prepareFloorPlan } from './workflow'
+import { getTranslationStatus } from './translation-service'
+import { getViewerToken } from './auth'
+import { generateBucketName, deleteProjectBucket } from './oss-service'
 
 // ============================================================================
 // INTERFACES

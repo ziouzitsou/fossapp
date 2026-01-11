@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getTranslationStatus } from '@/lib/planner/aps-planner-service'
+import { getTranslationStatus } from '@/lib/planner'
 
 /**
  * GET /api/planner/status/[urn]

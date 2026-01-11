@@ -9,7 +9,7 @@
 
 import { useCallback, useRef, useLayoutEffect } from 'react'
 import type { TranslationStatus } from '../types'
-import type { LoadingStage } from '../viewer-overlays'
+import type { LoadingStage } from '../overlays'
 
 interface UploadResult {
   urn: string
