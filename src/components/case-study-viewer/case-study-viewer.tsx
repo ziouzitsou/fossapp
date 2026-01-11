@@ -30,7 +30,7 @@ import { PlacementTool } from './placement-tool'
 import { Edit2DMarkers } from './edit2d-markers'
 import { OriginIndicator } from './origin-indicator'
 import { CaseStudyViewerToolbar } from './viewer-toolbar'
-import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, LayerPanel, MeasurePanel, type LoadingStage, type TranslationWarning, type LayerInfo } from './viewer-overlays'
+import { ViewerLoadingOverlay, ViewerErrorOverlay, WebGLErrorOverlay, CoordinateOverlay, ViewerQuickActions, ModeIndicator, LayerPanel, MeasurePanel, type LoadingStage, type TranslationWarning, type LayerInfo } from './overlays'
 import { hexToRgb } from './case-study-viewer-utils'
 import {
   useCoordinateTransform,

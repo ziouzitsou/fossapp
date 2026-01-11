@@ -39,8 +39,8 @@ export type {
 } from './types'
 
 // Viewer overlays
-export { ModeIndicator } from './viewer-overlays'
-export type { ModeIndicatorProps } from './viewer-overlays'
+export { ModeIndicator } from './overlays'
+export type { ModeIndicatorProps } from './overlays'
 
 // Export hooks for potential reuse or testing
 export {
