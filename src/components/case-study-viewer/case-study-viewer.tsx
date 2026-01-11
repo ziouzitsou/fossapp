@@ -175,7 +175,6 @@ export function CaseStudyViewer({
   const [urn, setUrn] = useState<string | undefined>(initialUrn)
   const [isCacheHit, setIsCacheHit] = useState(false)
   const [hasSelectedMarker, setHasSelectedMarker] = useState(false)
-  const [selectedMarkerFossPid, setSelectedMarkerFossPid] = useState<string | null>(null)
   const [dwgUnitString, setDwgUnitString] = useState<string | null>(null)
   const [isMoving, setIsMoving] = useState(false)
   const [dwgUnitInfo, setDwgUnitInfo] = useState<DwgUnitInfo | null>(null)
@@ -202,7 +201,6 @@ export function CaseStudyViewer({
   const {
     calibrationChecked,
     isCalibrated,
-    calibrationError,
     detectCalibration,
   } = useCalibration({ viewerRef })
 
@@ -253,8 +251,6 @@ export function CaseStudyViewer({
     viewerRef,
     isLoading,
     placementMode,
-    isMeasuring: measureMode !== 'none',
-    hasSelectedMarker,
     pageToDwgCoords,
     onViewerClick,
     onExitPlacementMode,
@@ -295,7 +291,6 @@ export function CaseStudyViewer({
     setDwgUnitString,
     setDwgCoordinates,
     setHasSelectedMarker,
-    setSelectedMarkerFossPid,
     setIsMoving,
     isCacheHit,
     getAccessToken,
@@ -643,10 +638,6 @@ export function CaseStudyViewer({
   // ═══════════════════════════════════════════════════════════════════════════
   // TOOLBAR HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
-
-  const handleDeleteSelectedMarker = useCallback(() => {
-    edit2dMarkersRef.current?.deleteSelected()
-  }, [])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DERIVED STATE
