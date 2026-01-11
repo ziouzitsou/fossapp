@@ -185,6 +185,10 @@ export function CaseStudyViewer({
   const [layers, setLayers] = useState<LayerInfo[]>([])
   const [layerVisibility, setLayerVisibility] = useState<Record<string, boolean>>({})
 
+  // Track when calibration transform has been applied (fixes race condition)
+  // This is set AFTER setTransform() is called, not when calibrationChecked becomes true
+  const [calibrationTransformApplied, setCalibrationTransformApplied] = useState(false)
+
   // ═══════════════════════════════════════════════════════════════════════════
   // HOOKS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -458,12 +462,16 @@ export function CaseStudyViewer({
             offsetX: result.offsetX,
             offsetY: result.offsetY,
           })
+          // Signal that transform is ready (AFTER setTransform, not when calibrationChecked is set)
+          setCalibrationTransformApplied(true)
         } else if (attempts < maxAttempts) {
           // Retry - instance tree may not be fully populated yet
           console.log('[CaseStudyViewer] Calibration attempt', attempts, 'failed, retrying...')
           setTimeout(attemptCalibration, retryDelay)
         } else {
           console.warn('[CaseStudyViewer] Calibration failed after', attempts, 'attempts:', result.error)
+          // Still signal completion so origin indicator can show (with default transform)
+          setCalibrationTransformApplied(true)
         }
       })
     }
@@ -478,9 +486,12 @@ export function CaseStudyViewer({
   // ORIGIN INDICATOR
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Initialize and show origin indicator after viewer loads
+  // Initialize and show origin indicator after calibration transform is applied
+  // IMPORTANT: Must wait for calibrationTransformApplied (not calibrationChecked) to ensure
+  // the coordinate transform is correct - fixes race condition where origin showed before
+  // setTransform() was called
   useEffect(() => {
-    if (isLoading || !edit2dContextRef.current || !dwgUnitInfo) return
+    if (isLoading || !edit2dContextRef.current || !dwgUnitInfo || !calibrationTransformApplied) return
 
     // Create origin indicator if not already created
     if (!originIndicatorRef.current) {
@@ -505,7 +516,7 @@ export function CaseStudyViewer({
       originIndicatorRef.current?.dispose()
       originIndicatorRef.current = null
     }
-  }, [isLoading, dwgToPageCoords, dwgUnitInfo])
+  }, [isLoading, dwgToPageCoords, dwgUnitInfo, calibrationTransformApplied])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LAYER EXTRACTION & HANDLERS
