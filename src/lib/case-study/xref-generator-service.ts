@@ -305,6 +305,8 @@ export class XrefGeneratorService {
           if (driveResult.success && driveResult.webViewLink) {
             driveLink = driveResult.webViewLink
             onProgress('drive', 'Uploaded to Google Drive', outputFilename)
+            // Cleanup: Delete output from bucket now that it's on Google Drive
+            await this.deleteOutputFromBucket(bucketName, outputFilename)
           } else {
             console.warn('Drive upload failed:', driveResult.error)
             onProgress('drive', 'Drive upload failed (file still generated)', driveResult.error)
@@ -601,6 +603,30 @@ export class XrefGeneratorService {
       })
     } catch {
       // Ignore cleanup errors
+    }
+  }
+
+  /**
+   * Delete output DWG from OSS bucket after successful Google Drive upload.
+   * Cleans up temporary files to avoid storage waste.
+   */
+  private async deleteOutputFromBucket(bucketName: string, filename: string): Promise<void> {
+    try {
+      const accessToken = await this.authService.getAccessToken()
+      const response = await fetch(
+        `https://developer.api.autodesk.com/oss/v2/buckets/${bucketName}/objects/${encodeURIComponent(filename)}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      )
+      if (response.ok) {
+        console.log('[XREF] Deleted output from bucket:', filename)
+      } else {
+        console.warn('[XREF] Failed to delete output from bucket:', response.status)
+      }
+    } catch {
+      // Ignore cleanup errors - don't fail the operation
     }
   }
 
