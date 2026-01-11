@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { listBucketDWGs, generateBucketName } from '@/lib/planner/aps-planner-service'
+import { listBucketDWGs, generateBucketName } from '@/lib/planner'
 
 /**
  * GET /api/planner/files?projectId={uuid}&areaId={uuid}&versionId={uuid}

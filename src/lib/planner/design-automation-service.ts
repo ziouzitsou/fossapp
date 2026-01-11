@@ -28,7 +28,7 @@ import {
   deriveUrn,
   hasTemplateInBucket,
   uploadTemplateToProjectBucket
-} from './aps-planner-service'
+} from './oss-service'
 import { getGoogleDriveTemplateService } from './google-drive-template-service'
 import crypto from 'crypto'
 

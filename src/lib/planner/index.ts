@@ -1,37 +1,83 @@
 /**
  * Planner Library
  *
- * APS integration for floor plan viewing with persistent storage
+ * APS integration for floor plan viewing with persistent storage.
+ *
+ * Module structure:
+ * - auth.ts: APS authentication and token management
+ * - oss-service.ts: Object Storage Service operations
+ * - translation-service.ts: Model Derivative translation
+ * - manifest-service.ts: Manifest parsing and thumbnails
+ * - workflow.ts: Main orchestration (prepareFloorPlan)
+ *
+ * @module planner
  */
 
-// Server-side service (for API routes)
+// ============================================================================
+// AUTHENTICATION
+// ============================================================================
+
+export { getAccessToken, getViewerToken } from './auth'
+
+// ============================================================================
+// OSS SERVICE
+// ============================================================================
+
 export {
-  getAccessToken,
-  getViewerToken,
+  // Constants
+  TEMPLATE_OBJECT_KEY,
+  TEMP_PREFIX,
+  // Bucket management
   generateBucketName,
   ensureProjectBucketExists,
   deleteProjectBucket,
-  calculateFileHash,
-  uploadFloorPlan,
-  translateToSVF2,
-  getTranslationStatus,
-  prepareFloorPlan,
   // Template management
-  TEMPLATE_OBJECT_KEY,
-  TEMP_PREFIX,
   uploadTemplateToProjectBucket,
   hasTemplateInBucket,
   deleteTemplateFromBucket,
+  // Signed URLs
   generateSignedReadUrl,
   generateSignedWriteUrl,
-  cleanupTempFiles,
+  // Object operations
   uploadBufferToOss,
-  deriveUrn
-} from './aps-planner-service'
+  cleanupTempFiles,
+  deleteFloorPlanObject,
+  deleteDerivatives,
+  listBucketDWGs,
+  // URN utilities
+  deriveUrn,
+  parseUrnToObjectKey,
+  // File operations
+  generateObjectKey,
+  calculateFileHash,
+  uploadFloorPlan,
+  copyFloorPlanInBucket
+} from './oss-service'
 
-export type { PrepareFloorPlanResult } from './aps-planner-service'
+// ============================================================================
+// TRANSLATION SERVICE
+// ============================================================================
 
-// Server actions (for components)
+export { translateToSVF2, getTranslationStatus } from './translation-service'
+
+// ============================================================================
+// MANIFEST SERVICE
+// ============================================================================
+
+export { getManifestData, getThumbnailBase64 } from './manifest-service'
+export type { ManifestData } from './manifest-service'
+
+// ============================================================================
+// WORKFLOW
+// ============================================================================
+
+export { prepareFloorPlan } from './workflow'
+export type { PrepareFloorPlanResult } from './workflow'
+
+// ============================================================================
+// SERVER ACTIONS
+// ============================================================================
+
 export {
   getProjectFloorPlan,
   uploadFloorPlanAction,

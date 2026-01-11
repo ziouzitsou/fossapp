@@ -142,7 +142,7 @@ export async function createProjectWithDriveAction(
     // 5. Create OSS bucket for floor plans (Planner feature)
     // Bucket is created upfront since all projects will use Planner
     try {
-      const { ensureProjectBucketExists } = await import('../planner/aps-planner-service')
+      const { ensureProjectBucketExists } = await import('../planner')
       const bucketName = await ensureProjectBucketExists(projectId!)
 
       // Update project with bucket name

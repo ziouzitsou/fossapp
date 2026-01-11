@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getManifestData } from '@/lib/planner/aps-planner-service'
+import { getManifestData } from '@/lib/planner'
 import { supabaseServer } from '@fossapp/core/db/server'
 
 /**

@@ -155,7 +155,7 @@ export async function createAreaRevisionAction(
                 generateObjectKey,
                 copyFloorPlanInBucket,
                 translateToSVF2
-              } = await import('../../planner/aps-planner-service')
+              } = await import('../../planner')
 
               // Build source and target object keys using naming convention
               const sourceObjectKey = generateObjectKey(
