@@ -184,7 +184,8 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
   const state = useCaseStudyState(selectedArea?.revisionId ?? null)
   const viewerControls = useViewerControls()
 
-  // Refresh areas after floor plan deletion
+  // Refresh areas and placements after floor plan deletion
+  // Must also refetch placements since revisionId doesn't change
   const refreshAreas = useCallback(async () => {
     if (!activeProject?.id) return
     try {
@@ -192,10 +193,12 @@ export function CaseStudyShell({ children }: { children: React.ReactNode }) {
       if (result.success && result.data) {
         setAreas(result.data)
       }
+      // Also refetch placements - revisionId stays same but placements were deleted
+      state.refetchProducts()
     } catch (err) {
       console.error('Failed to refresh areas:', err)
     }
-  }, [activeProject?.id])
+  }, [activeProject?.id, state])
 
   // Navigate to viewer after successful translation
   const navigateToViewer = useCallback(() => {
