@@ -292,10 +292,15 @@ function getPropertiesAsync(
 }
 
 /**
- * Get display coordinates of a point from the vertex buffer
+ * Get display coordinates of an entity from the vertex buffer
  *
  * APS Viewer stores 2D geometry in a shared vertex buffer. Each vertex has
- * XY coordinates and a dbId. We find vertices belonging to our point's dbId.
+ * XY coordinates and a dbId. We find vertices belonging to our entity's dbId
+ * and return the center of all matching vertices.
+ *
+ * @remarks
+ * For Point entities, all vertices are at the same position.
+ * For Circles, vertices form the circumference - we return the center.
  */
 function getPointDisplayCoords(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -304,11 +309,17 @@ function getPointDisplayCoords(
 ): { x: number; y: number } | null {
   try {
     const fragList = model.getFragmentList?.()
-    if (!fragList) return null
+    if (!fragList) {
+      console.warn('[Calibration] No fragment list')
+      return null
+    }
 
     // 2D DWGs typically have geometry in fragment 0
     const geom = fragList.getGeometry?.(0)
-    if (!geom?.vb) return null
+    if (!geom?.vb) {
+      console.warn('[Calibration] No vertex buffer in fragment 0')
+      return null
+    }
 
     const vb = geom.vb as Float32Array
     const stride = geom.vbstride || 10
@@ -321,8 +332,12 @@ function getPointDisplayCoords(
     const strideBytes = stride * 4
     const dbIdByteOffset = dbIdOffset * 4
 
-    // Search for vertex with matching dbId
+    // Search for ALL vertices with matching dbId and compute center
     const vertexCount = Math.floor(vb.length / stride)
+    let sumX = 0
+    let sumY = 0
+    let matchCount = 0
+
     for (let i = 0; i < vertexCount; i++) {
       const base = i * strideBytes
 
@@ -331,18 +346,23 @@ function getPointDisplayCoords(
       const b1 = bytes[base + dbIdByteOffset + 1]
       const b2 = bytes[base + dbIdByteOffset + 2]
       const b3 = bytes[base + dbIdByteOffset + 3]
-      const dbId = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)
+      const foundDbId = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)
 
-      if (dbId === targetDbId) {
-        // Found it - X and Y are at start of vertex
-        const x = vb[i * stride]
-        const y = vb[i * stride + 1]
-        return { x, y }
+      if (foundDbId === targetDbId) {
+        sumX += vb[i * stride]
+        sumY += vb[i * stride + 1]
+        matchCount++
       }
     }
 
+    if (matchCount > 0) {
+      return { x: sumX / matchCount, y: sumY / matchCount }
+    }
+
+    console.warn(`[Calibration] No vertices found for dbId ${targetDbId}`)
     return null
-  } catch {
+  } catch (err) {
+    console.error('[Calibration] Error in getPointDisplayCoords:', err)
     return null
   }
 }
