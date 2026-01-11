@@ -348,12 +348,13 @@ export class OSSService {
     const accessToken = await this.authService.getAccessToken()
 
     const response = await fetch(
-      'https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/job',
+      'https://developer.api.autodesk.com/modelderivative/v2/designdata/job',
       {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
+          'region': 'EMEA',
           'x-ads-force': 'true', // Force re-translation if exists
         },
         body: JSON.stringify({
@@ -394,12 +395,13 @@ export class OSSService {
     const accessToken = await this.authService.getAccessToken()
 
     const response = await fetch(
-      'https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/job',
+      'https://developer.api.autodesk.com/modelderivative/v2/designdata/job',
       {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
+          'region': 'EMEA',
           'x-ads-force': 'true', // Force re-translation if exists
         },
         body: JSON.stringify({

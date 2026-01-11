@@ -646,18 +646,19 @@ export async function copyFloorPlanInBucket(
 
 /**
  * Start SVF2 translation job
- * Uses EMEA endpoint since our buckets are in EMEA region
+ * Uses region header (EMEA) for proper derivative storage location
  */
 export async function translateToSVF2(urn: string): Promise<{ status: string }> {
   const accessToken = await getAccessToken()
 
   const response = await fetch(
-    'https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/job',
+    'https://developer.api.autodesk.com/modelderivative/v2/designdata/job',
     {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
+        'region': 'EMEA',
         'x-ads-force': 'true',
       },
       body: JSON.stringify({

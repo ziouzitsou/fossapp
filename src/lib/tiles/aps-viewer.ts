@@ -147,21 +147,23 @@ export async function uploadForViewing(
 
 /**
  * Start model translation to SVF2
- * Uses EMEA endpoint since our buckets are in EMEA region
+ * Uses region header (EMEA) for proper derivative storage location
+ *
  * @param urn - Base64-encoded object ID
  * @param rootFilename - For ZIP files, specifies the root design file inside the archive
  */
 export async function translateToSVF2(urn: string, rootFilename?: string): Promise<{ urn: string; status: string }> {
   const { access_token } = await getAccessToken()
 
-  // Use EMEA endpoint since bucket is in EMEA region
+  // Use base URL with region header (EMEA)
   const response = await fetch(
-    'https://developer.api.autodesk.com/modelderivative/v2/regions/eu/designdata/job',
+    'https://developer.api.autodesk.com/modelderivative/v2/designdata/job',
     {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${access_token}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
+        'region': 'EMEA',
         'x-ads-force': 'true',
       },
       body: JSON.stringify({
